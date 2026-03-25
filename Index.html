@@ -1251,18 +1251,32 @@ async function handleAuthSubmit(){
     if(!email||!password){setAuthError('Please enter your email and password.');return}
     if(authMode==='signup'&&password!==confirm){setAuthError('Passwords do not match.');return}
     btn.textContent='Please wait...';btn.disabled=true;setAuthError('');
+
+    // Timeout after 10 seconds
+    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Request timed out. Check your connection and try again.')),10000));
+
     try{
         let result;
-        if(authMode==='login') result=await sb.auth.signInWithPassword({email,password});
-        else{
-            result=await sb.auth.signUp({email,password});
+        if(authMode==='login'){
+            result=await Promise.race([sb.auth.signInWithPassword({email,password}),timeout]);
+        } else {
+            result=await Promise.race([sb.auth.signUp({email,password}),timeout]);
             if(!result.error&&result.data?.user&&!result.data.session){
                 setAuthSuccess('Check your email to confirm your account, then sign in.');
                 btn.textContent='CREATE ACCOUNT';btn.disabled=false;return;
             }
         }
-        if(result.error){setAuthError(result.error.message);btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';btn.disabled=false;return}
-    }catch(e){setAuthError(e.message);btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';btn.disabled=false}
+        if(result.error){
+            setAuthError(result.error.message);
+            btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
+            btn.disabled=false;return;
+        }
+        // Success handled by onAuthStateChange
+    }catch(e){
+        setAuthError(e.message||'Connection failed. Check your internet and try again.');
+        btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
+        btn.disabled=false;
+    }
 }
 async function handleForgotPassword(){
     const email=document.getElementById('auth-email').value.trim();
