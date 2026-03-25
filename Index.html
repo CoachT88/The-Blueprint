@@ -110,6 +110,29 @@
         .export-row button:hover{border-color:rgba(255,255,255,.15);color:#94a3b8}
         @keyframes popIn{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
         .xp-pop{animation:popIn .3s cubic-bezier(.175,.885,.32,1.275)}
+        /* Coach tip */
+        .tip-card{background:linear-gradient(135deg,rgba(168,85,247,.08) 0%,rgba(15,23,42,.6) 100%);border:1px solid rgba(168,85,247,.2);border-radius:1.25rem;padding:.9rem 1rem}
+        /* EQ check-in */
+        .eq-btn{flex:1;padding:.5rem .2rem;border-radius:.75rem;font-size:.85rem;font-weight:900;text-align:center;cursor:pointer;transition:all .2s;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:#475569}
+        .eq-btn.selected{background:rgba(59,130,246,.2);border-color:rgba(59,130,246,.5);color:#93c5fd;transform:scale(1.08)}
+        /* RPE check-in */
+        .rpe-btn{width:100%;padding:.45rem;border-radius:.6rem;font-size:.7rem;font-weight:800;cursor:pointer;transition:all .15s;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);color:#475569;text-align:center}
+        .rpe-btn.selected{border-color:rgba(16,185,129,.5);background:rgba(16,185,129,.15);color:#6ee7b7}
+        /* Sleep / soreness quick-tap */
+        .quick-tap{flex:1;padding:.5rem .25rem;border-radius:.875rem;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .2s;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);color:#475569;text-align:center}
+        .quick-tap.active{border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.12);color:#93c5fd}
+        .quick-tap.active-good{border-color:rgba(16,185,129,.5);background:rgba(16,185,129,.12);color:#6ee7b7}
+        .quick-tap.active-warn{border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.12);color:#fbbf24}
+        .quick-tap.active-bad{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.12);color:#fca5a5}
+        /* Records chips */
+        .record-chip{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:.875rem;padding:.6rem .75rem;text-align:center;flex:1}
+        /* Session summary */
+        #session-summary-modal{position:fixed;inset:0;background:rgba(2,6,23,.96);z-index:99997;backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:1.5rem;overflow-y:auto}
+        #session-summary-modal.show{display:flex}
+        .summary-stat{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:1rem;padding:.75rem 1rem;text-align:center}
+        /* Weekly report */
+        #weekly-report-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:99996;backdrop-filter:blur(20px);display:none;align-items:flex-start;justify-content:center;padding:1.5rem;overflow-y:auto}
+        #weekly-report-modal.show{display:flex}
         /* How-to steps panel */
         .howto-panel{background:rgba(15,23,42,.5);border:1px solid rgba(255,255,255,.07);border-radius:1rem;padding:.9rem 1rem;text-align:left;display:none}
         .howto-panel.show{display:block}
@@ -394,11 +417,55 @@
         </div>
 
 ```
+    <!-- Coach Tee Daily Tip -->
+    <div class="tip-card mx-2">
+        <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee — Today</p>
+        <p id="daily-tip" class="text-[12px] text-slate-300 leading-relaxed italic"></p>
+    </div>
+
+    <!-- Sleep + Soreness quick-log -->
+    <div class="px-2 space-y-2">
+        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Daily Check-In</p>
+        <div class="instruction-card" style="padding:.85rem 1rem;">
+            <div class="space-y-2.5">
+                <div>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-moon mr-1.5"></i>Last Night's Sleep</p>
+                    <div class="flex gap-1.5" id="sleep-btns">
+                        <button class="quick-tap" data-sleep="poor">😴 Poor</button>
+                        <button class="quick-tap" data-sleep="okay">😐 Okay</button>
+                        <button class="quick-tap" data-sleep="good">😊 Good</button>
+                        <button class="quick-tap" data-sleep="great">🔥 Great</button>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-triangle-exclamation mr-1.5"></i>Soreness Today</p>
+                    <div class="flex gap-1.5" id="soreness-btns">
+                        <button class="quick-tap" data-soreness="none">None</button>
+                        <button class="quick-tap" data-soreness="mild">Mild</button>
+                        <button class="quick-tap" data-soreness="moderate">Moderate</button>
+                        <button class="quick-tap" data-soreness="high">High</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Personal Records -->
+    <div class="px-2 space-y-2">
+        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Personal Records</p>
+        <div class="flex gap-2">
+            <div class="record-chip"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Best Streak</p><p id="record-streak" class="text-lg font-black text-white">0d</p></div>
+            <div class="record-chip"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">Best Session</p><p id="record-session-xp" class="text-lg font-black text-white">0 XP</p></div>
+            <div class="record-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Best Week</p><p id="record-week-xp" class="text-lg font-black text-white">0 XP</p></div>
+        </div>
+    </div>
+
     <div class="px-2 space-y-3">
         <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
-        <div class="grid grid-cols-2 gap-3">
-            <button id="progress-btn" class="btn-outline flex items-center justify-center gap-2 py-3"><i class="fas fa-chart-line text-blue-400"></i> Progress</button>
-            <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-2 py-3"><i class="fas fa-comment-dots"></i> Ask Coach Tee</button>
+        <div class="grid grid-cols-3 gap-2">
+            <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
+            <button id="weekly-report-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-calendar-week text-emerald-400 text-xs"></i> Week</button>
+            <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Coach</button>
         </div>
     </div>
     <div class="px-2 space-y-2">
@@ -580,33 +647,111 @@
 <!-- STEP 5: SUCCESS -->
 
 <div id="step-5" class="step-content hidden-step">
-    <div class="inner-step-wrapper py-12 space-y-8 text-center">
+    <div class="inner-step-wrapper py-12 space-y-6 text-center">
         <i class="fas fa-check-double text-6xl text-emerald-400 drop-shadow-lg"></i>
         <h2 class="text-4xl font-black italic uppercase text-slate-50">Mission Success</h2>
         <p id="success-xp-text" class="text-yellow-400 font-bold text-sm">+0 XP EARNED</p>
-        <div class="instruction-card border-blue-500/20 mx-2 text-left">
-            <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2"><i class="fas fa-ruler-combined"></i> Log Measurements <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
-            <div class="measure-grid">
-                <div class="measure-field"><label class="text-blue-400">BPEL (inches)</label><input type="number" id="input-bpel" step="0.01" min="3" max="12" placeholder="e.g. 6.25"></div>
-                <div class="measure-field"><label class="text-emerald-400">MSEG (inches)</label><input type="number" id="input-mseg" step="0.01" min="3" max="10" placeholder="e.g. 4.75"></div>
-            </div>
+
+```
+    <!-- EQ check-in -->
+    <div class="instruction-card border-blue-500/20 mx-2 text-left">
+        <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-gauge-high"></i> EQ During Session</p>
+        <div class="flex gap-1.5" id="eq-checkin-btns">
+            <button class="eq-btn" data-eq="1">1</button>
+            <button class="eq-btn" data-eq="2">2</button>
+            <button class="eq-btn" data-eq="3">3</button>
+            <button class="eq-btn" data-eq="4">4</button>
+            <button class="eq-btn" data-eq="5">5</button>
+            <button class="eq-btn" data-eq="6">6</button>
+            <button class="eq-btn" data-eq="7">7</button>
+            <button class="eq-btn" data-eq="8">8</button>
+            <button class="eq-btn" data-eq="9">9</button>
+            <button class="eq-btn" data-eq="10">10</button>
         </div>
-        <div class="instruction-card border-slate-700/30 mx-2 text-left">
-            <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-pen-to-square"></i> Session Note <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
-            <textarea id="session-note-input" class="glass-input h-20" placeholder="EQ was strong, good pump on girth work..."></textarea>
-        </div>
-        <div class="instruction-card border-purple-500/20 mx-2">
-            <p class="text-[11px] font-black text-purple-400 uppercase mb-3 flex items-center gap-2"><i class="fas fa-brain"></i> AI Recovery Analyst ✨</p>
-            <textarea id="ai-recovery-input" class="glass-input h-20 mb-4" placeholder="EQ around 5, great base tension..."></textarea>
-            <button id="ai-recovery-btn" class="btn-primary btn-ai py-4 text-sm">Analyze Recovery ✨</button>
-            <div id="ai-recovery-response" class="ai-response-box mt-4"></div>
-        </div>
-        <div class="px-2 w-full pt-2"><button id="finish-session-btn" class="btn-primary py-5 text-lg" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">CONFIRM HQ SYNC</button></div>
-        <div class="scroll-buffer"></div>
+        <p class="text-[10px] text-slate-600 italic mt-2">1 = flaccid · 5 = semi · 10 = fully erect</p>
     </div>
+
+    <!-- RPE -->
+    <div class="instruction-card border-emerald-500/20 mx-2 text-left">
+        <p class="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-dumbbell"></i> Session Effort (RPE)</p>
+        <div class="grid grid-cols-5 gap-1.5" id="rpe-btns">
+            <button class="rpe-btn" data-rpe="1">1<br><span class="text-[9px] font-normal opacity-60">Easy</span></button>
+            <button class="rpe-btn" data-rpe="2">2</button>
+            <button class="rpe-btn" data-rpe="3">3</button>
+            <button class="rpe-btn" data-rpe="4">4</button>
+            <button class="rpe-btn" data-rpe="5">5<br><span class="text-[9px] font-normal opacity-60">Moderate</span></button>
+            <button class="rpe-btn" data-rpe="6">6</button>
+            <button class="rpe-btn" data-rpe="7">7</button>
+            <button class="rpe-btn" data-rpe="8">8</button>
+            <button class="rpe-btn" data-rpe="9">9</button>
+            <button class="rpe-btn" data-rpe="10">10<br><span class="text-[9px] font-normal opacity-60">Max</span></button>
+        </div>
+    </div>
+
+    <!-- Measurements -->
+    <div class="instruction-card border-blue-500/20 mx-2 text-left">
+        <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2"><i class="fas fa-ruler-combined"></i> Log Measurements <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
+        <div class="measure-grid">
+            <div class="measure-field"><label class="text-blue-400">BPEL (inches)</label><input type="number" id="input-bpel" step="0.01" min="3" max="12" placeholder="e.g. 6.25"></div>
+            <div class="measure-field"><label class="text-emerald-400">MSEG (inches)</label><input type="number" id="input-mseg" step="0.01" min="3" max="10" placeholder="e.g. 4.75"></div>
+        </div>
+    </div>
+
+    <!-- Session note -->
+    <div class="instruction-card border-slate-700/30 mx-2 text-left">
+        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-pen-to-square"></i> Session Note <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
+        <textarea id="session-note-input" class="glass-input h-20" placeholder="EQ was strong, good pump on girth work..."></textarea>
+    </div>
+
+    <!-- AI Recovery -->
+    <div class="instruction-card border-purple-500/20 mx-2">
+        <p class="text-[11px] font-black text-purple-400 uppercase mb-3 flex items-center gap-2"><i class="fas fa-brain"></i> AI Recovery Analyst ✨</p>
+        <textarea id="ai-recovery-input" class="glass-input h-20 mb-4" placeholder="EQ around 5, great base tension..."></textarea>
+        <button id="ai-recovery-btn" class="btn-primary btn-ai py-4 text-sm">Analyze Recovery ✨</button>
+        <div id="ai-recovery-response" class="ai-response-box mt-4"></div>
+    </div>
+
+    <div class="px-2 w-full pt-2"><button id="finish-session-btn" class="btn-primary py-5 text-lg" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">CONFIRM HQ SYNC</button></div>
+    <div class="scroll-buffer"></div>
+</div>
+```
+
 </div>
 
 </div><!-- end app-container -->
+
+<!-- SESSION SUMMARY MODAL -->
+
+<div id="session-summary-modal">
+    <div class="inner-step-wrapper space-y-5 py-8 w-full">
+        <div class="text-center">
+            <div id="summary-icon" class="text-5xl mb-3">🔥</div>
+            <h2 class="text-3xl font-black italic uppercase text-white">Session Complete</h2>
+            <p id="summary-tagline" class="text-slate-400 text-sm mt-1"></p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="summary-stat"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">XP Earned</p><p id="summary-xp" class="text-2xl font-black text-white">+0</p></div>
+            <div class="summary-stat"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Duration</p><p id="summary-duration" class="text-2xl font-black text-white">--</p></div>
+            <div class="summary-stat"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Current Streak</p><p id="summary-streak" class="text-2xl font-black text-white">--</p></div>
+            <div class="summary-stat"><p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">Total XP</p><p id="summary-total-xp" class="text-2xl font-black text-white">--</p></div>
+        </div>
+        <div id="summary-records" class="space-y-2"></div>
+        <button id="summary-close-btn" class="btn-primary py-5">BACK TO HQ</button>
+    </div>
+</div>
+
+<!-- WEEKLY REPORT MODAL -->
+
+<div id="weekly-report-modal">
+    <div class="inner-step-wrapper space-y-5 py-8 w-full">
+        <div class="flex justify-between items-center">
+            <h2 class="text-3xl font-black italic uppercase text-white">Weekly Report</h2>
+            <button id="weekly-report-close-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400"><i class="fas fa-xmark text-lg"></i></button>
+        </div>
+        <div id="weekly-report-content" class="space-y-4"></div>
+        <div class="scroll-buffer"></div>
+    </div>
+</div>
 
 <!-- DAY MODAL -->
 
@@ -683,6 +828,24 @@ const WARMUP_TIPS=[
     {icon:'fa-clock',             color:'text-purple-400', label:'Timing Science',        title:'Why 10 Minutes — Not 5',               body:'Core tissue temperature takes 8–10 minutes to fully equilibrate. Surface warmth sets in at 3 minutes, but the deep ligament structures stay cold until minute 8. Don\'t cut it short.'},
     {icon:'fa-fire-flame-curved', color:'text-amber-400',  label:'Temperature Sweet Spot',title:'Warm, Not Hot',                        body:'Comfortable enough to stand under for the full 10 minutes. If the water is too hot to stay in, you\'re irritating skin and superficial vessels — not warming deep tissue. Find the sweet spot.'},
     {icon:'fa-chart-line',        color:'text-yellow-400', label:'Long-Term Returns',     title:'The Warmup IS the Protocol',           body:'Athletes who skip warmup plateau 3–4× faster. Over a 6-month program, consistent warmers see measurably better outcomes in both length and girth. This 10 minutes is not optional.'},
+];
+
+const COACH_TIPS = [
+    "Consistency beats intensity every time. One solid session a week for 6 months beats aggressive daily training for 2 weeks then quitting.",
+    "Your tunica is collagen. Collagen remodels during REST, not during the session. The work you do today pays off in 48-72 hours.",
+    "3L of water is the minimum. Think of it as lubricating the tissue from the inside out. Dehydrated tissue doesn't expand — it tears.",
+    "EQ is your performance readout. If you can't hit 60% on command, fix your cardiovascular health before worrying about protocol.",
+    "The warmup is where 80% of guys fail. They rush it or skip it. You cannot stretch collagen that hasn't been heated. Period.",
+    "Kegels without reverse kegels create an imbalanced floor. Always train both directions — contraction AND release.",
+    "Recovery days aren't off days. The Big Four and pelvic floor work on rest days is what separates guys who gain from guys who plateau.",
+    "Soreness in the base after length work is normal. Soreness in the glans, or any numbness anywhere, is a stop signal.",
+    "Sleep is the most underrated variable in this protocol. Growth hormone peaks during deep sleep. 7-9 hours is part of the program.",
+    "The mental component is real. Stress and anxiety directly tighten the pelvic floor. Handle your stress or it will limit your gains.",
+    "Don't measure more than once every 2-4 weeks. Tissue changes happen slower than motivation. Measuring too often creates anxiety.",
+    "Lube is not optional on the Jelq. If you're generating friction instead of hydraulic pressure, you're doing it wrong.",
+    "The OK grip should be firm enough to trap blood but not so tight you cut off circulation. You want pressure, not a tourniquet.",
+    "EQ between 60-80% is the jelq sweet spot. Too soft and there's no pressure wave. Too hard and you risk overstress.",
+    "Hip flexibility directly affects pelvic function. The Pigeon Pose and Butterfly aren't yoga — they're part of the protocol.",
 ];
 const ROUTINES={
     length:[
@@ -872,7 +1035,19 @@ const SUPABASE_URL = 'https://edqmujiczuvavlemfpaz.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkcW11amljenV2YXZsZW1mcGF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MDQyMTcsImV4cCI6MjA4OTk4MDIxN30.DGn__9ff5TIAL_a5YELE9yGlIRzyMop6QYh1LlmXMa8';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const DEFAULT_PERSISTED={schedule:['length','girth','rest','length','girth','rest','rest'],completedDays:[false,false,false,false,false,false,false],totalXp:0,sessionLog:[],measurements:[],seenMilestones:[],difficulty:'intermediate'};
+const DEFAULT_PERSISTED={
+    schedule:['length','girth','rest','length','girth','rest','rest'],
+    completedDays:[false,false,false,false,false,false,false],
+    totalXp:0,
+    sessionLog:[],      // [{date,routineType,xpEarned,note,rpe,eqBefore,duration}]
+    measurements:[],
+    seenMilestones:[],
+    difficulty:'intermediate',
+    records:{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+    weekKey:'',
+    tipIndex:0,         // rotates daily
+    lastTipDate:'',
+};
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
 let _saveDebounce = null;
@@ -898,6 +1073,9 @@ async function loadPersisted(){
             seenMilestones: data.seen_milestones || [],
             difficulty:     data.difficulty      || 'intermediate',
             weekKey:        data.week_key        || '',
+            records:        data.records         || {longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+            tipIndex:       data.tip_index       || 0,
+            lastTipDate:    data.last_tip_date   || '',
         };
         // Auto-reset completedDays if we're in a new week
         const currentWeek = getCurrentWeekKey();
@@ -924,6 +1102,9 @@ function savePersisted(){
                 seen_milestones:persisted.seenMilestones,
                 difficulty:     persisted.difficulty,
                 week_key:       persisted.weekKey||getCurrentWeekKey(),
+                records:        persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+                tip_index:      persisted.tipIndex||0,
+                last_tip_date:  persisted.lastTipDate||'',
                 updated_at:     new Date().toISOString(),
             }).eq('id',currentUser.id);
         }catch(e){console.error('savePersisted:',e)}
@@ -1248,8 +1429,8 @@ function goToStep(step){
     if(step===0)renderDashboard();
     if(step===2){resetWarmupUI();buildCarousel();startCarousel()}
     if(step===3){document.getElementById('deload-mission-note').classList.toggle('hidden',!isDeloadWeek());renderDifficultySelector()}
-    if(step===4){resetSession();updateExUI()}
-    if(step===5){['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'})}
+    if(step===4){resetSession();_sessionStartTime=Date.now();updateExUI()}
+    if(step===5){selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'})}
 }
 function nextStep(){if(session.step===2)goToStep(3);else goToStep(session.step+1)}
 
@@ -1560,7 +1741,7 @@ function getTodayKey(){ return 'bp_hydration_'+new Date().toISOString().split('T
 function getHydration(){ return parseFloat(localStorage.getItem(getTodayKey())||'0'); }
 function setHydration(liters){
     const current=getHydration();
-    const newVal=Math.min(5000, current+(liters*1000));
+    const newVal=current+(liters*1000);
     localStorage.setItem(getTodayKey(), newVal);
     renderHydration();
 }
@@ -1578,7 +1759,7 @@ function resetHydration(){
 function renderHydration(){
     const ml=getHydration();
     const liters=(ml/1000);
-    const pct=Math.min(100,(ml/3000)*100);
+    const pct=Math.min(100,(ml/3000)*100); // bar caps at 100% but total can exceed
     const complete=ml>=3000;
     document.getElementById('hydration-amount').innerText=liters.toFixed(1)+'L / 3L';
     const bar=document.getElementById('hydration-bar');
@@ -1619,6 +1800,9 @@ function renderDashboard(){
     if(meas.length){const last=meas[meas.length-1];lmr.classList.remove('hidden');document.getElementById('last-bpel').innerText=last.bpel?`${last.bpel}"`:'—';document.getElementById('last-mseg').innerText=last.mseg?`${last.mseg}"`:'—'}
     else lmr.classList.add('hidden');
     renderLog();
+    renderRecords();
+    renderDailyTip();
+    renderSleepSoreness();
 }
 function renderLog(){
     const c=document.getElementById('session-log'),logs=(persisted.sessionLog||[]).slice(-5).reverse();
@@ -1639,13 +1823,180 @@ function finishSession(){
     const bpel=parseFloat(document.getElementById('input-bpel').value);
     const mseg=parseFloat(document.getElementById('input-mseg').value);
     const note=document.getElementById('session-note-input').value.trim();
-    persisted.totalXp+=(session.routineType==='recovery'?50:session.xp);
+    const earnedXp=(session.routineType==='recovery')?50:session.xp;
+    persisted.totalXp+=earnedXp;
     if(session.routineType==='recovery')session.xp=50;
     persisted.completedDays[new Date().getDay()]=true;
-    persisted.sessionLog.push({date:new Date().toISOString(),routineType:session.routineType,xpEarned:session.xp,note});
+    persisted.sessionLog.push({
+        date:new Date().toISOString(),
+        routineType:session.routineType,
+        xpEarned:earnedXp,
+        note,
+        eq:selectedEQ,
+        rpe:selectedRPE,
+        duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):null,
+    });
     if(persisted.sessionLog.length>50)persisted.sessionLog=persisted.sessionLog.slice(-50);
     if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);if(persisted.measurements.length>100)persisted.measurements=persisted.measurements.slice(-100)}
-    savePersisted();checkMilestones();goToStep(0);
+    updateRecords(earnedXp);
+    savePersisted();
+    checkMilestones();
+    showSessionSummary(earnedXp);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DAILY TIP
+// ═══════════════════════════════════════════════════════════════════════════
+function renderDailyTip(){
+    const today=new Date().toISOString().split('T')[0];
+    if(persisted.lastTipDate!==today){
+        persisted.tipIndex=(persisted.tipIndex+1)%COACH_TIPS.length;
+        persisted.lastTipDate=today;
+        savePersisted();
+    }
+    const el=document.getElementById('daily-tip');
+    if(el) el.innerText=COACH_TIPS[persisted.tipIndex]||COACH_TIPS[0];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLEEP & SORENESS TRACKER
+// ═══════════════════════════════════════════════════════════════════════════
+function getTodaySleepKey(){ return 'bp_sleep_'+new Date().toISOString().split('T')[0]; }
+function getTodaySorenessKey(){ return 'bp_soreness_'+new Date().toISOString().split('T')[0]; }
+
+function setSleep(val){
+    localStorage.setItem(getTodaySleepKey(), val);
+    renderSleepSoreness();
+}
+function setSoreness(val){
+    localStorage.setItem(getTodaySorenessKey(), val);
+    renderSleepSoreness();
+}
+function renderSleepSoreness(){
+    const sleep=localStorage.getItem(getTodaySleepKey())||'';
+    const soreness=localStorage.getItem(getTodaySorenessKey())||'';
+    document.querySelectorAll('[data-sleep]').forEach(btn=>{
+        btn.classList.remove('active','active-good','active-warn','active-bad');
+        if(btn.dataset.sleep===sleep){
+            const cls=sleep==='great'?'active-good':sleep==='good'?'active-good':sleep==='okay'?'active-warn':'active-bad';
+            btn.classList.add(cls);
+        }
+    });
+    document.querySelectorAll('[data-soreness]').forEach(btn=>{
+        btn.classList.remove('active','active-good','active-warn','active-bad');
+        if(btn.dataset.soreness===soreness){
+            const cls=soreness==='none'?'active-good':soreness==='mild'?'active-warn':soreness==='moderate'?'active-warn':'active-bad';
+            btn.classList.add(cls);
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EQ & RPE SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+let selectedEQ=null, selectedRPE=null;
+
+function selectEQ(val){
+    selectedEQ=val;
+    document.querySelectorAll('[data-eq]').forEach(btn=>{
+        btn.classList.toggle('selected', parseInt(btn.dataset.eq)===val);
+    });
+}
+function selectRPE(val){
+    selectedRPE=val;
+    document.querySelectorAll('[data-rpe]').forEach(btn=>{
+        btn.classList.toggle('selected', parseInt(btn.dataset.rpe)===val);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PERSONAL RECORDS
+// ═══════════════════════════════════════════════════════════════════════════
+function updateRecords(sessionXp){
+    if(!persisted.records) persisted.records={longestStreak:0,bestWeekXp:0,bestSessionXp:0};
+    const streak=persisted.completedDays.filter(Boolean).length;
+    let changed=false;
+    if(streak>persisted.records.longestStreak){persisted.records.longestStreak=streak;changed=true}
+    if(sessionXp>persisted.records.bestSessionXp){persisted.records.bestSessionXp=sessionXp;changed=true}
+    // Week XP: sum last 7 sessions
+    const weekAgo=new Date(Date.now()-7*24*60*60*1000).toISOString();
+    const weekXp=(persisted.sessionLog||[]).filter(s=>s.date>weekAgo).reduce((t,s)=>t+s.xpEarned,0);
+    if(weekXp>persisted.records.bestWeekXp){persisted.records.bestWeekXp=weekXp;changed=true}
+    if(changed)savePersisted();
+}
+function renderRecords(){
+    const r=persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0};
+    const rs=document.getElementById('record-streak');
+    const rx=document.getElementById('record-session-xp');
+    const rw=document.getElementById('record-week-xp');
+    if(rs)rs.innerText=r.longestStreak+'d';
+    if(rx)rx.innerText=r.bestSessionXp+' XP';
+    if(rw)rw.innerText=r.bestWeekXp+' XP';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSION SUMMARY
+// ═══════════════════════════════════════════════════════════════════════════
+let _sessionStartTime=null;
+
+function showSessionSummary(xp){
+    const modal=document.getElementById('session-summary-modal');
+    const duration=_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0;
+    const streak=persisted.completedDays.filter(Boolean).length;
+    const taglines=['Tissue is adapting. Recovery starts now.','Consistent operator. The protocol is working.','Another session banked. Results compound.','Strong work. Let the tissue integrate.','That\'s how gains are built. Rest well.'];
+    document.getElementById('summary-icon').innerText=['🔥','⚡','💪','🎯','🏆'][Math.floor(Math.random()*5)];
+    document.getElementById('summary-tagline').innerText=taglines[Math.floor(Math.random()*taglines.length)];
+    document.getElementById('summary-xp').innerText='+'+xp;
+    document.getElementById('summary-duration').innerText=duration+'min';
+    document.getElementById('summary-streak').innerText=streak+'d';
+    document.getElementById('summary-total-xp').innerText=persisted.totalXp+' XP';
+    // Personal records broken?
+    const r=persisted.records||{};
+    const records=[];
+    if(streak>=r.longestStreak&&streak>0) records.push('🏆 New streak record: '+streak+' days');
+    if(xp>=r.bestSessionXp&&xp>0) records.push('⚡ New session XP record: '+xp+' XP');
+    const recordsEl=document.getElementById('summary-records');
+    recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
+    modal.classList.add('show');
+    haptic([100,50,200]);
+}
+function closeSessionSummary(){
+    document.getElementById('session-summary-modal').classList.remove('show');
+    goToStep(0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WEEKLY REPORT
+// ═══════════════════════════════════════════════════════════════════════════
+function showWeeklyReport(){
+    const modal=document.getElementById('weekly-report-modal');
+    const weekAgo=new Date(Date.now()-7*24*60*60*1000).toISOString();
+    const weekSessions=(persisted.sessionLog||[]).filter(s=>s.date>weekAgo);
+    const weekXp=weekSessions.reduce((t,s)=>t+s.xpEarned,0);
+    const streak=persisted.completedDays.filter(Boolean).length;
+    const meas=persisted.measurements||[];
+    const content=document.getElementById('weekly-report-content');
+    const avgEQ=weekSessions.filter(s=>s.eq).length
+        ? (weekSessions.filter(s=>s.eq).reduce((t,s)=>t+s.eq,0)/weekSessions.filter(s=>s.eq).length).toFixed(1)
+        : '—';
+    const avgRPE=weekSessions.filter(s=>s.rpe).length
+        ? (weekSessions.filter(s=>s.rpe).reduce((t,s)=>t+s.rpe,0)/weekSessions.filter(s=>s.rpe).length).toFixed(1)
+        : '—';
+    content.innerHTML=`
+        <div class="grid grid-cols-2 gap-3">
+            <div class="summary-stat"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">Week XP</p><p class="text-2xl font-black text-white">${weekXp}</p></div>
+            <div class="summary-stat"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Sessions</p><p class="text-2xl font-black text-white">${weekSessions.length}</p></div>
+            <div class="summary-stat"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Avg EQ</p><p class="text-2xl font-black text-white">${avgEQ}</p></div>
+            <div class="summary-stat"><p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">Avg RPE</p><p class="text-2xl font-black text-white">${avgRPE}</p></div>
+        </div>
+        <div class="summary-stat"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Active Days This Week</p><p class="text-3xl font-black text-white">${streak} / 7</p></div>
+        ${meas.length>=2?`<div class="summary-stat text-left"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2">Measurement Progress</p><div class="flex gap-4"><div><p class="text-[10px] text-slate-500">BPEL</p><p class="font-black text-white text-lg">${meas[meas.length-1].bpel||'—'}"</p></div><div><p class="text-[10px] text-slate-500">MSEG</p><p class="font-black text-white text-lg">${meas[meas.length-1].mseg||'—'}"</p></div></div></div>`:''}
+        ${weekSessions.length===0?'<p class="text-slate-600 text-sm italic text-center py-4">No sessions logged this week yet.</p>':''}
+    `;
+    modal.classList.add('show');
+}
+function closeWeeklyReport(){
+    document.getElementById('weekly-report-modal').classList.remove('show');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1782,6 +2133,25 @@ function init(){
     try {
     // HQ
     document.getElementById('launch-btn').addEventListener('click',()=>goToStep(1));
+    document.getElementById('weekly-report-btn').addEventListener('click',showWeeklyReport);
+    document.getElementById('weekly-report-close-btn').addEventListener('click',closeWeeklyReport);
+    document.getElementById('summary-close-btn').addEventListener('click',closeSessionSummary);
+    // Sleep buttons
+    document.querySelectorAll('[data-sleep]').forEach(btn=>{
+        btn.addEventListener('click',()=>setSleep(btn.dataset.sleep));
+    });
+    // Soreness buttons
+    document.querySelectorAll('[data-soreness]').forEach(btn=>{
+        btn.addEventListener('click',()=>setSoreness(btn.dataset.soreness));
+    });
+    // EQ check-in
+    document.querySelectorAll('[data-eq]').forEach(btn=>{
+        btn.addEventListener('click',()=>selectEQ(parseInt(btn.dataset.eq)));
+    });
+    // RPE check-in
+    document.querySelectorAll('[data-rpe]').forEach(btn=>{
+        btn.addEventListener('click',()=>selectRPE(parseInt(btn.dataset.rpe)));
+    });
     document.getElementById('ai-coach-btn').addEventListener('click',openCoach);
     document.getElementById('progress-btn').addEventListener('click',openProgressChart);
     // Hydration — liter bubbles
