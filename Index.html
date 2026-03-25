@@ -373,15 +373,15 @@
                     <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Daily Hydration</span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace">0.0</span>
-                    <span class="text-[10px] text-slate-500 font-bold">/ 3.0L</span>
+                    <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace">0</span>
+                    <span class="text-[10px] text-slate-500 font-bold">/ ~12 cups</span>
                 </div>
             </div>
             <div class="hydration-bar-track mb-3"><div id="hydration-bar" class="hydration-bar-fill" style="width:0%"></div></div>
             <div class="flex gap-2">
-                <button class="water-btn" data-ml="250"><i class="fas fa-plus mr-1"></i>250ml</button>
-                <button class="water-btn" data-ml="500"><i class="fas fa-plus mr-1"></i>500ml</button>
-                <button class="water-btn" data-ml="750"><i class="fas fa-plus mr-1"></i>750ml</button>
+                <button class="water-btn" data-ml="240" title="1 cup (8oz)"><i class="fas fa-mug-hot mr-1"></i>Cup</button>
+                <button class="water-btn" data-ml="500" title="Standard bottle (17oz)"><i class="fas fa-bottle-water mr-1"></i>Bottle</button>
+                <button class="water-btn" data-ml="1000" title="Large bottle (34oz)"><i class="fas fa-bottle-water mr-1" style="font-size:.85em"></i>Large</button>
                 <button class="water-btn" id="hydration-reset-btn" style="border-color:rgba(100,116,139,.2);background:rgba(100,116,139,.05);color:#475569;"><i class="fas fa-rotate-left"></i></button>
             </div>
             <p id="hydration-msg" class="text-[10px] text-slate-600 italic mt-2 text-center">Minimum 3L daily. Hydration is non-negotiable.</p>
@@ -764,12 +764,13 @@ const ROUTINES={
             eq:'Soft — 0-3 EQ', feel:'Controlled voluntary contraction and full release. Symmetrical engagement.',
             dontFeel:'Straining, breath-holding, or hip/glute compensation.',
             cues:[
-                {time:60, text:'Fully relax the pelvic floor. Breath slow and deep.'},
-                {time:50, text:'Contract upward — squeeze as if stopping urine. 3 seconds.'},
-                {time:47, text:'Hold. Do not squeeze harder. Just sustain.'},
-                {time:44, text:'Full release. Feel the floor drop completely.'},
-                {time:30, text:'Halfway — maintain smooth rhythm. 3s on, 3s off.'},
-                {time:5,  text:'Final reps. Finish strong, release completely.'}
+                {time:60, text:'Fully relax the pelvic floor. Breathe slow and deep.'},
+                {time:55, text:'Contract upward — squeeze as if stopping urine. Hold 3 seconds.'},
+                {time:48, text:'Full release. Let the floor drop completely. 3 seconds off.'},
+                {time:40, text:'Contract again. Smooth, controlled. No strain.'},
+                {time:33, text:'Release fully. Feel the symmetry — same tension both sides.'},
+                {time:20, text:'Final sets. Keep the rhythm steady.'},
+                {time:5,  text:'Last rep. Contract, hold, full release.'}
             ]
         },
         {
@@ -870,6 +871,13 @@ let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
 let _saveDebounce = null;
 
+function getISOWeek(){
+    const d=new Date(); d.setHours(0,0,0,0);
+    d.setDate(d.getDate()+4-(d.getDay()||7));
+    return Math.ceil((((d-new Date(d.getFullYear(),0,1))/86400000)+1)/7);
+}
+function getCurrentWeekKey(){ return new Date().getFullYear()+'_w'+getISOWeek(); }
+
 async function loadPersisted(){
     if(!currentUser)return;
     try{
@@ -883,7 +891,15 @@ async function loadPersisted(){
             measurements:   data.measurements    || [],
             seenMilestones: data.seen_milestones || [],
             difficulty:     data.difficulty      || 'intermediate',
+            weekKey:        data.week_key        || '',
         };
+        // Auto-reset completedDays if we're in a new week
+        const currentWeek = getCurrentWeekKey();
+        if(persisted.weekKey !== currentWeek){
+            persisted.completedDays = [false,false,false,false,false,false,false];
+            persisted.weekKey = currentWeek;
+            savePersisted();
+        }
     }catch(e){console.error('loadPersisted:',e)}
 }
 
@@ -901,6 +917,7 @@ function savePersisted(){
                 measurements:   persisted.measurements,
                 seen_milestones:persisted.seenMilestones,
                 difficulty:     persisted.difficulty,
+                week_key:       persisted.weekKey||getCurrentWeekKey(),
                 updated_at:     new Date().toISOString(),
             }).eq('id',currentUser.id);
         }catch(e){console.error('savePersisted:',e)}
@@ -966,9 +983,7 @@ function applyDifficulty(ex){
 // Deload stacks on top of difficulty (additional -1 set, ×0.6 duration)
 // Triggers every 4th week based on session count — never fires for new users
 function isDeloadWeek(){
-    const count=(persisted.sessionLog||[]).length;
-    if(count<21)return false;
-    return Math.floor(count/7)%4===3;
+    return getISOWeek()%4===0;
 }
 function applyDeload(ex){
     if(!isDeloadWeek())return ex;
@@ -1483,6 +1498,7 @@ function stopBoxBreathing(){
 }
 
 function startRest(){
+    if(session.timer&&session.timer.isRunning())return; // prevent double-fire
     const ov=document.getElementById('rest-overlay');ov.classList.remove('hidden');ov.style.opacity='1';
     startBoxBreathing();
     session.timer=createTimer(30,rem=>{
@@ -1536,10 +1552,10 @@ function resetHydration(){
 }
 function renderHydration(){
     const ml=getHydration();
-    const liters=(ml/1000).toFixed(1);
+    const cups=Math.round(ml/240);
     const pct=Math.min(100,(ml/3000)*100);
     const complete=ml>=3000;
-    document.getElementById('hydration-amount').innerText=liters;
+    document.getElementById('hydration-amount').innerText=cups;
     const bar=document.getElementById('hydration-bar');
     bar.style.width=pct+'%';
     bar.className='hydration-bar-fill'+(complete?' complete':'');
