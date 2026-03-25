@@ -132,6 +132,9 @@
         .hydration-bar-fill.complete{background:linear-gradient(90deg,#10b981,#06b6d4)}
         .water-btn{flex:1;padding:.5rem .25rem;border-radius:.75rem;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:all .2s;border:1px solid rgba(59,130,246,.2);background:rgba(59,130,246,.06);color:#60a5fa}
         .water-btn:active{transform:scale(.95);background:rgba(59,130,246,.15)}
+        .hydration-liter{flex:1;padding:.6rem .25rem;border-radius:.875rem;font-size:.75rem;font-weight:900;text-align:center;cursor:pointer;transition:all .25s;border:1px solid rgba(59,130,246,.2);background:rgba(59,130,246,.04);color:#475569;letter-spacing:.05em}
+        .hydration-liter.hit{background:rgba(59,130,246,.18);border-color:rgba(59,130,246,.6);color:#93c5fd;box-shadow:0 0 12px rgba(59,130,246,.2)}
+        .hydration-liter.complete{background:rgba(16,185,129,.18);border-color:rgba(16,185,129,.6);color:#6ee7b7;box-shadow:0 0 12px rgba(16,185,129,.2)}
         /* Auth screen */
         #auth-screen{position:fixed;inset:0;background:var(--bg-deep);z-index:99999;display:flex;align-items:center;justify-content:center;padding:2rem}
         #auth-screen.hidden{display:none}
@@ -367,22 +370,25 @@
         </div>
         <!-- Hydration Tracker -->
         <div class="instruction-card mx-2 border-blue-500/15" style="padding:1rem;">
-            <div class="flex justify-between items-center mb-2">
+            <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-droplet text-blue-400 text-sm"></i>
                     <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Daily Hydration</span>
                 </div>
-                <div class="flex items-center gap-1.5">
-                    <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace">0</span>
-                    <span class="text-[10px] text-slate-500 font-bold">/ ~12 cups</span>
-                </div>
+                <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace">0 / 3L</span>
+            </div>
+            <!-- Liter milestone bubbles -->
+            <div class="flex gap-2 mb-3" id="hydration-liters">
+                <div class="hydration-liter" data-l="1">1L</div>
+                <div class="hydration-liter" data-l="2">2L</div>
+                <div class="hydration-liter" data-l="3">3L</div>
             </div>
             <div class="hydration-bar-track mb-3"><div id="hydration-bar" class="hydration-bar-fill" style="width:0%"></div></div>
-            <div class="flex gap-2">
-                <button class="water-btn" data-ml="240" title="1 cup (8oz)"><i class="fas fa-mug-hot mr-1"></i>Cup</button>
-                <button class="water-btn" data-ml="500" title="Standard bottle (17oz)"><i class="fas fa-bottle-water mr-1"></i>Bottle</button>
-                <button class="water-btn" data-ml="1000" title="Large bottle (34oz)"><i class="fas fa-bottle-water mr-1" style="font-size:.85em"></i>Large</button>
-                <button class="water-btn" id="hydration-reset-btn" style="border-color:rgba(100,116,139,.2);background:rgba(100,116,139,.05);color:#475569;"><i class="fas fa-rotate-left"></i></button>
+            <!-- Custom input row -->
+            <div class="flex gap-2 items-center">
+                <input id="hydration-custom-input" type="number" min="0.1" max="5" step="0.1" placeholder="Custom (L)" class="auth-input text-center" style="font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:.5rem .75rem;flex:1;">
+                <button id="hydration-custom-btn" class="water-btn" style="flex-shrink:0;width:52px;"><i class="fas fa-plus"></i></button>
+                <button id="hydration-reset-btn" class="water-btn" style="flex-shrink:0;width:40px;border-color:rgba(100,116,139,.2);background:rgba(100,116,139,.05);color:#475569;"><i class="fas fa-rotate-left"></i></button>
             </div>
             <p id="hydration-msg" class="text-[10px] text-slate-600 italic mt-2 text-center">Minimum 3L daily. Hydration is non-negotiable.</p>
         </div>
@@ -1323,17 +1329,15 @@ function goToRecoveryPicker(){
 
 function startRecoverySession(){
     if(!selectedRecoveryIndices.length) return;
-    // Build a custom routine from selected exercises
+    session.routineType = 'recovery';
+    resetSession(); // resets recoveryQueue to null — set it AFTER
     session.recoveryQueue = [...selectedRecoveryIndices];
     session.recoveryQueuePos = 0;
-    session.routineType = 'recovery';
-    resetSession();
-    // Override exerciseIndex to first selected
     session.exerciseIndex = session.recoveryQueue[0];
-    updateExUI();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     const t = document.getElementById('step-4');
     t.classList.remove('hidden-step'); t.classList.add('active-step');
+    updateExUI();
 }
 
 function getCurEx(){
@@ -1342,7 +1346,12 @@ function getCurEx(){
     return applyDeload(applyDifficulty(ex));
 }
 function updateExUI(){
-    const ex=getCurEx(),dl=isDeloadWeek();
+    const ex=getCurEx();
+    const dl=isDeloadWeek();
+    const isRecovSession=session.routineType==='recovery'; // MUST be defined first
+    const accentColor=isRecovSession?'text-amber-400':'text-blue-400';
+
+    // Basic fields
     document.getElementById('ex-title').innerText=ex.title;
     document.getElementById('ex-eq-req').innerText=ex.eq;
     document.getElementById('feel-msg').innerText=ex.feel;
@@ -1350,28 +1359,51 @@ function updateExUI(){
     _curExDuration=ex.duration;
     document.getElementById('ex-timer').innerText=fmtDuration(ex.duration,ex.duration);
     document.getElementById('ex-live-text').innerText='Ready...';
-    // Show exercise detail for recovery exercises
-    const detailCard=document.getElementById('ex-detail-card');
-    if(ex.isRecovery && ex.detail){
-        detailCard.innerHTML=ex.detail;
-        detailCard.classList.add('show');
-    } else {
-        detailCard.classList.remove('show');
-        detailCard.innerHTML='';
+
+    // Timer color
+    document.getElementById('ex-timer').className=`text-[11rem] font-black tracking-tighter tabular-nums leading-none timer-glow ${accentColor}`;
+
+    // Phase tag
+    const tagEl=document.getElementById('ex-tag');
+    tagEl.innerText='Phase '+String(session.exerciseIndex+1).padStart(2,'0');
+    tagEl.className=isRecovSession
+        ?'text-[10px] font-black uppercase px-3 py-1.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20'
+        :'text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20';
+
+    // Deload badge
+    document.getElementById('deload-ex-badge').classList.toggle('hidden',!dl||isRecovSession);
+
+    // Engage button
+    const eb=document.getElementById('ex-btn');
+    eb.innerText=session.directionalIndex>0?`NEXT DIR: ${DIRECTIONALS[session.directionalIndex]}`:`START ROUND ${session.setIndex}`;
+    eb.style.display='';
+    document.getElementById('ex-pause-btn').style.display='none';
+    document.getElementById('pause-icon').className='fas fa-pause text-2xl';
+
+    // Set pips
+    const pips=document.getElementById('pip-container');pips.innerHTML='';
+    for(let i=1;i<=ex.sets;i++){
+        const p=document.createElement('div');
+        p.className=`w-2 h-2 rounded-full ${i<=session.setIndex?(isRecovSession?'bg-amber-500 shadow-[0_0_10px_#f59e0b]':'bg-blue-500 shadow-[0_0_10px_#3b82f6]'):'bg-slate-800'}`;
+        pips.appendChild(p);
     }
-    // Show how-to steps panel
+
+    // Detail card (recovery)
+    const detailCard=document.getElementById('ex-detail-card');
+    if(ex.isRecovery&&ex.detail){detailCard.innerHTML=ex.detail;detailCard.classList.add('show')}
+    else{detailCard.classList.remove('show');detailCard.innerHTML=''}
+
+    // How-to panel
     const howtoPanel=document.getElementById('howto-panel');
     const howtoSteps=document.getElementById('howto-steps');
-    const isAmber=isRecovSession;
-    if(ex.howto && ex.howto.length){
+    if(ex.howto&&ex.howto.length){
         howtoPanel.classList.add('show');
-        howtoPanel.querySelector('p').className=`text-[9px] font-black ${isAmber?'text-amber-400':'text-blue-400'} uppercase tracking-widest mb-2 flex items-center gap-1.5`;
+        howtoPanel.querySelector('p').className=`text-[9px] font-black ${accentColor} uppercase tracking-widest mb-2 flex items-center gap-1.5`;
         howtoSteps.innerHTML=ex.howto.map((step,i)=>`
             <div class="howto-step">
-                <div class="howto-num${isAmber?' amber':''}">${i+1}</div>
+                <div class="howto-num${isRecovSession?' amber':''}">${i+1}</div>
                 <p class="text-[11px] text-slate-300 leading-relaxed">${step}</p>
             </div>`).join('');
-        // Show experience level label if available
         const d=getDiff();
         const expKey=d.id==='elite'?'advanced':d.id;
         const expData=EX_EXPERIENCE[ex.title]?.[expKey];
@@ -1385,20 +1417,6 @@ function updateExUI(){
         howtoPanel.classList.remove('show');
         howtoSteps.innerHTML='';
     }
-    document.getElementById('ex-tag').innerText='Phase '+String(session.exerciseIndex+1).padStart(2,'0');
-    const isRecovSession=session.routineType==='recovery';
-    const timerEl=document.getElementById('ex-timer');
-    timerEl.className=isRecovSession?'text-[11rem] font-black tracking-tighter tabular-nums leading-none timer-glow text-amber-400':'text-[11rem] font-black tracking-tighter tabular-nums leading-none timer-glow text-blue-400';
-    const tagEl=document.getElementById('ex-tag');
-    tagEl.className=isRecovSession?'text-[10px] font-black uppercase px-3 py-1.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20':'text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20';
-    document.getElementById('deload-ex-badge').classList.toggle('hidden',!dl);
-    const eb=document.getElementById('ex-btn');
-    eb.innerText=session.directionalIndex>0?`NEXT DIR: ${DIRECTIONALS[session.directionalIndex]}`:`START ROUND ${session.setIndex}`;
-    eb.style.display='';
-    document.getElementById('ex-pause-btn').style.display='none';
-    document.getElementById('pause-icon').className='fas fa-pause text-2xl';
-    const pips=document.getElementById('pip-container');pips.innerHTML='';
-    for(let i=1;i<=ex.sets;i++){const p=document.createElement('div');p.className=`w-2 h-2 rounded-full ${i<=session.setIndex?'bg-blue-500 shadow-[0_0_10px_#3b82f6]':'bg-slate-800'}`;pips.appendChild(p)}
 }
 // _curExDuration tracks format so MM:SS stays consistent through the whole countdown
 let _curExDuration=0;
@@ -1540,10 +1558,17 @@ function advanceEx(){
 // ═══════════════════════════════════════════════════════════════════════════
 function getTodayKey(){ return 'bp_hydration_'+new Date().toISOString().split('T')[0]; }
 function getHydration(){ return parseFloat(localStorage.getItem(getTodayKey())||'0'); }
-function setHydration(ml){
+function setHydration(liters){
     const current=getHydration();
-    const newVal=Math.min(5000, current+ml);
+    const newVal=Math.min(5000, current+(liters*1000));
     localStorage.setItem(getTodayKey(), newVal);
+    renderHydration();
+}
+function setHydrationToLiter(l){
+    // Tap a liter bubble — set to AT LEAST that liter milestone
+    const current=getHydration();
+    const target=l*1000;
+    if(current<target) localStorage.setItem(getTodayKey(), target);
     renderHydration();
 }
 function resetHydration(){
@@ -1552,17 +1577,23 @@ function resetHydration(){
 }
 function renderHydration(){
     const ml=getHydration();
-    const cups=Math.round(ml/240);
+    const liters=(ml/1000);
     const pct=Math.min(100,(ml/3000)*100);
     const complete=ml>=3000;
-    document.getElementById('hydration-amount').innerText=cups;
+    document.getElementById('hydration-amount').innerText=liters.toFixed(1)+'L / 3L';
     const bar=document.getElementById('hydration-bar');
     bar.style.width=pct+'%';
     bar.className='hydration-bar-fill'+(complete?' complete':'');
+    // Update liter milestone bubbles
+    document.querySelectorAll('.hydration-liter').forEach(el=>{
+        const l=parseInt(el.dataset.l);
+        el.classList.remove('hit','complete');
+        if(ml>=l*1000) el.classList.add(complete&&l===3?'complete':'hit');
+    });
     const msg=document.getElementById('hydration-msg');
-    if(complete) msg.innerHTML='<span class="text-emerald-400 font-bold">✓ 3L goal hit. Tissue is primed.</span>';
-    else if(ml>=2000) msg.innerText='Almost there — one more glass.';
-    else if(ml>=1000) msg.innerText='Halfway. Keep drinking.';
+    if(complete) msg.innerHTML='<span class="text-emerald-400 font-bold">✓ 3L hit. Tissue is primed.</span>';
+    else if(ml>=2000) msg.innerText='Almost there — one more liter.';
+    else if(ml>=1000) msg.innerText='1L down. Keep going.';
     else msg.innerText='Minimum 3L daily. Hydration is non-negotiable.';
 }
 
@@ -1753,9 +1784,21 @@ function init(){
     document.getElementById('launch-btn').addEventListener('click',()=>goToStep(1));
     document.getElementById('ai-coach-btn').addEventListener('click',openCoach);
     document.getElementById('progress-btn').addEventListener('click',openProgressChart);
-    // Hydration buttons
-    document.querySelectorAll('.water-btn[data-ml]').forEach(btn=>{
-        btn.addEventListener('click',()=>setHydration(parseInt(btn.dataset.ml)));
+    // Hydration — liter bubbles
+    document.querySelectorAll('.hydration-liter').forEach(el=>{
+        el.addEventListener('click',()=>setHydrationToLiter(parseInt(el.dataset.l)));
+    });
+    // Hydration — custom input
+    document.getElementById('hydration-custom-btn').addEventListener('click',()=>{
+        const inp=document.getElementById('hydration-custom-input');
+        const val=parseFloat(inp.value);
+        if(!isNaN(val)&&val>0){setHydration(val);inp.value='';}
+    });
+    document.getElementById('hydration-custom-input').addEventListener('keydown',e=>{
+        if(e.key==='Enter'){
+            const val=parseFloat(e.target.value);
+            if(!isNaN(val)&&val>0){setHydration(val);e.target.value='';}
+        }
     });
     document.getElementById('hydration-reset-btn').addEventListener('click',resetHydration);
     document.getElementById('export-btn').addEventListener('click',exportData);
