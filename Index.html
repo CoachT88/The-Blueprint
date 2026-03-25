@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>THE BLUEPRINT | Session Pilot</title>
+    <meta name="theme-color" content="#020617">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700&display=swap');
+        :root{--bg-deep:#020617;--accent-blue:#3b82f6;--accent-emerald:#10b981;--accent-purple:#a855f7;--accent-yellow:#facc15}
+        html,body{font-family:'Inter',sans-serif;background-color:var(--bg-deep);color:#f8fafc;overflow:hidden;margin:0;padding:0;height:100%;width:100%}
+        .app-container{height:100%;width:100%;position:relative;overflow:hidden}
+        .ambient-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+        .ambient-glow-1{position:absolute;top:-15%;left:-10%;width:60vw;height:60vw;background:radial-gradient(circle,rgba(37,99,235,.15) 0%,rgba(2,6,23,0) 70%);filter:blur(60px)}
+        .ambient-glow-2{position:absolute;bottom:-10%;right:-10%;width:70vw;height:70vw;background:radial-gradient(circle,rgba(16,185,129,.08) 0%,rgba(2,6,23,0) 70%);filter:blur(80px)}
+        .step-content{position:absolute;inset:0;display:block;padding:1.5rem;background-color:transparent;z-index:10;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+        .inner-step-wrapper{display:flex;flex-direction:column;width:100%;max-width:28rem;margin:0 auto;position:relative;z-index:1}
+        .scroll-buffer{height:160px;flex-shrink:0}
+        .hidden-step{display:none!important}
+        .active-step{display:block!important;animation:slideUp .5s cubic-bezier(.2,.8,.2,1)}
+        @keyframes slideUp{from{opacity:0;transform:translateY(25px)}to{opacity:1;transform:translateY(0)}}
+        .progress-bar{height:4px;background:#0f172a;position:fixed;top:0;left:0;width:100%;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+        .progress-fill{height:100%;background:linear-gradient(90deg,#2563eb,#60a5fa);transition:width .6s cubic-bezier(.4,0,.2,1);box-shadow:0 0 15px rgba(59,130,246,.5)}
+        .btn-primary{background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white;padding:1.25rem;border-radius:1.25rem;font-weight:800;text-transform:uppercase;letter-spacing:.15em;transition:all .2s cubic-bezier(.4,0,.2,1);border:1px solid rgba(255,255,255,.15);border-top:1px solid rgba(255,255,255,.3);width:100%;flex-shrink:0;box-shadow:0 10px 30px -5px rgba(37,99,235,.4),inset 0 -2px 10px rgba(0,0,0,.2);cursor:pointer}
+        .btn-primary:active{transform:scale(.96);opacity:.9}
+        .btn-primary:disabled{background:#1e293b;border-color:#334155;color:#64748b;box-shadow:none;transform:none;opacity:.7;cursor:not-allowed}
+        .btn-ai{background:linear-gradient(135deg,#7e22ce 0%,#9333ea 100%)!important;box-shadow:0 10px 30px -5px rgba(168,85,247,.3),inset 0 -2px 10px rgba(0,0,0,.2)!important}
+        .btn-outline{background:rgba(255,255,255,.02);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);padding:1rem;border-radius:1.25rem;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.1em;transition:all .2s;color:#94a3b8;width:100%;cursor:pointer}
+        .instruction-card{background:linear-gradient(145deg,rgba(30,41,59,.4) 0%,rgba(15,23,42,.6) 100%);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-top:1px solid rgba(255,255,255,.15);border-radius:1.5rem;padding:1.25rem;flex-shrink:0;box-shadow:0 15px 35px -10px rgba(0,0,0,.5)}
+        .glass-input{background:rgba(15,23,42,.4);border:1px solid rgba(255,255,255,.1);border-radius:1rem;color:#f8fafc;padding:1rem;width:100%;outline:none;resize:none;transition:border-color .2s;font-family:inherit;font-size:.875rem}
+        .glass-input:focus{border-color:rgba(168,85,247,.4)}
+        .timer-glow{font-family:'JetBrains Mono',monospace;text-shadow:0 0 40px rgba(59,130,246,.5)}
+        .tension-line{width:100%;height:80px;stroke:var(--accent-blue);stroke-width:5;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 10px rgba(59,130,246,.6))}
+        .rk-circle{width:120px;height:120px;border-radius:50%;background:rgba(16,185,129,.05);border:2px solid rgba(16,185,129,.3);transition:all 4s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 20px rgba(16,185,129,.1)}
+        .rk-expand{transform:scale(1.6);background:rgba(16,185,129,.15);border:4px solid var(--accent-emerald);box-shadow:0 0 60px rgba(16,185,129,.4),inset 0 0 30px rgba(16,185,129,.3)}
+        .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;width:100%;flex-shrink:0}
+        .calendar-day{aspect-ratio:1/1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:1rem;border:1px solid rgba(255,255,255,.05);transition:all .3s cubic-bezier(.2,.8,.2,1);cursor:pointer;position:relative;background:linear-gradient(145deg,rgba(30,41,59,.3) 0%,rgba(15,23,42,.5) 100%);box-shadow:0 4px 15px -5px rgba(0,0,0,.3)}
+        .calendar-day span{font-size:.6rem;font-weight:800;margin-bottom:6px;color:#64748b;text-transform:uppercase}
+        .calendar-day.active{border-color:rgba(59,130,246,.6);border-top-color:rgba(96,165,250,.8);background:linear-gradient(145deg,rgba(59,130,246,.15) 0%,rgba(37,99,235,.05) 100%);box-shadow:inset 0 0 20px rgba(59,130,246,.1),0 8px 20px -5px rgba(59,130,246,.25);transform:translateY(-2px)}
+        .calendar-day.completed::after{content:'\f058';font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;top:-6px;right:-6px;color:var(--accent-emerald);font-size:1rem;background:var(--bg-deep);border-radius:50%;padding:1px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+        .type-length{border-bottom:4px solid var(--accent-blue);color:#93c5fd}
+        .type-girth{border-bottom:4px solid var(--accent-emerald);color:#6ee7b7}
+        .type-rest{border-bottom:4px solid #475569;color:#94a3b8}
+        .level-badge{background:linear-gradient(135deg,rgba(250,204,21,.1) 0%,rgba(245,158,11,.05) 100%);border:1px solid rgba(250,204,21,.2);border-radius:.75rem;padding:.75rem 1rem}
+        .level-bar-track{height:3px;background:#1e293b;border-radius:999px;width:100%;margin-top:.4rem}
+        .level-bar-fill{height:100%;background:linear-gradient(90deg,#facc15,#f59e0b);border-radius:999px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+        .log-entry{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border-radius:.75rem;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);font-size:.75rem;font-weight:600;flex-wrap:wrap}
+        #rest-overlay{position:fixed;inset:0;background-color:rgba(2,6,23,.96);flex-direction:column;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(20px)}
+        #rest-overlay:not(.hidden){display:flex}
+        .ai-response-box{background:rgba(168,85,247,.1);border-left:4px solid var(--accent-purple);padding:1rem;border-radius:.5rem;font-size:.85rem;line-height:1.6;color:#e2e8f0;display:none;white-space:pre-wrap}
+        .ai-response-box.ai-error{background:rgba(239,68,68,.1);border-left-color:#ef4444;color:#fca5a5}
+        .chat-msg{padding:.5rem .75rem;border-radius:.75rem;font-size:.8rem;line-height:1.55}
+        .chat-msg.user{background:rgba(255,255,255,.04);color:#f1f5f9}
+        .chat-msg.ai{background:rgba(168,85,247,.1);color:#c4b5fd}
+        .chat-msg.error{background:rgba(239,68,68,.08);color:#fca5a5;border-left:3px solid #ef4444}
+        /* Warmup Carousel */
+        .warmup-carousel-wrap{position:relative;overflow:hidden;border-radius:1.5rem;min-height:150px}
+        .warmup-tip-slide{position:absolute;inset:0;padding:1.25rem;display:flex;flex-direction:column;gap:.65rem;opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease;pointer-events:none}
+        .warmup-tip-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+        .warmup-dots{display:flex;gap:.4rem;justify-content:center}
+        .warmup-dot{width:5px;height:5px;border-radius:50%;background:#334155;transition:all .3s;cursor:pointer}
+        .warmup-dot.active{background:var(--accent-blue);transform:scale(1.4)}
+        /* Measurements */
+        .measure-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+        .measure-field label{display:block;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem}
+        .measure-field input{background:rgba(15,23,42,.5);border:1px solid rgba(255,255,255,.1);border-radius:.75rem;color:#f8fafc;padding:.75rem 1rem;width:100%;outline:none;font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;text-align:center;transition:border-color .2s}
+        .measure-field input:focus{border-color:rgba(59,130,246,.5)}
+        .measure-field input::placeholder{color:#475569;font-size:.75rem;font-family:inherit;font-weight:400}
+        /* Chart modal */
+        #chart-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:200;backdrop-filter:blur(20px);overflow-y:auto}
+        .chart-svg-wrap{width:100%;overflow:hidden;border-radius:1rem;background:rgba(15,23,42,.5);border:1px solid rgba(255,255,255,.06)}
+        .chart-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+        .stat-chip{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.75rem;padding:.6rem .9rem;text-align:center}
+        /* Dim mode */
+        .dim-overlay{position:fixed;inset:0;background:rgba(2,6,23,.78);z-index:9;pointer-events:none;opacity:0;transition:opacity .4s}
+        .dim-toggle-btn{width:36px;height:36px;border-radius:.6rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;flex-shrink:0}
+        .dim-toggle-btn.lit{background:rgba(250,204,21,.12);border-color:rgba(250,204,21,.3)}
+        /* Deload banner */
+        .deload-banner{background:linear-gradient(135deg,rgba(249,115,22,.12) 0%,rgba(234,88,12,.06) 100%);border:1px solid rgba(249,115,22,.25);border-radius:1rem;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem}
+        /* Box breathing */
+        @keyframes drawBoxSeg{from{stroke-dashoffset:105}to{stroke-dashoffset:0}}
+        .box-seg{stroke-dasharray:105;stroke-dashoffset:105}
+        .box-seg.drawing{animation:drawBoxSeg var(--seg-dur,4s) linear forwards}
+        .box-done{stroke-dasharray:105;stroke-dashoffset:0;opacity:.35}
+        #box-phase-label{font-size:1.1rem;font-weight:900;text-transform:uppercase;letter-spacing:.2em;font-style:italic}
+        #box-phase-count{font-family:'JetBrains Mono',monospace;font-size:3rem;font-weight:900;line-height:1;text-shadow:0 0 30px rgba(16,185,129,.6)}
+        /* API Key modal */
+        #apikey-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:999999;backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:2rem}
+        #apikey-modal.show{display:flex}
+        /* Difficulty selector */
+        .diff-btn{flex:1;padding:.55rem .25rem;border-radius:.75rem;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);color:#475569}
+        .diff-btn.active-diff{color:#f8fafc;transform:translateY(-1px)}
+        .diff-beginner.active-diff{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:#6ee7b7;box-shadow:0 4px 12px -4px rgba(16,185,129,.3)}
+        .diff-intermediate.active-diff{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.4);color:#93c5fd;box-shadow:0 4px 12px -4px rgba(59,130,246,.3)}
+        .diff-advanced.active-diff{background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.4);color:#c4b5fd;box-shadow:0 4px 12px -4px rgba(168,85,247,.3)}
+        .diff-elite.active-diff{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.4);color:#fca5a5;box-shadow:0 4px 12px -4px rgba(239,68,68,.3)}
+        /* Milestone modal */
+        #milestone-modal{position:fixed;inset:0;background:rgba(2,6,23,.92);z-index:99998;backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:2rem}
+        #milestone-modal.show{display:flex}
+        .milestone-inner{background:linear-gradient(145deg,rgba(30,41,59,.8) 0%,rgba(15,23,42,.95) 100%);border:1px solid rgba(250,204,21,.3);border-top:1px solid rgba(250,204,21,.5);border-radius:2rem;padding:2rem;text-align:center;max-width:20rem;width:100%;box-shadow:0 0 80px rgba(250,204,21,.1)}
+        @keyframes burst{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+        .milestone-icon-wrap{animation:burst .5s cubic-bezier(.175,.885,.32,1.275) both}
+        /* Export row */
+        .export-row{display:flex;gap:.5rem}
+        .export-row button{flex:1;padding:.65rem .4rem;border-radius:.75rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#64748b}
+        .export-row button:hover{border-color:rgba(255,255,255,.15);color:#94a3b8}
+        @keyframes popIn{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
+        .xp-pop{animation:popIn .3s cubic-bezier(.175,.885,.32,1.275)}
+        /* Auth screen */
+        #auth-screen{position:fixed;inset:0;background:var(--bg-deep);z-index:99999;display:flex;align-items:center;justify-content:center;padding:2rem}
+        #auth-screen.hidden{display:none}
+        .auth-card{background:linear-gradient(145deg,rgba(30,41,59,.6) 0%,rgba(15,23,42,.9) 100%);border:1px solid rgba(255,255,255,.08);border-top:1px solid rgba(255,255,255,.15);border-radius:2rem;padding:2rem;width:100%;max-width:22rem;backdrop-filter:blur(20px);box-shadow:0 30px 60px -10px rgba(0,0,0,.6)}
+        .auth-input{background:rgba(15,23,42,.6);border:1px solid rgba(255,255,255,.1);border-radius:.875rem;color:#f8fafc;padding:.875rem 1rem;width:100%;outline:none;font-family:inherit;font-size:.9rem;transition:border-color .2s;box-sizing:border-box}
+        .auth-input:focus{border-color:rgba(59,130,246,.5)}
+        .auth-input::placeholder{color:#475569}
+        .auth-tab{flex:1;padding:.6rem;border-radius:.6rem;font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;transition:all .2s;border:none;background:transparent;color:#475569}
+        .auth-tab.active{background:rgba(59,130,246,.15);color:#93c5fd}
+        .auth-error{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:.75rem;padding:.75rem 1rem;color:#fca5a5;font-size:.8rem;display:none}
+        .auth-error.show{display:block}
+        .auth-success{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:.75rem;padding:.75rem 1rem;color:#6ee7b7;font-size:.8rem;display:none}
+        .auth-success.show{display:block}
+    </style>
+</head>
+<body>
+<div class="ambient-bg"><div class="ambient-glow-1"></div><div class="ambient-glow-2"></div></div>
+<div class="progress-bar"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+    <div class="auth-card">
+        <div class="text-center mb-7">
+            <div class="relative inline-block mb-4">
+                <div class="absolute inset-0 bg-blue-500/20 blur-[30px] rounded-full"></div>
+                <div class="relative p-5 bg-blue-500/5 rounded-full border border-blue-500/20 w-fit mx-auto">
+                    <i class="fas fa-fingerprint text-4xl text-blue-400"></i>
+                </div>
+            </div>
+            <h1 class="text-2xl font-black italic uppercase tracking-tighter text-white">The Blueprint</h1>
+            <p class="text-slate-500 text-[11px] mt-1 font-semibold uppercase tracking-widest">Members Only</p>
+        </div>
+
+```
+    <!-- Tabs -->
+    <div class="flex gap-1 bg-slate-900/60 p-1 rounded-xl mb-5">
+        <button class="auth-tab active" id="tab-login">Sign In</button>
+        <button class="auth-tab" id="tab-signup">Create Account</button>
+    </div>
+
+    <!-- Error / Success -->
+    <div class="auth-error mb-4" id="auth-error"></div>
+    <div class="auth-success mb-4" id="auth-success"></div>
+
+    <!-- Form -->
+    <div class="space-y-3">
+        <input type="email" id="auth-email" class="auth-input" placeholder="Email address">
+        <input type="password" id="auth-password" class="auth-input" placeholder="Password">
+        <input type="password" id="auth-confirm" class="auth-input hidden" placeholder="Confirm password">
+        <button id="auth-submit-btn" class="btn-primary py-4 text-sm mt-1">SIGN IN</button>
+        <button id="auth-forgot-btn" class="w-full text-slate-600 text-[10px] font-bold uppercase tracking-widest py-2">Forgot password?</button>
+    </div>
+</div>
+```
+
+</div>
+
+<div class="dim-overlay" id="dim-overlay"></div>
+
+<!-- REST OVERLAY -->
+
+<div id="rest-overlay" class="hidden">
+    <p class="text-emerald-400 font-black uppercase italic tracking-[0.3em] text-xs mb-5 drop-shadow-md">Active Recovery</p>
+
+```
+<!-- Box breathing visual -->
+<div class="flex flex-col items-center mb-5">
+    <p id="box-phase-label" class="text-emerald-400 mb-2">INHALE</p>
+    <div class="relative flex items-center justify-center" style="width:160px;height:160px;">
+        <svg id="box-svg" viewBox="0 0 120 120" width="160" height="160">
+            <!-- Background box -->
+            <rect x="10" y="10" width="100" height="100" fill="none" stroke="#1e293b" stroke-width="2" rx="3"/>
+            <!-- Corner dots -->
+            <circle cx="10"  cy="10"  r="3" fill="#10b981" opacity="0.4"/>
+            <circle cx="110" cy="10"  r="3" fill="#10b981" opacity="0.4"/>
+            <circle cx="110" cy="110" r="3" fill="#10b981" opacity="0.4"/>
+            <circle cx="10"  cy="110" r="3" fill="#10b981" opacity="0.4"/>
+            <!-- Completed sides (filled in by JS) -->
+            <path id="box-done-0" class="box-done" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" d=""/>
+            <path id="box-done-1" class="box-done" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" d=""/>
+            <path id="box-done-2" class="box-done" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" d=""/>
+            <path id="box-done-3" class="box-done" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" d=""/>
+            <!-- Active animated segment -->
+            <path id="box-active-seg" class="box-seg" fill="none" stroke="#10b981" stroke-width="3.5" stroke-linecap="round" d="M10,110 L10,10" filter="url(#glow-box)"/>
+            <defs><filter id="glow-box"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+        </svg>
+        <!-- Count in center -->
+        <div class="absolute flex flex-col items-center pointer-events-none">
+            <span id="box-phase-count" class="text-emerald-400">4</span>
+        </div>
+    </div>
+    <p id="box-phase-sub" class="text-emerald-600 text-[10px] font-black uppercase tracking-widest mt-1">breathe deep</p>
+</div>
+
+<p id="rest-timer" class="text-5xl font-black tabular-nums timer-glow text-emerald-400 mb-5">30</p>
+
+<div class="bg-emerald-900/20 border border-emerald-500/30 rounded-2xl p-4 max-w-sm mx-4 text-center mb-5">
+    <p class="text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-2"><i class="fas fa-info-circle"></i> Reverse Kegel — Inhale Phase</p>
+    <p class="text-slate-300 text-xs leading-relaxed">On the <strong class="text-emerald-200">INHALE</strong>, fill your belly deep and gently bear down as if forcing urine out faster — pelvic floor drops and stretches as air comes in. On <strong class="text-emerald-200">EXHALE</strong>, release everything. Never clench.</p>
+</div>
+<button id="rest-skip-btn" class="text-slate-500 font-black text-[10px] uppercase tracking-widest py-2 px-6 border border-slate-800 rounded-full">Skip Rest</button>
+```
+
+</div>
+
+<!-- MILESTONE MODAL -->
+
+<div id="milestone-modal">
+    <div class="milestone-inner">
+        <div class="milestone-icon-wrap mb-4">
+            <div class="w-20 h-20 rounded-full bg-yellow-500/10 border-2 border-yellow-500/30 flex items-center justify-center mx-auto">
+                <i id="milestone-icon" class="fas fa-trophy text-4xl text-yellow-400"></i>
+            </div>
+        </div>
+        <p class="text-yellow-400 text-[10px] font-black uppercase tracking-[0.3em] mb-2">Milestone Unlocked</p>
+        <h3 id="milestone-title" class="text-2xl font-black italic uppercase text-white mb-3">First Blood</h3>
+        <p id="milestone-desc" class="text-slate-400 text-sm leading-relaxed mb-6">You completed your first session.</p>
+        <button id="milestone-close-btn" class="btn-primary py-4 text-sm">ACKNOWLEDGED</button>
+    </div>
+</div>
+
+<!-- API KEY MODAL -->
+
+<div id="apikey-modal">
+    <div style="background:linear-gradient(145deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);border:1px solid rgba(168,85,247,.3);border-top:1px solid rgba(168,85,247,.5);border-radius:2rem;padding:2rem;max-width:20rem;width:100%;text-align:center;">
+        <i class="fas fa-brain text-purple-400 text-4xl mb-4"></i>
+        <h3 class="text-xl font-black uppercase italic text-white mb-2">AI Coach Setup</h3>
+        <p class="text-slate-400 text-xs leading-relaxed mb-5">Enter your Anthropic API key to enable AI coaching. Get one free at <span class="text-purple-400 font-bold">console.anthropic.com</span>. Stored only on this device.</p>
+        <input id="apikey-input" type="password" placeholder="sk-ant-..." class="glass-input mb-4" style="font-family:'JetBrains Mono',monospace;font-size:.8rem;letter-spacing:.05em;">
+        <div class="flex gap-3">
+            <button id="apikey-cancel-btn" class="btn-outline py-3 text-xs">Cancel</button>
+            <button id="apikey-save-btn" class="btn-primary btn-ai py-3 text-xs" style="flex:2">Save & Connect</button>
+        </div>
+        <p id="apikey-error" class="text-red-400 text-[11px] mt-3 hidden"></p>
+    </div>
+</div>
+
+<!-- CHART MODAL -->
+
+<div id="chart-modal" class="hidden">
+    <div class="inner-step-wrapper py-12 space-y-6">
+        <div class="flex justify-between items-center px-2">
+            <h2 class="text-3xl font-black italic uppercase text-slate-50">Progress Intel</h2>
+            <button id="chart-close-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 cursor-pointer"><i class="fas fa-xmark text-lg"></i></button>
+        </div>
+        <div class="px-2 space-y-3">
+            <div class="flex items-center gap-2"><div class="chart-legend-dot bg-blue-500"></div><span class="text-[10px] font-black uppercase tracking-widest text-blue-400">BPEL — Bone Pressed Erect Length</span></div>
+            <div class="chart-svg-wrap"><svg id="bpel-chart" width="100%" viewBox="0 0 340 160"></svg></div>
+        </div>
+        <div class="px-2 space-y-3">
+            <div class="flex items-center gap-2"><div class="chart-legend-dot bg-emerald-500"></div><span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">MSEG — Mid-Shaft Erect Girth</span></div>
+            <div class="chart-svg-wrap"><svg id="mseg-chart" width="100%" viewBox="0 0 340 160"></svg></div>
+        </div>
+        <div id="chart-stats" class="grid grid-cols-2 gap-3 px-2"></div>
+        <p class="text-center text-slate-600 text-[10px] italic px-2">Measurements logged at session end.</p>
+        <div class="scroll-buffer"></div>
+    </div>
+</div>
+
+<!-- APP -->
+
+<div class="app-container">
+
+<!-- WELCOME -->
+
+<div id="step-welcome" class="step-content active-step">
+    <div class="inner-step-wrapper min-h-screen justify-center text-center space-y-6 py-16">
+        <div class="relative inline-block mx-auto">
+            <div class="absolute inset-0 bg-blue-500/20 blur-[50px] rounded-full"></div>
+            <div class="relative p-8 bg-blue-500/5 rounded-full border border-blue-500/20 w-fit backdrop-blur-md shadow-2xl shadow-blue-900/20 mx-auto"><i class="fas fa-fingerprint text-6xl text-blue-400 drop-shadow-lg"></i></div>
+        </div>
+        <div class="space-y-3">
+            <p class="text-blue-400/80 text-[11px] font-bold uppercase tracking-[0.4em]">You now have access to</p>
+            <h1 class="text-[3.5rem] leading-none font-black italic uppercase tracking-tighter bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent drop-shadow-sm">The Blueprint</h1>
+        </div>
+
+```
+    <!-- Liability gate -->
+    <div class="px-4 w-full space-y-3 text-left">
+        <div class="bg-red-950/30 border border-red-500/20 rounded-2xl p-4 mb-1">
+            <p class="text-red-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"><i class="fas fa-shield-exclamation"></i> Liability Agreement Required</p>
+            <p class="text-slate-500 text-[10px] leading-relaxed">Both boxes must be checked before you can access the protocol. Read carefully.</p>
+        </div>
+
+        <label id="lbl-liability" class="flex items-start gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800 cursor-pointer transition-colors">
+            <input type="checkbox" id="check-liability" class="mt-0.5 w-5 h-5 accent-blue-500 flex-shrink-0">
+            <span class="text-[11px] text-slate-400 leading-relaxed">I assume <strong class="text-slate-200">full personal liability</strong> for any and all injuries that may result from this training protocol. I understand that tissue expansion carries inherent risks and I engage voluntarily and at my own risk.</span>
+        </label>
+
+        <label id="lbl-pain" class="flex items-start gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800 cursor-pointer transition-colors">
+            <input type="checkbox" id="check-pain" class="mt-0.5 w-5 h-5 accent-red-500 flex-shrink-0">
+            <span class="text-[11px] text-slate-400 leading-relaxed">I will <strong class="text-red-300">never push through sharp, electric, or stinging pain.</strong> I commit to stopping immediately at any warning sign and resting until fully recovered.</span>
+        </label>
+
+        <button id="init-btn" disabled class="btn-primary py-6 text-xl mt-2">INITIALIZE PILOT</button>
+        <p id="init-hint" class="text-slate-600 text-[10px] text-center italic">Check both boxes above to continue</p>
+    </div>
+    <div class="scroll-buffer"></div>
+</div>
+```
+
+</div>
+
+<!-- STEP 0: HQ -->
+
+<div id="step-0" class="step-content hidden-step">
+    <div class="inner-step-wrapper pt-12 space-y-5">
+        <div class="flex justify-between items-end px-2">
+            <div>
+                <h1 class="text-4xl font-black tracking-tighter uppercase italic leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">The HQ</h1>
+                <p id="hq-user-email" class="text-[9px] text-slate-600 font-semibold mt-1 truncate max-w-[160px]"></p>
+                <div class="flex items-center gap-3 mt-3">
+                    <div class="bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-fire text-orange-500 text-[10px]"></i><span id="hq-streak" class="text-[10px] font-bold text-orange-100">0 Day Streak</span></div>
+                    <div class="bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-bolt text-yellow-400 text-[10px]"></i><span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span></div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="current-date" class="text-[10px] font-black uppercase bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700/50 text-slate-300">-- --</span>
+                <button id="logout-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Sign out"><i class="fas fa-right-from-bracket text-xs"></i></button>
+            </div>
+        </div>
+        <div class="level-badge mx-2">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i><span id="hq-level-name" class="text-yellow-300 text-xs font-black uppercase tracking-widest">Recruit</span></div>
+                <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">250 XP to next rank</span>
+            </div>
+            <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
+        </div>
+        <div id="deload-banner" class="deload-banner mx-2 hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
+        <div class="calendar-container px-2"><div class="calendar-grid" id="dashboard-grid"></div></div>
+        <div id="last-measure-row" class="hidden flex gap-3 mx-2">
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+        </div>
+        <div class="px-2 space-y-3">
+            <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
+            <div class="grid grid-cols-2 gap-3">
+                <button id="progress-btn" class="btn-outline flex items-center justify-center gap-2 py-3"><i class="fas fa-chart-line text-blue-400"></i> Progress</button>
+                <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-2 py-3"><i class="fas fa-brain"></i> AI Coach</button>
+            </div>
+        </div>
+        <div class="px-2 space-y-2">
+            <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Recent Sessions</p>
+            <div id="session-log" class="space-y-1.5"></div>
+        </div>
+        <div class="px-2 space-y-2">
+            <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Data Management</p>
+            <div class="export-row">
+                <button id="export-btn"><i class="fas fa-download mr-1"></i>Export</button>
+                <button id="import-btn"><i class="fas fa-upload mr-1"></i>Import</button>
+                <button id="reset-api-btn"><i class="fas fa-key mr-1"></i>AI Key</button>
+            </div>
+            <input type="file" id="import-file-input" accept=".json" class="hidden">
+        </div>
+        <div class="scroll-buffer"></div>
+    </div>
+</div>
+
+<!-- STEP 1: PRE-FLIGHT -->
+
+<div id="step-1" class="step-content hidden-step">
+    <div class="inner-step-wrapper py-12 text-center space-y-10">
+        <div class="relative inline-block mx-auto"><div class="absolute inset-0 bg-red-500/30 blur-[30px] rounded-full"></div><div class="relative p-6 bg-red-500/10 rounded-full border border-red-500/30 w-fit backdrop-blur-md"><i class="fas fa-triangle-exclamation text-4xl text-red-500"></i></div></div>
+        <h2 class="text-4xl font-black uppercase italic text-slate-50">Pre-Flight</h2>
+        <div class="space-y-4 px-2">
+            <div class="instruction-card text-left border-red-500/20"><p class="text-[11px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-bolt"></i> Nerve Sensitivity</p><p class="text-[13px] text-slate-300">Stop for <span class="text-red-100 font-bold">electric or stinging</span> sensations. We target ligament expansion, not dermal irritation.</p></div>
+            <div class="instruction-card text-left border-blue-500/20"><p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-droplet"></i> Minimum Hydration</p><p class="text-[13px] text-slate-300">FALLING BELOW <span class="text-blue-100 font-bold underline decoration-blue-500/50">3L DAILY</span> creates brittle, tear-prone tissue. Water is the fuel for expansion.</p></div>
+        </div>
+        <div class="flex flex-col gap-4 w-full px-2 pt-4"><button id="primed-btn" class="btn-primary">I AM PRIMED</button><button id="preflight-back-btn" class="btn-outline">Return to HQ</button></div>
+    </div>
+</div>
+
+<!-- STEP 2: WARMUP -->
+
+<div id="step-2" class="step-content hidden-step">
+    <div class="inner-step-wrapper min-h-screen py-12 text-center space-y-6 relative">
+        <h2 class="text-4xl font-black italic uppercase pt-12">Steam Warmup</h2>
+        <div class="py-8 border-y border-slate-800/50 relative bg-slate-900/20 backdrop-blur-sm">
+            <div id="warmup-timer" class="text-9xl font-black timer-glow tabular-nums tracking-tighter text-blue-400">10:00</div>
+        </div>
+        <div class="px-2">
+            <div class="instruction-card warmup-carousel-wrap" style="min-height:155px;">
+                <div id="warmup-carousel-inner" style="position:relative;min-height:135px;"></div>
+            </div>
+            <div class="warmup-dots mt-3" id="warmup-dots"></div>
+        </div>
+        <div class="flex flex-col gap-4 px-2">
+            <div class="grid grid-cols-2 gap-4"><button id="warmup-btn" class="btn-primary py-4">Start</button><button id="warmup-reset-btn" class="btn-outline">Reset</button></div>
+            <button id="warmup-skip-btn" class="text-slate-500 font-black text-[10px] tracking-widest py-3">Skip to Mission Select</button>
+        </div>
+        <div class="scroll-buffer"></div>
+    </div>
+</div>
+
+<!-- STEP 3: MISSION SELECT -->
+
+<div id="step-3" class="step-content hidden-step">
+    <div class="inner-step-wrapper min-h-screen justify-center text-center space-y-8">
+        <h2 class="text-4xl font-black italic uppercase text-slate-50">Select Mission</h2>
+        <div id="deload-mission-note" class="hidden mx-2 deload-banner text-left"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><p class="text-orange-300 text-[11px]">Deload active — reduced volume loaded automatically.</p></div>
+
+```
+    <!-- Difficulty selector -->
+    <div class="px-2 space-y-2">
+        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Difficulty</p>
+        <div class="flex gap-2" id="diff-selector">
+            <button class="diff-btn diff-beginner"     data-diff="beginner"><i class="fas fa-seedling mr-1"></i>Beginner</button>
+            <button class="diff-btn diff-intermediate" data-diff="intermediate"><i class="fas fa-dumbbell mr-1"></i>Mid</button>
+            <button class="diff-btn diff-advanced"     data-diff="advanced"><i class="fas fa-bolt mr-1"></i>Advanced</button>
+            <button class="diff-btn diff-elite"        data-diff="elite"><i class="fas fa-skull-crossbones mr-1"></i>Elite</button>
+        </div>
+        <div id="diff-detail" class="text-[10px] text-slate-500 italic px-1"></div>
+        <p id="diff-recovery-note" class="hidden text-[10px] text-amber-500/70 italic px-1"><i class="fas fa-info-circle mr-1"></i>Difficulty does not apply to recovery sessions.</p>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 px-2 w-full">
+        <div class="grid grid-cols-2 gap-4">
+            <button id="mission-length-btn" class="instruction-card hover:border-blue-500/50 transition-all flex flex-col items-center gap-3 py-8"><i class="fas fa-up-right-and-down-left-from-center text-2xl text-blue-400"></i><span class="text-xl font-black uppercase italic">Length</span></button>
+            <button id="mission-girth-btn"  class="instruction-card hover:border-emerald-500/50 transition-all flex flex-col items-center gap-3 py-8"><i class="fas fa-expand text-2xl text-emerald-400"></i><span class="text-xl font-black uppercase italic">Girth</span></button>
+        </div>
+        <button id="mission-recovery-btn" class="instruction-card hover:border-amber-500/50 transition-all flex items-center gap-5 px-6 py-5 border-amber-500/20" style="border-color:rgba(245,158,11,0.15);">
+            <i class="fas fa-heart-pulse text-2xl text-amber-400 flex-shrink-0"></i>
+            <div class="text-left">
+                <p class="text-xl font-black uppercase italic text-amber-300">Recovery</p>
+                <p class="text-[10px] text-slate-500 font-semibold mt-0.5">Rest day protocol — kegels, RK stretch, flaccid work, blood flow</p>
+            </div>
+            <i class="fas fa-chevron-right text-slate-700 text-xs ml-auto flex-shrink-0"></i>
+        </button>
+    </div>
+    <button id="mission-abort-btn" class="text-slate-600 font-black uppercase text-[10px] pt-4">Abort Session</button>
+    <div class="scroll-buffer"></div>
+</div>
+```
+
+</div>
+
+<!-- STEP 4: PILOT ENGINE -->
+
+<div id="step-4" class="step-content hidden-step" style="z-index:11">
+    <div class="inner-step-wrapper min-h-screen py-6 text-center space-y-6 relative justify-center">
+        <div class="absolute top-0 right-2 bg-slate-900/80 border border-yellow-500/30 px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-lg" style="z-index:15"><i class="fas fa-bolt text-yellow-400 text-xs"></i><span id="live-xp" class="text-xs font-black text-yellow-400">0 XP</span></div>
+        <div class="flex justify-between items-center pb-2 px-2 mt-4" style="position:relative;z-index:15">
+            <div class="flex items-center gap-3">
+                <button id="ex-abort-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400"><i class="fas fa-xmark text-lg"></i></button>
+                <span id="ex-tag" class="text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">Phase 01</span>
+                <button id="dim-toggle-btn" class="dim-toggle-btn" title="Dim screen"><i class="fas fa-moon text-slate-400 text-sm"></i></button>
+            </div>
+            <div class="text-right"><p class="text-[8px] font-black text-slate-500 uppercase tracking-widest">Suggested EQ</p><p id="ex-eq-req" class="text-sm font-black text-blue-400 italic">3-4 EQ</p></div>
+        </div>
+        <div id="pip-container" class="flex justify-center gap-3" style="position:relative;z-index:15"></div>
+        <h2 id="ex-title" class="text-4xl font-black italic uppercase leading-none text-slate-50" style="position:relative;z-index:15">--</h2>
+        <div class="px-8" style="position:relative;z-index:15"><svg viewBox="0 0 200 80" class="tension-line"><path id="tension-path" d="M0,40 Q10,20 20,40 T40,40 T60,40 T80,40 T100,40 T120,40 T140,40 T160,40 T180,40 T200,40"/></svg></div>
+        <div class="instruction-card mx-2 bg-gradient-to-b from-slate-800/40 to-slate-900/60" style="position:relative;z-index:15">
+            <p id="ex-live-text" class="text-md font-semibold text-blue-100 italic mb-6">Ready...</p>
+            <div class="grid grid-cols-2 gap-6 w-full px-2 border-t border-slate-700/50 pt-5 text-left">
+                <div><p class="text-[9px] font-black text-emerald-400 uppercase mb-1.5">Optimal Feel</p><p id="feel-msg" class="text-[11px] text-slate-300 italic leading-relaxed font-medium">--</p></div>
+                <div class="border-l border-slate-700/50 pl-6"><p class="text-[9px] font-black text-red-400 uppercase mb-1.5">Danger Sign</p><p id="dont-feel-msg" class="text-[11px] text-slate-300 italic leading-relaxed font-medium">--</p></div>
+            </div>
+        </div>
+        <div id="deload-ex-badge" class="hidden" style="position:relative;z-index:15"><span class="text-[10px] font-black text-orange-400 uppercase tracking-widest bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-full"><i class="fas fa-battery-quarter mr-1.5"></i>Deload Volume</span></div>
+        <div class="py-4" style="position:relative;z-index:15"><div id="ex-timer" class="text-[11rem] font-black tracking-tighter tabular-nums leading-none timer-glow text-blue-400">30</div></div>
+        <div class="flex gap-4 px-2 pb-4" style="position:relative;z-index:15">
+            <button id="ex-btn" class="btn-primary py-6 text-xl">ENGAGE SET</button>
+            <button id="ex-pause-btn" class="hidden btn-outline w-24 items-center justify-center border-slate-700"><i id="pause-icon" class="fas fa-pause text-2xl"></i></button>
+        </div>
+    </div>
+</div>
+
+<!-- STEP 5: SUCCESS -->
+
+<div id="step-5" class="step-content hidden-step">
+    <div class="inner-step-wrapper py-12 space-y-8 text-center">
+        <i class="fas fa-check-double text-6xl text-emerald-400 drop-shadow-lg"></i>
+        <h2 class="text-4xl font-black italic uppercase text-slate-50">Mission Success</h2>
+        <p id="success-xp-text" class="text-yellow-400 font-bold text-sm">+0 XP EARNED</p>
+        <div class="instruction-card border-blue-500/20 mx-2 text-left">
+            <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2"><i class="fas fa-ruler-combined"></i> Log Measurements <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
+            <div class="measure-grid">
+                <div class="measure-field"><label class="text-blue-400">BPEL (inches)</label><input type="number" id="input-bpel" step="0.01" min="3" max="12" placeholder="e.g. 6.25"></div>
+                <div class="measure-field"><label class="text-emerald-400">MSEG (inches)</label><input type="number" id="input-mseg" step="0.01" min="3" max="10" placeholder="e.g. 4.75"></div>
+            </div>
+        </div>
+        <div class="instruction-card border-slate-700/30 mx-2 text-left">
+            <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-pen-to-square"></i> Session Note <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
+            <textarea id="session-note-input" class="glass-input h-20" placeholder="EQ was strong, good pump on girth work..."></textarea>
+        </div>
+        <div class="instruction-card border-purple-500/20 mx-2">
+            <p class="text-[11px] font-black text-purple-400 uppercase mb-3 flex items-center gap-2"><i class="fas fa-brain"></i> AI Recovery Analyst ✨</p>
+            <textarea id="ai-recovery-input" class="glass-input h-20 mb-4" placeholder="EQ around 5, great base tension..."></textarea>
+            <button id="ai-recovery-btn" class="btn-primary btn-ai py-4 text-sm">Analyze Recovery ✨</button>
+            <div id="ai-recovery-response" class="ai-response-box mt-4"></div>
+        </div>
+        <div class="px-2 w-full pt-2"><button id="finish-session-btn" class="btn-primary py-5 text-lg" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">CONFIRM HQ SYNC</button></div>
+        <div class="scroll-buffer"></div>
+    </div>
+</div>
+
+</div><!-- end app-container -->
+
+<!-- DAY MODAL -->
+
+<div id="type-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] hidden flex items-center justify-center p-6">
+    <div class="bg-slate-900/90 border border-slate-700 w-full max-w-xs rounded-[2rem] p-8 space-y-4">
+        <h3 class="text-center font-black uppercase italic text-slate-400 text-sm tracking-[0.2em] mb-6">Adjust intent</h3>
+        <div class="space-y-4">
+            <button id="modal-length-btn" class="w-full py-5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 font-black uppercase italic cursor-pointer">Length</button>
+            <button id="modal-girth-btn"  class="w-full py-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-black uppercase italic cursor-pointer">Girth</button>
+            <button id="modal-rest-btn"   class="w-full py-5 rounded-2xl bg-slate-800 border border-slate-700 text-slate-300 font-black uppercase italic cursor-pointer">Rest</button>
+        </div>
+        <div class="h-px w-full bg-slate-800 my-6"></div>
+        <button id="modal-toggle-btn"  class="w-full py-4 rounded-xl bg-slate-800/50 border border-slate-700 text-emerald-400 font-bold uppercase text-xs cursor-pointer">Toggle Log Status</button>
+        <button id="modal-dismiss-btn" class="w-full py-3 text-slate-500 font-bold uppercase text-[10px] cursor-pointer">Dismiss</button>
+    </div>
+</div>
+
+<!-- COACH MODAL -->
+
+<div id="coach-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900/95 border border-purple-500/30 w-full max-w-md rounded-[2rem] p-6 space-y-4 flex flex-col max-h-[90vh]">
+        <div class="flex justify-between items-center"><h3 class="font-black uppercase italic text-purple-400 tracking-widest"><i class="fas fa-brain"></i> AI Coach ✨</h3><button id="coach-close-btn" class="text-slate-500 cursor-pointer"><i class="fas fa-xmark text-xl"></i></button></div>
+        <div id="coach-chat-area" class="flex-grow overflow-y-auto bg-slate-950/50 rounded-xl p-4 border border-slate-800/80 text-sm text-slate-300 space-y-3 min-h-[200px]"><p class="italic text-slate-500 text-sm">Ask safety or mechanics questions...</p></div>
+        <div class="pt-2 flex flex-col gap-3">
+            <textarea id="coach-input" class="glass-input h-20" placeholder="Why is my EQ dropping?"></textarea>
+            <button id="coach-submit-btn" class="btn-primary btn-ai py-4 text-sm">Ask Question</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════════════════════════
+const DAY_NAMES=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const DIRECTIONALS=['OUT','UP','DOWN','LEFT','RIGHT'];
+const LEVELS=[{name:'Recruit',min:0},{name:'Operator',min:250},{name:'Specialist',min:750},{name:'Veteran',min:1500},{name:'Elite',min:3000},{name:'Legend',min:6000}];
+const DIFFICULTIES=[
+    {id:'beginner',     label:'Beginner',     durationMult:.5,  setsOffset:-1, xpMult:.7,  icon:'fa-seedling',      color:'text-emerald-400', activeCls:'diff-beginner'    },
+    {id:'intermediate', label:'Intermediate', durationMult:1.0, setsOffset: 0, xpMult:1.0, icon:'fa-dumbbell',      color:'text-blue-400',    activeCls:'diff-intermediate'},
+    {id:'advanced',     label:'Advanced',     durationMult:1.5, setsOffset:+1, xpMult:1.4, icon:'fa-bolt',          color:'text-purple-400',  activeCls:'diff-advanced'    },
+    {id:'elite',        label:'Elite',        durationMult:2.0, setsOffset:+2, xpMult:1.8, icon:'fa-skull-crossbones', color:'text-red-400',  activeCls:'diff-elite'       },
+];
+const MILESTONES=[
+    {id:'first_session', icon:'fa-flag',              color:'text-blue-400',    title:'First Blood',       desc:'First session complete. The journey has begun.',              trigger:p=>p.sessionLog.length===1},
+    {id:'streak_3',      icon:'fa-fire',              color:'text-orange-400',  title:'On a Roll',         desc:'3 sessions logged. Consistency is the multiplier.',           trigger:p=>p.completedDays.filter(Boolean).length>=3},
+    {id:'streak_7',      icon:'fa-fire-flame-curved', color:'text-red-400',     title:'Full Week',         desc:"7 days. Your tissue doesn't forget.",                         trigger:p=>p.completedDays.filter(Boolean).length===7},
+    {id:'xp_500',        icon:'fa-bolt',              color:'text-yellow-400',  title:'500 XP',            desc:'Half a thousand XP banked. You are no longer a beginner.',     trigger:p=>p.totalXp>=500},
+    {id:'xp_1000',       icon:'fa-star',              color:'text-yellow-300',  title:'1,000 XP',          desc:'Four digits. The protocol is now instinct.',                   trigger:p=>p.totalXp>=1000},
+    {id:'xp_3000',       icon:'fa-crown',             color:'text-amber-400',   title:'3,000 XP Elite',    desc:'Elite rank territory. Your discipline is exceptional.',        trigger:p=>p.totalXp>=3000},
+    {id:'first_measure', icon:'fa-ruler',             color:'text-blue-300',    title:'Baseline Locked',   desc:'First measurements logged. Now you have a starting point.',    trigger:p=>(p.measurements||[]).length===1},
+    {id:'measure_5',     icon:'fa-chart-line',        color:'text-emerald-400', title:'5 Checkpoints',     desc:'5 data points logged. Trends are forming.',                    trigger:p=>(p.measurements||[]).length===5},
+];
+const WARMUP_TIPS=[
+    {icon:'fa-shower',            color:'text-blue-400',   label:"Coach T's Protocol",   title:'Warm Shower — The Gold Standard',      body:"10 minutes under warm water is the most effective warmup available. Steam carries heat deeper into the tunica and suspensory ligaments than any hot towel or wrap ever can."},
+    {icon:'fa-temperature-high',  color:'text-orange-400', label:'Why Steam Wins',        title:'Steam Penetrates. Dry Heat Doesn\'t.', body:'The moisture in steam is what makes it superior. Water molecules carry thermal energy uniformly into the tissue — increasing ligament elasticity by up to 40% compared to surface-only dry heat.'},
+    {icon:'fa-droplets',          color:'text-cyan-400',   label:'Vascular Priming',      title:'Blood Flow is the Catalyst',           body:'Warm water vasodilates peripheral vessels, flooding the target tissue with nutrient-rich blood before any mechanical stress is applied. This is why consistent warmers gain faster.'},
+    {icon:'fa-shield-halved',     color:'text-emerald-400',label:'Injury Prevention',     title:'Cold Tissue Tears. Warm Tissue Expands.',body:'The tunica albuginea behaves like a rubber band — warm it and it yields safely. Work it cold and micro-tears accumulate. There are no shortcuts around this biology.'},
+    {icon:'fa-clock',             color:'text-purple-400', label:'Timing Science',        title:'Why 10 Minutes — Not 5',               body:'Core tissue temperature takes 8–10 minutes to fully equilibrate. Surface warmth sets in at 3 minutes, but the deep ligament structures stay cold until minute 8. Don\'t cut it short.'},
+    {icon:'fa-fire-flame-curved', color:'text-amber-400',  label:'Temperature Sweet Spot',title:'Warm, Not Hot',                        body:'Comfortable enough to stand under for the full 10 minutes. If the water is too hot to stay in, you\'re irritating skin and superficial vessels — not warming deep tissue. Find the sweet spot.'},
+    {icon:'fa-chart-line',        color:'text-yellow-400', label:'Long-Term Returns',     title:'The Warmup IS the Protocol',           body:'Athletes who skip warmup plateau 3–4× faster. Over a 6-month program, consistent warmers see measurably better outcomes in both length and girth. This 10 minutes is not optional.'},
+];
+const ROUTINES={
+    length:[
+        {title:'Directional Pulls',sets:3,duration:30,isDirectional:true,eq:'3-4 EQ',feel:'60-70% force at pubic bone ligament.',dontFeel:'Sharp internal pain or stinging skin.',cues:[{time:30,text:'Grip below glans. Pull {DIR} at firm 60% force.'},{time:5,text:'Exhale. Hold the bone tension.'}]},
+        {title:'V-Stretch',sets:3,duration:30,eq:'3-4 EQ',feel:'Pressurized lateral base flare. Moderate 50% force.',dontFeel:'Pinching base pain.',cues:[{time:30,text:'Thumb pins center. Hand pulls OUT. 50% force.'},{time:5,text:'Belly breath. Relax floor.'}]}
+    ],
+    girth:[
+        {title:'Uli Hold',sets:3,duration:30,eq:'7-8 EQ',feel:'Deep internal pressure — outer casing stretching from the inside out. Vascularity flush through the shaft.',dontFeel:'Sharp pain, glans engorgement, or any tingling/numbness.',cues:[{time:30,text:'70-80% EQ. Lock base with OK grip — or silicone ring if hands-free.'},{time:20,text:'Feel the internal expansion. Hold the trap. Do not squeeze tighter.'},{time:10,text:'Outer casing is stretching now — this is the adaptation signal.'},{time:3,text:'Release slowly. Let blood fully redistribute before next rep.'}]},
+        {title:'Squeeze Hold',sets:3,duration:30,eq:'7-8 EQ',feel:'Maximum expansion pressure held at base.',dontFeel:'Throbbing pain or visible discoloration.',cues:[{time:30,text:'OK grip at base. Squeeze and hold at maximum EQ.'},{time:10,text:'Maintain the hold. Do not release yet.'},{time:3,text:'Release slowly. Let blood redistribute.'}]},
+        {title:'Edging Compression',sets:2,duration:60,eq:'6-7 EQ',feel:'Deep internal pressure, expansion at base and mid-shaft.',dontFeel:'Glans engorgement or head pressure.',cues:[{time:60,text:'Both hands grip mid-shaft. Compress inward.'},{time:30,text:'Maintain compression. Breathe out slowly.'},{time:10,text:'Hold compression. Final stretch.'}]}
+    ],
+    recovery:[
+        {
+            title:'Kegel Contractions', sets:3, duration:60, isRecovery:true,
+            eq:'Soft — 0-3 EQ', feel:'Controlled voluntary contraction and full release. Symmetrical engagement.',
+            dontFeel:'Straining, breath-holding, or hip/glute compensation.',
+            cues:[
+                {time:60, text:'Fully relax the pelvic floor. Breath slow and deep.'},
+                {time:50, text:'Contract upward — squeeze as if stopping urine. 3 seconds.'},
+                {time:47, text:'Hold. Do not squeeze harder. Just sustain.'},
+                {time:44, text:'Full release. Feel the floor drop completely.'},
+                {time:30, text:'Halfway — maintain smooth rhythm. 3s on, 3s off.'},
+                {time:5,  text:'Final reps. Finish strong, release completely.'}
+            ]
+        },
+        {
+            title:'Reverse Kegel Stretch', sets:3, duration:45, isRecovery:true,
+            eq:'Soft — 0-2 EQ', feel:'Pelvic floor dropping and opening. Gentle downward pressure without strain.',
+            dontFeel:'Abdominal straining or bearing down with full force.',
+            cues:[
+                {time:45, text:'Inhale deep into the belly. Gently push down — floor releases.'},
+                {time:30, text:'Maintain the release. Stay relaxed. Belly stays full.'},
+                {time:15, text:'Deepen the breath. Let the floor drop further on each inhale.'},
+                {time:5,  text:'Exhale slowly. Reset before next set.'}
+            ]
+        },
+        {
+            title:'Pelvic Floor Release', sets:3, duration:45, isRecovery:true,
+            eq:'Soft — 0 EQ', feel:'Progressive tension melting from the pelvic floor. Deep tissue warmth and heaviness.',
+            dontFeel:'Straining, breath-holding, or any active pushing downward.',
+            cues:[
+                {time:45, text:'Sit or lie down. Close your eyes. Find your pelvic floor — do nothing with it yet.'},
+                {time:38, text:'Inhale slowly. Imagine the floor is a tight fist — begin to let it open.'},
+                {time:28, text:'Halfway through. The floor should feel wide and heavy. Let gravity do the work.'},
+                {time:15, text:'Deepen the release. Jaw loose, shoulders dropped. Floor follows.'},
+                {time:5,  text:'Take one full breath. Feel the floor completely soft before the next set.'}
+            ]
+        },
+        {
+            title:'Pelvic Floor Endurance Hold', sets:3, duration:60, isRecovery:true,
+            eq:'Soft — 0 EQ', feel:'Sustained low-intensity contraction without fatigue. Steady, even engagement.',
+            dontFeel:'Glute or thigh involvement. If those fire, the contraction is too intense.',
+            cues:[
+                {time:60, text:'Begin a 40% contraction — half of your max. Do not go harder.'},
+                {time:50, text:'Hold steady. Breathe normally. The contraction should not waver with your breath.'},
+                {time:35, text:'Check your glutes and thighs — they should be fully relaxed. Isolate the floor.'},
+                {time:20, text:'You are building endurance now, not strength. Keep it controlled and even.'},
+                {time:5,  text:'Slowly release over 3 seconds. Full rest before next set.'}
+            ]
+        }
+    ]
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUPABASE + PERSISTED STATE
+// ═══════════════════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://edqmujiczuvavlemfpaz.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkcW11amljenV2YXZsZW1mcGF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MDQyMTcsImV4cCI6MjA4OTk4MDIxN30.DGn__9ff5TIAL_a5YELE9yGlIRzyMop6QYh1LlmXMa8';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const DEFAULT_PERSISTED={schedule:['length','girth','rest','length','girth','rest','rest'],completedDays:[false,false,false,false,false,false,false],totalXp:0,sessionLog:[],measurements:[],seenMilestones:[],difficulty:'intermediate'};
+let persisted={...DEFAULT_PERSISTED};
+let currentUser = null;
+let _saveDebounce = null;
+
+async function loadPersisted(){
+    if(!currentUser)return;
+    try{
+        const {data,error} = await sb.from('user_data').select('*').eq('id',currentUser.id).single();
+        if(error||!data)return;
+        persisted = {
+            schedule:       data.schedule        || DEFAULT_PERSISTED.schedule,
+            completedDays:  data.completed_days  || DEFAULT_PERSISTED.completedDays,
+            totalXp:        data.total_xp        || 0,
+            sessionLog:     data.session_log     || [],
+            measurements:   data.measurements    || [],
+            seenMilestones: data.seen_milestones || [],
+            difficulty:     data.difficulty      || 'intermediate',
+        };
+    }catch(e){console.error('loadPersisted:',e)}
+}
+
+function savePersisted(){
+    // Debounce — batch rapid saves into one call
+    clearTimeout(_saveDebounce);
+    _saveDebounce = setTimeout(async()=>{
+        if(!currentUser)return;
+        try{
+            await sb.from('user_data').update({
+                schedule:       persisted.schedule,
+                completed_days: persisted.completedDays,
+                total_xp:       persisted.totalXp,
+                session_log:    persisted.sessionLog,
+                measurements:   persisted.measurements,
+                seen_milestones:persisted.seenMilestones,
+                difficulty:     persisted.difficulty,
+                updated_at:     new Date().toISOString(),
+            }).eq('id',currentUser.id);
+        }catch(e){console.error('savePersisted:',e)}
+    }, 800);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSION STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let session={step:-1,routineType:'length',exerciseIndex:0,setIndex:1,directionalIndex:0,xp:0,timer:null,warmupTimer:null,selectedDayIdx:null,dimMode:false,carouselInterval:null,carouselIdx:0};
+function resetSession(){
+    if(session.timer){session.timer.cancel();session.timer=null}
+    if(session.warmupTimer){session.warmupTimer.cancel();session.warmupTimer=null}
+    stopCarousel();
+    session.exerciseIndex=0;session.setIndex=1;session.directionalIndex=0;session.xp=0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIMER ENGINE (RAF-based, drift-free)
+// ═══════════════════════════════════════════════════════════════════════════
+function createTimer(dur,onTick,onDone){
+    let startMs=null,rem=dur,rafId=null,active=false,lastRep=dur+1;
+    const loop=now=>{
+        if(!active)return;
+        const e=Math.floor((now-startMs)/1000),c=Math.max(0,rem-e);
+        if(c!==lastRep){lastRep=c;onTick(c)}
+        if(c<=0){active=false;onDone();return}
+        rafId=requestAnimationFrame(loop);
+    };
+    return{
+        start(){if(active)return;active=true;startMs=performance.now();rafId=requestAnimationFrame(loop)},
+        pause(){if(!active)return;const e=Math.floor((performance.now()-startMs)/1000);rem=Math.max(0,rem-e);active=false;cancelAnimationFrame(rafId)},
+        resume(){if(active)return;active=true;startMs=performance.now();lastRep=rem+1;rafId=requestAnimationFrame(loop)},
+        cancel(){active=false;cancelAnimationFrame(rafId)},
+        isRunning:()=>active,
+        getRemaining:()=>{if(!active)return rem;return Math.max(0,rem-Math.floor((performance.now()-startMs)/1000))}
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HAPTIC
+// ═══════════════════════════════════════════════════════════════════════════
+function haptic(p=[40]){try{if(navigator.vibrate)navigator.vibrate(p)}catch(e){}}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DIFFICULTY
+// ═══════════════════════════════════════════════════════════════════════════
+function getDiff(){return DIFFICULTIES.find(d=>d.id===(persisted.difficulty||'intermediate'))||DIFFICULTIES[1]}
+function applyDifficulty(ex){
+    const d=getDiff();
+    return{
+        ...ex,
+        sets:     Math.max(1, ex.sets + d.setsOffset),
+        duration: Math.round(ex.duration * d.durationMult)
+    };
+}
+// Deload stacks on top of difficulty (additional -1 set, ×0.6 duration)
+// Triggers every 4th week based on session count — never fires for new users
+function isDeloadWeek(){
+    const count=(persisted.sessionLog||[]).length;
+    if(count<21)return false;
+    return Math.floor(count/7)%4===3;
+}
+function applyDeload(ex){
+    if(!isDeloadWeek())return ex;
+    return{...ex,sets:Math.max(1,ex.sets-1),duration:Math.round(ex.duration*.6)};
+}
+
+function setDifficulty(id){
+    persisted.difficulty=id;
+    savePersisted();
+    renderDifficultySelector();
+}
+function renderDifficultySelector(){
+    const diff=getDiff();
+    document.querySelectorAll('.diff-btn').forEach(btn=>{
+        const d=DIFFICULTIES.find(x=>x.id===btn.dataset.diff);
+        btn.classList.toggle('active-diff', btn.dataset.diff===diff.id);
+    });
+    const detail=document.getElementById('diff-detail');
+    const recovNote=document.getElementById('diff-recovery-note');
+    const isRecov=session.routineType==='recovery';
+    document.getElementById('diff-selector').style.opacity=isRecov?'0.3':'1';
+    document.getElementById('diff-selector').style.pointerEvents=isRecov?'none':'';
+    if(recovNote) recovNote.classList.toggle('hidden',!isRecov);
+    if(detail){
+        if(isRecov){detail.innerHTML='';return}
+        const d=getDiff();
+        const baseEx=ROUTINES.length[0];
+        const applied=applyDifficulty(baseEx);
+        detail.innerHTML=`${d.label}: ${applied.duration}s per set · ${applied.sets} sets · ${d.xpMult}× XP`;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WARMUP CAROUSEL
+// ═══════════════════════════════════════════════════════════════════════════
+function buildCarousel(){
+    const inner=document.getElementById('warmup-carousel-inner');
+    const dots=document.getElementById('warmup-dots');
+    inner.innerHTML='';dots.innerHTML='';
+    WARMUP_TIPS.forEach((tip,i)=>{
+        const s=document.createElement('div');
+        s.className=`warmup-tip-slide${i===0?' active':''}`;
+        s.innerHTML=`<div class="flex items-center gap-2"><i class="fas ${tip.icon} ${tip.color} text-sm"></i><span class="text-[9px] font-black uppercase tracking-[0.2em] ${tip.color}">${tip.label}</span></div><p class="text-sm font-bold text-white leading-snug">${tip.title}</p><p class="text-[12px] text-slate-400 leading-relaxed">${tip.body}</p>`;
+        inner.appendChild(s);
+        const d=document.createElement('div');
+        d.className=`warmup-dot${i===0?' active':''}`;
+        d.addEventListener('click',()=>jumpCarousel(i));
+        dots.appendChild(d);
+    });
+    session.carouselIdx=0;
+}
+function jumpCarousel(idx){
+    document.querySelectorAll('.warmup-tip-slide').forEach((s,i)=>s.classList.toggle('active',i===idx));
+    document.querySelectorAll('.warmup-dot').forEach((d,i)=>d.classList.toggle('active',i===idx));
+    session.carouselIdx=idx;
+}
+function advanceCarousel(){session.carouselIdx=(session.carouselIdx+1)%WARMUP_TIPS.length;jumpCarousel(session.carouselIdx)}
+function startCarousel(){stopCarousel();session.carouselInterval=setInterval(advanceCarousel,5000)}
+function stopCarousel(){if(session.carouselInterval){clearInterval(session.carouselInterval);session.carouselInterval=null}}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DIM MODE
+// ═══════════════════════════════════════════════════════════════════════════
+function toggleDimMode(){
+    session.dimMode=!session.dimMode;
+    const btn=document.getElementById('dim-toggle-btn');
+    document.getElementById('dim-overlay').style.opacity=session.dimMode?'1':'0';
+    document.getElementById('step-4').style.zIndex=session.dimMode?'12':'11';
+    btn.classList.toggle('lit',session.dimMode);
+    btn.querySelector('i').className=session.dimMode?'fas fa-sun text-yellow-400 text-sm':'fas fa-moon text-slate-400 text-sm';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MILESTONES
+// ═══════════════════════════════════════════════════════════════════════════
+let milestoneQueue=[];
+function checkMilestones(){
+    const unseen=MILESTONES.filter(m=>!persisted.seenMilestones.includes(m.id)&&m.trigger(persisted));
+    if(!unseen.length)return;
+    milestoneQueue.push(...unseen);
+    unseen.forEach(m=>persisted.seenMilestones.push(m.id));
+    savePersisted();processNextMilestone();
+}
+function processNextMilestone(){
+    if(!milestoneQueue.length)return;
+    const m=milestoneQueue.shift();
+    document.getElementById('milestone-icon').className=`fas ${m.icon} text-4xl ${m.color}`;
+    document.getElementById('milestone-title').innerText=m.title;
+    document.getElementById('milestone-desc').innerText=m.desc;
+    document.getElementById('milestone-modal').classList.add('show');
+    haptic([100,50,100,50,200]);
+}
+function closeMilestone(){document.getElementById('milestone-modal').classList.remove('show');setTimeout(processNextMilestone,300)}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROGRESS CHART
+// ═══════════════════════════════════════════════════════════════════════════
+function openProgressChart(){document.getElementById('chart-modal').classList.remove('hidden');renderProgressChart()}
+function closeProgressChart(){document.getElementById('chart-modal').classList.add('hidden')}
+function renderProgressChart(){
+    const meas=(persisted.measurements||[]).slice(-30);
+    const statsEl=document.getElementById('chart-stats');
+    if(meas.length<2){
+        statsEl.innerHTML=`<div class="col-span-2 text-center py-6 text-slate-600 text-sm italic">Log measurements after sessions to see trends here.</div>`;
+        drawEmpty('bpel-chart');drawEmpty('mseg-chart');return;
+    }
+    const first=meas[0],last=meas[meas.length-1];
+    const bg=(v,f)=>(!isNaN(v)&&!isNaN(f))?(v-f).toFixed(2):'—';
+    const bpelG=bg(parseFloat(last.bpel),parseFloat(first.bpel));
+    const msegG=bg(parseFloat(last.mseg),parseFloat(first.mseg));
+    statsEl.innerHTML=`
+        <div class="stat-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">BPEL Change</p><p class="text-xl font-black text-white" style="font-family:'JetBrains Mono',monospace">${bpelG!=='—'&&bpelG>0?'+':''}${bpelG}"</p></div>
+        <div class="stat-chip"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">MSEG Change</p><p class="text-xl font-black text-white" style="font-family:'JetBrains Mono',monospace">${msegG!=='—'&&msegG>0?'+':''}${msegG}"</p></div>
+        <div class="stat-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Current BPEL</p><p class="text-xl font-black text-white" style="font-family:'JetBrains Mono',monospace">${last.bpel||'—'}"</p></div>
+        <div class="stat-chip"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Current MSEG</p><p class="text-xl font-black text-white" style="font-family:'JetBrains Mono',monospace">${last.mseg||'—'}"</p></div>`;
+    drawLine('bpel-chart',meas.map(m=>m.bpel).filter(v=>!isNaN(parseFloat(v))).map(Number),meas.map(m=>m.date),'#3b82f6');
+    drawLine('mseg-chart',meas.map(m=>m.mseg).filter(v=>!isNaN(parseFloat(v))).map(Number),meas.map(m=>m.date),'#10b981');
+}
+function drawEmpty(id){
+    document.getElementById(id).innerHTML=`<text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="Inter,sans-serif" font-size="11" fill="#475569">No data yet</text>`;
+}
+function drawLine(id,vals,dates,color){
+    const svg=document.getElementById(id);
+    if(!vals.length){drawEmpty(id);return}
+    const W=340,H=160,T=16,R=16,B=30,L=38,cW=W-L-R,cH=H-T-B;
+    const minV=Math.min(...vals)*.995,maxV=Math.max(...vals)*1.005,range=maxV-minV||.1;
+    const xS=i=>L+(i/Math.max(vals.length-1,1))*cW;
+    const yS=v=>T+(1-(v-minV)/range)*cH;
+    const pts=vals.map((v,i)=>`${xS(i)},${yS(v)}`);
+    const pth=`M${pts.join(' L')}`;
+    const area=`M${xS(0)},${H-B} L${pts.join(' L')} L${xS(vals.length-1)},${H-B} Z`;
+    const fmt=iso=>{const d=new Date(iso);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})};
+    const lbl0=dates[0]?fmt(dates[0]):'',lblN=dates[dates.length-1]?fmt(dates[dates.length-1]):'';
+    const gid=`g_${id}`;
+    svg.innerHTML=`
+        <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".28"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+        ${[0,.5,1].map(t=>{const y=T+t*cH,v=(maxV-t*range).toFixed(2);return`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#1e293b" stroke-width="1"/><text x="${L-4}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="8" fill="#475569" font-family="'JetBrains Mono',monospace">${v}"</text>`}).join('')}
+        <path d="${area}" fill="url(#${gid})"/>
+        <path d="${pth}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 6px ${color}88)"/>
+        ${vals.map((v,i)=>`<circle cx="${xS(i)}" cy="${yS(v)}" r="3.5" fill="${color}" stroke="#020617" stroke-width="1.5"/>`).join('')}
+        <text x="${xS(0)}" y="${H-6}" text-anchor="middle" font-size="8" fill="#475569" font-family="Inter,sans-serif">${lbl0}</text>
+        <text x="${xS(vals.length-1)}" y="${H-6}" text-anchor="middle" font-size="8" fill="#475569" font-family="Inter,sans-serif">${lblN}</text>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AI ENGINE — Claude API
+// ═══════════════════════════════════════════════════════════════════════════
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+// Resolves with key string or null if user cancels
+function promptForKey(){
+    return new Promise(resolve=>{
+        const modal=document.getElementById('apikey-modal');
+        const input=document.getElementById('apikey-input');
+        const errEl=document.getElementById('apikey-error');
+        input.value=''; errEl.classList.add('hidden');
+        modal.classList.add('show');
+        const onSave=()=>{
+            const k=input.value.trim();
+            if(!k){errEl.textContent='Please enter a key.';errEl.classList.remove('hidden');return}
+            localStorage.setItem('bp_claude_key',k);
+            modal.classList.remove('show');
+            cleanup(); resolve(k);
+        };
+        const onCancel=()=>{modal.classList.remove('show');cleanup();resolve(null)};
+        const onKeydown=e=>{if(e.key==='Enter')onSave()};
+        document.getElementById('apikey-save-btn').addEventListener('click',onSave,{once:true});
+        document.getElementById('apikey-cancel-btn').addEventListener('click',onCancel,{once:true});
+        input.addEventListener('keydown',onKeydown);
+        function cleanup(){input.removeEventListener('keydown',onKeydown)}
+        setTimeout(()=>input.focus(),100);
+    });
+}
+
+async function getClaudeKey(){
+    const stored=localStorage.getItem('bp_claude_key');
+    if(stored) return stored;
+    return await promptForKey();
+}
+
+async function fetchClaude(userMsg, systemPrompt){
+    const key=await getClaudeKey();
+    if(!key)return{ok:false,error:'No API key — tap AI Coach to set one up.'};
+    try{
+        const res=await fetch('https://api.anthropic.com/v1/messages',{
+            method:'POST',
+            headers:{
+                'Content-Type':'application/json',
+                'x-api-key':key,
+                'anthropic-version':'2023-06-01',
+                'anthropic-dangerous-direct-browser-access':'true'
+            },
+            body:JSON.stringify({
+                model:'claude-sonnet-4-20250514',
+                max_tokens:1000,
+                system:systemPrompt,
+                messages:[{role:'user',content:userMsg}]
+            })
+        });
+        const data=await res.json();
+        // If 401, clear bad key and prompt again next time
+        if(res.status===401){localStorage.removeItem('bp_claude_key');return{ok:false,error:'Invalid API key. Tap AI Key in settings to update it.'}}
+        if(!res.ok)return{ok:false,error:data.error?.message||`HTTP ${res.status}`};
+        const text=data.content?.map(b=>b.type==='text'?b.text:'').join('')||'(No response)';
+        return{ok:true,text};
+    }catch(e){return{ok:false,error:e.message}}
+}
+
+async function askCoach(){
+    const inp=document.getElementById('coach-input'),btn=document.getElementById('coach-submit-btn'),area=document.getElementById('coach-chat-area');
+    const q=inp.value.trim();if(!q)return;
+    area.innerHTML+=`<div class="chat-msg user">${esc(q)}</div>`;inp.value='';btn.textContent='Thinking...';btn.disabled=true;area.scrollTop=area.scrollHeight;
+    const sys=`You are an expert male tissue expansion coach with deep knowledge of PE protocols, anatomy, and injury prevention. You give direct, safety-focused answers. Be concise — 2-4 sentences max unless the question genuinely needs more. Never use markdown formatting. Refer to yourself as Coach.`;
+    const r=await fetchClaude(q,sys);
+    if(r.ok) area.innerHTML+=`<div class="chat-msg ai">Coach: ${esc(r.text)}</div>`;
+    else area.innerHTML+=`<div class="chat-msg error"><i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}</div>`;
+    btn.textContent='Ask Question';btn.disabled=false;area.scrollTop=area.scrollHeight;
+}
+
+async function analyzeRecovery(){
+    const inp=document.getElementById('ai-recovery-input'),box=document.getElementById('ai-recovery-response'),btn=document.getElementById('ai-recovery-btn');
+    const log=inp.value.trim();if(!log)return;
+    box.className='ai-response-box mt-4';box.style.display='block';box.innerHTML='<i class="fas fa-spinner fa-spin"></i> Analyzing...';btn.disabled=true;
+    const sys=`You are a tissue expansion recovery analyst. The user will describe how their session felt — EQ, pump, fatigue, sensations. Give exactly 2 sentences: one assessing their recovery status, one actionable recommendation for their next session. No markdown. Be direct and specific.`;
+    const r=await fetchClaude(log,sys);
+    if(r.ok) box.innerHTML=esc(r.text);
+    else{box.className='ai-response-box ai-error mt-4';box.innerHTML=`<i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}`}
+    btn.disabled=false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LEVEL SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+function getLevelIdx(xp){for(let i=LEVELS.length-1;i>=0;i--)if(xp>=LEVELS[i].min)return i;return 0}
+function getLevelProg(xp){const i=getLevelIdx(xp),c=LEVELS[i],n=LEVELS[i+1];if(!n)return{name:c.name,pct:100,isMax:true};return{name:c.name,pct:Math.round(((xp-c.min)/(n.min-c.min))*100),isMax:false,xpToNext:n.min-xp}}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════════════════
+function goToStep(step){
+    if(session.timer){session.timer.cancel();session.timer=null}
+    if(session.warmupTimer){session.warmupTimer.cancel();session.warmupTimer=null}
+    stopCarousel();
+    if(session.dimMode){session.dimMode=false;document.getElementById('dim-overlay').style.opacity='0';document.getElementById('step-4').style.zIndex='11'}
+    session.step=step;
+    document.getElementById('rest-overlay').classList.add('hidden');
+    document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
+    const t=document.getElementById(`step-${step}`);t.classList.remove('hidden-step');t.classList.add('active-step');
+    if(step===0)renderDashboard();
+    if(step===2){resetWarmupUI();buildCarousel();startCarousel()}
+    if(step===3){document.getElementById('deload-mission-note').classList.toggle('hidden',!isDeloadWeek());renderDifficultySelector()}
+    if(step===4){resetSession();updateExUI()}
+    if(step===5){['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'})}
+}
+function nextStep(){if(session.step===2)goToStep(3);else goToStep(session.step+1)}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WARMUP
+// ═══════════════════════════════════════════════════════════════════════════
+function resetWarmupUI(){document.getElementById('warmup-timer').innerText='10:00';document.getElementById('warmup-btn').innerText='Start';if(session.warmupTimer){session.warmupTimer.cancel();session.warmupTimer=null}}
+function toggleWarmup(){
+    const btn=document.getElementById('warmup-btn');
+    if(!session.warmupTimer){
+        session.warmupTimer=createTimer(600,rem=>{const m=Math.floor(rem/60).toString().padStart(2,'0'),s=(rem%60).toString().padStart(2,'0');document.getElementById('warmup-timer').innerText=`${m}:${s}`},()=>{btn.innerText='Complete!';haptic([80,40,80,40,200]);setTimeout(()=>nextStep(),800)});
+        session.warmupTimer.start();btn.innerText='Pause';
+    }else if(session.warmupTimer.isRunning()){session.warmupTimer.pause();btn.innerText='Resume'}
+    else{session.warmupTimer.resume();btn.innerText='Pause'}
+}
+function stopWarmup(){if(session.warmupTimer){session.warmupTimer.cancel();session.warmupTimer=null}resetWarmupUI()}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXERCISE ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+function getCurEx(){const ex=ROUTINES[session.routineType][session.exerciseIndex];if(ex.isRecovery)return ex;return applyDeload(applyDifficulty(ex));}
+function updateExUI(){
+    const ex=getCurEx(),dl=isDeloadWeek();
+    document.getElementById('ex-title').innerText=ex.title;
+    document.getElementById('ex-eq-req').innerText=ex.eq;
+    document.getElementById('feel-msg').innerText=ex.feel;
+    document.getElementById('dont-feel-msg').innerText=ex.dontFeel;
+    _curExDuration=ex.duration;
+    document.getElementById('ex-timer').innerText=fmtDuration(ex.duration,ex.duration);
+    document.getElementById('ex-live-text').innerText='Ready...';
+    document.getElementById('ex-tag').innerText='Phase '+String(session.exerciseIndex+1).padStart(2,'0');
+    const isRecovSession=session.routineType==='recovery';
+    const timerEl=document.getElementById('ex-timer');
+    timerEl.className=isRecovSession?'text-[11rem] font-black tracking-tighter tabular-nums leading-none timer-glow text-amber-400':'text-[11rem] font-black tracking-tighter tabular-nums leading-none timer-glow text-blue-400';
+    const tagEl=document.getElementById('ex-tag');
+    tagEl.className=isRecovSession?'text-[10px] font-black uppercase px-3 py-1.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20':'text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20';
+    document.getElementById('deload-ex-badge').classList.toggle('hidden',!dl);
+    const eb=document.getElementById('ex-btn');
+    eb.innerText=session.directionalIndex>0?`NEXT DIR: ${DIRECTIONALS[session.directionalIndex]}`:`START ROUND ${session.setIndex}`;
+    eb.style.display='';
+    document.getElementById('ex-pause-btn').style.display='none';
+    document.getElementById('pause-icon').className='fas fa-pause text-2xl';
+    const pips=document.getElementById('pip-container');pips.innerHTML='';
+    for(let i=1;i<=ex.sets;i++){const p=document.createElement('div');p.className=`w-2 h-2 rounded-full ${i<=session.setIndex?'bg-blue-500 shadow-[0_0_10px_#3b82f6]':'bg-slate-800'}`;pips.appendChild(p)}
+}
+// _curExDuration tracks format so MM:SS stays consistent through the whole countdown
+let _curExDuration=0;
+function fmtDuration(sec,baseDur){
+    const useMinutes=(baseDur!==undefined?baseDur:_curExDuration)>=60;
+    if(useMinutes) return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
+    return String(sec);
+}
+function startSet(){
+    // Cancel any leftover timer (completed rest timer) before creating new one
+    if(session.timer){session.timer.cancel();session.timer=null;}
+    const ex=getCurEx();
+    _curExDuration=ex.duration;
+    document.getElementById('ex-btn').style.display='none';
+    document.getElementById('ex-pause-btn').style.display='flex';
+    document.getElementById('pause-icon').className='fas fa-pause text-2xl';
+    session.timer=createTimer(ex.duration,rem=>{
+        document.getElementById('ex-timer').innerText=fmtDuration(rem);
+        session.xp+=Math.round(5*getDiff().xpMult);document.getElementById('live-xp').innerText=`${session.xp} XP`;
+        const cue=[...ex.cues].reverse().find(c=>rem<=c.time);
+        if(cue)document.getElementById('ex-live-text').innerText=cue.text.replace('{DIR}',DIRECTIONALS[session.directionalIndex]);
+    },()=>onSetDone());
+    session.timer.start();
+}
+function pauseResumeSet(){
+    if(!session.timer)return;
+    const ic=document.getElementById('pause-icon');
+    if(session.timer.isRunning()){session.timer.pause();ic.className='fas fa-play text-2xl'}
+    else{session.timer.resume();ic.className='fas fa-pause text-2xl'}
+}
+function onSetDone(){
+    document.getElementById('ex-pause-btn').style.display='none';
+    session.timer=null;
+    haptic([60,30,60]);
+    const ex=getCurEx();
+    if(ex.isDirectional&&session.directionalIndex<DIRECTIONALS.length-1){session.directionalIndex++;document.getElementById('ex-timer').innerText=fmtDuration(ex.duration);updateExUI()}
+    else{session.directionalIndex=0;if(session.setIndex<ex.sets)startRest();else advanceEx()}
+}
+// ── Box breathing (4-4-4-4) ────────────────────────────────────────────
+const BOX_PHASES=[
+    {label:'INHALE', sub:'bear down — RK',d:'M10,110 L10,10',   secs:4},
+    {label:'HOLD',   sub:'stay full',     d:'M10,10 L110,10',   secs:4},
+    {label:'EXHALE', sub:'release breath', d:'M110,10 L110,110', secs:4},
+    {label:'HOLD',   sub:'stay empty',    d:'M110,110 L10,110', secs:4},
+];
+let _boxPhaseIdx=0, _boxPhaseElapsed=0, _boxInterval=null;
+
+function renderBoxPhase(){
+    const p=BOX_PHASES[_boxPhaseIdx];
+    document.getElementById('box-phase-label').innerText=p.label;
+    document.getElementById('box-phase-sub').innerText=p.sub;
+    document.getElementById('box-phase-count').innerText=p.secs;
+    // Light up completed sides
+    BOX_PHASES.forEach((_,i)=>{
+        const done=document.getElementById(`box-done-${i}`);
+        done.setAttribute('d', i<_boxPhaseIdx ? BOX_PHASES[i].d : '');
+    });
+    // Animate active segment
+    const seg=document.getElementById('box-active-seg');
+    seg.setAttribute('d',p.d);
+    seg.style.setProperty('--seg-dur',p.secs+'s');
+    seg.classList.remove('drawing');
+    void seg.getBoundingClientRect(); // force reflow
+    seg.classList.add('drawing');
+}
+
+function startBoxBreathing(){
+    stopBoxBreathing();
+    _boxPhaseIdx=0; _boxPhaseElapsed=0;
+    renderBoxPhase();
+    _boxInterval=setInterval(()=>{
+        _boxPhaseElapsed++;
+        const p=BOX_PHASES[_boxPhaseIdx];
+        const remaining=p.secs-_boxPhaseElapsed;
+        if(remaining>0){
+            document.getElementById('box-phase-count').innerText=remaining;
+        } else {
+            _boxPhaseIdx=(_boxPhaseIdx+1)%4;
+            _boxPhaseElapsed=0;
+            renderBoxPhase();
+        }
+    },1000);
+}
+
+function stopBoxBreathing(){
+    if(_boxInterval){clearInterval(_boxInterval);_boxInterval=null;}
+}
+
+function startRest(){
+    const ov=document.getElementById('rest-overlay');ov.classList.remove('hidden');ov.style.opacity='1';
+    startBoxBreathing();
+    session.timer=createTimer(30,rem=>{
+        document.getElementById('rest-timer').innerText=rem;
+    },()=>{
+        ov.classList.add('hidden');
+        stopBoxBreathing();
+        session.timer=null;session.setIndex++;updateExUI();haptic([100]);
+    });
+    session.timer.start();
+}
+function skipRest(){
+    if(session.timer){session.timer.cancel();session.timer=null}
+    stopBoxBreathing();
+    document.getElementById('rest-overlay').classList.add('hidden');
+    session.setIndex++;updateExUI();
+}
+function advanceEx(){
+    const exs=ROUTINES[session.routineType];
+    if(session.exerciseIndex<exs.length-1){session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI()}
+    else{haptic([100,50,100,50,300]);document.getElementById('success-xp-text').innerText=`+${session.xp} XP EARNED`;goToStep(5)}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+function renderDashboard(){
+    const g=document.getElementById('dashboard-grid');g.innerHTML='';
+    persisted.schedule.forEach((type,i)=>{
+        const d=document.createElement('div');
+        d.className=`calendar-day type-${type} ${i===new Date().getDay()?'active':''} ${persisted.completedDays[i]?'completed':''}`;
+        d.innerHTML=`<span>${DAY_NAMES[i]}</span><i class="fas ${type==='length'?'fa-up-right-and-down-left-from-center':type==='girth'?'fa-expand':'fa-bed'}"></i>`;
+        d.addEventListener('click',()=>{session.selectedDayIdx=i;document.getElementById('type-modal').classList.remove('hidden')});
+        g.appendChild(d);
+    });
+    document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
+    document.getElementById('hq-streak').innerText=`${persisted.completedDays.filter(Boolean).length} Day Streak`;
+    document.getElementById('hq-xp').innerText=`${persisted.totalXp} XP`;
+    const lvl=getLevelProg(persisted.totalXp);
+    document.getElementById('hq-level-name').innerText=lvl.name.toUpperCase();
+    document.getElementById('hq-level-bar').style.width=`${lvl.pct}%`;
+    document.getElementById('hq-level-next').innerText=lvl.isMax?'MAX LEVEL':`${lvl.xpToNext} XP to next rank`;
+    document.getElementById('deload-banner').classList.toggle('hidden',!isDeloadWeek());
+    const meas=persisted.measurements||[],lmr=document.getElementById('last-measure-row');
+    if(meas.length){const last=meas[meas.length-1];lmr.classList.remove('hidden');document.getElementById('last-bpel').innerText=last.bpel?`${last.bpel}"`:'—';document.getElementById('last-mseg').innerText=last.mseg?`${last.mseg}"`:'—'}
+    else lmr.classList.add('hidden');
+    renderLog();
+}
+function renderLog(){
+    const c=document.getElementById('session-log'),logs=(persisted.sessionLog||[]).slice(-5).reverse();
+    if(!logs.length){c.innerHTML=`<p class="text-slate-600 text-[11px] italic text-center py-4">No sessions logged yet.</p>`;return}
+    c.innerHTML=logs.map(log=>{
+        const d=new Date(log.date),lbl=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+        const icon=log.routineType==='length'?'fa-up-right-and-down-left-from-center':log.routineType==='girth'?'fa-expand':'fa-heart-pulse';
+        const color=log.routineType==='length'?'text-blue-400':log.routineType==='girth'?'text-emerald-400':'text-amber-400';
+        const note=log.note?`<span class="w-full text-slate-600 text-[10px] italic mt-0.5 truncate">${esc(log.note)}</span>`:'';
+        return`<div class="log-entry"><i class="fas ${icon} ${color} text-xs w-4 text-center"></i><span class="text-slate-300 capitalize text-[11px]">${log.routineType}</span><span class="text-slate-500 text-[10px]">${lbl}</span><span class="text-yellow-400 text-[10px] font-bold ml-auto">+${log.xpEarned} XP</span>${note}</div>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSION FINISH
+// ═══════════════════════════════════════════════════════════════════════════
+function finishSession(){
+    const bpel=parseFloat(document.getElementById('input-bpel').value);
+    const mseg=parseFloat(document.getElementById('input-mseg').value);
+    const note=document.getElementById('session-note-input').value.trim();
+    persisted.totalXp+=(session.routineType==='recovery'?50:session.xp);
+    if(session.routineType==='recovery')session.xp=50;
+    persisted.completedDays[new Date().getDay()]=true;
+    persisted.sessionLog.push({date:new Date().toISOString(),routineType:session.routineType,xpEarned:session.xp,note});
+    if(persisted.sessionLog.length>50)persisted.sessionLog=persisted.sessionLog.slice(-50);
+    if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);if(persisted.measurements.length>100)persisted.measurements=persisted.measurements.slice(-100)}
+    savePersisted();checkMilestones();goToStep(0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════════════════════════
+function exportData(){
+    const blob=new Blob([JSON.stringify(persisted,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download=`blueprint-backup-${new Date().toISOString().split('T')[0]}.json`;a.click();URL.revokeObjectURL(a.href);
+}
+function importData(file){
+    if(!file)return;
+    const r=new FileReader();
+    r.onload=e=>{
+        try{const p=JSON.parse(e.target.result);if(!p.sessionLog&&!p.schedule)throw new Error('invalid');
+            if(!confirm('This will overwrite all current data. Continue?'))return;
+            persisted={...DEFAULT_PERSISTED,...p};savePersisted();renderDashboard();alert('Data restored.');}
+        catch(err){alert('Import failed — invalid file.')}
+    };r.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════════════════════════
+function toggleDayCompletion(){persisted.completedDays[session.selectedDayIdx]=!persisted.completedDays[session.selectedDayIdx];savePersisted();closeModal();renderDashboard()}
+function assignDay(type){persisted.schedule[session.selectedDayIdx]=type;savePersisted();closeModal();renderDashboard()}
+function closeModal(){document.getElementById('type-modal').classList.add('hidden')}
+function openCoach(){document.getElementById('coach-modal').classList.remove('hidden')}
+function closeCoach(){document.getElementById('coach-modal').classList.add('hidden')}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTH ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+function showAuthScreen(){document.getElementById('auth-screen').classList.remove('hidden')}
+function hideAuthScreen(){document.getElementById('auth-screen').classList.add('hidden')}
+function setAuthError(msg){const el=document.getElementById('auth-error');el.textContent=msg;el.classList.toggle('show',!!msg);document.getElementById('auth-success').classList.remove('show')}
+function setAuthSuccess(msg){const el=document.getElementById('auth-success');el.textContent=msg;el.classList.toggle('show',!!msg);document.getElementById('auth-error').classList.remove('show')}
+let authMode='login';
+function switchAuthMode(mode){
+    authMode=mode;
+    document.getElementById('tab-login').classList.toggle('active',mode==='login');
+    document.getElementById('tab-signup').classList.toggle('active',mode==='signup');
+    document.getElementById('auth-confirm').classList.toggle('hidden',mode==='login');
+    document.getElementById('auth-submit-btn').textContent=mode==='login'?'SIGN IN':'CREATE ACCOUNT';
+    document.getElementById('auth-forgot-btn').classList.toggle('hidden',mode==='signup');
+    setAuthError('');setAuthSuccess('');
+}
+async function handleAuthSubmit(){
+    const email=document.getElementById('auth-email').value.trim();
+    const password=document.getElementById('auth-password').value;
+    const confirm=document.getElementById('auth-confirm').value;
+    const btn=document.getElementById('auth-submit-btn');
+    if(!email||!password){setAuthError('Please enter your email and password.');return}
+    if(authMode==='signup'&&password!==confirm){setAuthError('Passwords do not match.');return}
+    btn.textContent='Please wait...';btn.disabled=true;setAuthError('');
+    try{
+        let result;
+        if(authMode==='login') result=await sb.auth.signInWithPassword({email,password});
+        else{
+            result=await sb.auth.signUp({email,password});
+            if(!result.error&&result.data?.user&&!result.data.session){
+                setAuthSuccess('Check your email to confirm your account, then sign in.');
+                btn.textContent='CREATE ACCOUNT';btn.disabled=false;return;
+            }
+        }
+        if(result.error){setAuthError(result.error.message);btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';btn.disabled=false;return}
+    }catch(e){setAuthError(e.message);btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';btn.disabled=false}
+}
+async function handleForgotPassword(){
+    const email=document.getElementById('auth-email').value.trim();
+    if(!email){setAuthError('Enter your email address first.');return}
+    const {error}=await sb.auth.resetPasswordForEmail(email);
+    if(error)setAuthError(error.message);
+    else setAuthSuccess('Password reset email sent. Check your inbox.');
+}
+async function handleLogout(){
+    await sb.auth.signOut();
+    currentUser=null;persisted={...DEFAULT_PERSISTED};
+    showAuthScreen();
+    document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
+}
+async function onUserSignedIn(user){
+    currentUser=user;
+    document.getElementById('hq-user-email').textContent=user.email;
+    await loadPersisted();
+    hideAuthScreen();
+    const welcomed=localStorage.getItem('bp_welcomed_'+user.id);
+    if(welcomed){goToStep(0);}
+    else{
+        document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
+        const w=document.getElementById('step-welcome');
+        w.classList.remove('hidden-step');w.classList.add('active-step');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+function init(){
+    // Auth handled by onUserSignedIn — Welcome gate below
+    const initBtn      = document.getElementById('init-btn');
+    const checkLiab    = document.getElementById('check-liability');
+    const checkPain    = document.getElementById('check-pain');
+    const initHint     = document.getElementById('init-hint');
+    const lblLiab      = document.getElementById('lbl-liability');
+    const lblPain      = document.getElementById('lbl-pain');
+
+    function updateInitBtn(){
+        const both = checkLiab.checked && checkPain.checked;
+        initBtn.disabled = !both;
+        initHint.style.opacity = both ? '0' : '1';
+        lblLiab.style.borderColor = checkLiab.checked ? 'rgba(59,130,246,0.4)' : '';
+        lblPain.style.borderColor = checkPain.checked  ? 'rgba(239,68,68,0.4)' : '';
+    }
+    checkLiab.addEventListener('change', updateInitBtn);
+    checkPain.addEventListener('change', updateInitBtn);
+    initBtn.addEventListener('click', () => {
+        if(!checkLiab.checked || !checkPain.checked) return;
+        if(currentUser) localStorage.setItem('bp_welcomed_'+currentUser.id, '1');
+        goToStep(0);
+    });
+
+    try {
+    // HQ
+    document.getElementById('launch-btn').addEventListener('click',()=>goToStep(1));
+    document.getElementById('ai-coach-btn').addEventListener('click',openCoach);
+    document.getElementById('progress-btn').addEventListener('click',openProgressChart);
+    document.getElementById('export-btn').addEventListener('click',exportData);
+    document.getElementById('import-btn').addEventListener('click',()=>document.getElementById('import-file-input').click());
+    document.getElementById('import-file-input').addEventListener('change',e=>{importData(e.target.files[0]);e.target.value=''});
+    document.getElementById('reset-api-btn').addEventListener('click',()=>{localStorage.removeItem('bp_claude_key');alert('API key cleared. Open AI Coach to re-enter.')});
+    // Difficulty buttons
+    document.querySelectorAll('.diff-btn').forEach(btn=>{
+        btn.addEventListener('click',()=>setDifficulty(btn.dataset.diff));
+    });
+    // Pre-Flight
+    document.getElementById('primed-btn').addEventListener('click',nextStep);
+    document.getElementById('preflight-back-btn').addEventListener('click',()=>goToStep(0));
+    // Warmup
+    document.getElementById('warmup-btn').addEventListener('click',toggleWarmup);
+    document.getElementById('warmup-reset-btn').addEventListener('click',stopWarmup);
+    document.getElementById('warmup-skip-btn').addEventListener('click',nextStep);
+    // Mission Select
+    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';goToStep(4)});
+    document.getElementById('mission-girth-btn').addEventListener('click',()=>{session.routineType='girth';goToStep(4)});
+    document.getElementById('mission-recovery-btn').addEventListener('click',()=>{session.routineType='recovery';goToStep(4)});
+    document.getElementById('mission-abort-btn').addEventListener('click',()=>goToStep(0));
+    // Pilot Engine
+    document.getElementById('ex-abort-btn').addEventListener('click',()=>goToStep(0));
+    document.getElementById('ex-btn').addEventListener('click',startSet);
+    document.getElementById('ex-pause-btn').addEventListener('click',pauseResumeSet);
+    document.getElementById('dim-toggle-btn').addEventListener('click',toggleDimMode);
+    // Success
+    document.getElementById('ai-recovery-btn').addEventListener('click',analyzeRecovery);
+    document.getElementById('finish-session-btn').addEventListener('click',finishSession);
+    // Rest overlay
+    document.getElementById('rest-skip-btn').addEventListener('click',skipRest);
+    // Coach modal
+    document.getElementById('coach-submit-btn').addEventListener('click',askCoach);
+    document.getElementById('coach-close-btn').addEventListener('click',closeCoach);
+    document.getElementById('coach-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();askCoach()}});
+    // Day modal
+    document.getElementById('modal-length-btn').addEventListener('click',()=>assignDay('length'));
+    document.getElementById('modal-girth-btn').addEventListener('click',()=>assignDay('girth'));
+    document.getElementById('modal-rest-btn').addEventListener('click',()=>assignDay('rest'));
+    document.getElementById('modal-toggle-btn').addEventListener('click',toggleDayCompletion);
+    document.getElementById('modal-dismiss-btn').addEventListener('click',closeModal);
+    // Chart + Milestone
+    document.getElementById('chart-close-btn').addEventListener('click',closeProgressChart);
+    document.getElementById('milestone-close-btn').addEventListener('click',closeMilestone);
+    } catch(err) {
+        console.error('Blueprint init error:', err);
+    }
+}
+document.addEventListener('DOMContentLoaded', async ()=>{
+    init();
+    document.getElementById('tab-login').addEventListener('click',  ()=>switchAuthMode('login'));
+    document.getElementById('tab-signup').addEventListener('click',  ()=>switchAuthMode('signup'));
+    document.getElementById('auth-submit-btn').addEventListener('click', handleAuthSubmit);
+    document.getElementById('auth-forgot-btn').addEventListener('click', handleForgotPassword);
+    document.getElementById('auth-email').addEventListener('keydown',    e=>{if(e.key==='Enter')document.getElementById('auth-password').focus()});
+    document.getElementById('auth-password').addEventListener('keydown', e=>{if(e.key==='Enter')handleAuthSubmit()});
+    document.getElementById('auth-confirm').addEventListener('keydown',  e=>{if(e.key==='Enter')handleAuthSubmit()});
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    sb.auth.onAuthStateChange(async(event,session)=>{
+        if(session?.user) await onUserSignedIn(session.user);
+        else showAuthScreen();
+    });
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session) showAuthScreen();
+});
+</script>
+
+</body>
+</html>
