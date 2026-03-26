@@ -686,7 +686,10 @@
     <!-- Top bar -->
     <div class="flex justify-between items-center pb-3 px-2 mt-4" style="position:relative;z-index:15">
         <div class="flex items-center gap-3">
-            <button id="ex-abort-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400"><i class="fas fa-xmark text-lg"></i></button>
+            <!-- Back button — visible in ready state, hidden when active -->
+            <button id="ex-back-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 active:scale-95"><i class="fas fa-arrow-left text-sm"></i></button>
+            <!-- Abort button — visible when timer is running -->
+            <button id="ex-abort-btn" class="hidden w-10 h-10 flex items-center justify-center rounded-full bg-red-500/10 border border-red-500/20 text-red-400 active:scale-95"><i class="fas fa-xmark text-lg"></i></button>
             <span id="ex-tag" class="text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">Phase 01</span>
             <button id="dim-toggle-btn" class="dim-toggle-btn" title="Dim screen"><i class="fas fa-moon text-slate-400 text-sm"></i></button>
         </div>
@@ -2043,11 +2046,15 @@ function fmtDuration(sec,baseDur){
 function setFocusedMode(active){
     const panels=document.getElementById('ex-info-panels');
     const cuePanel=document.getElementById('ex-active-cue');
-    const pauseBtn=document.getElementById('ex-pause-btn');
     const pauseLbl=document.getElementById('pause-label');
+    const backBtn=document.getElementById('ex-back-btn');
+    const abortBtn=document.getElementById('ex-abort-btn');
     if(panels) panels.style.display=active?'none':'';
     if(cuePanel) cuePanel.classList.toggle('hidden',!active);
     if(pauseLbl) pauseLbl.innerText='Pause';
+    // Show back in ready state, abort when active
+    if(backBtn) backBtn.classList.toggle('hidden',active);
+    if(abortBtn) abortBtn.classList.toggle('hidden',!active);
 }
 
 function updateActiveCue(txt){
@@ -2833,6 +2840,11 @@ function init(){
     document.getElementById('mission-abort-btn').addEventListener('click',()=>goToStep(0));
     // Pilot Engine
     document.getElementById('ex-abort-btn').addEventListener('click',()=>goToStep(0));
+    document.getElementById('ex-back-btn').addEventListener('click',()=>{
+        // If it's a recovery session go back to picker, else mission select
+        if(session.routineType==='recovery') goToRecoveryPicker();
+        else goToStep(3);
+    });
     document.getElementById('ex-btn').addEventListener('click',startSet);
     document.getElementById('ex-pause-btn').addEventListener('click',pauseResumeSet);
     document.getElementById('dim-toggle-btn').addEventListener('click',toggleDimMode);
