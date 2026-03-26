@@ -129,6 +129,14 @@
         .ob-slide.exit{opacity:0;transform:translateX(-40px);}
         .ob-dot{width:6px;height:6px;border-radius:50%;background:#1e293b;transition:all .3s;}
         .ob-dot.active{background:#3b82f6;transform:scale(1.4);}
+        /* Manual */
+        #manual-modal{position:fixed;inset:0;background:rgba(2,6,23,.98);z-index:99992;backdrop-filter:blur(20px);display:none;flex-direction:column;overflow:hidden;}
+        #manual-modal.show{display:flex}
+        .manual-chapter{border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;transition:background .15s;}
+        .manual-chapter:active{background:rgba(255,255,255,.03)}
+        .manual-section{display:none;padding:1rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.04);}
+        .manual-section.open{display:block}
+        .manual-tag{display:inline-block;font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:.2rem .5rem;border-radius:999px;border:1px solid;margin-right:.3rem;margin-bottom:.3rem}
         /* Coach tip */
         .tip-card{background:linear-gradient(135deg,rgba(168,85,247,.08) 0%,rgba(15,23,42,.6) 100%);border:1px solid rgba(168,85,247,.2);border-radius:1.25rem;padding:.9rem 1rem}
         /* EQ check-in */
@@ -517,10 +525,13 @@
 
     <div class="px-2 space-y-3">
         <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-2 gap-2">
             <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
             <button id="weekly-report-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-calendar-week text-emerald-400 text-xs"></i> Week</button>
-            <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Coach</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+            <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Ask Coach Tee</button>
+            <button id="manual-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-book-open text-xs" style="color:#a855f7"></i> Manual</button>
         </div>
     </div>
     <div class="px-2 space-y-2">
@@ -686,10 +697,8 @@
     <!-- Top bar -->
     <div class="flex justify-between items-center pb-3 px-2 mt-4" style="position:relative;z-index:15">
         <div class="flex items-center gap-3">
-            <!-- Back button — visible in ready state, hidden when active -->
             <button id="ex-back-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 active:scale-95"><i class="fas fa-arrow-left text-sm"></i></button>
-            <!-- Abort button — visible when timer is running -->
-            <button id="ex-abort-btn" class="hidden w-10 h-10 flex items-center justify-center rounded-full bg-red-500/10 border border-red-500/20 text-red-400 active:scale-95"><i class="fas fa-xmark text-lg"></i></button>
+            <button id="ex-abort-btn" class="hidden"></button>
             <span id="ex-tag" class="text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">Phase 01</span>
             <button id="dim-toggle-btn" class="dim-toggle-btn" title="Dim screen"><i class="fas fa-moon text-slate-400 text-sm"></i></button>
         </div>
@@ -916,6 +925,361 @@
     </div>
     <button id="ob-next-btn" class="btn-primary py-5 w-full max-w-xs">Next</button>
     <button id="ob-skip-btn" class="text-slate-600 text-[10px] font-bold uppercase tracking-widest">Skip intro</button>
+</div>
+```
+
+</div>
+
+<!-- MANUAL MODAL -->
+
+<div id="manual-modal">
+    <div style="display:flex;flex-direction:column;height:100%;max-height:100vh;">
+
+```
+    <!-- Header -->
+    <div style="padding:3rem 1.25rem 1rem;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="text-[9px] font-black text-purple-400 uppercase tracking-[.25em] mb-1">The Blueprint</p>
+                <h2 class="text-3xl font-black italic uppercase text-white leading-none">User Manual</h2>
+                <p class="text-slate-500 text-[11px] mt-1">Everything you need to use this app correctly</p>
+            </div>
+            <button id="manual-close-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 flex-shrink-0 mt-1"><i class="fas fa-xmark text-lg"></i></button>
+        </div>
+    </div>
+
+    <!-- Scrollable content -->
+    <div style="flex:1;overflow-y:auto;padding-bottom:3rem;">
+
+        <!-- CHAPTER 1: THE HQ -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-hq')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-house text-blue-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">The HQ</p><p class="text-[10px] text-slate-500">Your dashboard and home base</p></div>
+                </div>
+                <i id="m-hq-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-hq" class="manual-section">
+            <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
+                <p>The HQ is your command center. Every time you open the app, this is where you land. Here is what everything means:</p>
+                <div class="space-y-3">
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-fire text-orange-400 mr-1.5"></i>Day Streak</p>
+                        <p>Counts how many days in a row you have completed a session. Any session type counts — length, girth, or recovery. The streak resets automatically at the start of a new week if you missed days.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-bolt text-yellow-400 mr-1.5"></i>XP & Rank</p>
+                        <p>XP is earned every session. The progress bar shows how close you are to the next rank. Ranks go: Recruit → Operative → Specialist → Expert → Master → Legend. Higher difficulty earns more XP per session.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-calendar-week text-slate-300 mr-1.5"></i>Weekly Calendar</p>
+                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, grey for Rest. Tap any day to change its assignment or mark it complete. Today is highlighted with a border.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-moon text-slate-300 mr-1.5"></i>Daily Check-In</p>
+                        <p>Log your sleep quality and soreness before every session. If you report moderate or high soreness, the app will recommend Recovery Protocol instead of training. This is not optional coaching — overtrained tissue does not adapt.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-droplet text-blue-400 mr-1.5"></i>Hydration Tracker</p>
+                        <p>Log your water intake throughout the day using the oz or L toggle. Tap the 1L, 2L, 3L milestone bubbles when you hit each one, or enter a custom amount. The minimum target is 3L daily. The app adjusts its hydration warning based on your difficulty level and time of day — a morning warning is encouragement, an evening warning at Advanced tier is serious.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-trophy text-yellow-400 mr-1.5"></i>Personal Records</p>
+                        <p>Shows your all-time bests: longest streak, highest single-session XP, and highest week XP. These update automatically when you break a record.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAPTER 2: TRAINING SESSIONS -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-training')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-dumbbell text-emerald-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">Training Sessions</p><p class="text-[10px] text-slate-500">Length, Girth, and how they work</p></div>
+                </div>
+                <i id="m-training-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-training" class="manual-section">
+            <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
+                <p>Tap <strong class="text-white">Begin Session</strong> to start. You will pass through a warmup phase, then arrive at Mission Select.</p>
+                <div class="space-y-3">
+                    <div class="p-3 rounded-xl bg-blue-500/05 border border-blue-500/20">
+                        <p class="text-blue-300 font-bold text-xs mb-1"><i class="fas fa-up-right-and-down-left-from-center mr-1.5"></i>Length Protocol</p>
+                        <p class="mb-2">Targets the suspensory ligament and tunica through directional tension. The session consists of one exercise: Directional Pulls.</p>
+                        <p><strong class="text-slate-300">Directional Pulls</strong> — 5 directions (Out, Up, Down, Left, Right) performed in sequence. Each direction is a separate timed set. The button always shows which direction you are working before you start. EQ target: 3–4 (flaccid to very soft).</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-emerald-500/05 border border-emerald-500/20">
+                        <p class="text-emerald-300 font-bold text-xs mb-1"><i class="fas fa-expand mr-1.5"></i>Girth Protocol</p>
+                        <p class="mb-2">Targets the tunica and internal chambers through hydraulic pressure. Four exercises run in sequence.</p>
+                        <div class="space-y-2 mt-2">
+                            <p><strong class="text-slate-300">Uli — Manual Clamp</strong> — Static pressure hold. OK grip at the base traps blood. Free hand milks more pressure in. EQ: 80%. Sets and duration scale with your difficulty tier.</p>
+                            <p><strong class="text-slate-300">Jelq — Manual Milk</strong> — Dynamic stroke from base to just before the head. 3 seconds per stroke. EQ: 60–80%. Duration scales with tier: 5 min (Beginner) to 15 min (Advanced).</p>
+                            <p><strong class="text-slate-300">Squeeze Hold</strong> — Maximum pressure hold at the base. Do not increase squeeze mid-hold. EQ: 80%.</p>
+                            <p><strong class="text-slate-300">Edging Compression</strong> — Lateral compression from both sides at mid-shaft. Breathe out to deepen. EQ: 60–70%.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAPTER 3: EQ EXPLAINED -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-eq')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-gauge-high text-purple-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">EQ — Erection Quality</p><p class="text-[10px] text-slate-500">The most important number in this protocol</p></div>
+                </div>
+                <i id="m-eq-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-eq" class="manual-section">
+            <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
+                <p>EQ is your Erection Quality on a scale of 1 to 10. It tells you how much blood volume is in the tissue and therefore what kind of stress it can handle.</p>
+                <div class="grid grid-cols-3 gap-2 my-3">
+                    <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center"><p class="font-black text-slate-300 text-lg">1–3</p><p class="text-[9px] text-slate-500 mt-0.5">Fully flaccid</p><p class="text-[9px] text-blue-400 mt-0.5">Length work</p></div>
+                    <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center"><p class="font-black text-slate-300 text-lg">6–8</p><p class="text-[9px] text-slate-500 mt-0.5">Semi-erect</p><p class="text-[9px] text-emerald-400 mt-0.5">Girth work</p></div>
+                    <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center"><p class="font-black text-slate-300 text-lg">9–10</p><p class="text-[9px] text-slate-500 mt-0.5">Full erection</p><p class="text-[9px] text-red-400 mt-0.5">Stop training</p></div>
+                </div>
+                <div class="space-y-3">
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">Why does EQ matter so much?</p>
+                        <p>Too soft during girth work means there is not enough internal pressure to stress the tissue — you are wasting the set. Too hard means the tissue is fully pressurized with no room to expand — you risk microtears and overstress. The target EQ for each exercise is the sweet spot where pressure is high enough to create adaptation but not so high that you risk injury.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">EQ Check-In After Sessions</p>
+                        <p>After every session the app asks you to rate your EQ during training. This data feeds your weekly report so you can track whether your EQ is trending up or down over time. Low EQ trends often correlate with poor sleep, low hydration, or overtraining.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">EQ and the Elite Tier</p>
+                        <p>Unlocking Elite requires a sustained average EQ of 9+ across your last 10 sessions. This requirement exists because Elite volume is only safe when vascular function is at its peak. If your EQ is not consistently high, the load will outpace your capacity.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAPTER 4: DIFFICULTY TIERS -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-tiers')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">Difficulty Tiers</p><p class="text-[10px] text-slate-500">Beginner through Elite — how locking works</p></div>
+                </div>
+                <i id="m-tiers-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-tiers" class="manual-section">
+            <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
+                <p>The app has four difficulty tiers. They control the duration and number of sets for every exercise. Higher tiers earn more XP per session.</p>
+                <div class="space-y-2">
+                    <div class="p-3 rounded-xl bg-emerald-500/05 border border-emerald-500/20">
+                        <p class="text-emerald-300 font-bold text-xs mb-1"><i class="fas fa-seedling mr-1.5"></i>Beginner</p>
+                        <p>Default starting tier. Shorter durations, fewer sets. Designed to condition the tissue before increasing load. Everyone starts here.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-blue-500/05 border border-blue-500/20">
+                        <p class="text-blue-300 font-bold text-xs mb-1"><i class="fas fa-dumbbell mr-1.5"></i>Intermediate</p>
+                        <p>Standard working tier for most users. Unlocks immediately. This is where the majority of your training will happen.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-purple-500/05 border border-purple-500/20">
+                        <p class="text-purple-300 font-bold text-xs mb-1"><i class="fas fa-bolt mr-1.5"></i>Advanced</p>
+                        <p>Requires 4 weeks at Intermediate before unlocking. The timer starts from the moment you first select Intermediate. This 4-week lock is not arbitrary — collagen remodeling takes a minimum of 3–4 weeks. Rushing this stage is the number one cause of injuries in this protocol.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-red-500/05 border border-red-500/20">
+                        <p class="text-red-300 font-bold text-xs mb-1"><i class="fas fa-skull-crossbones mr-1.5"></i>Elite</p>
+                        <p>Requires 4 weeks at Advanced AND a sustained average EQ of 9+ across your last 10 sessions. Both requirements must be met simultaneously. Tapping the locked Elite button shows you exactly what is needed.</p>
+                    </div>
+                </div>
+                <div class="p-3 rounded-xl bg-orange-500/05 border border-orange-500/20">
+                    <p class="text-orange-300 font-bold text-xs mb-1"><i class="fas fa-battery-quarter mr-1.5"></i>Deload Weeks</p>
+                    <p>Every 4th calendar week is automatically a deload week. Volume reduces slightly and the app flags it with an orange banner. Deload weeks are when most of your gains actually consolidate — do not skip them or try to override them.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAPTER 5: RECOVERY PROTOCOL -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-recovery')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-heart-pulse text-amber-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">Recovery Protocol</p><p class="text-[10px] text-slate-500">8 exercises — the other half of the protocol</p></div>
+                </div>
+                <i id="m-recovery-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-recovery" class="manual-section">
+            <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
+                <p>Recovery is not a rest from the protocol — it is the other half of it. Gains happen during recovery. The 8 exercises are split into two categories.</p>
+                <div class="space-y-3">
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-2">Pelvic Floor Work (4 exercises)</p>
+                        <p class="mb-2"><strong class="text-slate-300">Kegel Contractions</strong> — Trains voluntary contraction. Stronger contractions mean better blood flow and better EQ during training. 3 sets × 60s. 3 seconds on, 3 seconds full release.</p>
+                        <p class="mb-2"><strong class="text-slate-300">Reverse Kegel Stretch</strong> — The antagonist to the kegel. Trains the floor to fully release. A floor that cannot release cannot expand. 3 sets × 45s. Inhale deep, gently bear down.</p>
+                        <p class="mb-2"><strong class="text-slate-300">Pelvic Floor Release</strong> — Deep passive decompression using breath and gravity. No active movement. 3 sets × 45s.</p>
+                        <p><strong class="text-slate-300">Pelvic Floor Endurance Hold</strong> — 40% contraction sustained for the full set. Builds motor control and stamina, not peak strength. 3 sets × 60s.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-2">The Big Four (4 exercises)</p>
+                        <p class="mb-2"><strong class="text-slate-300">Deep Squat — Malasana</strong> — Opens the pelvic outlet. The mechanical foundation of length work. Feet flat, elbows nudging knees wide. 2 sets × 60s.</p>
+                        <p class="mb-2"><strong class="text-slate-300">Happy Baby</strong> — Fastest way to turn off a tight pelvic floor. On your back, feet grabbed, knees toward armpits. Rock side to side. 2 sets × 45s.</p>
+                        <p class="mb-2"><strong class="text-slate-300">Pigeon Pose</strong> — Targets the glutes and deep hip rotators that pull on the pelvis from sitting. One leg folded in front, other stretched back. 2 sets × 60s (switch sides each set).</p>
+                        <p><strong class="text-slate-300">Butterfly Stretch</strong> — Releases the adductors (inner thighs) which are directly linked to pelvic floor tension. Soles together, knees out, hinge forward at the hips. 2 sets × 45s.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-amber-500/05 border border-amber-500/20">
+                        <p class="text-amber-300 font-bold text-xs mb-1">Daily Recommendations</p>
+                        <p>The app recommends different exercises based on time of day. Morning: open the hips (Squat + Happy Baby). Afternoon: counteract sitting (Pigeon + Butterfly). Night: pelvic floor protocol (all 4 floor exercises). You can always customize the selection or tap Select All 8.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-red-500/05 border border-red-500/20">
+                        <p class="text-red-300 font-bold text-xs mb-1">Rest Day Enforcement</p>
+                        <p>On scheduled rest days, Length and Girth missions are locked. You can only access Recovery Protocol. This is intentional. The tissue needs full mechanical rest between sessions.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAPTER 6: ASK COACH TEE -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-coach')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-comment-dots text-purple-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">Ask Coach Tee</p><p class="text-[10px] text-slate-500">Your AI training advisor</p></div>
+                </div>
+                <i id="m-coach-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-coach" class="manual-section">
+            <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
+                <p>Ask Coach Tee is an AI advisor built specifically for this protocol. It knows PE mechanics, pelvic floor anatomy, injury prevention, and the science behind every exercise in this app.</p>
+                <div class="space-y-3">
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">What to ask</p>
+                        <p>Ask about technique, soreness, EQ issues, exercise modifications, hydration, recovery timing, or anything else related to the protocol. Coach Tee gives direct, no-fluff answers like a knowledgeable friend — not medical disclaimers.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">Setup</p>
+                        <p>Coach Tee requires a Claude API key to function. Tap the AI Key button in the Data Management section of the HQ to enter your key. The key is stored locally on your device and never shared. You can get a key at console.anthropic.com.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">Daily Tip</p>
+                        <p>Every day a new Coach Tee tip appears on the HQ. These rotate through 15 curated insights covering consistency, tissue science, hydration, EQ, warmup, and recovery. They change automatically at midnight.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAPTER 7: PROGRESS & DATA -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-progress')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-chart-line text-blue-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">Progress & Data</p><p class="text-[10px] text-slate-500">Measurements, reports, and session history</p></div>
+                </div>
+                <i id="m-progress-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-progress" class="manual-section">
+            <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
+                <div class="space-y-3">
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">Logging Measurements</p>
+                        <p>After every session the success screen gives you the option to log BPEL (Bone-Pressed Erect Length) and MSEG (Mid-Shaft Erect Girth) in inches. These are optional but recommended. The app stores every measurement and plots them on a chart in the Progress section. Do not measure more than once every 2–4 weeks — daily measuring creates anxiety and the changes are too small to register accurately.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">EQ & RPE Logging</p>
+                        <p>After each session you rate your EQ during training (1–10) and your RPE — Rate of Perceived Exertion (1–10, where 10 is maximum effort). These numbers feed the weekly report with trend insights: EQ trending down may signal overtraining or poor sleep, high RPE week-over-week may flag that a deload is needed.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">Weekly Report</p>
+                        <p>Tap the Week button on the HQ for your 7-day summary: total XP, sessions completed, average EQ with trend, average RPE with coaching insight, active days, and your latest measurements. The report also shows your 5 most recent sessions with type, EQ, and RPE. Tap View Full History for every session ever logged.</p>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                        <p class="text-white font-bold text-xs mb-1">Export & Import</p>
+                        <p>All your data can be exported as a JSON file from the Data Management section at the bottom of the HQ. Keep this as a backup. You can import it back at any time if you ever need to restore your progress.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAPTER 8: SAFETY -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-safety')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-triangle-exclamation text-red-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">Safety & Warning Signs</p><p class="text-[10px] text-slate-500">When to stop — no exceptions</p></div>
+                </div>
+                <i id="m-safety-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-safety" class="manual-section">
+            <div class="space-y-3 text-[12px] text-slate-400 leading-relaxed">
+                <div class="p-3 rounded-xl bg-red-950/40 border border-red-500/30">
+                    <p class="text-red-300 font-bold text-xs mb-2">Stop immediately if you experience:</p>
+                    <ul class="space-y-1.5">
+                        <li class="flex items-start gap-2"><i class="fas fa-xmark text-red-400 mt-0.5 flex-shrink-0"></i><span>Sharp, electric, or stinging pain during any exercise</span></li>
+                        <li class="flex items-start gap-2"><i class="fas fa-xmark text-red-400 mt-0.5 flex-shrink-0"></i><span>Tingling or numbness anywhere in the tissue</span></li>
+                        <li class="flex items-start gap-2"><i class="fas fa-xmark text-red-400 mt-0.5 flex-shrink-0"></i><span>Visible discoloration (dark purple or bruising)</span></li>
+                        <li class="flex items-start gap-2"><i class="fas fa-xmark text-red-400 mt-0.5 flex-shrink-0"></i><span>Glans (head) engorgement or pressure during Uli or Squeeze</span></li>
+                        <li class="flex items-start gap-2"><i class="fas fa-xmark text-red-400 mt-0.5 flex-shrink-0"></i><span>Coldness or loss of sensation at the glans</span></li>
+                        <li class="flex items-start gap-2"><i class="fas fa-xmark text-red-400 mt-0.5 flex-shrink-0"></i><span>Any pain that persists more than 24 hours after a session</span></li>
+                    </ul>
+                </div>
+                <div class="p-3 rounded-xl bg-orange-950/30 border border-orange-500/20">
+                    <p class="text-orange-300 font-bold text-xs mb-1">Normal sensations vs warning signs</p>
+                    <p>A mild dull ache at the base after length work is normal and usually means the ligament was loaded. Skin-level soreness from jelqing without enough lube is a technique error, not an injury, but stop and reapply. Fatigue in the pelvic floor after kegel work is expected. Any sharp, electric, or stinging sensation is a hard stop — no exceptions.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">The soreness check-in</p>
+                    <p>Log your soreness daily on the HQ. The app will recommend Recovery Protocol if you report moderate or high soreness. Follow this recommendation. Training through soreness does not accelerate gains — it creates scar tissue that limits future adaptation.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHAPTER 9: TIPS FOR BEST RESULTS -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-tips')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-lightbulb text-yellow-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">Tips for Best Results</p><p class="text-[10px] text-slate-500">What separates guys who gain from guys who plateau</p></div>
+                </div>
+                <i id="m-tips-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-tips" class="manual-section">
+            <div class="space-y-3 text-[12px] text-slate-400 leading-relaxed">
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Never skip the warmup</p>
+                    <p>The 10-minute warmup phase is not optional. Collagen does not stretch when cold. Guys who skip warmup plateau 3–4 times faster than consistent warmers. Use a warm towel, warm shower, or the warmup timer in the app.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Hydration is structural</p>
+                    <p>Water is the primary component of connective tissue. Dehydrated collagen is brittle and resistant to expansion. Hit 3L daily, spread throughout the day in sips — not chugged before training.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Sleep is when you grow</p>
+                    <p>Growth hormone peaks during deep sleep. The tissue you stressed during training remodels and expands during sleep. 7–9 hours is part of the protocol, not a bonus.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Consistency over intensity</p>
+                    <p>One solid session per week for 6 months beats aggressive daily training for 2 weeks then quitting. The tissue needs repeated, consistent stimulation with adequate recovery between sessions.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Do the Recovery Protocol</p>
+                    <p>The Big Four and pelvic floor work on rest days is what separates gainers from plateauers. Hip flexibility directly affects pelvic function. Tight adductors keep the hang retracted. These exercises are not optional extras.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Trust the tier locks</p>
+                    <p>The 4-week locks on Advanced and Elite are not obstacles — they are the protocol. Your tissue adapts in layers. Jumping tiers before the minimum time causes injury, not faster gains.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-5 py-6 text-center">
+            <p class="text-slate-600 text-[10px] italic">The Blueprint — built by CoachTee</p>
+        </div>
+
+    </div>
 </div>
 ```
 
@@ -2052,9 +2416,7 @@ function setFocusedMode(active){
     if(panels) panels.style.display=active?'none':'';
     if(cuePanel) cuePanel.classList.toggle('hidden',!active);
     if(pauseLbl) pauseLbl.innerText='Pause';
-    // Show back in ready state, abort when active
-    if(backBtn) backBtn.classList.toggle('hidden',active);
-    if(abortBtn) abortBtn.classList.toggle('hidden',!active);
+    // Back button always visible
 }
 
 function updateActiveCue(txt){
@@ -2568,6 +2930,23 @@ function showTierLockInfo(tierId){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// MANUAL
+// ═══════════════════════════════════════════════════════════════════════════
+function toggleManualSection(id){
+    const section=document.getElementById(id);
+    const chevron=document.getElementById(id+'-chevron');
+    const isOpen=section.classList.contains('open');
+    // Close all sections first
+    document.querySelectorAll('.manual-section').forEach(s=>s.classList.remove('open'));
+    document.querySelectorAll('[id$="-chevron"]').forEach(c=>{c.style.transform='';});
+    // Open selected if it was closed
+    if(!isOpen){
+        section.classList.add('open');
+        if(chevron) chevron.style.transform='rotate(180deg)';
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SESSION HISTORY
 // ═══════════════════════════════════════════════════════════════════════════
 function showSessionHistory(){
@@ -2841,7 +3220,11 @@ function init(){
     // Pilot Engine
     document.getElementById('ex-abort-btn').addEventListener('click',()=>goToStep(0));
     document.getElementById('ex-back-btn').addEventListener('click',()=>{
-        // If it's a recovery session go back to picker, else mission select
+        // Stop any running timer first
+        if(session.timer){session.timer.cancel();session.timer=null;}
+        stopBoxBreathing();
+        document.getElementById('rest-overlay').classList.add('hidden');
+        setFocusedMode(false);
         if(session.routineType==='recovery') goToRecoveryPicker();
         else goToStep(3);
     });
@@ -2873,6 +3256,8 @@ function init(){
     document.getElementById('modal-dismiss-btn').addEventListener('click',closeModal);
     // Chart + Milestone
     document.getElementById('chart-close-btn').addEventListener('click',closeProgressChart);
+    document.getElementById('manual-btn').addEventListener('click',()=>document.getElementById('manual-modal').classList.add('show'));
+    document.getElementById('manual-close-btn').addEventListener('click',()=>document.getElementById('manual-modal').classList.remove('show'));
     document.getElementById('history-close-btn').addEventListener('click',()=>document.getElementById('history-modal').style.display='none');
     document.getElementById('ob-next-btn').addEventListener('click',obNext);
     document.getElementById('ob-skip-btn').addEventListener('click',hideOnboarding);
