@@ -102,6 +102,9 @@
         .diff-btn.locked::after{content:'🔒';position:absolute;top:-6px;right:-4px;font-size:.65rem}
         /* Hydration warning */
         .hydration-warning{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:1rem;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem}
+        /* Soreness warning modal */
+        #soreness-warning-modal{position:fixed;inset:0;background:rgba(2,6,23,.95);z-index:99995;backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:2rem}
+        #soreness-warning-modal.show{display:flex}
         /* Blackout day */
         .blackout-banner{background:linear-gradient(135deg,rgba(99,102,241,.1) 0%,rgba(15,23,42,.6) 100%);border:1px solid rgba(99,102,241,.25);border-radius:1rem;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem}
         /* Elite requirement badge */
@@ -375,7 +378,7 @@
         <div class="flex justify-between items-end px-2">
             <div>
                 <h1 class="text-4xl font-black tracking-tighter uppercase italic leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">The HQ</h1>
-                <p id="hq-user-email" class="text-[9px] text-slate-600 font-semibold mt-1 truncate max-w-[160px]"></p>
+                <p id="hq-user-email" class="hidden"></p>
                 <div class="flex items-center gap-3 mt-3">
                     <div class="bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-fire text-orange-500 text-[10px]"></i><span id="hq-streak" class="text-[10px] font-bold text-orange-100">0 Day Streak</span></div>
                     <div class="bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-bolt text-yellow-400 text-[10px]"></i><span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span></div>
@@ -772,6 +775,20 @@
         </div>
         <div id="weekly-report-content" class="space-y-4"></div>
         <div class="scroll-buffer"></div>
+    </div>
+</div>
+
+<!-- SORENESS WARNING MODAL -->
+
+<div id="soreness-warning-modal">
+    <div style="background:linear-gradient(145deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);border:1px solid rgba(239,68,68,.3);border-top:1px solid rgba(239,68,68,.5);border-radius:2rem;padding:2rem;max-width:20rem;width:100%;text-align:center;">
+        <i class="fas fa-triangle-exclamation text-red-400 text-4xl mb-4"></i>
+        <h3 class="text-xl font-black uppercase italic text-white mb-3">Recovery Recommended</h3>
+        <p id="soreness-warning-msg" class="text-slate-400 text-sm leading-relaxed mb-6"></p>
+        <div class="flex gap-3">
+            <button id="soreness-go-recovery-btn" class="btn-primary py-4 text-sm" style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%)">Go to Recovery</button>
+            <button id="soreness-dismiss-btn" class="btn-outline py-4 text-sm">Dismiss</button>
+        </div>
     </div>
 </div>
 
@@ -1308,8 +1325,8 @@ function renderDifficultySelector(){
         btn.classList.toggle('active-diff', tid===diff.id);
         btn.classList.toggle('locked', locked);
         btn.title=locked?(getTierUnlockInfo(tid)||'Locked'):'';
-        if(locked) btn.onclick=(e)=>{e.preventDefault();showTierLockInfo(tid);return false};
-        else btn.onclick=null;
+        // Store locked state as data attr, handled by delegated listener
+        btn.dataset.locked = locked ? 'true' : '';
     });
     // Show Elite requirement badge if on advanced
     const eliteNote=document.getElementById('elite-req-note');
@@ -2029,6 +2046,22 @@ function setSleep(val){
 function setSoreness(val){
     localStorage.setItem(getTodaySorenessKey(), val);
     renderSleepSoreness();
+    // Show recovery recommendation for any soreness
+    if(val==='mild'||val==='moderate'||val==='high'){
+        showSorenessWarning(val);
+    }
+}
+
+function showSorenessWarning(level){
+    const modal=document.getElementById('soreness-warning-modal');
+    const msg=document.getElementById('soreness-warning-msg');
+    const msgs={
+        mild:'Mild soreness detected. Your tissue is still recovering from the last session. Consider switching to Recovery Protocol today — The Big Four and pelvic work will support adaptation without adding stress.',
+        moderate:'Moderate soreness means your tissue needs more time. Do not train today. Run the Recovery Protocol instead — pelvic floor work and hip stretches will accelerate healing.',
+        high:'High soreness is a stop signal. Training today risks injury. Rest is mandatory. You can do gentle breathing and the Big Four stretches only. No mechanical work.'
+    };
+    msg.innerText=msgs[level]||'';
+    modal.classList.add('show');
 }
 function renderSleepSoreness(){
     const sleep=localStorage.getItem(getTodaySleepKey())||'';
@@ -2352,7 +2385,10 @@ function init(){
     document.getElementById('reset-api-btn').addEventListener('click',()=>{localStorage.removeItem('bp_claude_key');alert('API key cleared. Open Ask Coach Tee to re-enter.')});
     // Difficulty buttons
     document.querySelectorAll('.diff-btn').forEach(btn=>{
-        btn.addEventListener('click',()=>setDifficulty(btn.dataset.diff));
+        btn.addEventListener('click',()=>{
+            if(btn.dataset.locked==='true') showTierLockInfo(btn.dataset.diff);
+            else setDifficulty(btn.dataset.diff);
+        });
     });
     // Pre-Flight
     document.getElementById('primed-btn').addEventListener('click',nextStep);
@@ -2392,6 +2428,12 @@ function init(){
     // Chart + Milestone
     document.getElementById('chart-close-btn').addEventListener('click',closeProgressChart);
     document.getElementById('tier-lock-close-btn').addEventListener('click',()=>document.getElementById('tier-lock-modal').classList.add('hidden'));
+    document.getElementById('soreness-dismiss-btn').addEventListener('click',()=>document.getElementById('soreness-warning-modal').classList.remove('show'));
+    document.getElementById('soreness-go-recovery-btn').addEventListener('click',()=>{
+        document.getElementById('soreness-warning-modal').classList.remove('show');
+        session.routineType='recovery';
+        goToRecoveryPicker();
+    });
     document.getElementById('milestone-close-btn').addEventListener('click',closeMilestone);
     } catch(err) {
         console.error('Blueprint init error:', err);
