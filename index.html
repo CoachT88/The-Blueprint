@@ -1667,7 +1667,10 @@ function getISOWeek(){
     d.setDate(d.getDate()+4-(d.getDay()||7));
     return Math.ceil((((d-new Date(d.getFullYear(),0,1))/86400000)+1)/7);
 }
-function getCurrentWeekKey(){ return new Date().getFullYear()+'_w'+getISOWeek(); }
+// Use ISO year (not calendar year) so Dec 29-31 that belong to week 1 of the
+// next year produce the correct key — see src/weekUtils.js for tested logic.
+function _getISOYear(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+4-(d.getDay()||7));return d.getFullYear();}
+function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
 
 async function loadPersisted(){
     if(!currentUser)return;
