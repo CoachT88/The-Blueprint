@@ -1409,8 +1409,8 @@ const EX_EXPERIENCE = {
 };
 const MILESTONES=[
     {id:'first_session', icon:'fa-flag',              color:'text-blue-400',    title:'First Blood',       desc:'First session complete. The journey has begun.',              trigger:p=>p.sessionLog.length===1},
-    {id:'streak_3',      icon:'fa-fire',              color:'text-orange-400',  title:'On a Roll',         desc:'3 sessions logged. Consistency is the multiplier.',           trigger:p=>p.completedDays.filter(Boolean).length>=3},
-    {id:'streak_7',      icon:'fa-fire-flame-curved', color:'text-red-400',     title:'Full Week',         desc:"7 days. Your tissue doesn't forget.",                         trigger:p=>p.completedDays.filter(Boolean).length===7},
+    {id:'streak_3',      icon:'fa-fire',              color:'text-orange-400',  title:'On a Roll',         desc:'3 sessions logged. Consistency is the multiplier.',           trigger:p=>getCurrentStreak(p.sessionLog)>=3},
+    {id:'streak_7',      icon:'fa-fire-flame-curved', color:'text-red-400',     title:'Full Week',         desc:"7 days. Your tissue doesn't forget.",                         trigger:p=>getCurrentStreak(p.sessionLog)>=7},
     {id:'xp_500',        icon:'fa-bolt',              color:'text-yellow-400',  title:'500 XP',            desc:'Half a thousand XP banked. You are no longer a beginner.',     trigger:p=>p.totalXp>=500},
     {id:'xp_1000',       icon:'fa-star',              color:'text-yellow-300',  title:'1,000 XP',          desc:'Four digits. The protocol is now instinct.',                   trigger:p=>p.totalXp>=1000},
     {id:'xp_3000',       icon:'fa-crown',             color:'text-amber-400',   title:'3,000 XP Elite',    desc:'Elite rank territory. Your discipline is exceptional.',        trigger:p=>p.totalXp>=3000},
@@ -1458,7 +1458,16 @@ const ROUTINES={
                 'Exhale slowly during the hold. Let the breath deepen the ligament stretch.',
             ],
             cues:[{time:30,text:'Grip below glans. Pull {DIR} at firm 60% force.'},{time:20,text:'Hold steady. Feel the ligament tension — not the skin.'},{time:5,text:'Exhale. Hold the bone tension.'}]},
-        {title:'V-Stretch',sets:3,duration:30,eq:'3-4 EQ',feel:'Pressurized lateral base flare. Moderate 50% force.',dontFeel:'Pinching base pain.',cues:[{time:30,text:'Thumb pins center. Hand pulls OUT. 50% force.'},{time:5,text:'Belly breath. Relax floor.'}]}
+        {title:'V-Stretch',sets:3,duration:30,eq:'3-4 EQ',feel:'Pressurized lateral base flare. Moderate 50% force.',dontFeel:'Pinching base pain.',
+            howto:[
+                'Get to 3-4 EQ — nearly flaccid. Do not attempt with any significant erection.',
+                'Form a V-shape with your index and middle finger and place the apex at the mid-shaft.',
+                'Press your thumb firmly against the center underside — this is the fixed pin point.',
+                'With your free hand at the base, pull straight OUT — away from your body — at 50% of your max force.',
+                'You should feel a deep lateral flare at the base, not skin stretching on the surface.',
+                'Hold steady for the full duration. Exhale slowly to deepen the ligament stretch.',
+            ],
+            cues:[{time:30,text:'Thumb pins center. Hand pulls OUT. 50% force.'},{time:5,text:'Belly breath. Relax floor.'}]}
     ],
     girth:[
         {
@@ -1870,8 +1879,12 @@ function applyDifficulty(ex){
     };
 }
 // Deload stacks on top of difficulty (additional -1 set, ×0.6 duration)
-// Triggers every 4th week based on session count — never fires for new users
+// Triggers on every 4th ISO calendar week, but only after the user has at least
+// 4 weeks of training history — prevents new users from hitting deload immediately.
 function isDeloadWeek(){
+    if(!persisted.firstSessionDate) return false;
+    const weeksSinceFirst=Math.floor((Date.now()-new Date(persisted.firstSessionDate).getTime())/(7*24*60*60*1000));
+    if(weeksSinceFirst<4) return false;
     return getISOWeek()%4===0;
 }
 function applyDeload(ex){
@@ -2489,7 +2502,7 @@ function startSet(){
     session.timer=createTimer(ex.duration,rem=>{
         document.getElementById('ex-timer').innerText=fmtDuration(rem);
         session.xp+=Math.round(5*getDiff().xpMult);document.getElementById('live-xp').innerText=`${session.xp} XP`;
-        const activeCue=[...ex.cues].sort((a,b)=>b.time-a.time).find(c=>c.time>=rem);
+        const activeCue=[...ex.cues].sort((a,b)=>a.time-b.time).find(c=>c.time>=rem);
         if(activeCue) updateActiveCue(activeCue.text.replace('{DIR}',DIRECTIONALS[session.directionalIndex]));
     },()=>onSetDone());
     session.timer.start();
@@ -2709,7 +2722,7 @@ function renderDashboard(){
         g.appendChild(d);
     });
     document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
-    document.getElementById('hq-streak').innerText=`${persisted.completedDays.filter(Boolean).length} Day Streak`;
+    document.getElementById('hq-streak').innerText=`${getCurrentStreak()} Day Streak`;
     document.getElementById('hq-xp').innerText=`${persisted.totalXp} XP`;
     const lvl=getLevelProg(persisted.totalXp);
     document.getElementById('hq-level-name').innerText=lvl.name.toUpperCase();
@@ -2848,9 +2861,28 @@ function selectRPE(val){
 // ═══════════════════════════════════════════════════════════════════════════
 // PERSONAL RECORDS
 // ═══════════════════════════════════════════════════════════════════════════
+
+// Returns the number of consecutive days (ending today or yesterday) that
+// have at least one logged session. Uses sessionLog dates, not completedDays,
+// so it works correctly across week boundaries.
+function getCurrentStreak(log){
+    const sessions=log||(persisted.sessionLog||[]);
+    if(!sessions.length) return 0;
+    const days=new Set(sessions.map(s=>s.date.split('T')[0]));
+    const today=new Date();
+    let streak=0;
+    for(let i=0;i<365;i++){
+        const d=new Date(today);d.setDate(d.getDate()-i);
+        const key=d.toISOString().split('T')[0];
+        if(days.has(key)){streak++;}
+        else if(i>0){break;} // allow today to not yet have a session without snapping streak
+    }
+    return streak;
+}
+
 function updateRecords(sessionXp){
     if(!persisted.records) persisted.records={longestStreak:0,bestWeekXp:0,bestSessionXp:0};
-    const streak=persisted.completedDays.filter(Boolean).length;
+    const streak=getCurrentStreak();
     let changed=false;
     if(streak>persisted.records.longestStreak){persisted.records.longestStreak=streak;changed=true}
     if(sessionXp>persisted.records.bestSessionXp){persisted.records.bestSessionXp=sessionXp;changed=true}
@@ -2878,7 +2910,7 @@ let _sessionStartTime=null;
 function showSessionSummary(xp){
     const modal=document.getElementById('session-summary-modal');
     const duration=_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0;
-    const streak=persisted.completedDays.filter(Boolean).length;
+    const streak=getCurrentStreak();
     const taglines=['Tissue is adapting. Recovery starts now.','Consistent operator. The protocol is working.','Another session banked. Results compound.','Strong work. Let the tissue integrate.','That\'s how gains are built. Rest well.'];
     document.getElementById('summary-icon').innerText=['🔥','⚡','💪','🎯','🏆'][Math.floor(Math.random()*5)];
     document.getElementById('summary-tagline').innerText=taglines[Math.floor(Math.random()*taglines.length)];
