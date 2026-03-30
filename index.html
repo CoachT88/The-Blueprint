@@ -545,6 +545,14 @@
     </div>
 
     <div class="px-2 space-y-3">
+        <div id="resume-banner" class="hidden p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3">
+            <i class="fas fa-play-circle text-emerald-400 text-xl flex-shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-black text-emerald-300 uppercase tracking-widest">Session In Progress</p>
+                <p id="resume-banner-label" class="text-[10px] text-slate-400 mt-0.5"></p>
+            </div>
+            <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
+        </div>
         <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
         <div class="grid grid-cols-2 gap-2">
             <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
@@ -2126,6 +2134,10 @@ function getLevelProg(xp){const i=getLevelIdx(xp),c=LEVELS[i],n=LEVELS[i+1];if(!
 // NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════════
 function goToStep(step){
+    if(session.step===4 && step===0 && !session._aborting && currentUser){
+        const draft={exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,sessionStartTime:_sessionStartTime,savedAt:Date.now()};
+        localStorage.setItem('bp_session_draft_'+currentUser.id,JSON.stringify(draft));
+    }
     if(session.timer){session.timer.cancel();session.timer=null}
     if(session.warmupTimer){session.warmupTimer.cancel();session.warmupTimer=null}
     stopCarousel();
@@ -2154,8 +2166,8 @@ function goToStep(step){
         // Unlock intermediate on first session
         unlockTierIfEligible('intermediate');
     }
-    if(step===4){resetSession();_sessionStartTime=Date.now();updateExUI()}
-    if(step===5){selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'})}
+    if(step===4){if(!session._resuming){resetSession();_sessionStartTime=Date.now();}updateExUI()}
+    if(step===5){if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'})}
 }
 function nextStep(){if(session.step===2)goToStep(3);else goToStep(session.step+1)}
 
@@ -2733,6 +2745,35 @@ function renderDashboard(){
     renderRecords();
     renderDailyTip();
     renderSleepSoreness();
+    // Resume banner
+    const draftKey='bp_session_draft_'+(currentUser?.id||'');
+    const draftRaw=localStorage.getItem(draftKey);
+    const draft=draftRaw?JSON.parse(draftRaw):null;
+    const resumeBanner=document.getElementById('resume-banner');
+    if(draft&&(Date.now()-draft.savedAt<24*60*60*1000)){
+        const exList=ROUTINES[draft.routineType]||[];
+        const exName=exList[draft.exerciseIndex]?.name||`Exercise ${draft.exerciseIndex+1}`;
+        document.getElementById('resume-banner-label').innerText=`${draft.routineType} · ${exName} · Set ${draft.setIndex}`;
+        resumeBanner.classList.remove('hidden');
+    }else{
+        resumeBanner.classList.add('hidden');
+        if(draft)localStorage.removeItem(draftKey);
+    }
+}
+function resumeSession(){
+    const draftKey='bp_session_draft_'+(currentUser?.id||'');
+    const draft=JSON.parse(localStorage.getItem(draftKey)||'null');
+    if(!draft)return;
+    localStorage.removeItem(draftKey);
+    session._resuming=true;
+    session.exerciseIndex=draft.exerciseIndex;
+    session.setIndex=draft.setIndex;
+    session.routineType=draft.routineType;
+    session.directionalIndex=draft.directionalIndex;
+    session.xp=draft.xp;
+    _sessionStartTime=draft.sessionStartTime||Date.now();
+    goToStep(4);
+    session._resuming=false;
 }
 function renderLog(){
     const c=document.getElementById('session-log'),logs=(persisted.sessionLog||[]).slice(-5).reverse();
@@ -3285,6 +3326,7 @@ function init(){
     try {
     // HQ
     document.getElementById('launch-btn').addEventListener('click',()=>goToStep(1));
+    document.getElementById('resume-btn').addEventListener('click',resumeSession);
     document.getElementById('weekly-report-btn').addEventListener('click',showWeeklyReport);
     document.getElementById('weekly-report-close-btn').addEventListener('click',closeWeeklyReport);
     document.getElementById('summary-close-btn').addEventListener('click',closeSessionSummary);
@@ -3362,7 +3404,8 @@ function init(){
         } else {
             clearTimeout(_abortTimer);_abortPrimed=false;
             btn.innerText='Abort Session';btn.style.color='';
-            goToStep(0);
+            if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);
+            session._aborting=true;goToStep(0);session._aborting=false;
         }
     });
     // Pilot Engine
