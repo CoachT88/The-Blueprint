@@ -268,11 +268,16 @@
         <input type="email" id="auth-email" class="auth-input" placeholder="Email address">
         <input type="password" id="auth-password" class="auth-input" placeholder="Password">
         <input type="password" id="auth-confirm" class="auth-input hidden" placeholder="Confirm password">
+        <label id="remember-me-row" class="flex items-center gap-2.5 px-1 cursor-pointer select-none">
+            <div id="remember-me-toggle" class="w-9 h-5 rounded-full bg-slate-700 border border-slate-600 relative transition-colors flex-shrink-0">
+                <div id="remember-me-thumb" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-400 transition-all"></div>
+            </div>
+            <span class="text-[11px] text-slate-500 font-semibold">Remember me</span>
+        </label>
         <button id="auth-submit-btn" class="btn-primary py-4 text-sm mt-1">SIGN IN</button>
         <button id="auth-forgot-btn" class="w-full text-slate-600 text-[10px] font-bold uppercase tracking-widest py-2">Forgot password?</button>
     </div>
 </div>
-```
 
 </div>
 
@@ -2944,6 +2949,7 @@ function renderRecords(){
 // SESSION SUMMARY
 // ═══════════════════════════════════════════════════════════════════════════
 let _sessionStartTime=null;
+let _rememberMe=false;
 
 function showSessionSummary(xp){
     const modal=document.getElementById('session-summary-modal');
@@ -3211,6 +3217,7 @@ function switchAuthMode(mode){
     document.getElementById('auth-confirm').classList.toggle('hidden',mode==='login');
     document.getElementById('auth-submit-btn').textContent=mode==='login'?'SIGN IN':'CREATE ACCOUNT';
     document.getElementById('auth-forgot-btn').classList.toggle('hidden',mode==='signup');
+    document.getElementById('remember-me-row').classList.toggle('hidden',mode==='signup');
     setAuthError('');setAuthSuccess('');
 }
 async function handleAuthSubmit(){
@@ -3226,6 +3233,10 @@ async function handleAuthSubmit(){
         let result;
         if(authMode==='login'){
             result=await sb.auth.signInWithPassword({email,password});
+            if(!result.error){
+                if(_rememberMe)localStorage.setItem('bp_remember_email',email);
+                else localStorage.removeItem('bp_remember_email');
+            }
         } else {
             result=await sb.auth.signUp({email,password});
             if(!result.error&&result.data?.user&&!result.data.session){
@@ -3473,6 +3484,15 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     document.getElementById('auth-email').addEventListener('keydown',    e=>{if(e.key==='Enter')document.getElementById('auth-password').focus()});
     document.getElementById('auth-password').addEventListener('keydown', e=>{if(e.key==='Enter')handleAuthSubmit()});
     document.getElementById('auth-confirm').addEventListener('keydown',  e=>{if(e.key==='Enter')handleAuthSubmit()});
+    // Remember me toggle
+    _rememberMe=!!localStorage.getItem('bp_remember_email');
+    const _rmToggle=document.getElementById('remember-me-toggle');
+    const _rmThumb=document.getElementById('remember-me-thumb');
+    function _setRememberUI(on){_rmToggle.style.background=on?'#10b981':'';_rmToggle.style.borderColor=on?'#10b981':'';_rmThumb.style.transform=on?'translateX(16px)':'';_rmThumb.style.background=on?'#fff':'';}
+    _setRememberUI(_rememberMe);
+    const _savedEmail=localStorage.getItem('bp_remember_email');
+    if(_savedEmail){document.getElementById('auth-email').value=_savedEmail;document.getElementById('auth-password').focus();}
+    document.getElementById('remember-me-row').addEventListener('click',()=>{_rememberMe=!_rememberMe;_setRememberUI(_rememberMe);if(!_rememberMe)localStorage.removeItem('bp_remember_email');});
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
     sb.auth.onAuthStateChange(async(event,session)=>{
         if(session?.user) await onUserSignedIn(session.user);
