@@ -239,16 +239,6 @@
 
 <!-- AUTH SCREEN -->
 
-<div id="loading-splash" class="hidden fixed inset-0 z-[99993] flex flex-col items-center justify-center gap-4" style="background:var(--bg-deep)">
-    <div class="relative">
-        <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
-        <div class="relative p-6 bg-blue-500/08 rounded-full border border-blue-500/20 w-fit mx-auto">
-            <i class="fas fa-fingerprint text-4xl text-blue-400"></i>
-        </div>
-    </div>
-    <p class="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]"><i class="fas fa-spinner fa-spin mr-2"></i>Loading your data...</p>
-</div>
-
 <div id="auth-screen">
     <div class="auth-card">
         <div class="text-center mb-7">
@@ -3522,13 +3512,11 @@ async function checkMembership(user){
 
 async function onUserSignedIn(user){
     currentUser=user;
-    document.getElementById('loading-splash').classList.remove('hidden');
     // Check membership
     const isMember=await checkMembership(user);
-    if(!isMember){document.getElementById('loading-splash').classList.add('hidden');return;}
+    if(!isMember) return;
     document.getElementById('hq-user-email').textContent=user.email;
     await loadPersisted();
-    document.getElementById('loading-splash').classList.add('hidden');
     hideAuthScreen();
     const welcomed=localStorage.getItem('bp_welcomed_'+user.id);
     const onboarded=localStorage.getItem('bp_onboarded_'+user.id);
