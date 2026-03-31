@@ -407,6 +407,64 @@
     </div>
 </div>
 
+<!-- MEASUREMENT HOW-TO OVERLAY -->
+<div id="measure-howto-modal" class="hidden fixed inset-0 z-[99992] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-700/60 rounded-3xl p-6 space-y-5">
+        <div class="flex justify-between items-center">
+            <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-ruler-combined"></i> How to Measure</p>
+            <button id="measure-howto-close" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400"><i class="fas fa-xmark text-sm"></i></button>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <p class="text-[10px] font-black text-blue-300 uppercase tracking-widest mb-1.5">BPEL — Bone Pressed Erect Length</p>
+                <ol class="space-y-1.5 text-[11px] text-slate-400 leading-relaxed list-none">
+                    <li><span class="text-blue-400 font-black mr-1.5">1.</span>Achieve a full erection (EQ 9–10).</li>
+                    <li><span class="text-blue-400 font-black mr-1.5">2.</span>Place ruler flat on top, pressing firmly against the pubic bone.</li>
+                    <li><span class="text-blue-400 font-black mr-1.5">3.</span>Measure from pubic bone to the tip. Record to nearest 0.25″.</li>
+                </ol>
+            </div>
+            <div class="border-t border-slate-800 pt-4">
+                <p class="text-[10px] font-black text-emerald-300 uppercase tracking-widest mb-1.5">MSEG — Mid-Shaft Erect Girth</p>
+                <ol class="space-y-1.5 text-[11px] text-slate-400 leading-relaxed list-none">
+                    <li><span class="text-emerald-400 font-black mr-1.5">1.</span>Achieve a full erection (EQ 9–10).</li>
+                    <li><span class="text-emerald-400 font-black mr-1.5">2.</span>Wrap a soft tape measure (or string) around the mid-shaft.</li>
+                    <li><span class="text-emerald-400 font-black mr-1.5">3.</span>Measure snugly — not tight. Record to nearest 0.25″.</li>
+                </ol>
+            </div>
+            <div class="bg-amber-500/08 border border-amber-500/20 rounded-xl p-3">
+                <p class="text-[10px] text-amber-300 font-black uppercase tracking-widest mb-1">Consistency is key</p>
+                <p class="text-[11px] text-slate-400 leading-relaxed">Measure at the same time of day, same EQ level, same position. Small daily fluctuations are normal — trends over weeks are what matter.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PHOTO LOG MODAL -->
+<div id="photo-log-modal" class="hidden fixed inset-0 z-[99990] overflow-y-auto" style="background:rgba(2,6,23,.97)">
+    <div class="inner-step-wrapper py-12 space-y-6">
+        <div class="flex justify-between items-center px-2">
+            <h2 class="text-3xl font-black italic uppercase text-slate-50">Photo Log</h2>
+            <button id="photo-log-close" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400"><i class="fas fa-xmark text-lg"></i></button>
+        </div>
+        <!-- Upload from dashboard -->
+        <div class="px-2">
+            <button id="photo-log-add-btn" class="btn-outline w-full py-3 text-[11px] flex items-center justify-center gap-2" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;">
+                <i class="fas fa-camera" style="color:#a855f7"></i> Add Photo
+            </button>
+            <input type="file" id="photo-log-file-input" accept="image/*" class="hidden">
+            <div id="photo-log-uploading" class="hidden text-center mt-2">
+                <i class="fas fa-spinner fa-spin text-purple-400 mr-2"></i><span class="text-[11px] text-slate-400">Uploading...</span>
+            </div>
+            <div id="photo-log-error" class="hidden mt-2 text-center">
+                <p class="text-[11px] text-red-400"><i class="fas fa-triangle-exclamation mr-1"></i>Upload failed — try again</p>
+            </div>
+            <p class="text-[9px] text-slate-700 italic mt-2 text-center">Stored privately — only you can see this.</p>
+        </div>
+        <div id="photo-log-gallery" class="grid grid-cols-3 gap-2 px-2"></div>
+        <div class="scroll-buffer"></div>
+    </div>
+</div>
+
 <!-- PHOTO VIEWER OVERLAY -->
 <div id="photo-viewer-overlay" class="hidden fixed inset-0 z-[99999] flex items-center justify-center p-4" style="background:rgba(2,6,23,.98)">
     <button id="photo-viewer-close" class="absolute top-4 right-4 w-11 h-11 flex items-center justify-center rounded-full bg-slate-800/80 text-white z-10"><i class="fas fa-xmark text-lg"></i></button>
@@ -571,9 +629,10 @@
             <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
         </div>
         <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-3 gap-2">
             <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
             <button id="weekly-report-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-calendar-week text-emerald-400 text-xs"></i> Week</button>
+            <button id="photos-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-images text-xs" style="color:#a855f7"></i> Photos</button>
         </div>
         <div class="grid grid-cols-2 gap-2">
             <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Ask Coach Tee</button>
@@ -845,7 +904,10 @@
 
     <!-- Measurements -->
     <div class="instruction-card border-blue-500/20 mx-2 text-left">
-        <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2"><i class="fas fa-ruler-combined"></i> Log Measurements <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-ruler-combined"></i> Log Measurements <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
+            <button id="measure-howto-btn" class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1 active:opacity-70"><i class="fas fa-circle-question text-slate-600"></i> How?</button>
+        </div>
         <div class="measure-grid">
             <div class="measure-field"><label class="text-blue-400">BPEL (inches)</label><input type="number" id="input-bpel" step="0.01" min="3" max="12" placeholder="e.g. 6.25"></div>
             <div class="measure-field"><label class="text-emerald-400">MSEG (inches)</label><input type="number" id="input-mseg" step="0.01" min="3" max="10" placeholder="e.g. 4.75"></div>
@@ -2082,13 +2144,25 @@ async function handlePhotoSelect(file){
         document.getElementById('photo-capture-btn').disabled=false;
     }
 }
-async function renderPhotoGallery(){
-    const el=document.getElementById('photo-gallery');
+async function renderPhotoGallery(){await renderGalleryInto('photo-gallery');}
+function openPhotoViewer(url,date){
+    document.getElementById('photo-viewer-img').src=url;
+    document.getElementById('photo-viewer-date').innerHTML=`<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${date}</span>`;
+    document.getElementById('photo-viewer-overlay').classList.remove('hidden');
+}
+function closePhotoViewer(){document.getElementById('photo-viewer-overlay').classList.add('hidden');document.getElementById('photo-viewer-img').src='';}
+async function openPhotoLog(){
+    document.getElementById('photo-log-modal').classList.remove('hidden');
+    await renderGalleryInto('photo-log-gallery');
+}
+function closePhotoLog(){document.getElementById('photo-log-modal').classList.add('hidden');}
+async function renderGalleryInto(elId){
+    const el=document.getElementById(elId);
     if(!el||!currentUser)return;
     el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</p>';
     try{
         const {data,error}=await sb.storage.from('progress-photos').list(currentUser.id,{sortBy:{column:'name',order:'desc'},limit:60});
-        if(error||!data?.length){el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4">No photos logged yet.</p>';return;}
+        if(error||!data?.length){el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4">No photos yet — add your first one above.</p>';return;}
         const urls=await Promise.all(data.map(async f=>{
             const {data:u}=await sb.storage.from('progress-photos').createSignedUrl(`${currentUser.id}/${f.name}`,3600);
             const ts=parseInt(f.name);
@@ -2098,12 +2172,21 @@ async function renderPhotoGallery(){
         el.innerHTML=urls.map(p=>`<div class="cursor-pointer" onclick="openPhotoViewer('${p.url}','${p.date}')"><img src="${p.url}" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] text-slate-500 text-center mt-1 truncate">${p.date}</p></div>`).join('');
     }catch(e){el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4">Could not load photos.</p>';}
 }
-function openPhotoViewer(url,date){
-    document.getElementById('photo-viewer-img').src=url;
-    document.getElementById('photo-viewer-date').innerHTML=`<span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${date}</span>`;
-    document.getElementById('photo-viewer-overlay').classList.remove('hidden');
+async function handlePhotoLogUpload(file){
+    if(!file||!currentUser)return;
+    const uploading=document.getElementById('photo-log-uploading');
+    const errEl=document.getElementById('photo-log-error');
+    const btn=document.getElementById('photo-log-add-btn');
+    uploading.classList.remove('hidden');errEl.classList.add('hidden');btn.disabled=true;
+    try{
+        const blob=await compressImage(file);
+        const path=`${currentUser.id}/${Date.now()}.jpg`;
+        const {error}=await sb.storage.from('progress-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});
+        if(error)throw error;
+        await renderGalleryInto('photo-log-gallery');
+    }catch(e){console.error('Photo upload:',e);errEl.classList.remove('hidden');}
+    finally{uploading.classList.add('hidden');btn.disabled=false;}
 }
-function closePhotoViewer(){document.getElementById('photo-viewer-overlay').classList.add('hidden');document.getElementById('photo-viewer-img').src='';}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROGRESS CHART
@@ -3563,6 +3646,12 @@ function init(){
     document.getElementById('photo-viewer-close').addEventListener('click',closePhotoViewer);
     document.getElementById('photo-capture-btn').addEventListener('click',()=>document.getElementById('photo-file-input').click());
     document.getElementById('photo-file-input').addEventListener('change',e=>{if(e.target.files[0])handlePhotoSelect(e.target.files[0]);e.target.value='';});
+    document.getElementById('photos-btn').addEventListener('click',openPhotoLog);
+    document.getElementById('measure-howto-btn').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.remove('hidden'));
+    document.getElementById('measure-howto-close').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.add('hidden'));
+    document.getElementById('photo-log-close').addEventListener('click',closePhotoLog);
+    document.getElementById('photo-log-add-btn').addEventListener('click',()=>document.getElementById('photo-log-file-input').click());
+    document.getElementById('photo-log-file-input').addEventListener('change',e=>{if(e.target.files[0])handlePhotoLogUpload(e.target.files[0]);e.target.value='';});
     document.getElementById('manual-btn').addEventListener('click',()=>document.getElementById('manual-modal').classList.add('show'));
     document.getElementById('manual-close-btn').addEventListener('click',()=>document.getElementById('manual-modal').classList.remove('show'));
     document.getElementById('history-close-btn').addEventListener('click',()=>document.getElementById('history-modal').style.display='none');
