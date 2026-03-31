@@ -239,6 +239,16 @@
 
 <!-- AUTH SCREEN -->
 
+<div id="loading-splash" class="hidden fixed inset-0 z-[99993] flex flex-col items-center justify-center gap-4" style="background:var(--bg-deep)">
+    <div class="relative">
+        <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
+        <div class="relative p-6 bg-blue-500/08 rounded-full border border-blue-500/20 w-fit mx-auto">
+            <i class="fas fa-fingerprint text-4xl text-blue-400"></i>
+        </div>
+    </div>
+    <p class="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]"><i class="fas fa-spinner fa-spin mr-2"></i>Loading your data...</p>
+</div>
+
 <div id="auth-screen">
     <div class="auth-card">
         <div class="text-center mb-7">
@@ -2207,13 +2217,14 @@ async function renderGalleryInto(elId){
     try{
         const {data,error}=await sb.storage.from('progress-photos').list(currentUser.id,{sortBy:{column:'name',order:'desc'},limit:60});
         if(error||!data?.length){el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4">No photos yet — add your first one above.</p>';return;}
-        const urls=await Promise.all(data.map(async f=>{
-            const {data:u}=await sb.storage.from('progress-photos').createSignedUrl(`${currentUser.id}/${f.name}`,3600);
-            const ts=parseInt(f.name);
-            const date=isNaN(ts)?f.name:new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
-            return{url:u?.signedUrl||'',date,path:`${currentUser.id}/${f.name}`};
-        }));
-        el.innerHTML=urls.map(p=>`<div class="cursor-pointer" onclick="openPhotoViewer('${p.url}','${p.date}','${p.path}')"><img src="${p.url}" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] text-slate-500 text-center mt-1 truncate">${p.date}</p></div>`).join('');
+        const paths=data.map(f=>`${currentUser.id}/${f.name}`);
+        const {data:signed}=await sb.storage.from('progress-photos').createSignedUrls(paths,3600);
+        const urls=(signed||[]).map((s,i)=>{
+            const ts=parseInt(data[i].name);
+            const date=isNaN(ts)?data[i].name:new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+            return{url:s.signedUrl||'',date,path:paths[i]};
+        });
+        el.innerHTML=urls.map(p=>`<div class="cursor-pointer" onclick="openPhotoViewer('${p.url}','${p.date}','${p.path}')"><img src="${p.url}" loading="lazy" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] text-slate-500 text-center mt-1 truncate">${p.date}</p></div>`).join('');
     }catch(e){el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4">Could not load photos.</p>';}
 }
 async function handlePhotoLogUpload(file){
@@ -3511,11 +3522,13 @@ async function checkMembership(user){
 
 async function onUserSignedIn(user){
     currentUser=user;
+    document.getElementById('loading-splash').classList.remove('hidden');
     // Check membership
     const isMember=await checkMembership(user);
-    if(!isMember) return;
+    if(!isMember){document.getElementById('loading-splash').classList.add('hidden');return;}
     document.getElementById('hq-user-email').textContent=user.email;
     await loadPersisted();
+    document.getElementById('loading-splash').classList.add('hidden');
     hideAuthScreen();
     const welcomed=localStorage.getItem('bp_welcomed_'+user.id);
     const onboarded=localStorage.getItem('bp_onboarded_'+user.id);
