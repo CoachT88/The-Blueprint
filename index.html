@@ -446,6 +446,11 @@
             <h2 class="text-3xl font-black italic uppercase text-slate-50">Photo Log</h2>
             <button id="photo-log-close" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400"><i class="fas fa-xmark text-lg"></i></button>
         </div>
+        <div class="px-2">
+            <button id="photo-log-howto-btn" class="btn-outline w-full py-3 text-[11px] flex items-center justify-center gap-2" style="border-color:rgba(59,130,246,.3);color:#93c5fd;">
+                <i class="fas fa-ruler-combined text-xs text-blue-400"></i> How to Measure Length &amp; Girth
+            </button>
+        </div>
         <!-- Upload from dashboard -->
         <div class="px-2">
             <button id="photo-log-add-btn" class="btn-outline w-full py-3 text-[11px] flex items-center justify-center gap-2" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;">
@@ -3690,6 +3695,7 @@ function init(){
     document.getElementById('measure-howto-btn').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.remove('hidden'));
     document.getElementById('measure-howto-close').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.add('hidden'));
     document.getElementById('photo-log-close').addEventListener('click',closePhotoLog);
+    document.getElementById('photo-log-howto-btn').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.remove('hidden'));
     document.getElementById('photo-log-add-btn').addEventListener('click',()=>document.getElementById('photo-log-file-input').click());
     document.getElementById('photo-log-file-input').addEventListener('change',e=>{if(e.target.files[0])handlePhotoLogUpload(e.target.files[0]);e.target.value='';});
     document.getElementById('manual-btn').addEventListener('click',()=>document.getElementById('manual-modal').classList.add('show'));
