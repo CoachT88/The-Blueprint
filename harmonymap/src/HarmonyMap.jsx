@@ -11,11 +11,17 @@ constructor() { this.ctx=null; this.mg=null; this.rv=null; this.isPlaying=false;
 init() {
 if(this.ctx) return;
 this.ctx=new(window.AudioContext||window.webkitAudioContext)();
-this.mg=this.ctx.createGain(); this.mg.gain.value=0.32;
-const d=this.ctx.createDelay(); d.delayTime.value=0.07;
-const f=this.ctx.createGain(); f.gain.value=0.18;
-d.connect(f); f.connect(d); d.connect(this.mg); f.connect(this.mg);
-this.rv=d; this.mg.connect(this.ctx.destination);
+this.mg=this.ctx.createGain(); this.mg.gain.value=0.26;
+const comp=this.ctx.createDynamicsCompressor();
+comp.threshold.value=-20;comp.knee.value=10;comp.ratio.value=3;comp.attack.value=0.005;comp.release.value=0.15;
+const d=this.ctx.createDelay(1.0); d.delayTime.value=0.12;
+const f=this.ctx.createGain(); f.gain.value=0.2;
+const d2=this.ctx.createDelay(1.0); d2.delayTime.value=0.07;
+const f2=this.ctx.createGain(); f2.gain.value=0.12;
+d.connect(f); f.connect(d); d.connect(comp);
+d2.connect(f2); f2.connect(d2); d2.connect(comp);
+f.connect(comp); f2.connect(comp);
+this.rv=d; this.rv2=d2; this.mg.connect(comp); comp.connect(this.ctx.destination);
 }
 noteToFreq(n) {
 const M={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
@@ -24,13 +30,16 @@ return 440*Math.pow(2,(M[m[1]]-9+(parseInt(m[2])-4)*12)/12);
 }
 playNote(n,dur=1.2,vel=0.5,st=null) {
 this.init(); const fr=typeof n==='number'?n:this.noteToFreq(n); const t=st||this.ctx.currentTime;
-const o1=this.ctx.createOscillator(),o2=this.ctx.createOscillator(),g=this.ctx.createGain(),fl=this.ctx.createBiquadFilter();
-o1.type='triangle'; o1.frequency.value=fr; o2.type='sine'; o2.frequency.value=fr*2.005;
-fl.type='lowpass'; fl.frequency.value=1800+vel*2200; fl.Q.value=0.6;
-g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vel*0.38,t+0.015);
-g.gain.exponentialRampToValueAtTime(vel*0.12,t+0.18); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-o1.connect(fl); o2.connect(fl); fl.connect(g); g.connect(this.mg); g.connect(this.rv);
-o1.start(t); o2.start(t); o1.stop(t+dur+0.1); o2.stop(t+dur+0.1);
+const o1=this.ctx.createOscillator(),o2=this.ctx.createOscillator(),o3=this.ctx.createOscillator();
+const g=this.ctx.createGain(),g3=this.ctx.createGain(),fl=this.ctx.createBiquadFilter();
+o1.type='triangle'; o1.frequency.value=fr; o1.detune.value=-4;
+o2.type='sine'; o2.frequency.value=fr; o2.detune.value=4;
+o3.type='sawtooth'; o3.frequency.value=fr*2; g3.gain.value=0.06;
+fl.type='lowpass'; fl.frequency.setValueAtTime(3500+vel*3000,t); fl.frequency.exponentialRampToValueAtTime(900,t+dur*0.4); fl.Q.value=0.7;
+g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vel*0.42,t+0.01); g.gain.exponentialRampToValueAtTime(vel*0.15,t+0.2); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+o3.connect(g3); g3.connect(fl); o1.connect(fl); o2.connect(fl); fl.connect(g);
+g.connect(this.mg); g.connect(this.rv); g.connect(this.rv2);
+o1.start(t); o2.start(t); o3.start(t); o1.stop(t+dur+0.15); o2.stop(t+dur+0.15); o3.stop(t+dur+0.15);
 }
 playChord(notes,dur=1.5,stg=0.018) { this.init(); const t=this.ctx.currentTime; notes.forEach((n,i)=>this.playNote(n,dur,0.35,t+i*stg)); }
 playInterval(a,b,dur=1.8) { this.init(); const t=this.ctx.currentTime; this.playNote(a,dur,0.4,t); this.playNote(b,dur,0.4,t+0.01); }
@@ -48,8 +57,23 @@ this.tids.push(setTimeout(()=>{if(this.isPlaying)go();},tot));
 }; go();
 }
 stop() { this.isPlaying=false; this.tids.forEach(t=>clearTimeout(t)); this.tids=[]; }
+play808(n,dur=2.0,vel=0.85,st=null){
+this.init(); const base=typeof n==='number'?n:this.noteToFreq((typeof n==='string'&&!/\d/.test(n))?n+'2':n); const t=st||this.ctx.currentTime;
+const o=this.ctx.createOscillator(),g=this.ctx.createGain(),lp=this.ctx.createBiquadFilter();
+o.type='sine'; o.frequency.setValueAtTime(base*2.5,t); o.frequency.exponentialRampToValueAtTime(base,t+0.06);
+lp.type='lowpass'; lp.frequency.value=180; lp.Q.value=0.5;
+g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vel*0.95,t+0.008); g.gain.exponentialRampToValueAtTime(vel*0.5,t+0.25); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+o.connect(lp); lp.connect(g); g.connect(this.mg);
+o.start(t); o.stop(t+dur+0.1);
+}
+playMelody(notes,bpm=100,cb){
+this.init(); this.stop(); this.isPlaying=true; const d=(60/bpm)*0.5;
+notes.forEach((n,i)=>{ const t=setTimeout(()=>{if(!this.isPlaying)return; this.playNote(n+'4',d*0.75,0.5); if(cb)cb(i);},i*d*1000); this.tids.push(t); });
+this.tids.push(setTimeout(()=>{this.isPlaying=false; if(cb)cb(-1);},notes.length*d*1000));
+}
 }
 const audio=new AudioEngine();
+function genreNotes(sym,genre){const{r,t}=pc(sym);const oct=(genre==='trap'||genre==='hiphop')?2:3;if((genre==='90s-rnb'||genre==='rnb'||genre==='lofi')&&CT[t]){const rt=t==='major'?'maj7':t==='minor'?'min7':t==='dominant'?'dom7':t;return cn(r,CT[rt]?rt:t,oct);}return cn(r,t,oct);}
 
 // ─── MUSIC DATA ─────────────────────────────────────────────
 const NN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -332,6 +356,7 @@ const[sk,setSk]=useState('C major');
 const[sch,setSch]=useState(null);
 const[prog,setProg]=useState([]);
 const[pi,setPi]=useState(-1);
+const[pRow,setPRow]=useState(-1);
 const[saved,setSaved]=useState([]);
 const[mn,setMn]=useState(null);
 const[al,setAl]=useState(null);
@@ -347,6 +372,7 @@ const[pa,setPa]=useState(false);
 const[nh,setNh]=useState([]);
 const[sv,setSv]=useState(false);
 const[genre,setGenre]=useState(null);
+const[mp,setMp]=useState(false);
 const dr=useRef([]);dr.current=disc;
 const k=KEYS[sk],em=emo?EMO[emo]:null;
 const ps=useMemo(()=>presets(sk),[sk]);
@@ -358,6 +384,7 @@ const playP=useCallback((bpm=72)=>{const n=prog.map(s=>cn(pc(s).r,pc(s).t,3));au
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
 const playM=useCallback(n=>{audio.playNote(n+'4',0.8,0.5);setMn(n);setNh(p=>[...p.slice(-31),{n,t:Date.now()}]);setTimeout(()=>setMn(null),500);},[]);
 const selEmo=useCallback(e=>{setEmo(e);if(EMO[e].ks[0])setSk(EMO[e].ks[0]);setScreen('emotion');},[]);
+const playMelodyBack=useCallback(()=>{if(!nh.length)return;audio.playMelody(nh.map(e=>e.n),100,i=>setMp(i>=0));},[nh]);
 const newEar=useCallback(()=>{setEa(null);const c=earGen(et);setEc(c);if(c)setTimeout(()=>{if(c.pt==='chord')audio.playChord(c.pd);else if(c.pt==='melodic')audio.playMelodicInterval(c.pd[0],c.pd[1]);else if(c.pt==='two'){audio.playChord(c.pd[0],1.3);setTimeout(()=>audio.playChord(c.pd[1],1.3),1500);}},300);},[et]);
 const replayEar=useCallback(()=>{if(!ec)return;if(ec.pt==='chord')audio.playChord(ec.pd);else if(ec.pt==='melodic')audio.playMelodicInterval(ec.pd[0],ec.pd[1]);else if(ec.pt==='two'){audio.playChord(ec.pd[0],1.3);setTimeout(()=>audio.playChord(ec.pd[1],1.3),1500);}},[ec]);
 const ansEar=useCallback(a=>{if(ea)return;setEa(a);setEs(s=>({c:s.c+(a===ec?.ans?1:0),t:s.t+1}));if(a===ec?.ans&&!dr.current.includes('fe'))setDisc(d=>[...d,'fe']);},[ec,ea]);
@@ -433,7 +460,7 @@ return(
         <p style={{fontSize:11,color:'rgba(255,255,255,0.5)',margin:'0 0 6px',lineHeight:1.4}}>{p.d}</p>
         <div style={{display:'flex',gap:6}}>
           <button onClick={e=>{e.stopPropagation();setProg(p.ch);setScreen('builder');}} style={S.btn(em.co[0]+'25',em.co[0],em.co[0]+'40')}>Use this →</button>
-          <button onClick={e=>{e.stopPropagation();audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);}));}} style={S.btn()}>▶ Listen</button>
+          <button onClick={e=>{e.stopPropagation();audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}} style={S.btn()}>▶ Listen</button>
         </div>
       </div>)}
       <div style={S.card()}>
@@ -470,6 +497,16 @@ return(
           <text x="200" y="192" textAnchor="middle" fill="rgba(255,255,255,0.25)" fontSize="12" fontWeight="700">{sk}</text>
           <text x="200" y="208" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="8">Tap to explore</text>
         </svg>
+      </div>
+      <div style={{display:'flex',gap:16,justifyContent:'center',padding:'8px 0',marginTop:6}}>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <svg width="28" height="8" style={{flexShrink:0}}><line x1="0" y1="4" x2="28" y2="4" stroke="rgba(255,255,255,0.45)" strokeWidth="2.5"/></svg>
+          <span style={{fontSize:9,color:'rgba(255,255,255,0.4)'}}>Strong pull (V→I, IV→I)</span>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <svg width="28" height="8" style={{flexShrink:0}}><line x1="0" y1="4" x2="28" y2="4" stroke="rgba(255,255,255,0.35)" strokeWidth="1" strokeDasharray="4 4"/></svg>
+          <span style={{fontSize:9,color:'rgba(255,255,255,0.4)'}}>Common flow</span>
+        </div>
       </div>
       {sch&&<div style={{...S.card(cc(sch)+'30'),marginTop:14,animation:'fadeIn 0.3s'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
@@ -586,7 +623,7 @@ return(
             {GENRES[genre].progs.map((p,pi)=>{
               const ch=k?p.g(k.ch):[];
               return(
-                <div key={pi} style={{...S.card(),cursor:'pointer'}} onClick={()=>{if(ch.length){setProg(ch);audio.playProgression(ch.map(s=>cn(pc(s).r,pc(s).t,3)),p.bpm,i=>setPi(i));}}}>
+                <div key={pi} style={{...S.card(),cursor:'pointer'}} onClick={()=>{if(ch.length){setProg(ch);audio.playProgression(ch.map(s=>genreNotes(s,genre)),p.bpm,i=>setPi(i));}}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
                     <div><span style={{fontSize:14,fontWeight:700,color:GENRES[genre].color}}>{p.n}</span><span style={{fontSize:10,color:'rgba(255,255,255,0.3)',marginLeft:8}}>{p.d}</span></div>
                     <span style={{fontSize:9,color:'rgba(255,255,255,0.25)',background:'rgba(255,255,255,0.05)',borderRadius:4,padding:'2px 6px'}}>{p.bpm} BPM</span>
@@ -597,7 +634,7 @@ return(
                   <div style={{fontSize:10,color:'rgba(255,255,255,0.5)',lineHeight:1.5}}>{p.w}</div>
                   <div style={{display:'flex',gap:6,marginTop:8}}>
                     <button onClick={e=>{e.stopPropagation();if(ch.length){setProg(ch);setSr(null);}}} style={S.btn(GENRES[genre].color+'20',GENRES[genre].color,GENRES[genre].color+'40')}>Use this</button>
-                    <button onClick={e=>{e.stopPropagation();if(ch.length)audio.playProgression(ch.map(s=>cn(pc(s).r,pc(s).t,3)),p.bpm,i=>setPi(i));}} style={S.btn()}>▶ Play at {p.bpm}</button>
+                    <button onClick={e=>{e.stopPropagation();if(ch.length)audio.playProgression(ch.map(s=>genreNotes(s,genre)),p.bpm,i=>setPi(i));}} style={S.btn()}>▶ Play at {p.bpm}</button>
                   </div>
                 </div>
               );
@@ -618,7 +655,7 @@ return(
             <h3 style={{fontSize:14,fontWeight:700,margin:'0 0 2px',color:pa?'#4ECDC4':'#fff'}}>{pa?'● Playing Along':'Play Along'}</h3>
             <div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>{pa?'Progression looping — tap notes to improvise!':'Loop your chords and play melody on top.'}</div>
           </div>
-          <button onClick={()=>{if(pa){audio.stop();setPa(false);setPi(-1);}else{setPa(true);audio.playLoop(prog.map(s=>cn(pc(s).r,pc(s).t,3)),sr!==null?RHY[sr].b:72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);}));}}} style={{...S.btn(pa?'#FF6B6B25':'#4ECDC425',pa?'#FF6B6B':'#4ECDC4',pa?'#FF6B6B50':'#4ECDC450'),fontSize:13,fontWeight:700,padding:'10px 20px'}}>{pa?'■ Stop':'▶ Start Loop'}</button>
+          <button onClick={()=>{if(pa){audio.stop();setPa(false);setPi(-1);}else{setPa(true);audio.playLoop(prog.map(s=>cn(pc(s).r,pc(s).t,3)),sr!==null?RHY[sr].b:72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}}} style={{...S.btn(pa?'#FF6B6B25':'#4ECDC425',pa?'#FF6B6B':'#4ECDC4',pa?'#FF6B6B50':'#4ECDC450'),fontSize:13,fontWeight:700,padding:'10px 20px'}}>{pa?'■ Stop':'▶ Start Loop'}</button>
         </div>
         {pa&&<div style={{display:'flex',gap:5,marginTop:10,flexWrap:'wrap'}}>{prog.map((c,i)=><span key={i} style={{...S.pill(cc(c),pi===i),fontSize:13,padding:'5px 12px'}}>{c}</span>)}</div>}
       </div>:<div style={{...S.card(),marginBottom:14,textAlign:'center'}}><div style={{fontSize:11,color:'rgba(255,255,255,0.35)'}}>Build 2+ chords in Builder to unlock Play Along.</div></div>}
@@ -637,7 +674,7 @@ return(
         <div style={{display:'flex',gap:10,marginTop:8}}><span style={{fontSize:9,color:'#4ECDC4'}}>● Safe</span><span style={{fontSize:9,color:'#FFB347'}}>● Color</span><span style={{fontSize:9,color:'#FF6B6B'}}>● Tension</span></div>
       </div>
       {nh.length>0&&<div style={{...S.card(),marginBottom:14}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}><div style={S.lbl}>Your melody so far</div><button onClick={()=>setNh([])} style={{...S.btn(),fontSize:9,padding:'3px 8px'}}>Clear</button></div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}><div style={S.lbl}>Your melody so far</div><div style={{display:'flex',gap:4}}><button onClick={playMelodyBack} style={{...S.btn('rgba(78,205,196,0.12)','#4ECDC4','rgba(78,205,196,0.3)'),fontSize:9,padding:'3px 8px'}}>▶ Play back</button><button onClick={()=>setNh([])} style={{...S.btn(),fontSize:9,padding:'3px 8px'}}>Clear</button></div></div>
         <div style={{display:'flex',gap:2,flexWrap:'wrap',alignItems:'flex-end',minHeight:44}}>
           {nh.map((e,i)=>{const ed=em||EMO.hopeful;const sn=k?.sc||['C','D','E','F','G','A','B'];const ni=sn.indexOf(e.n);const h=ni>=0?14+ni*5:24;const iS=ed.sf.includes(e.n),iT=ed.tn.includes(e.n),iC=ed.cl.includes(e.n);const col=iS?'#4ECDC4':iT?'#FF6B6B':iC?'#FFB347':'rgba(255,255,255,0.4)';
             return<div key={i} style={{width:8,height:h,background:col+'80',borderRadius:3,boxShadow:i===nh.length-1?`0 0 6px ${col}`:'none'}} title={e.n}/>;
@@ -662,6 +699,29 @@ return(
           <div key={i} style={{background:'rgba(0,0,0,0.15)',borderRadius:8,padding:'8px 10px',marginBottom:4,display:'flex',gap:8,alignItems:'flex-start'}}>
             <span style={{fontSize:14,flexShrink:0}}>{m.i}</span><span style={{fontSize:11,color:'rgba(255,255,255,0.6)',lineHeight:1.5}}>{m.t}</span>
           </div>)}
+      </div>
+      <div style={S.card()}>
+        <h3 style={{fontSize:13,fontWeight:700,margin:'0 0 6px'}}>Where to start your melody</h3>
+        <p style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginBottom:8}}>You don't have to start on the root. Each starting note signals something different.</p>
+        {[{n:'Root (1)',t:'Grounded, declarative — states exactly where you are. Classic opener.',c:'#4ECDC4'},{n:'3rd',t:'Emotional entry — immediately into the feeling, no setup needed.',c:'#FFB347'},{n:'5th',t:'Confident and open — strong hook note that feels both resolved and interesting.',c:'#87CEEB'},{n:'6th',t:'Nostalgic, questioning — often used in melodies that feel like memories.',c:'#C77DFF'},{n:'7th',t:'Maximum tension as an opener — creates immediate pull toward resolution.',c:'#FF6B6B'}].map((s,i)=><div key={i} style={{background:'rgba(0,0,0,0.15)',borderRadius:8,padding:'8px 10px',marginBottom:4,display:'flex',gap:8,alignItems:'baseline'}}><span style={{fontSize:12,fontWeight:800,color:s.c,minWidth:32,flexShrink:0}}>{s.n}</span><span style={{fontSize:11,color:'rgba(255,255,255,0.55)',lineHeight:1.5}}>{s.t}</span></div>)}
+      </div>
+      <div style={S.card()}>
+        <h3 style={{fontSize:13,fontWeight:700,margin:'0 0 4px'}}>Bass & 808</h3>
+        <p style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginBottom:10}}>Low-end is the foundation. Tap to hear 808-style bass notes.</p>
+        <div style={S.lbl}>808 Scale Notes</div>
+        <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:10}}>
+          {(k?.sc||['C','D','E','F','G','A','B']).map(n=><button key={n} onClick={()=>audio.play808(n,1.8)} style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:10,width:44,height:44,cursor:'pointer',color:'rgba(255,255,255,0.7)',fontSize:14,fontWeight:700,padding:0}}>{n}</button>)}
+        </div>
+        {prog.length>0&&<div style={{marginBottom:10}}>
+          <div style={S.lbl}>808 Your Progression Roots</div>
+          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+            {prog.map((c,i)=>{const r=pc(c).r;return<button key={i} onClick={()=>audio.play808(r,2.2)} style={{background:cc(c)+'12',border:`1.5px solid ${cc(c)}45`,borderRadius:10,padding:'8px 14px',cursor:'pointer',color:cc(c),fontWeight:700,fontSize:13}}>{r}</button>;})}
+          </div>
+        </div>}
+        <div style={{background:'rgba(0,0,0,0.2)',borderRadius:10,padding:10}}>
+          <div style={{fontSize:10,fontWeight:700,color:'rgba(255,255,255,0.5)',marginBottom:6}}>Bass strategies</div>
+          {[{t:'Root only',d:'Hit the root of each chord on the downbeat. Most solid approach.'},{t:'Root + 5th',d:'Root on beat 1, 5th on beat 3. Adds motion without losing stability.'},{t:'Octave jump',d:'Play root low, jump to octave above. Creates energy and bounce.'},{t:'808 slide',d:'Start higher, glide down to root. Trap and modern R&B signature.'}].map((s,i)=><div key={i} style={{marginBottom:5,fontSize:10,color:'rgba(255,255,255,0.45)',lineHeight:1.5}}><span style={{color:'rgba(255,255,255,0.65)',fontWeight:600}}>{s.t}: </span>{s.d}</div>)}
+        </div>
       </div>
     </div>}
 
@@ -753,7 +813,7 @@ return(
         <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:6}}>{idea.prog.map((c,i)=><span key={i} style={{background:cc(c)+'18',color:cc(c),border:`1px solid ${cc(c)}35`,borderRadius:7,padding:'4px 10px',fontSize:13,fontWeight:700}}>{c}</span>)}</div>
         <div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:6}}>{idea.prog.slice(1).map((c,i)=>{const m=mf(idea.prog[i],c);return<span key={i} style={{fontSize:8,color:'rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.04)',borderRadius:3,padding:'1px 5px'}}>{m.e} {m.l}</span>;})}</div>
         <div style={{display:'flex',gap:6}}>
-          <button onClick={()=>{audio.playProgression(idea.prog.map(s=>cn(pc(s).r,pc(s).t,3)),72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);}));}} style={S.btn()}>▶ Play</button>
+          <button onClick={()=>{audio.playProgression(idea.prog.map(s=>cn(pc(s).r,pc(s).t,3)),72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}} style={S.btn()}>▶ Play</button>
           <button onClick={()=>{setProg(idea.prog);setSk(idea.k||sk);setScreen('builder');}} style={S.btn()}>Edit →</button>
           <button onClick={()=>{const e=idea.emo?EMO[idea.emo]:null;const t=[`🎵 HarmonyMap Sketch`,`${e?e.l+' — '+e.p:'Free exploration'}`,`Key: ${idea.k}`,`${idea.prog.join(' → ')}`,idea.date].join('\n');try{navigator.clipboard.writeText(t);setTip('Copied to clipboard!');}catch(e){}}} style={S.btn()}>📋 Copy</button>
         </div>
