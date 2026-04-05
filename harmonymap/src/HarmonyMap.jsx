@@ -30,60 +30,59 @@ return 440*Math.pow(2,(M[m[1]]-9+(parseInt(m[2])-4)*12)/12);
 }
 playNote(n,dur=1.2,vel=0.5,st=null){
 this.init(); const fr=typeof n==='number'?n:this.noteToFreq(n); const t=st||this.ctx.currentTime;
-// Steinway has 2-3 strings per note, slightly detuned — recreate that chorus
-const s1=this.ctx.createOscillator(),s2=this.ctx.createOscillator(),s3=this.ctx.createOscillator();
-// Inharmonic overtones (piano strings are not perfectly harmonic)
-const h2=this.ctx.createOscillator(),h3=this.ctx.createOscillator(),h4=this.ctx.createOscillator();
-// Percussive key-strike noise
-const nBuf=this.ctx.createBuffer(1,Math.floor(this.ctx.sampleRate*0.025),this.ctx.sampleRate);
-const nd=nBuf.getChannelData(0); for(let i=0;i<nd.length;i++)nd[i]=(Math.random()*2-1)*(1-i/nd.length);
-const ns=this.ctx.createBufferSource(); ns.buffer=nBuf;
+// Build piano harmonic spectrum once and cache it
+if(!this.pianoWave){
+const N=16,real=new Float32Array(N),imag=new Float32Array(N);
+real[1]=1.0;real[2]=0.50;real[3]=0.25;real[4]=0.14;real[5]=0.09;
+real[6]=0.05;real[7]=0.03;real[8]=0.02;real[9]=0.012;real[10]=0.008;
+real[11]=0.005;real[12]=0.003;real[13]=0.002;real[14]=0.001;real[15]=0.001;
+this.pianoWave=this.ctx.createPeriodicWave(real,imag,{disableNormalization:false});
+}
+// Two detuned strings — piano unison beating creates warmth
+const o1=this.ctx.createOscillator(),o2=this.ctx.createOscillator();
+o1.setPeriodicWave(this.pianoWave); o2.setPeriodicWave(this.pianoWave);
+o1.frequency.value=fr; o2.frequency.value=fr;
+o1.detune.value=-7; o2.detune.value=7;
+// Hammer-strike noise burst — the physical key impact
+const bLen=Math.floor(this.ctx.sampleRate*0.022);
+const buf=this.ctx.createBuffer(1,bLen,this.ctx.sampleRate);
+const bd=buf.getChannelData(0);
+for(let i=0;i<bLen;i++)bd[i]=(Math.random()*2-1)*Math.pow(1-i/bLen,3);
+const ns=this.ctx.createBufferSource(); ns.buffer=buf;
 const ng=this.ctx.createGain(),nf=this.ctx.createBiquadFilter();
-nf.type='bandpass'; nf.frequency.value=fr*1.5; nf.Q.value=0.8;
-ng.gain.setValueAtTime(vel*0.18,t); ng.gain.exponentialRampToValueAtTime(0.001,t+0.025);
-// String tuning — simulate triple stringing with slight detuning
-s1.type='triangle'; s1.frequency.value=fr; s1.detune.value=-5;
-s2.type='triangle'; s2.frequency.value=fr; s2.detune.value=0;
-s3.type='triangle'; s3.frequency.value=fr; s3.detune.value=5;
-// Inharmonic partials — higher partials are sharp (real piano behavior)
-h2.type='sine'; h2.frequency.value=fr*2.001;
-h3.type='sine'; h3.frequency.value=fr*3.004;
-h4.type='sine'; h4.frequency.value=fr*4.01;
-const g1=this.ctx.createGain(),g2=this.ctx.createGain(),g3=this.ctx.createGain();
-const gh2=this.ctx.createGain(),gh3=this.ctx.createGain(),gh4=this.ctx.createGain();
-g1.gain.value=0.9; g2.gain.value=1.0; g3.gain.value=0.9;
-gh2.gain.value=0.28; gh3.gain.value=0.12; gh4.gain.value=0.05;
-// Velocity-sensitive brightness filter
+nf.type='bandpass'; nf.frequency.value=Math.min(fr*2,4000); nf.Q.value=1.2;
+ng.gain.setValueAtTime(vel*0.22,t); ng.gain.exponentialRampToValueAtTime(0.001,t+0.022);
+// Velocity-sensitive brightness — harder hit = brighter and longer
 const fl=this.ctx.createBiquadFilter(); fl.type='lowpass';
-fl.frequency.setValueAtTime(1200+vel*7000,t); fl.frequency.exponentialRampToValueAtTime(800+vel*1200,t+dur*0.35); fl.Q.value=0.4;
-// Main envelope — fast attack, double-decay like real piano hammer
-const mg=this.ctx.createGain();
-mg.gain.setValueAtTime(0,t);
-mg.gain.linearRampToValueAtTime(vel*0.55,t+0.004);
-mg.gain.exponentialRampToValueAtTime(vel*0.22,t+0.06);
-mg.gain.exponentialRampToValueAtTime(vel*0.10,t+0.35);
-mg.gain.exponentialRampToValueAtTime(0.001,t+dur);
-// Wire up
-[s1,s2,s3].forEach((o,i)=>{[g1,g2,g3][i].connect(fl);o.connect([g1,g2,g3][i]);});
-[h2,h3,h4].forEach((o,i)=>{[gh2,gh3,gh4][i].connect(fl);o.connect([gh2,gh3,gh4][i]);});
+fl.frequency.setValueAtTime(900+vel*5500,t);
+fl.frequency.exponentialRampToValueAtTime(600+vel*900,t+dur*0.45); fl.Q.value=0.35;
+// Grand piano envelope: fast attack → quick initial hammer decay → slow string decay
+const env=this.ctx.createGain();
+env.gain.setValueAtTime(0,t);
+env.gain.linearRampToValueAtTime(vel*0.52,t+0.005);
+env.gain.exponentialRampToValueAtTime(vel*0.28,t+0.07);
+env.gain.exponentialRampToValueAtTime(vel*0.14,t+0.45);
+env.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+// Signal chain
+o1.connect(fl); o2.connect(fl);
 ns.connect(nf); nf.connect(ng); ng.connect(fl);
-fl.connect(mg); mg.connect(this.mg); mg.connect(this.rv); if(this.rv2)mg.connect(this.rv2);
-const end=t+dur+0.2;
-[s1,s2,s3,h2,h3,h4].forEach(o=>{o.start(t);o.stop(end);});
-ns.start(t); ns.stop(t+0.03);
+fl.connect(env); env.connect(this.mg); env.connect(this.rv); if(this.rv2)env.connect(this.rv2);
+const end=t+dur+0.15;
+o1.start(t); o1.stop(end); o2.start(t); o2.stop(end);
+ns.start(t); ns.stop(t+0.025);
 }
 playChord(notes,dur=1.5,stg=0.018) { this.init(); const t=this.ctx.currentTime; notes.forEach((n,i)=>this.playNote(n,dur,0.35,t+i*stg)); }
 playInterval(a,b,dur=1.8) { this.init(); const t=this.ctx.currentTime; this.playNote(a,dur,0.4,t); this.playNote(b,dur,0.4,t+0.01); }
 playMelodicInterval(a,b,dur=0.8) { this.init(); const t=this.ctx.currentTime; this.playNote(a,dur,0.45,t); this.playNote(b,dur,0.45,t+dur*0.7); }
-playProgression(cl,bpm=72,cb) {
-this.init(); this.stop(); this.isPlaying=true; const d=(60/bpm)*4;
-cl.forEach((n,i)=>{ const t=setTimeout(()=>{if(!this.isPlaying)return; this.playChord(n,d*0.88); if(cb)cb(i);},i*d*1000); this.tids.push(t); });
+playProgression(cl,bpm=72,cb,beats=4,stg=0.018) {
+this.init(); this.stop(); this.isPlaying=true; const d=(60/bpm)*beats;
+cl.forEach((n,i)=>{ const t=setTimeout(()=>{if(!this.isPlaying)return; this.playChord(n,d*0.88,stg); if(cb)cb(i);},i*d*1000); this.tids.push(t); });
 this.tids.push(setTimeout(()=>{this.isPlaying=false; if(cb)cb(-1);},cl.length*d*1000));
 }
-playLoop(cl,bpm=72,cb) {
-this.init(); this.stop(); this.isPlaying=true; const d=(60/bpm)*4; const tot=cl.length*d*1000;
+playLoop(cl,bpm=72,cb,beats=4,stg=0.018) {
+this.init(); this.stop(); this.isPlaying=true; const d=(60/bpm)*beats; const tot=cl.length*d*1000;
 const go=()=>{ if(!this.isPlaying) return;
-cl.forEach((n,i)=>{ this.tids.push(setTimeout(()=>{if(!this.isPlaying)return; this.playChord(n,d*0.88); if(cb)cb(i);},i*d*1000)); });
+cl.forEach((n,i)=>{ this.tids.push(setTimeout(()=>{if(!this.isPlaying)return; this.playChord(n,d*0.88,stg); if(cb)cb(i);},i*d*1000)); });
 this.tids.push(setTimeout(()=>{if(this.isPlaying)go();},tot));
 }; go();
 }
@@ -377,7 +376,13 @@ const LES=[
 ];
 
 // ─── RHYTHMS ────────────────────────────────────────────────
-const RHY=[{n:'Whole Notes',d:'Spacious',b:65},{n:'Steady',d:'Quarter-note drive',b:95},{n:'Ballad',d:'Gentle push-pull',b:72},{n:'Driving',d:'Eighth-note energy',b:110},{n:'Heavy',d:'Half notes, slow',b:55}];
+const RHY=[
+{n:'Spacious',d:'4 bars per chord — slow, breathing',b:60,beats:8,stg:0.032},
+{n:'Standard',d:'2 bars per chord — most common',b:90,beats:4,stg:0.018},
+{n:'Ballad',d:'2 bars, slow tempo — expressive',b:68,beats:4,stg:0.026},
+{n:'Driving',d:'1 bar per chord — forward momentum',b:116,beats:2,stg:0.010},
+{n:'Half-Time',d:'4 bars, heavy — hip-hop/trap feel',b:75,beats:8,stg:0.038},
+];
 
 // ─── LAYOUT ─────────────────────────────────────────────────
 function ml(ch,cx,cy,r){return ch.map((c,i)=>{const a=(i/ch.length)*Math.PI*2-Math.PI/2;return{c,x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r};});}
@@ -425,7 +430,7 @@ const ps=useMemo(()=>presets(sk),[sk]);
 const playC=useCallback(s=>{audio.playChord(cn(pc(s).r,pc(s).t,3));setSch(s);const t=ctip('sel',{ch:s});if(t)setTip(t);},[]);
 const addC=useCallback(s=>{setProg(p=>{const n=[...p,s];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});},[]);
 const remC=useCallback(i=>{setProg(p=>p.filter((_,j)=>j!==i));},[]);
-const playP=useCallback((bpm=72)=>{const n=prog.map(s=>cn(pc(s).r,pc(s).t,3));audio.playProgression(n,bpm,i=>setPi(i));const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
+const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>cn(pc(s).r,pc(s).t,3));audio.playProgression(n,bpm,i=>setPi(i),beats,stg);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
 const playM=useCallback(n=>{audio.playNote(n+'4',0.8,0.5);setMn(n);setNh(p=>[...p.slice(-31),{n,t:Date.now()}]);setTimeout(()=>setMn(null),500);},[]);
 const selEmo=useCallback(e=>{setEmo(e);if(EMO[e].ks[0])setSk(EMO[e].ks[0]);setScreen('emotion');},[]);
@@ -624,16 +629,16 @@ return(
             {prog.length>=3&&idProg(prog)&&<div style={{marginTop:6,fontSize:10,color:'#FFB347',background:'rgba(255,183,71,0.08)',borderRadius:8,padding:'6px 10px'}}>✦ {idProg(prog)}</div>}
           </div>}
           <div style={{display:'flex',gap:7,marginTop:12,flexWrap:'wrap'}}>
-            <button onClick={()=>playP(sr!==null?RHY[sr].b:72)} style={{...S.btn('linear-gradient(135deg,#4ECDC4,#44B09E)','#fff','transparent'),border:'none'}}>▶ Play</button>
+            <button onClick={()=>playP(sr!==null?RHY[sr].b:72,sr!==null?RHY[sr].beats:4,sr!==null?RHY[sr].stg:0.018)} style={{...S.btn('linear-gradient(135deg,#4ECDC4,#44B09E)','#fff','transparent'),border:'none'}}>▶ Play</button>
 <button onClick={()=>prog.forEach((c,i)=>setTimeout(()=>arpChord(c,'up'),i*600))} style={S.btn('rgba(255,183,71,0.15)','#FFB347','rgba(255,183,71,0.3)')}>↑ Arp All</button>
             <button onClick={saveI} style={S.btn('rgba(255,215,0,0.15)','#FFD700','rgba(255,215,0,0.3)')}>♡ Save</button>
-            <button onClick={()=>setProg([])} style={S.btn()}>Clear</button>
+            <button onClick={()=>{stopAll();setProg([]);}} style={S.btn()}>Clear</button>
           </div>
         </div>}
       </div>
       <div style={{...S.card(),marginBottom:14}}>
         <div style={S.lbl}>Rhythm Feel</div>
-        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{RHY.map((r,i)=><button key={i} onClick={()=>{setSr(i);if(prog.length>0)playP(r.b);}} style={{...S.btn(sr===i?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.04)',sr===i?'#fff':'rgba(255,255,255,0.5)'),padding:'6px 10px',fontSize:10,textAlign:'left'}}><div style={{fontWeight:700}}>{r.n}</div><div style={{fontSize:8,opacity:0.5,marginTop:1}}>{r.b} BPM</div></button>)}</div>
+        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{RHY.map((r,i)=><button key={i} onClick={()=>{setSr(i);if(prog.length>0)playP(r.b,r.beats,r.stg);}} style={{...S.btn(sr===i?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.04)',sr===i?'#fff':'rgba(255,255,255,0.5)'),padding:'6px 10px',fontSize:10,textAlign:'left'}}><div style={{fontWeight:700}}>{r.n}</div><div style={{fontSize:8,opacity:0.5,marginTop:1}}>{r.b} BPM</div></button>)}</div>
         {sr!==null&&<div style={{marginTop:6,fontSize:10,color:'rgba(255,255,255,0.4)'}}>{RHY[sr].d}</div>}
       </div>
       <div style={{marginBottom:14}}>
@@ -716,7 +721,7 @@ return(
             <h3 style={{fontSize:14,fontWeight:700,margin:'0 0 2px',color:pa?'#4ECDC4':'#fff'}}>{pa?'● Playing Along':'Play Along'}</h3>
             <div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>{pa?'Progression looping — tap notes to improvise!':'Loop your chords and play melody on top.'}</div>
           </div>
-          <button onClick={()=>{if(pa){audio.stop();setPa(false);setPi(-1);}else{setPa(true);audio.playLoop(prog.map(s=>cn(pc(s).r,pc(s).t,3)),sr!==null?RHY[sr].b:72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}}} style={{...S.btn(pa?'#FF6B6B25':'#4ECDC425',pa?'#FF6B6B':'#4ECDC4',pa?'#FF6B6B50':'#4ECDC450'),fontSize:13,fontWeight:700,padding:'10px 20px'}}>{pa?'■ Stop':'▶ Start Loop'}</button>
+          <button onClick={()=>{if(pa){audio.stop();setPa(false);setPi(-1);}else{setPa(true);audio.playLoop(prog.map(s=>cn(pc(s).r,pc(s).t,3)),sr!==null?RHY[sr].b:72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);},sr!==null?RHY[sr].beats:4,sr!==null?RHY[sr].stg:0.018);}}} style={{...S.btn(pa?'#FF6B6B25':'#4ECDC425',pa?'#FF6B6B':'#4ECDC4',pa?'#FF6B6B50':'#4ECDC450'),fontSize:13,fontWeight:700,padding:'10px 20px'}}>{pa?'■ Stop':'▶ Start Loop'}</button>
         </div>
         {pa&&<div style={{display:'flex',gap:5,marginTop:10,flexWrap:'wrap'}}>{prog.map((c,i)=><span key={i} style={{...S.pill(cc(c),pi===i),fontSize:13,padding:'5px 12px'}}>{c}</span>)}</div>}
       </div>:<div style={{...S.card(),marginBottom:14,textAlign:'center'}}><div style={{fontSize:11,color:'rgba(255,255,255,0.35)'}}>Build 2+ chords in Builder to unlock Play Along.</div></div>}
