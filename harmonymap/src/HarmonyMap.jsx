@@ -428,12 +428,12 @@ return(
           {[{l:'Keys',v:em.ks.join(', ')},{l:'Tempo',v:em.tp+' BPM'},{l:'Feel',v:em.fl},{l:'Textures',v:em.tx}].map(i=><div key={i.l} style={{background:'rgba(0,0,0,0.2)',borderRadius:10,padding:'9px 11px'}}><div style={{...S.lbl,fontSize:9,marginBottom:3}}>{i.l}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.75)',lineHeight:1.4}}>{i.v}</div></div>)}
         </div>
       </div>
-      {em.pr.map((p,i)=><div key={i} style={{...S.card(),cursor:'pointer'}} onClick={()=>{audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),72,i=>setPi(i));}}>
-        <div style={{display:'flex',gap:6,marginBottom:6,flexWrap:'wrap'}}>{p.ch.map((c,j)=><span key={j} style={S.pill(cc(c),pi===j)}>{c}{j<p.ch.length-1&&<span style={{marginLeft:6,color:'rgba(255,255,255,0.25)'}}>→</span>}</span>)}</div>
+      {em.pr.map((p,ri)=><div key={ri} style={{...S.card(),cursor:'pointer'}} onClick={()=>{audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}}>
+        <div style={{display:'flex',gap:6,marginBottom:6,flexWrap:'wrap'}}>{p.ch.map((c,j)=><span key={j} style={S.pill(cc(c),pRow===ri&&pi===j)}>{c}{j<p.ch.length-1&&<span style={{marginLeft:6,color:'rgba(255,255,255,0.25)'}}>→</span>}</span>)}</div>
         <p style={{fontSize:11,color:'rgba(255,255,255,0.5)',margin:'0 0 6px',lineHeight:1.4}}>{p.d}</p>
         <div style={{display:'flex',gap:6}}>
           <button onClick={e=>{e.stopPropagation();setProg(p.ch);setScreen('builder');}} style={S.btn(em.co[0]+'25',em.co[0],em.co[0]+'40')}>Use this →</button>
-          <button onClick={e=>{e.stopPropagation();audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),72,i=>setPi(i));}} style={S.btn()}>▶ Listen</button>
+          <button onClick={e=>{e.stopPropagation();audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);}));}} style={S.btn()}>▶ Listen</button>
         </div>
       </div>)}
       <div style={S.card()}>
@@ -618,7 +618,7 @@ return(
             <h3 style={{fontSize:14,fontWeight:700,margin:'0 0 2px',color:pa?'#4ECDC4':'#fff'}}>{pa?'● Playing Along':'Play Along'}</h3>
             <div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>{pa?'Progression looping — tap notes to improvise!':'Loop your chords and play melody on top.'}</div>
           </div>
-          <button onClick={()=>{if(pa){audio.stop();setPa(false);setPi(-1);}else{setPa(true);audio.playLoop(prog.map(s=>cn(pc(s).r,pc(s).t,3)),sr!==null?RHY[sr].b:72,i=>setPi(i));}}} style={{...S.btn(pa?'#FF6B6B25':'#4ECDC425',pa?'#FF6B6B':'#4ECDC4',pa?'#FF6B6B50':'#4ECDC450'),fontSize:13,fontWeight:700,padding:'10px 20px'}}>{pa?'■ Stop':'▶ Start Loop'}</button>
+          <button onClick={()=>{if(pa){audio.stop();setPa(false);setPi(-1);}else{setPa(true);audio.playLoop(prog.map(s=>cn(pc(s).r,pc(s).t,3)),sr!==null?RHY[sr].b:72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);}));}}} style={{...S.btn(pa?'#FF6B6B25':'#4ECDC425',pa?'#FF6B6B':'#4ECDC4',pa?'#FF6B6B50':'#4ECDC450'),fontSize:13,fontWeight:700,padding:'10px 20px'}}>{pa?'■ Stop':'▶ Start Loop'}</button>
         </div>
         {pa&&<div style={{display:'flex',gap:5,marginTop:10,flexWrap:'wrap'}}>{prog.map((c,i)=><span key={i} style={{...S.pill(cc(c),pi===i),fontSize:13,padding:'5px 12px'}}>{c}</span>)}</div>}
       </div>:<div style={{...S.card(),marginBottom:14,textAlign:'center'}}><div style={{fontSize:11,color:'rgba(255,255,255,0.35)'}}>Build 2+ chords in Builder to unlock Play Along.</div></div>}
@@ -753,7 +753,7 @@ return(
         <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:6}}>{idea.prog.map((c,i)=><span key={i} style={{background:cc(c)+'18',color:cc(c),border:`1px solid ${cc(c)}35`,borderRadius:7,padding:'4px 10px',fontSize:13,fontWeight:700}}>{c}</span>)}</div>
         <div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:6}}>{idea.prog.slice(1).map((c,i)=>{const m=mf(idea.prog[i],c);return<span key={i} style={{fontSize:8,color:'rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.04)',borderRadius:3,padding:'1px 5px'}}>{m.e} {m.l}</span>;})}</div>
         <div style={{display:'flex',gap:6}}>
-          <button onClick={()=>{audio.playProgression(idea.prog.map(s=>cn(pc(s).r,pc(s).t,3)),72,i=>setPi(i));}} style={S.btn()}>▶ Play</button>
+          <button onClick={()=>{audio.playProgression(idea.prog.map(s=>cn(pc(s).r,pc(s).t,3)),72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);}));}} style={S.btn()}>▶ Play</button>
           <button onClick={()=>{setProg(idea.prog);setSk(idea.k||sk);setScreen('builder');}} style={S.btn()}>Edit →</button>
           <button onClick={()=>{const e=idea.emo?EMO[idea.emo]:null;const t=[`🎵 HarmonyMap Sketch`,`${e?e.l+' — '+e.p:'Free exploration'}`,`Key: ${idea.k}`,`${idea.prog.join(' → ')}`,idea.date].join('\n');try{navigator.clipboard.writeText(t);setTip('Copied to clipboard!');}catch(e){}}} style={S.btn()}>📋 Copy</button>
         </div>
