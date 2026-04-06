@@ -33,7 +33,7 @@ const m=n.match(/^([A-G][#b]?)(\d)$/); if(!m) return 440;
 return 440*Math.pow(2,(M[m[1]]-9+(parseInt(m[2])-4)*12)/12);
 }
 playNote(n,dur=1.2,vel=0.5,st=null){
-this.init(); const fr=typeof n==='number'?n:this.noteToFreq(n); const t=st||this.ctx.currentTime;
+this.init(); const fr=typeof n==='number'?n:this.noteToFreq(n); const t=st||(this.ctx.currentTime+0.08);
 // Cached piano harmonic spectrum — measured from Steinway recordings
 if(!this.pianoWave){
 const amps=[0,1.0,0.62,0.38,0.22,0.16,0.11,0.075,0.052,0.036,0.025,0.018,0.013,0.009,0.0065,0.0046,0.0033,0.0024,0.0017,0.0012,0.00085,0.0006,0.00042,0.0003];
@@ -77,13 +77,13 @@ ns.connect(nf); nf.connect(ng); ng.connect(env);
 fl.connect(env); env.connect(this.mg); env.connect(this.rv); if(this.rv2)env.connect(this.rv2);
 ns.start(t); ns.stop(t+0.02);
 }
-playChord(notes,dur=1.5,stg=0.018) { this.init(); if(!notes||!notes.length)return; const t=this.ctx.currentTime; notes.forEach((n,i)=>this.playNote(n,dur,0.35,t+i*stg)); }
-setVolume(v){this.init();this.mg.gain.setTargetAtTime(Math.max(0,Math.min(1,v)),this.ctx.currentTime,0.02);}
-playClick(hi,st){this.init();const t=st||this.ctx.currentTime;const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sine';o.frequency.value=hi?1400:900;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.002);g.gain.exponentialRampToValueAtTime(0.0001,t+0.08);o.connect(g);g.connect(this.mg);o.start(t);o.stop(t+0.1);}
+playChord(notes,dur=1.5,stg=0.018) { this.init(); if(!notes||!notes.length)return; const t=this.ctx.currentTime+0.08; notes.forEach((n,i)=>this.playNote(n,dur,0.35,t+i*stg)); }
+setVolume(v){if(this.ctx)this.mg.gain.setTargetAtTime(Math.max(0,Math.min(1,v)),this.ctx.currentTime,0.02);}
+playClick(hi,st){this.init();const t=st||(this.ctx.currentTime+0.08);const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sine';o.frequency.value=hi?1400:900;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.002);g.gain.exponentialRampToValueAtTime(0.0001,t+0.08);o.connect(g);g.connect(this.mg);o.start(t);o.stop(t+0.1);}
 countIn(bpm,beats,cb){this.init();const d=60/bpm;const t0=this.ctx.currentTime;for(let i=0;i<beats;i++)this.playClick(i===0,t0+i*d);const id=setTimeout(cb,beats*d*1000);this.tids.push(id);}
 play808Pattern(grid,notes,bpm,cb,loop){this.init();this.stop();this.isPlaying=true;const stepD=(60/bpm)/4;const steps=grid[0]?.length||16;const tot=steps*stepD*1000;const go=()=>{if(!this.isPlaying)return;for(let s=0;s<steps;s++){const tms=s*stepD*1000;this.tids.push(setTimeout(()=>{if(!this.isPlaying)return;for(let r=0;r<grid.length;r++)if(grid[r][s])this.play808(notes[r],stepD*4,0.85);if(cb)cb(s);},tms));}if(loop)this.tids.push(setTimeout(()=>{if(this.isPlaying)go();},tot));else this.tids.push(setTimeout(()=>{this.isPlaying=false;if(cb)cb(-1);},tot));};go();}
-playInterval(a,b,dur=1.8) { this.init(); const t=this.ctx.currentTime; this.playNote(a,dur,0.4,t); this.playNote(b,dur,0.4,t+0.01); }
-playMelodicInterval(a,b,dur=0.8) { this.init(); const t=this.ctx.currentTime; this.playNote(a,dur,0.45,t); this.playNote(b,dur,0.45,t+dur*0.7); }
+playInterval(a,b,dur=1.8) { this.init(); const t=this.ctx.currentTime+0.08; this.playNote(a,dur,0.4,t); this.playNote(b,dur,0.4,t+0.01); }
+playMelodicInterval(a,b,dur=0.8) { this.init(); const t=this.ctx.currentTime+0.08; this.playNote(a,dur,0.45,t); this.playNote(b,dur,0.45,t+dur*0.7); }
 playProgression(cl,bpm=72,cb,beats=4,stg=0.018) {
 this.init(); this.stop(); this.isPlaying=true; const d=(60/bpm)*beats;
 cl.forEach((n,i)=>{ const t=setTimeout(()=>{if(!this.isPlaying)return; if(n)this.playChord(n,d*0.88,stg); if(cb)cb(i);},i*d*1000); this.tids.push(t); });
@@ -98,7 +98,7 @@ this.tids.push(setTimeout(()=>{if(this.isPlaying)go();},tot));
 }
 stop() { this.isPlaying=false; this.tids.forEach(t=>clearTimeout(t)); this.tids=[]; }
 play808(n,dur=2.0,vel=0.85,st=null){
-this.init(); const base=typeof n==='number'?n:this.noteToFreq((typeof n==='string'&&!/\d/.test(n))?n+'2':n); const t=st||this.ctx.currentTime;
+this.init(); const base=typeof n==='number'?n:this.noteToFreq((typeof n==='string'&&!/\d/.test(n))?n+'2':n); const t=st||(this.ctx.currentTime+0.08);
 const o=this.ctx.createOscillator(),g=this.ctx.createGain(),lp=this.ctx.createBiquadFilter();
 o.type='sine'; o.frequency.setValueAtTime(base*2.5,t); o.frequency.exponentialRampToValueAtTime(base,t+0.06);
 lp.type='lowpass'; lp.frequency.value=180; lp.Q.value=0.5;
