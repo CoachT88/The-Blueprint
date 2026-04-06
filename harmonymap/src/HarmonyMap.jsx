@@ -119,10 +119,6 @@ loop808(notes,bpm=90,cb){
 this.init(); this.stop(); this.isPlaying=true; const d=(60/bpm)*2; const tot=notes.length*d*1000;
 const go=()=>{if(!this.isPlaying)return; notes.forEach((n,i)=>{this.tids.push(setTimeout(()=>{if(!this.isPlaying)return; this.play808(n,d*0.85,0.85); if(cb)cb(i);},i*d*1000));});this.tids.push(setTimeout(()=>{if(this.isPlaying)go();},tot));};go();
 }
-arpChord(notes,dir='up',dur=0.4,gap=0.12){
-this.init(); const t=this.ctx.currentTime; const ord=dir==='down'?[...notes].reverse():dir==='updown'?[...notes,...[...notes].slice(1,-1).reverse()]:notes;
-ord.forEach((n,i)=>this.playNote(n,dur,0.5,t+i*gap));
-}
 }
 const audio=new AudioEngine();
 function genreNotes(sym,genre){const{r,t}=pc(sym);const oct=(genre==='trap'||genre==='hiphop')?2:3;if((genre==='90s-rnb'||genre==='rnb'||genre==='lofi')&&CT[t]){const rt=t==='major'?'maj7':t==='minor'?'min7':t==='dominant'?'dom7':t;return cn(r,CT[rt]?rt:t,oct);}return cn(r,t,oct);}
@@ -430,7 +426,7 @@ const[et,setEt]=useState('chord-quality');
 const[disc,setDisc]=useState([]);
 const[pa,setPa]=useState(false);
 const[genre,setGenre]=useState(null);
-const[mloop,setMloop]=useState(false);const[arpDir,setArpDir]=useState('up');const[progLooping,setProgLooping]=useState(false);
+const[mloop,setMloop]=useState(false);const[progLooping,setProgLooping]=useState(false);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
 const[vol,setVol]=useState(0.26);
 useEffect(()=>{if(audio.ctx)audio.setVolume(vol);},[vol]);
@@ -456,7 +452,6 @@ const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='RE
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
 const selEmo=useCallback(e=>{setEmo(e);if(EMO[e].ks[0])setSk(EMO[e].ks[0]);setScreen('emotion');},[]);
 const stopAll=useCallback(()=>{audio.stop();setPa(false);setPi(-1);setPRow(-1);setMloop(false);setProgLooping(false);},[]);
-const arpChord=useCallback((sym,dir)=>{audio.arpChord(cn(pc(sym).r,pc(sym).t,3),dir||arpDir);},[arpDir]);
 const newEar=useCallback(()=>{setEa(null);const c=earGen(et);setEc(c);if(c)setTimeout(()=>{if(c.pt==='chord')audio.playChord(c.pd);else if(c.pt==='melodic')audio.playMelodicInterval(c.pd[0],c.pd[1]);else if(c.pt==='two'){audio.playChord(c.pd[0],1.3);setTimeout(()=>audio.playChord(c.pd[1],1.3),1500);}},300);},[et]);
 const replayEar=useCallback(()=>{if(!ec)return;if(ec.pt==='chord')audio.playChord(ec.pd);else if(ec.pt==='melodic')audio.playMelodicInterval(ec.pd[0],ec.pd[1]);else if(ec.pt==='two'){audio.playChord(ec.pd[0],1.3);setTimeout(()=>audio.playChord(ec.pd[1],1.3),1500);}},[ec]);
 const ansEar=useCallback(a=>{if(ea)return;setEa(a);setEs(s=>({c:s.c+(a===ec?.ans?1:0),t:s.t+1}));if(a===ec?.ans&&!dr.current.includes('fe'))setDisc(d=>[...d,'fe']);},[ec,ea]);
@@ -595,8 +590,6 @@ return(
             <div style={{fontSize:11,color:'rgba(255,255,255,0.4)'}}>{ql(sch)} · {(k?.m==='minor'?FNm:FNM)[k?.ch.indexOf(sch)]||'Borrowed'}</div>
           </div>
           <button onClick={()=>addC(sch)} style={S.btn(cc(sch)+'25',cc(sch),cc(sch)+'50')}>+ Add</button>
-<button onClick={()=>arpChord(sch,'up')} style={S.btn('rgba(255,255,255,0.06)','rgba(255,255,255,0.6)')}>↑ Arp</button>
-<button onClick={()=>arpChord(sch,'down')} style={S.btn('rgba(255,255,255,0.06)','rgba(255,255,255,0.6)')}>↓ Arp</button>
         </div>
         <div style={{marginBottom:10}}><div style={{...S.lbl,marginBottom:4}}>Notes</div><div style={{display:'flex',gap:5}}>{cn(pc(sch).r,pc(sch).t,4).map((n,i)=><span key={i} style={{background:cc(sch)+'12',border:`1px solid ${cc(sch)}25`,borderRadius:6,padding:'3px 9px',fontSize:12,fontWeight:600,color:cc(sch)}}>{n.replace(/\d/,'')}</span>)}</div></div>
         {CE[sch]&&<div style={{background:'rgba(255,255,255,0.03)',borderRadius:10,padding:10,marginBottom:10}}><div style={{fontSize:12,fontWeight:600,color:'rgba(255,255,255,0.75)',marginBottom:3}}>Feels: {CE[sch].f}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.4)',lineHeight:1.4}}>{CE[sch].r}</div></div>}
@@ -657,8 +650,7 @@ return(
           <div style={{display:'flex',gap:7,marginTop:12,flexWrap:'wrap'}}>
             <button onClick={()=>playP(bpm,beats,stg)} style={{...S.btn('linear-gradient(135deg,#4ECDC4,#44B09E)','#fff','transparent'),border:'none'}}>▶ Play</button>
 <button onClick={progLooping?stopAll:()=>loopP(bpm,beats,stg)} style={{...S.btn(progLooping?'rgba(255,107,107,0.18)':'rgba(199,125,255,0.15)',progLooping?'#FF6B6B':'#C77DFF',progLooping?'rgba(255,107,107,0.4)':'rgba(199,125,255,0.3)')}}>{progLooping?'■ Stop':'↺ Loop'}</button>
-<button onClick={()=>prog.filter(c=>c!=='REST').forEach((c,i)=>setTimeout(()=>arpChord(c,'up'),i*600))} style={S.btn('rgba(255,183,71,0.15)','#FFB347','rgba(255,183,71,0.3)')}>↑ Arp All</button>
-            <button onClick={saveI} style={S.btn('rgba(255,215,0,0.15)','#FFD700','rgba(255,215,0,0.3)')}>♡ Save</button>
+<button onClick={saveI} style={S.btn('rgba(255,215,0,0.15)','#FFD700','rgba(255,215,0,0.3)')}>♡ Save</button>
             <button onClick={()=>{stopAll();setProg([]);}} style={S.btn()}>Clear</button>
           </div>
         </div>}
