@@ -11,6 +11,7 @@ constructor() { this.ctx=null; this.mg=null; this.rv=null; this.isPlaying=false;
 init() {
 if(this.ctx){if(this.ctx.state==='suspended')this.ctx.resume();return;}
 this.ctx=new(window.AudioContext||window.webkitAudioContext)();
+if(/iPhone|iPad|iPod/.test(navigator.userAgent)&&!this.iosInited){this.iosInited=true;try{const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.frequency.value=20000;g.gain.setValueAtTime(0.001,this.ctx.currentTime);g.gain.linearRampToValueAtTime(0,this.ctx.currentTime+0.01);o.connect(g);g.connect(this.ctx.destination);o.start(this.ctx.currentTime);o.stop(this.ctx.currentTime+0.01);}catch(e){}}
 this.mg=this.ctx.createGain(); this.mg.gain.value=0.26;
 const comp=this.ctx.createDynamicsCompressor();
 comp.threshold.value=-20;comp.knee.value=10;comp.ratio.value=3;comp.attack.value=0.005;comp.release.value=0.15;
