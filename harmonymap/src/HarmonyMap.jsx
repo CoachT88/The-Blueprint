@@ -503,9 +503,17 @@ return(
 
     {/* ═══ HOME ═══ */}
     {screen==='home'&&<div style={{padding:'24px 16px',maxWidth:600,margin:'0 auto'}}>
-      <div style={{textAlign:'center',marginBottom:28}}>
+      <div style={{textAlign:'center',marginBottom:20}}>
         <h1 style={{fontSize:26,fontWeight:800,margin:'0 0 8px',background:'linear-gradient(135deg,#FF6B6B,#4ECDC4,#C77DFF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>What should your music feel like?</h1>
         <p style={{fontSize:13,color:'rgba(255,255,255,0.5)',margin:0}}>Start with a feeling. We'll find the chords, scales, and melodies.</p>
+      </div>
+      {/* How it works */}
+      <div style={{display:'flex',gap:0,marginBottom:20,background:'rgba(255,255,255,0.03)',borderRadius:14,border:'1px solid rgba(255,255,255,0.06)',overflow:'hidden'}}>
+        {[{n:'1',l:'Pick a feeling',d:'below',c:'#FF6B6B'},{n:'2',l:'Choose a progression',d:'tap Listen then Use this →',c:'#4ECDC4'},{n:'3',l:'Build your beat',d:'in the Build tab',c:'#C77DFF'},{n:'4',l:'Add melody & mix',d:'Melody + Mix tabs',c:'#FFB347'}].map((s,i)=><div key={i} style={{flex:1,padding:'10px 6px',textAlign:'center',borderRight:i<3?'1px solid rgba(255,255,255,0.04)':'none'}}>
+          <div style={{fontSize:14,fontWeight:800,color:s.c,marginBottom:2}}>{s.n}</div>
+          <div style={{fontSize:9,fontWeight:700,color:'rgba(255,255,255,0.65)',lineHeight:1.3,marginBottom:1}}>{s.l}</div>
+          <div style={{fontSize:8,color:'rgba(255,255,255,0.3)',lineHeight:1.3}}>{s.d}</div>
+        </div>)}
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
         {Object.entries(EMO).map(([k,e])=><button key={k} onClick={()=>selEmo(k)} style={{background:e.gr,border:`1px solid ${e.co[0]}35`,borderRadius:14,padding:'18px 14px',cursor:'pointer',textAlign:'left',position:'relative',overflow:'hidden'}}>
@@ -514,8 +522,8 @@ return(
           <div style={{fontSize:10,color:'rgba(255,255,255,0.45)',position:'relative',lineHeight:1.3}}>{e.p}</div>
         </button>)}
       </div>
-      <div style={{marginTop:20,display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
-        {[{k:'chordmap',l:'◉ Map'},{k:'ear',l:'👂 Ear Training'},{k:'intervals',l:'↕ Intervals'},{k:'learn',l:'✦ Learn'}].map(b=><button key={b.k} onClick={()=>setScreen(b.k)} style={S.btn()}>{b.l}</button>)}
+      <div style={{marginTop:16,display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
+        {[{k:'chordmap',l:'◉ Chord Map'},{k:'ear',l:'👂 Ear Training'},{k:'learn',l:'✦ Learn Theory'}].map(b=><button key={b.k} onClick={()=>setScreen(b.k)} style={S.btn()}>{b.l}</button>)}
       </div>
       {disc.length>0&&<div style={{...S.card(),marginTop:20}}>
         <div style={S.lbl}>Your Discoveries</div>
@@ -538,7 +546,7 @@ return(
       <div style={S.card()}>
         <h3 style={{fontSize:13,fontWeight:700,marginBottom:10,marginTop:0,color:em.co[0]}}>Musical ingredients</h3>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-          {[{l:'Keys',v:em.ks.join(', ')},{l:'Tempo',v:em.tp+' BPM'},{l:'Feel',v:em.fl},{l:'Textures',v:em.tx}].map(i=><div key={i.l} style={{background:'rgba(0,0,0,0.2)',borderRadius:10,padding:'9px 11px'}}><div style={{...S.lbl,fontSize:9,marginBottom:3}}>{i.l}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.75)',lineHeight:1.4}}>{i.v}</div></div>)}
+          {[{l:'Keys',v:em.ks.join(', ')},{l:'Tempo',v:em.tp+' BPM'},{l:'Feel',v:em.fl},{l:'Sounds to use',v:em.tx}].map(i=><div key={i.l} style={{background:'rgba(0,0,0,0.2)',borderRadius:10,padding:'9px 11px'}}><div style={{...S.lbl,fontSize:9,marginBottom:3}}>{i.l}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.75)',lineHeight:1.4}}>{i.v}</div></div>)}
         </div>
       </div>
       {em.pr.map((p,ri)=><div key={ri} style={{...S.card(),cursor:'default'}}>
@@ -546,7 +554,7 @@ return(
         <p style={{fontSize:11,color:'rgba(255,255,255,0.5)',margin:'0 0 10px',lineHeight:1.4}}>{p.d}</p>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>{audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),parseInt(em.tp)||72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}} style={{...S.btn('rgba(255,255,255,0.1)','#fff','rgba(255,255,255,0.2)'),padding:'10px 18px',fontSize:13}}>▶ Listen</button>
-          <button onClick={()=>{setProg(p.ch);setScreen('builder');}} style={{...S.btn(em.co[0]+'30',em.co[0],em.co[0]+'50'),padding:'10px 18px',fontSize:13}}>Use this →</button>
+          <button onClick={()=>{setProg(p.ch);setScreen('builder');}} style={{...S.btn(em.co[0]+'30',em.co[0],em.co[0]+'50'),padding:'10px 18px',fontSize:13,fontWeight:800}}>Use this → Build</button>
         </div>
       </div>)}
       <div style={S.card()}>
@@ -625,11 +633,11 @@ return(
         </div>
         <div style={{marginTop:12}}>
           <button onClick={()=>setSv(!sv)} style={{...S.btn('rgba(255,255,255,0.05)','rgba(255,255,255,0.6)','rgba(255,255,255,0.1)'),width:'100%',fontSize:11,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span>Voicing Explorer — same chord, different texture</span>
+            <span>Different ways to play this chord</span>
             <span style={{transform:sv?'rotate(90deg)':'none',transition:'transform 0.2s'}}>▶</span>
           </button>
           {sv&&<div style={{marginTop:8,animation:'fadeIn 0.3s'}}>
-            <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:8,lineHeight:1.5}}>Same notes arranged differently = completely different feel. Tap each to hear.</div>
+            <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:8,lineHeight:1.5}}>The same chord can feel completely different depending on how you arrange the notes. Tap each version to hear it.</div>
             <div style={{display:'flex',flexDirection:'column',gap:6}}>
               {gvoi(sch).map((v,i)=><button key={i} onClick={()=>audio.playChord(v.notes,2.0)} style={{background:'rgba(255,255,255,0.04)',border:`1px solid ${cc(sch)}20`,borderRadius:10,padding:'10px 12px',cursor:'pointer',textAlign:'left',width:'100%'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -647,10 +655,10 @@ return(
     {/* ═══ BUILDER ═══ */}
     {screen==='builder'&&<div style={{padding:'16px',maxWidth:600,margin:'0 auto'}}>
       <h2 style={{fontSize:20,fontWeight:800,marginBottom:3}}>Progression Builder</h2>
-      <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:16}}>Build, hear, and understand your progression. Voice leading shown live.</p>
+      <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:16}}>Tap chords to build your progression. Hear it play back in any style.</p>
       <div style={{background:'rgba(0,0,0,0.3)',borderRadius:16,padding:14,marginBottom:16,minHeight:70,border:'1px solid rgba(255,255,255,0.06)'}}>
-        <div style={S.lbl}>Your Progression {prog.length>0&&`(${prog.length})`}</div>
-        {prog.length===0?<div style={{color:'rgba(255,255,255,0.2)',fontSize:12,textAlign:'center',padding:'14px 0'}}>Tap chords below to start</div>:
+        <div style={S.lbl}>Your Progression {prog.length>0&&`(${prog.length} chords)`}</div>
+        {prog.length===0?<div style={{color:'rgba(255,255,255,0.3)',fontSize:12,textAlign:'center',padding:'16px 0',lineHeight:1.7}}>No chords yet.<br/><span style={{fontSize:11}}>Pick a feeling on Home, or tap chords from the list below.</span></div>:
         <div>
           <div style={{display:'flex',gap:7,flexWrap:'wrap',alignItems:'center'}}>
             {prog.map((c,i)=><div key={i} style={{position:'relative'}}>
@@ -660,10 +668,10 @@ return(
             <button onClick={()=>addC('REST')} style={{background:'rgba(255,255,255,0.04)',border:'1.5px dashed rgba(255,255,255,0.2)',borderRadius:10,padding:'10px 14px',cursor:'pointer',color:'rgba(255,255,255,0.45)',fontSize:13,fontWeight:700}}>+ 𝄽 rest</button>
           </div>
           {prog.filter(c=>c!=='REST').length>=2&&<div style={{marginTop:12,background:'rgba(255,255,255,0.03)',borderRadius:10,padding:10}}>
-            <div style={{...S.lbl,marginBottom:6}}>Movement analysis</div>
-            {prog.slice(1).map((c,i)=>{if(c==='REST'||prog[i]==='REST')return null;const m=mf(prog[i],c),v=vl(prog[i],c);return<div key={i} style={{marginBottom:4}}>
-              <span style={{fontSize:11,color:'rgba(255,255,255,0.6)'}}><span style={{color:cc(prog[i])}}>{prog[i]}</span><span style={{color:'rgba(255,255,255,0.2)',margin:'0 4px'}}>→</span><span style={{color:cc(c)}}>{c}</span><span style={{marginLeft:6,fontSize:10,color:'rgba(255,255,255,0.35)'}}>{m.e} {m.l} · {v.sm}</span></span>
-              <div style={{display:'flex',gap:6,marginTop:2}}>{v.mv.map((m,j)=><span key={j} style={{fontSize:9,color:m.s?'#4ECDC480':'#FFB34780'}}>{m.f}{m.s?'=':'→'}{m.t}</span>)}</div>
+            <div style={{...S.lbl,marginBottom:6}}>How these chords connect</div>
+            {prog.slice(1).map((c,i)=>{if(c==='REST'||prog[i]==='REST')return null;const m=mf(prog[i],c),v=vl(prog[i],c);return<div key={i} style={{marginBottom:6,background:'rgba(255,255,255,0.02)',borderRadius:8,padding:'6px 8px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:3}}><span style={{fontSize:12,fontWeight:700,color:cc(prog[i])}}>{prog[i]}</span><span style={{color:'rgba(255,255,255,0.2)',fontSize:10}}>→</span><span style={{fontSize:12,fontWeight:700,color:cc(c)}}>{c}</span><span style={{marginLeft:6,fontSize:10,color:'rgba(255,255,255,0.4)'}}>{m.e} {m.l}</span><span style={{marginLeft:'auto',fontSize:9,color:'rgba(255,255,255,0.25)',background:'rgba(255,255,255,0.04)',borderRadius:4,padding:'1px 5px'}}>{v.sm}</span></div>
+              <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{v.mv.map((m,j)=><span key={j} style={{fontSize:9,color:m.s?'#4ECDC480':'#FFB34780',background:m.s?'#4ECDC408':'#FFB34708',borderRadius:3,padding:'1px 5px'}}>{m.s?`${m.f} stays`:`${m.f}→${m.t}`}</span>)}</div>
             </div>;})}
             {prog.filter(c=>c!=='REST').length>=3&&idProg(prog.filter(c=>c!=='REST'))&&<div style={{marginTop:6,fontSize:10,color:'#FFB347',background:'rgba(255,183,71,0.08)',borderRadius:8,padding:'6px 10px'}}>✦ {idProg(prog.filter(c=>c!=='REST'))}</div>}
           </div>}
