@@ -430,7 +430,7 @@ const[et,setEt]=useState('chord-quality');
 const[disc,setDisc]=useState([]);
 const[pa,setPa]=useState(false);
 const[genre,setGenre]=useState(null);
-const[mloop,setMloop]=useState(false);const[progLooping,setProgLooping]=useState(false);
+const[progLooping,setProgLooping]=useState(false);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
 const[vol,setVol]=useState(0.26);
 useEffect(()=>{if(audio.ctx)audio.setVolume(vol);},[vol]);
@@ -441,7 +441,7 @@ const warmup=()=>{audio.init();};
 document.addEventListener('touchstart',warmup,{once:true,passive:true,capture:true});
 return()=>document.removeEventListener('touchstart',warmup,{capture:true});
 },[]);
-useEffect(()=>{try{const s=localStorage.getItem('harmonymap_saved');if(s)setSaved(JSON.parse(s));const st=localStorage.getItem('harmonymap_settings');if(st){const o=JSON.parse(st);if(o.bpm)setBpm(o.bpm);if(o.beats)setBeats(o.beats);if(o.stg!=null)setStg(o.stg);if(o.sk)setSk(o.sk);if(o.vol!=null)setVol(o.vol);}const g=localStorage.getItem('harmonymap_b8grid');if(g){const arr=JSON.parse(g);if(Array.isArray(arr)&&arr.length===7)setB8grid(arr);}}catch(e){}},[]);
+useEffect(()=>{try{const s=localStorage.getItem('harmonymap_saved');if(s)setSaved(JSON.parse(s));const st=localStorage.getItem('harmonymap_settings');if(st){const o=JSON.parse(st);if(o.bpm)setBpm(o.bpm);if(o.beats)setBeats(o.beats);if(o.stg!=null)setStg(o.stg);if(o.sk)setSk(o.sk);if(o.vol!=null)setVol(o.vol);}}catch(e){}},[]);
 useEffect(()=>{try{localStorage.setItem('harmonymap_saved',JSON.stringify(saved));}catch(e){}},[saved]);
 useEffect(()=>{try{localStorage.setItem('harmonymap_settings',JSON.stringify({bpm,beats,stg,sk,vol}));}catch(e){}},[bpm,beats,stg,sk,vol]);
 const dr=useRef([]);dr.current=disc;
@@ -455,7 +455,7 @@ const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='RE
 const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(n,bpm,i=>{setPi(i);},beats,stg);},[prog]);
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
 const selEmo=useCallback(e=>{setEmo(e);if(EMO[e].ks[0])setSk(EMO[e].ks[0]);setScreen('emotion');},[]);
-const stopAll=useCallback(()=>{audio.stop();setPa(false);setPi(-1);setPRow(-1);setMloop(false);setProgLooping(false);},[]);
+const stopAll=useCallback(()=>{audio.stop();setPa(false);setPi(-1);setPRow(-1);setProgLooping(false);},[]);
 const newEar=useCallback(()=>{setEa(null);const c=earGen(et);setEc(c);if(c)setTimeout(()=>{if(c.pt==='chord')audio.playChord(c.pd);else if(c.pt==='melodic')audio.playMelodicInterval(c.pd[0],c.pd[1]);else if(c.pt==='two'){audio.playChord(c.pd[0],1.3);setTimeout(()=>audio.playChord(c.pd[1],1.3),1500);}},300);},[et]);
 const replayEar=useCallback(()=>{if(!ec)return;if(ec.pt==='chord')audio.playChord(ec.pd);else if(ec.pt==='melodic')audio.playMelodicInterval(ec.pd[0],ec.pd[1]);else if(ec.pt==='two'){audio.playChord(ec.pd[0],1.3);setTimeout(()=>audio.playChord(ec.pd[1],1.3),1500);}},[ec]);
 const ansEar=useCallback(a=>{if(ea)return;setEa(a);setEs(s=>({c:s.c+(a===ec?.ans?1:0),t:s.t+1}));if(a===ec?.ans&&!dr.current.includes('fe'))setDisc(d=>[...d,'fe']);},[ec,ea]);
@@ -475,7 +475,7 @@ return(
     <div style={{display:'flex',gap:1,overflowX:'auto',flexShrink:1}}>
       {tabs.map(t=><button key={t.k} onClick={()=>setScreen(t.k)} style={{background:screen===t.k?'rgba(255,255,255,0.12)':'transparent',border:'none',color:screen===t.k?'#fff':'rgba(255,255,255,0.4)',borderRadius:6,padding:'5px 7px',cursor:'pointer',fontSize:9,fontWeight:600,display:'flex',flexDirection:'column',alignItems:'center',whiteSpace:'nowrap',minHeight:44,justifyContent:'center'}}><span style={{fontSize:13}}>{t.i}</span><span>{t.l}</span></button>)}
     </div>
-    {(pa||progLooping||mloop||pi>=0||pRow>=0)&&<button onClick={stopAll} style={{background:'linear-gradient(135deg,#FF6B6B,#FF4444)',border:'1px solid rgba(255,107,107,0.6)',borderRadius:8,padding:'6px 12px',color:'#fff',cursor:'pointer',fontSize:11,fontWeight:800,flexShrink:0,marginLeft:6,boxShadow:'0 0 12px rgba(255,107,107,0.5)',animation:'pulse 1.4s ease-in-out infinite'}}>■ Stop All</button>}
+    {(pa||progLooping||pi>=0||pRow>=0)&&<button onClick={stopAll} style={{background:'linear-gradient(135deg,#FF6B6B,#FF4444)',border:'1px solid rgba(255,107,107,0.6)',borderRadius:8,padding:'6px 12px',color:'#fff',cursor:'pointer',fontSize:11,fontWeight:800,flexShrink:0,marginLeft:6,boxShadow:'0 0 12px rgba(255,107,107,0.5)',animation:'pulse 1.4s ease-in-out infinite'}}>■ Stop All</button>}
   </nav>
 
   {/* VOLUME */}
@@ -538,7 +538,7 @@ return(
         <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>{p.ch.map((c,j)=><span key={j} style={S.pill(cc(c),pRow===ri&&pi===j)}>{c}{j<p.ch.length-1&&<span style={{marginLeft:6,color:'rgba(255,255,255,0.25)'}}>→</span>}</span>)}</div>
         <p style={{fontSize:11,color:'rgba(255,255,255,0.5)',margin:'0 0 10px',lineHeight:1.4}}>{p.d}</p>
         <div style={{display:'flex',gap:8}}>
-          <button onClick={()=>{audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),em.tp||72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}} style={{...S.btn('rgba(255,255,255,0.1)','#fff','rgba(255,255,255,0.2)'),padding:'10px 18px',fontSize:13}}>▶ Listen</button>
+          <button onClick={()=>{audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),parseInt(em.tp)||72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}} style={{...S.btn('rgba(255,255,255,0.1)','#fff','rgba(255,255,255,0.2)'),padding:'10px 18px',fontSize:13}}>▶ Listen</button>
           <button onClick={()=>{setProg(p.ch);setScreen('builder');}} style={{...S.btn(em.co[0]+'30',em.co[0],em.co[0]+'50'),padding:'10px 18px',fontSize:13}}>Use this →</button>
         </div>
       </div>)}
@@ -731,7 +731,7 @@ return(
             {GENRES[genre].progs.map((p,pi)=>{
               const ch=k?p.g(k.ch):[];
               return(
-                <div key={pi} style={{...S.card(),cursor:'pointer'}} onClick={()=>{if(ch.length){setProg(ch);audio.playProgression(ch.map(s=>genreNotes(s,genre)),p.bpm,i=>setPi(i),beats,stg);}}}>
+                <div key={pi} style={S.card()}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
                     <div><span style={{fontSize:14,fontWeight:700,color:GENRES[genre].color}}>{p.n}</span><span style={{fontSize:10,color:'rgba(255,255,255,0.3)',marginLeft:8}}>{p.d}</span></div>
                     <span style={{fontSize:9,color:'rgba(255,255,255,0.25)',background:'rgba(255,255,255,0.05)',borderRadius:4,padding:'2px 6px'}}>{p.bpm} BPM</span>
@@ -739,10 +739,10 @@ return(
                   <div style={{display:'flex',gap:5,marginBottom:6,flexWrap:'wrap'}}>
                     {ch.map((c,j)=>(<span key={j} style={{fontSize:12,fontWeight:600,color:cc(c),background:cc(c)+'15',borderRadius:6,padding:'3px 8px',border:`1px solid ${cc(c)}30`}}>{c}</span>))}
                   </div>
-                  <div style={{fontSize:10,color:'rgba(255,255,255,0.5)',lineHeight:1.5}}>{p.w}</div>
-                  <div style={{display:'flex',gap:6,marginTop:8}}>
-                    <button onClick={e=>{e.stopPropagation();if(ch.length){setProg(ch);setSr(null);}}} style={S.btn(GENRES[genre].color+'20',GENRES[genre].color,GENRES[genre].color+'40')}>Use this</button>
-                    <button onClick={e=>{e.stopPropagation();if(ch.length)audio.playProgression(ch.map(s=>genreNotes(s,genre)),p.bpm,i=>setPi(i),beats,stg);}} style={S.btn()}>▶ Play at {p.bpm}</button>
+                  <div style={{fontSize:10,color:'rgba(255,255,255,0.5)',lineHeight:1.5,marginBottom:8}}>{p.w}</div>
+                  <div style={{display:'flex',gap:6}}>
+                    <button onClick={()=>{if(ch.length){setProg(ch);setSr(null);}}} style={S.btn(GENRES[genre].color+'20',GENRES[genre].color,GENRES[genre].color+'40')}>Use this</button>
+                    <button onClick={()=>{if(ch.length)audio.playProgression(ch.map(s=>genreNotes(s,genre)),p.bpm,i=>setPi(i),beats,stg);}} style={S.btn()}>▶ Play at {p.bpm}</button>
                   </div>
                 </div>
               );
@@ -896,14 +896,14 @@ return(
     {screen==='learn'&&<div style={{padding:'16px',maxWidth:600,margin:'0 auto'}}>
       <h2 style={{fontSize:20,fontWeight:800,marginBottom:3}}>Learn</h2>
       <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:16}}>Short, playable lessons. Each teaches one idea with sound.</p>
-      {LES.map(ls=><div key={ls.id} style={{...S.card(al===ls.id?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.06)'),cursor:'pointer'}} onClick={()=>setAl(al===ls.id?null:ls.id)}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:9,color:'rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.06)',borderRadius:4,padding:'2px 6px',textTransform:'capitalize'}}>{ls.c}</span><h4 style={{fontSize:14,fontWeight:700,margin:0}}>{ls.t}</h4></div>
-          <span style={{fontSize:11,color:'rgba(255,255,255,0.2)',transform:al===ls.id?'rotate(90deg)':'none',transition:'transform 0.2s'}}>▶</span>
-        </div>
+      {LES.map(ls=><div key={ls.id} style={S.card(al===ls.id?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.06)')}>
+        <button onClick={()=>setAl(al===ls.id?null:ls.id)} style={{background:'none',border:'none',width:'100%',padding:0,cursor:'pointer',textAlign:'left',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:9,color:'rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.06)',borderRadius:4,padding:'2px 6px',textTransform:'capitalize'}}>{ls.c}</span><h4 style={{fontSize:14,fontWeight:700,margin:0,color:'#fff'}}>{ls.t}</h4></div>
+          <span style={{fontSize:11,color:'rgba(255,255,255,0.2)',transform:al===ls.id?'rotate(90deg)':'none',transition:'transform 0.2s',flexShrink:0}}>▶</span>
+        </button>
         {al===ls.id&&<div style={{marginTop:10,animation:'fadeIn 0.3s'}}>
           <p style={{fontSize:12,color:'rgba(255,255,255,0.6)',lineHeight:1.7,margin:'0 0 12px'}}>{ls.b}</p>
-          <div style={{display:'flex',gap:6}}>{ls.ch.map((c,i)=><button key={i} onClick={e=>{e.stopPropagation();playC(c);}} style={{background:cc(c)+'18',border:`1.5px solid ${cc(c)}45`,borderRadius:10,padding:'8px 16px',cursor:'pointer',color:cc(c),fontSize:15,fontWeight:700}}>▶ {c}</button>)}</div>
+          <div style={{display:'flex',gap:6}}>{ls.ch.map((c,i)=><button key={i} onClick={()=>playC(c)} style={{background:cc(c)+'18',border:`1.5px solid ${cc(c)}45`,borderRadius:10,padding:'8px 16px',cursor:'pointer',color:cc(c),fontSize:15,fontWeight:700}}>▶ {c}</button>)}</div>
         </div>}
       </div>)}
       <div style={{marginTop:24}}><h3 style={{fontSize:15,fontWeight:700,marginBottom:10}}>Theory Translator</h3>
