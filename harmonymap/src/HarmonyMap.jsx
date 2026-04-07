@@ -534,12 +534,12 @@ return(
           {[{l:'Keys',v:em.ks.join(', ')},{l:'Tempo',v:em.tp+' BPM'},{l:'Feel',v:em.fl},{l:'Textures',v:em.tx}].map(i=><div key={i.l} style={{background:'rgba(0,0,0,0.2)',borderRadius:10,padding:'9px 11px'}}><div style={{...S.lbl,fontSize:9,marginBottom:3}}>{i.l}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.75)',lineHeight:1.4}}>{i.v}</div></div>)}
         </div>
       </div>
-      {em.pr.map((p,ri)=><div key={ri} style={{...S.card(),cursor:'pointer'}} onClick={()=>{audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),em.tp||72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}}>
-        <div style={{display:'flex',gap:6,marginBottom:6,flexWrap:'wrap'}}>{p.ch.map((c,j)=><span key={j} style={S.pill(cc(c),pRow===ri&&pi===j)}>{c}{j<p.ch.length-1&&<span style={{marginLeft:6,color:'rgba(255,255,255,0.25)'}}>→</span>}</span>)}</div>
-        <p style={{fontSize:11,color:'rgba(255,255,255,0.5)',margin:'0 0 6px',lineHeight:1.4}}>{p.d}</p>
-        <div style={{display:'flex',gap:6}}>
-          <button onClick={e=>{e.stopPropagation();setProg(p.ch);setScreen('builder');}} style={S.btn(em.co[0]+'25',em.co[0],em.co[0]+'40')}>Use this →</button>
-          <button onClick={e=>{e.stopPropagation();audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),em.tp||72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}} style={S.btn()}>▶ Listen</button>
+      {em.pr.map((p,ri)=><div key={ri} style={{...S.card(),cursor:'default'}}>
+        <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>{p.ch.map((c,j)=><span key={j} style={S.pill(cc(c),pRow===ri&&pi===j)}>{c}{j<p.ch.length-1&&<span style={{marginLeft:6,color:'rgba(255,255,255,0.25)'}}>→</span>}</span>)}</div>
+        <p style={{fontSize:11,color:'rgba(255,255,255,0.5)',margin:'0 0 10px',lineHeight:1.4}}>{p.d}</p>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={()=>{audio.playProgression(p.ch.map(s=>cn(pc(s).r,pc(s).t,3)),em.tp||72,idx=>{setPi(idx);setPRow(idx===-1?-1:ri);});}} style={{...S.btn('rgba(255,255,255,0.1)','#fff','rgba(255,255,255,0.2)'),padding:'10px 18px',fontSize:13}}>▶ Listen</button>
+          <button onClick={()=>{setProg(p.ch);setScreen('builder');}} style={{...S.btn(em.co[0]+'30',em.co[0],em.co[0]+'50'),padding:'10px 18px',fontSize:13}}>Use this →</button>
         </div>
       </div>)}
       <div style={S.card()}>
@@ -557,34 +557,43 @@ return(
 
     {/* ═══ CHORD MAP ═══ */}
     {screen==='chordmap'&&<div style={{padding:'14px',maxWidth:600,margin:'0 auto'}}>
+      <div style={{background:'rgba(78,205,196,0.08)',border:'1px solid rgba(78,205,196,0.2)',borderRadius:12,padding:'10px 12px',marginBottom:12,fontSize:11,color:'rgba(255,255,255,0.65)',lineHeight:1.5}}>
+        <strong style={{color:'#4ECDC4'}}>How to use:</strong> Tap any chord to hear it and see where it leads. <strong style={{color:'#FFD700'}}>Gold lines</strong> = the strongest, most emotional moves. <strong style={{color:'rgba(255,255,255,0.4)'}}>Dotted lines</strong> = other chords that also work well together.
+      </div>
       <div style={{marginBottom:12}}>
-        <div style={S.lbl}>Current Key</div>
+        <div style={S.lbl}>Choose a Key</div>
         <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{Object.keys(KEYS).map(kk=><button key={kk} onClick={()=>{setSk(kk);setSch(null);}} style={{...S.btn(sk===kk?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.04)',sk===kk?'#fff':'rgba(255,255,255,0.45)'),padding:'5px 10px',fontSize:11}}>{kk}</button>)}</div>
       </div>
       <div style={{background:'rgba(0,0,0,0.4)',borderRadius:22,padding:14,border:'1px solid rgba(255,255,255,0.06)'}}>
         <svg viewBox="0 0 400 400" style={{width:'100%',height:'auto'}}>
-          {k&&gcon(k.ch).map((c,i)=>{const ly=ml(k.ch,200,200,140);const f=ly.find(n=>n.c===c.f),t=ly.find(n=>n.c===c.t);if(!f||!t)return null;const h=sch&&(c.f===sch||c.t===sch);return<line key={i} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke={h?cc(sch):'rgba(255,255,255,0.07)'} strokeWidth={h?(c.st==='strong'?3:2):1} strokeDasharray={c.st==='strong'?'none':'4 4'} style={{transition:'all 0.3s'}}/>;
+          {k&&gcon(k.ch).map((c,i)=>{const ly=ml(k.ch,200,200,140);const f=ly.find(n=>n.c===c.f),t=ly.find(n=>n.c===c.t);if(!f||!t)return null;const h=sch&&(c.f===sch||c.t===sch);const isStrong=c.st==='strong';
+            return<line key={i} x1={f.x} y1={f.y} x2={t.x} y2={t.y}
+              stroke={h?(isStrong?'#FFD700':cc(sch)):isStrong?'rgba(255,215,0,0.35)':'rgba(255,255,255,0.08)'}
+              strokeWidth={h?(isStrong?4:2.5):isStrong?2.5:1}
+              strokeDasharray={isStrong?'none':'5 5'}
+              style={{transition:'all 0.3s',filter:h&&isStrong?'drop-shadow(0 0 4px #FFD700)':'none'}}/>;
           })}
           {k&&ml(k.ch,200,200,140).map((nd,ni)=>{const col=cc(nd.c),sel=sch===nd.c,ip=prog.includes(nd.c),fn=k.m==='minor'?FNm:FNM;
             return<g key={ni} onClick={()=>playC(nd.c)} style={{cursor:'pointer'}}>
-              <circle cx={nd.x} cy={nd.y} r={sel?36:28} fill={col+(sel?'15':'08')} stroke={col+(sel?'50':'20')} strokeWidth={sel?2:1} style={{transition:'all 0.3s'}}/>
-              <circle cx={nd.x} cy={nd.y} r={sel?26:22} fill={col+(sel?'28':'12')} stroke={col} strokeWidth={sel?2.5:1.5} style={{transition:'all 0.3s',filter:sel?`drop-shadow(0 0 10px ${col}80)`:'none'}}/>
-              {ip&&<circle cx={nd.x} cy={nd.y} r={30} fill="none" stroke="#FFD700" strokeWidth={2} strokeDasharray="4 3"/>}
+              <circle cx={nd.x} cy={nd.y} r={sel?38:30} fill={col+(sel?'18':'0a')} stroke={col+(sel?'60':'25')} strokeWidth={sel?2:1} style={{transition:'all 0.3s'}}/>
+              <circle cx={nd.x} cy={nd.y} r={sel?28:23} fill={col+(sel?'30':'15')} stroke={col} strokeWidth={sel?3:1.5} style={{transition:'all 0.3s',filter:sel?`drop-shadow(0 0 12px ${col}90)`:'none'}}/>
+              {ip&&<circle cx={nd.x} cy={nd.y} r={32} fill="none" stroke="#FFD700" strokeWidth={2.5} strokeDasharray="4 3"/>}
               <text x={nd.x} y={nd.y+1} textAnchor="middle" dominantBaseline="middle" fill={sel?'#fff':col} fontSize={sel?15:13} fontWeight="800" style={{pointerEvents:'none'}}>{nd.c}</text>
-              <text x={nd.x} y={nd.y+(sel?48:40)} textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="8" fontWeight="600" style={{pointerEvents:'none'}}>{fn[ni]}</text>
+              <text x={nd.x} y={nd.y+(sel?50:42)} textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="8" fontWeight="600" style={{pointerEvents:'none'}}>{fn[ni]}</text>
             </g>;})}
           <text x="200" y="192" textAnchor="middle" fill="rgba(255,255,255,0.25)" fontSize="12" fontWeight="700">{sk}</text>
-          <text x="200" y="208" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="8">Tap to explore</text>
+          <text x="200" y="208" textAnchor="middle" fill="rgba(255,255,255,0.12)" fontSize="8">Tap a chord</text>
         </svg>
       </div>
-      <div style={{display:'flex',gap:16,justifyContent:'center',padding:'8px 0',marginTop:6}}>
-        <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <svg width="28" height="8" style={{flexShrink:0}}><line x1="0" y1="4" x2="28" y2="4" stroke="rgba(255,255,255,0.45)" strokeWidth="2.5"/></svg>
-          <span style={{fontSize:9,color:'rgba(255,255,255,0.4)'}}>Strong pull (V→I, IV→I)</span>
+      {/* Legend */}
+      <div style={{display:'flex',gap:10,padding:'10px 4px',marginTop:4,flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:7,background:'rgba(255,215,0,0.08)',border:'1px solid rgba(255,215,0,0.25)',borderRadius:8,padding:'6px 10px',flex:1}}>
+          <svg width="32" height="10" style={{flexShrink:0}}><line x1="0" y1="5" x2="32" y2="5" stroke="#FFD700" strokeWidth="3.5"/></svg>
+          <span style={{fontSize:10,color:'rgba(255,255,255,0.7)',lineHeight:1.3}}><strong style={{color:'#FFD700'}}>Strong move</strong><br/>Most emotional, hits hardest</span>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <svg width="28" height="8" style={{flexShrink:0}}><line x1="0" y1="4" x2="28" y2="4" stroke="rgba(255,255,255,0.35)" strokeWidth="1" strokeDasharray="4 4"/></svg>
-          <span style={{fontSize:9,color:'rgba(255,255,255,0.4)'}}>Common flow</span>
+        <div style={{display:'flex',alignItems:'center',gap:7,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,padding:'6px 10px',flex:1}}>
+          <svg width="32" height="10" style={{flexShrink:0}}><line x1="0" y1="5" x2="32" y2="5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeDasharray="5 4"/></svg>
+          <span style={{fontSize:10,color:'rgba(255,255,255,0.55)',lineHeight:1.3}}><strong style={{color:'rgba(255,255,255,0.6)'}}>Smooth move</strong><br/>Works well, softer change</span>
         </div>
       </div>
       {sch&&<div style={{...S.card(cc(sch)+'30'),marginTop:14,animation:'fadeIn 0.3s'}}>
