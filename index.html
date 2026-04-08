@@ -407,6 +407,47 @@
     </div>
 </div>
 
+<!-- NOTIFICATION SETTINGS MODAL -->
+<div id="notif-modal" class="hidden fixed inset-0 z-[99992] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-700/60 rounded-3xl p-6 space-y-5">
+        <div class="flex justify-between items-center">
+            <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-bell"></i> Training Reminders</p>
+            <button id="notif-modal-close" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400"><i class="fas fa-xmark text-sm"></i></button>
+        </div>
+        <div id="notif-unsupported" class="hidden">
+            <p class="text-[11px] text-slate-500 leading-relaxed">Push notifications aren't supported in this browser. On iPhone, add The Blueprint to your Home Screen first, then open it from there.</p>
+        </div>
+        <div id="notif-supported">
+            <div class="space-y-4">
+                <p class="text-[11px] text-slate-400 leading-relaxed">Get reminders to train, streak warnings before you lose your streak, and milestone alerts.</p>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-bold text-slate-300">Daily reminder</p>
+                            <p class="text-[10px] text-slate-600">Sent if you haven't trained that day</p>
+                        </div>
+                        <input type="time" id="notif-time" value="19:00" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 font-bold">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-bold text-slate-300">Streak warnings</p>
+                            <p class="text-[10px] text-slate-600">Alert before you lose a streak ≥ 3 days</p>
+                        </div>
+                        <label id="streak-warn-toggle-label" class="flex items-center cursor-pointer">
+                            <div id="streak-warn-toggle" class="w-9 h-5 rounded-full bg-slate-700 border border-slate-600 relative transition-colors">
+                                <div id="streak-warn-thumb" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-400 transition-all"></div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <button id="notif-enable-btn" class="btn-primary py-3 text-sm w-full">Enable Notifications</button>
+                <button id="notif-disable-btn" class="hidden w-full py-3 text-[11px] font-black text-red-400 uppercase tracking-widest">Disable Notifications</button>
+                <p id="notif-status" class="text-[10px] text-slate-600 text-center italic"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MEASUREMENT HOW-TO OVERLAY -->
 <div id="measure-howto-modal" class="hidden fixed inset-0 z-[99992] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
     <div class="w-full max-w-sm bg-slate-900 border border-slate-700/60 rounded-3xl p-6 space-y-5">
@@ -543,6 +584,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <span id="current-date" class="text-[10px] font-black uppercase bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700/50 text-slate-300">-- --</span>
+                <button id="notif-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Notifications"><i id="notif-icon" class="fas fa-bell text-xs"></i></button>
                 <button id="logout-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Sign out"><i class="fas fa-right-from-bracket text-xs"></i></button>
             </div>
         </div>
@@ -1799,7 +1841,12 @@ async function loadPersisted(){
     if(!currentUser)return;
     try{
         const {data,error} = await sb.from('user_data').select('*').eq('id',currentUser.id).single();
-        if(error||!data)return;
+        if(error||!data){
+            // Fall back to localStorage backup
+            const local=localStorage.getItem('bp_data_'+currentUser.id);
+            if(local) try{persisted={...DEFAULT_PERSISTED,...JSON.parse(local)};}catch(e){}
+            return;
+        }
         persisted = {
             schedule:       data.schedule        || DEFAULT_PERSISTED.schedule,
             completedDays:  data.completed_days  || DEFAULT_PERSISTED.completedDays,
@@ -1822,33 +1869,48 @@ async function loadPersisted(){
             persisted.weekKey = currentWeek;
             savePersisted();
         }
-    }catch(e){console.error('loadPersisted:',e)}
+    }catch(e){
+        console.error('loadPersisted:',e);
+        const local=localStorage.getItem('bp_data_'+currentUser.id);
+        if(local) try{persisted={...DEFAULT_PERSISTED,...JSON.parse(local)};}catch(e2){}
+    }
 }
 
+function _buildSavePayload(){
+    return{
+        schedule:       persisted.schedule,
+        completed_days: persisted.completedDays,
+        total_xp:       persisted.totalXp,
+        session_log:    persisted.sessionLog,
+        measurements:   persisted.measurements,
+        seen_milestones:persisted.seenMilestones,
+        difficulty:     persisted.difficulty,
+        diff_unlocked_date: persisted.diffUnlockedDate||{intermediate:'',advanced:'',elite:''},
+        first_session_date: persisted.firstSessionDate||'',
+        week_key:       persisted.weekKey||getCurrentWeekKey(),
+        records:        persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+        tip_index:      persisted.tipIndex||0,
+        last_tip_date:  persisted.lastTipDate||'',
+        updated_at:     new Date().toISOString(),
+    };
+}
 function savePersisted(){
-    // Debounce — batch rapid saves into one call
+    // Always write to localStorage immediately as backup
+    if(currentUser) try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify(persisted));}catch(e){}
+    // Debounce the Supabase write
     clearTimeout(_saveDebounce);
     _saveDebounce = setTimeout(async()=>{
         if(!currentUser)return;
-        try{
-            await sb.from('user_data').update({
-                schedule:       persisted.schedule,
-                completed_days: persisted.completedDays,
-                total_xp:       persisted.totalXp,
-                session_log:    persisted.sessionLog,
-                measurements:   persisted.measurements,
-                seen_milestones:persisted.seenMilestones,
-                difficulty:     persisted.difficulty,
-                diff_unlocked_date: persisted.diffUnlockedDate||{intermediate:'',advanced:'',elite:''},
-                first_session_date: persisted.firstSessionDate||'',
-                week_key:       persisted.weekKey||getCurrentWeekKey(),
-                records:        persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
-                tip_index:      persisted.tipIndex||0,
-                last_tip_date:  persisted.lastTipDate||'',
-                updated_at:     new Date().toISOString(),
-            }).eq('id',currentUser.id);
-        }catch(e){console.error('savePersisted:',e)}
+        try{await sb.from('user_data').update(_buildSavePayload()).eq('id',currentUser.id);}
+        catch(e){console.error('savePersisted:',e)}
     }, 800);
+}
+function _flushSaveNow(){
+    // Called on visibility hidden — fire Supabase write immediately without debounce
+    if(!currentUser)return;
+    clearTimeout(_saveDebounce);
+    try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify(persisted));}catch(e){}
+    sb.from('user_data').update(_buildSavePayload()).eq('id',currentUser.id).catch(()=>{});
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3531,6 +3593,96 @@ async function onUserSignedIn(user){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PUSH NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+const VAPID_PUBLIC_KEY='BHNs21bsR6oKAN19h2o7tSH5s5QHEB3YCqrxaZ6WmMQ6zMJEeuPC7gZ0O7fUnf9qjFIEy19tLMoq2kT2v8q9jG8';
+function _urlBase64ToUint8(b64){const p=(b64+'='.repeat((4-b64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(p);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
+let _swRegistration=null;
+async function initServiceWorker(){
+    if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+    try{_swRegistration=await navigator.serviceWorker.register('/sw.js');}
+    catch(e){console.error('SW register:',e);}
+}
+function openNotifModal(){
+    const modal=document.getElementById('notif-modal');
+    const supported='serviceWorker' in navigator && 'PushManager' in window;
+    document.getElementById('notif-unsupported').classList.toggle('hidden',supported);
+    document.getElementById('notif-supported').classList.toggle('hidden',!supported);
+    if(supported) _refreshNotifUI();
+    modal.classList.remove('hidden');
+}
+function closeNotifModal(){document.getElementById('notif-modal').classList.add('hidden');}
+async function _refreshNotifUI(){
+    const perm=Notification.permission;
+    const sub=_swRegistration?await _swRegistration.pushManager.getSubscription():null;
+    const active=perm==='granted'&&!!sub;
+    document.getElementById('notif-enable-btn').classList.toggle('hidden',active);
+    document.getElementById('notif-disable-btn').classList.toggle('hidden',!active);
+    document.getElementById('notif-icon').className=active?'fas fa-bell text-xs text-blue-400':'fas fa-bell text-xs';
+    document.getElementById('notif-btn').style.borderColor=active?'rgba(59,130,246,.4)':'';
+    document.getElementById('notif-status').innerText=active?'Notifications are active.':perm==='denied'?'Notifications blocked in browser settings.':'';
+    // Load saved prefs
+    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
+    if(prefs.time) document.getElementById('notif-time').value=prefs.time;
+    const streakOn=prefs.streakWarn!==false;
+    _setToggleUI('streak-warn-toggle','streak-warn-thumb',streakOn);
+}
+function _setToggleUI(id,thumbId,on){
+    const t=document.getElementById(id),th=document.getElementById(thumbId);
+    t.style.background=on?'#3b82f6':'';t.style.borderColor=on?'#3b82f6':'';
+    th.style.transform=on?'translateX(16px)':'';th.style.background=on?'#fff':'';
+}
+async function enableNotifications(){
+    if(!_swRegistration){document.getElementById('notif-status').innerText='Service worker not ready — try again.';return;}
+    const btn=document.getElementById('notif-enable-btn');
+    btn.innerHTML='<i class="fas fa-spinner fa-spin mr-2"></i>Requesting...';btn.disabled=true;
+    try{
+        const perm=await Notification.requestPermission();
+        if(perm!=='granted'){document.getElementById('notif-status').innerText='Permission denied.';btn.innerHTML='Enable Notifications';btn.disabled=false;return;}
+        const sub=await _swRegistration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
+        await _savePushSubscription(sub);
+        await _refreshNotifUI();
+    }catch(e){console.error('Push subscribe:',e);document.getElementById('notif-status').innerText='Could not enable — try again.';}
+    btn.innerHTML='Enable Notifications';btn.disabled=false;
+}
+async function disableNotifications(){
+    if(!_swRegistration)return;
+    const sub=await _swRegistration.pushManager.getSubscription();
+    if(sub){await sub.unsubscribe();await _deletePushSubscription(sub);}
+    await _refreshNotifUI();
+}
+async function _savePushSubscription(sub){
+    if(!currentUser)return;
+    const j=sub.toJSON();
+    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
+    await sb.from('push_subscriptions').upsert({
+        user_id:currentUser.id,
+        endpoint:j.endpoint,
+        p256dh:j.keys.p256dh,
+        auth:j.keys.auth,
+        reminder_time:prefs.time||'19:00',
+        streak_warn:prefs.streakWarn!==false,
+        timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+        updated_at:new Date().toISOString(),
+    },{onConflict:'user_id'});
+}
+async function _deletePushSubscription(sub){
+    if(!currentUser)return;
+    await sb.from('push_subscriptions').delete().eq('user_id',currentUser.id);
+}
+async function saveNotifPrefs(){
+    const time=document.getElementById('notif-time').value;
+    const streakWarn=document.getElementById('streak-warn-toggle').style.background==='rgb(59, 130, 246)';
+    const prefs={time,streakWarn};
+    localStorage.setItem('bp_notif_prefs',JSON.stringify(prefs));
+    // Update in Supabase if subscribed
+    if(currentUser){
+        const sub=_swRegistration?await _swRegistration.pushManager.getSubscription():null;
+        if(sub) await sb.from('push_subscriptions').update({reminder_time:time,streak_warn:streakWarn}).eq('user_id',currentUser.id);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════
 function init(){
@@ -3735,6 +3887,19 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if(_savedEmail){document.getElementById('auth-email').value=_savedEmail;document.getElementById('auth-password').focus();}
     document.getElementById('remember-me-row').addEventListener('click',()=>{_rememberMe=!_rememberMe;_setRememberUI(_rememberMe);if(!_rememberMe)localStorage.removeItem('bp_remember_email');});
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')_flushSaveNow();});
+    // Notifications
+    document.getElementById('notif-btn').addEventListener('click',openNotifModal);
+    document.getElementById('notif-modal-close').addEventListener('click',closeNotifModal);
+    document.getElementById('notif-enable-btn').addEventListener('click',enableNotifications);
+    document.getElementById('notif-disable-btn').addEventListener('click',disableNotifications);
+    document.getElementById('notif-time').addEventListener('change',saveNotifPrefs);
+    document.getElementById('streak-warn-toggle-label').addEventListener('click',()=>{
+        const on=document.getElementById('streak-warn-toggle').style.background!=='rgb(59, 130, 246)';
+        _setToggleUI('streak-warn-toggle','streak-warn-thumb',on);
+        saveNotifPrefs();
+    });
+    initServiceWorker();
     sb.auth.onAuthStateChange(async(event,session)=>{
         if(session?.user) await onUserSignedIn(session.user);
         else showAuthScreen();
