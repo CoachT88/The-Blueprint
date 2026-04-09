@@ -440,6 +440,9 @@ const[genre,setGenre]=useState(null);
 const[progLooping,setProgLooping]=useState(false);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
 const[vol,setVol]=useState(0.26);
+const[streak,setStreak]=useState({current:0,longest:0,lastDate:null,total:0});
+const[reminder,setReminder]=useState({enabled:false,hour:18,minute:0});
+const[showReminder,setShowReminder]=useState(false);
 useEffect(()=>{if(audio.ctx)audio.setVolume(vol);},[vol]);
 // Pre-warm AudioContext on first touch anywhere — before any button handler fires.
 // This separates context creation+resume from note scheduling, solving iOS first-tap silence.
@@ -451,6 +454,40 @@ return()=>document.removeEventListener('touchstart',warmup,{capture:true});
 useEffect(()=>{try{const s=localStorage.getItem('harmonymap_saved');if(s)setSaved(JSON.parse(s));const st=localStorage.getItem('harmonymap_settings');if(st){const o=JSON.parse(st);if(o.bpm)setBpm(o.bpm);if(o.beats)setBeats(o.beats);if(o.stg!=null)setStg(o.stg);if(o.sk)setSk(o.sk);if(o.vol!=null)setVol(o.vol);}}catch(e){}},[]);
 useEffect(()=>{try{localStorage.setItem('harmonymap_saved',JSON.stringify(saved));}catch(e){}},[saved]);
 useEffect(()=>{try{localStorage.setItem('harmonymap_settings',JSON.stringify({bpm,beats,stg,sk,vol}));}catch(e){}},[bpm,beats,stg,sk,vol]);
+// ─── STREAK TRACKING ───────────────────────────────────────
+useEffect(()=>{
+try{
+const raw=localStorage.getItem('harmonymap_streak');
+const rem=localStorage.getItem('harmonymap_reminder');
+if(rem){const r=JSON.parse(rem);setReminder(r);}
+const today=new Date().toDateString();
+if(raw){
+const st=JSON.parse(raw);
+const last=st.lastDate;
+if(last===today){setStreak(st);return;}
+const yd=new Date();yd.setDate(yd.getDate()-1);
+const isConsecutive=last===yd.toDateString();
+const nw={current:isConsecutive?st.current+1:1,longest:Math.max(st.longest,isConsecutive?st.current+1:1),lastDate:today,total:st.total+1};
+setStreak(nw);localStorage.setItem('harmonymap_streak',JSON.stringify(nw));
+}else{
+const nw={current:1,longest:1,lastDate:today,total:1};
+setStreak(nw);localStorage.setItem('harmonymap_streak',JSON.stringify(nw));
+}
+}catch(e){}
+},[]);
+useEffect(()=>{try{localStorage.setItem('harmonymap_reminder',JSON.stringify(reminder));}catch(e){}},[reminder]);
+// ─── REMINDER NOTIFICATIONS ────────────────────────────────
+useEffect(()=>{
+if(!reminder.enabled)return;
+const check=()=>{
+const now=new Date();
+if(now.getHours()===reminder.hour&&now.getMinutes()===reminder.minute){
+if(Notification.permission==='granted'){new Notification('HarmonyMap',{body:'Time to practice! Your '+streak.current+'-day streak is waiting.',icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🎹</text></svg>'});}
+else{setShowReminder(true);setTimeout(()=>setShowReminder(false),10000);}
+}};
+const id=setInterval(check,60000);check();
+return()=>clearInterval(id);
+},[reminder,streak.current]);
 const dr=useRef([]);dr.current=disc;
 const k=KEYS[sk],em=emo?EMO[emo]:null;
 const ps=useMemo(()=>presets(sk),[sk]);
@@ -492,6 +529,13 @@ return(
     <span style={{fontSize:9,color:'rgba(255,255,255,0.35)',minWidth:26,textAlign:'right'}}>{Math.round(vol*100)}%</span>
   </div>
 
+  {/* REMINDER BANNER */}
+  {showReminder&&screen!=='home'&&<div style={{position:'relative',zIndex:50,margin:'8px 12px 0',background:'rgba(255,179,71,0.12)',border:'1px solid rgba(255,179,71,0.3)',borderRadius:12,padding:'12px 14px',display:'flex',gap:10,alignItems:'center',animation:'fadeIn 0.3s'}}>
+    <span style={{fontSize:16,flexShrink:0}}>🔥</span>
+    <div style={{flex:1,fontSize:12,color:'rgba(255,255,255,0.8)',lineHeight:1.4}}>Time to practice! Your <b style={{color:'#FFB347'}}>{streak.current}-day streak</b> is waiting.</div>
+    <button onClick={()=>setShowReminder(false)} style={{background:'none',border:'none',color:'rgba(255,255,255,0.3)',cursor:'pointer',fontSize:14,padding:0}}>×</button>
+  </div>}
+
   {/* CONTEXT TIP */}
   {tip&&<div style={{position:'relative',zIndex:50,margin:'8px 12px 0',background:'rgba(78,205,196,0.1)',border:'1px solid rgba(78,205,196,0.25)',borderRadius:12,padding:'12px 14px',display:'flex',gap:10,alignItems:'flex-start',animation:'fadeIn 0.3s'}}>
     <span style={{fontSize:16,flexShrink:0}}>💡</span>
@@ -525,6 +569,48 @@ return(
       <div style={{marginTop:16,display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
         {[{k:'chordmap',l:'◉ Chord Map'},{k:'ear',l:'👂 Ear Training'},{k:'learn',l:'✦ Learn Theory'}].map(b=><button key={b.k} onClick={()=>setScreen(b.k)} style={S.btn()}>{b.l}</button>)}
       </div>
+      {/* ─── PRACTICE STREAK ─── */}
+      <div style={{...S.card(),marginTop:20,background:'linear-gradient(135deg,rgba(255,107,107,0.08),rgba(78,205,196,0.08))',border:'1px solid rgba(255,255,255,0.08)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+          <div style={S.lbl}>Practice Streak</div>
+          <button onClick={()=>setShowReminder(!showReminder)} style={{...S.btn(),fontSize:9,padding:'3px 8px'}}>⏰ Reminders</button>
+        </div>
+        <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:10}}>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:32,fontWeight:900,color:streak.current>=7?'#FFB347':streak.current>=3?'#4ECDC4':'#fff',lineHeight:1,textShadow:streak.current>=7?'0 0 20px rgba(255,179,71,0.5)':streak.current>=3?'0 0 15px rgba(78,205,196,0.4)':'none'}}>{streak.current}</div>
+            <div style={{fontSize:9,color:'rgba(255,255,255,0.4)',marginTop:2}}>day{streak.current!==1?'s':''}</div>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{display:'flex',gap:3,marginBottom:4}}>
+              {Array.from({length:7}).map((_,i)=><div key={i} style={{flex:1,height:6,borderRadius:3,background:i<(streak.current%7||7)&&streak.current>0?`linear-gradient(135deg,#FF6B6B,#4ECDC4)`:'rgba(255,255,255,0.06)',transition:'background 0.3s',boxShadow:i<(streak.current%7||7)&&streak.current>0?'0 0 4px rgba(78,205,196,0.3)':'none'}}/>)}
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between'}}>
+              <span style={{fontSize:9,color:'rgba(255,255,255,0.35)'}}>Best: {streak.longest} day{streak.longest!==1?'s':''}</span>
+              <span style={{fontSize:9,color:'rgba(255,255,255,0.35)'}}>Total: {streak.total} session{streak.total!==1?'s':''}</span>
+            </div>
+          </div>
+        </div>
+        {/* Streak milestone badges */}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {[{d:3,l:'3-Day',c:'#4ECDC4',e:'🌱'},{d:7,l:'Week',c:'#FFB347',e:'🔥'},{d:14,l:'2 Weeks',c:'#FF6B6B',e:'⚡'},{d:30,l:'Month',c:'#C77DFF',e:'🏆'},{d:60,l:'2 Months',c:'#FFD700',e:'👑'},{d:100,l:'100 Days',c:'#FF69B4',e:'💎'}].map(m=><span key={m.d} style={{fontSize:10,color:streak.longest>=m.d?m.c:'rgba(255,255,255,0.15)',background:streak.longest>=m.d?m.c+'18':'rgba(255,255,255,0.03)',borderRadius:6,padding:'3px 8px',border:`1px solid ${streak.longest>=m.d?m.c+'40':'rgba(255,255,255,0.05)'}`,transition:'all 0.3s'}}>{m.e} {m.l}</span>)}
+        </div>
+        {/* Reminder settings */}
+        {showReminder&&<div style={{marginTop:12,padding:'12px',background:'rgba(0,0,0,0.3)',borderRadius:12,border:'1px solid rgba(255,255,255,0.08)'}}>
+          <div style={{fontSize:11,fontWeight:700,marginBottom:8,color:'#FFB347'}}>⏰ Practice Reminder</div>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
+            <button onClick={()=>{const nw={...reminder,enabled:!reminder.enabled};setReminder(nw);if(nw.enabled&&Notification.permission==='default'){Notification.requestPermission();}}} style={{...S.btn(reminder.enabled?'#4ECDC430':'rgba(255,255,255,0.06)',reminder.enabled?'#4ECDC4':'rgba(255,255,255,0.4)'),fontSize:11,padding:'6px 14px',fontWeight:700}}>{reminder.enabled?'On':'Off'}</button>
+            <select value={reminder.hour} onChange={e=>setReminder(r=>({...r,hour:parseInt(e.target.value)}))} style={{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:8,color:'#fff',padding:'6px 8px',fontSize:11}}>
+              {Array.from({length:24}).map((_,h)=><option key={h} value={h} style={{background:'#1a1a2e'}}>{h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'}</option>)}
+            </select>
+            <span style={{fontSize:10,color:'rgba(255,255,255,0.3)'}}>:</span>
+            <select value={reminder.minute} onChange={e=>setReminder(r=>({...r,minute:parseInt(e.target.value)}))} style={{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:8,color:'#fff',padding:'6px 8px',fontSize:11}}>
+              {[0,15,30,45].map(m=><option key={m} value={m} style={{background:'#1a1a2e'}}>{m.toString().padStart(2,'0')}</option>)}
+            </select>
+          </div>
+          <div style={{fontSize:9,color:'rgba(255,255,255,0.3)',lineHeight:1.4}}>{reminder.enabled?'You\'ll get a reminder to practice daily. Keep your streak alive!':'Enable to get daily practice reminders via browser notifications.'}</div>
+        </div>}
+      </div>
+
       {disc.length>0&&<div style={{...S.card(),marginTop:20}}>
         <div style={S.lbl}>Your Discoveries</div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
