@@ -204,7 +204,19 @@ const KEYS={
 'F minor':{r:'F',m:'minor',ch:['Fm','G°','Ab','Bbm','Cm','Db','Eb'],sc:['F','G','Ab','Bb','C','Db','Eb']},
 'C minor':{r:'C',m:'minor',ch:['Cm','D°','Eb','Fm','Gm','Ab','Bb'],sc:['C','D','Eb','F','G','Ab','Bb']},
 'B minor':{r:'B',m:'minor',ch:['Bm','C#°','D','Em','F#m','G','A'],sc:['B','C#','D','E','F#','G','A']},
+'B major':{r:'B',m:'major',ch:['B','C#m','D#m','E','F#','G#m','A#°'],sc:['B','C#','D#','E','F#','G#','A#']},
+'Gb major':{r:'Gb',m:'major',ch:['Gb','Abm','Bbm','B','Db','Ebm','F°'],sc:['Gb','Ab','Bb','B','Db','Eb','F']},
+'Db major':{r:'Db',m:'major',ch:['Db','Ebm','Fm','Gb','Ab','Bbm','C°'],sc:['Db','Eb','F','Gb','Ab','Bb','C']},
+'Ab major':{r:'Ab',m:'major',ch:['Ab','Bbm','Cm','Db','Eb','Fm','G°'],sc:['Ab','Bb','C','Db','Eb','F','G']},
+'F# minor':{r:'F#',m:'minor',ch:['F#m','G#°','A','Bm','C#m','D','E'],sc:['F#','G#','A','B','C#','D','E']},
+'C# minor':{r:'C#',m:'minor',ch:['C#m','D#°','E','F#m','G#m','A','B'],sc:['C#','D#','E','F#','G#','A','B']},
+'G# minor':{r:'G#',m:'minor',ch:['G#m','A#°','B','C#m','D#m','E','F#'],sc:['G#','A#','B','C#','D#','E','F#']},
+'Eb minor':{r:'Eb',m:'minor',ch:['Ebm','F°','Gb','Abm','Bbm','B','Db'],sc:['Eb','F','Gb','Ab','Bb','B','Db']},
+'Bb minor':{r:'Bb',m:'minor',ch:['Bbm','C°','Db','Ebm','Fm','Gb','Ab'],sc:['Bb','C','Db','Eb','F','Gb','Ab']},
 };
+const MAJOR_COF=['C major','G major','D major','A major','E major','B major','Gb major','Db major','Ab major','Eb major','Bb major','F major'];
+const MINOR_COF=['A minor','E minor','B minor','F# minor','C# minor','G# minor','Eb minor','Bb minor','F minor','C minor','G minor','D minor'];
+const RELATIVE={'C major':'A minor','A minor':'C major','G major':'E minor','E minor':'G major','D major':'B minor','B minor':'D major','A major':'F# minor','F# minor':'A major','E major':'C# minor','C# minor':'E major','B major':'G# minor','G# minor':'B major','Gb major':'Eb minor','Eb minor':'Gb major','Db major':'Bb minor','Bb minor':'Db major','Ab major':'F minor','F minor':'Ab major','Eb major':'C minor','C minor':'Eb major','Bb major':'G minor','G minor':'Bb major','F major':'D minor','D minor':'F major'};
 const FNM=['Home (I)','Step (ii)','Color (iii)','Open (IV)','Tension (V)','Emotional (vi)','Edge (vii°)'];
 const FNm=['Home (i)','Edge (ii°)','Relative (III)','Shadow (iv)','Pull (v)','Warmth (VI)','Gateway (VII)'];
 function gcon(ch){if(!ch||ch.length<7)return[];return[[0,3],[0,4],[0,5],[1,4],[1,6],[2,5],[2,3],[3,0],[3,4],[3,1],[4,0],[4,5],[5,3],[5,1],[5,2],[6,0],[6,4]].map(([a,b])=>({f:ch[a],t:ch[b],st:(a===4&&b===0)||(a===3&&b===0)?'strong':'normal'}));}
@@ -326,7 +338,7 @@ return[
 }
 
 // ─── CHORD EMOTIONS ─────────────────────────────────────────
-const CE={'C':{f:'Bright, pure',r:'Home base'},'Dm':{f:'Melancholy',r:'Pulls inward'},'Em':{f:'Cool, quiet',r:'Contemplation'},'F':{f:'Open, warm',r:'Expands sound'},'G':{f:'Bright, driving',r:'Pushes forward'},'Am':{f:'Sad, deep',r:'Emotional heart'},'Bm':{f:'Dark, serious',r:'Adds weight'},'D':{f:'Warm, confident',r:'Lifts clearly'},'E':{f:'Tense, powerful',r:'Strong pull'},'A':{f:'Bright, joyful',r:'Open confidence'},'Bb':{f:'Dramatic, full',r:'Cinematic color'},'Eb':{f:'Rich, soulful',r:'Gospel warmth'},'Ab':{f:'Lush, floating',r:'Dreamy lift'},'Cm':{f:'Dark, heavy',r:'Brooding weight'},'Fm':{f:'Aching, raw',r:'Deep sorrow'},'Gm':{f:'Moody, restless',r:'Shadow depth'},'G#m':{f:'Eerie, intense',r:'Unsettled beauty'},'C#m':{f:'Haunting',r:'Cold beauty'},'F#m':{f:'Somber',r:'Deeper sadness'},'B°':{f:'Tense, unstable',r:'Creates urgency'},'F#°':{f:'Sharp tension',r:'Drives forward'},'C#°':{f:'Uneasy, sharp',r:'Desperate pull'},'G#°':{f:'Piercing tension',r:'Wants to resolve'},'E°':{f:'Unstable, eerie',r:'Needs to move'},'A°':{f:'Tense, restless',r:'Pulls strongly'},'D°':{f:'Dark tension',r:'Resolves downward'},'G°':{f:'Murky tension',r:'Unsettled'}};
+const CE={'C':{f:'Bright, pure',r:'Home base'},'Dm':{f:'Melancholy',r:'Pulls inward'},'Em':{f:'Cool, quiet',r:'Contemplation'},'F':{f:'Open, warm',r:'Expands sound'},'G':{f:'Bright, driving',r:'Pushes forward'},'Am':{f:'Sad, deep',r:'Emotional heart'},'Bm':{f:'Dark, serious',r:'Adds weight'},'D':{f:'Warm, confident',r:'Lifts clearly'},'E':{f:'Tense, powerful',r:'Strong pull'},'A':{f:'Bright, joyful',r:'Open confidence'},'Bb':{f:'Dramatic, full',r:'Cinematic color'},'Eb':{f:'Rich, soulful',r:'Gospel warmth'},'Ab':{f:'Lush, floating',r:'Dreamy lift'},'Cm':{f:'Dark, heavy',r:'Brooding weight'},'Fm':{f:'Aching, raw',r:'Deep sorrow'},'Gm':{f:'Moody, restless',r:'Shadow depth'},'G#m':{f:'Eerie, intense',r:'Unsettled beauty'},'C#m':{f:'Haunting',r:'Cold beauty'},'F#m':{f:'Somber',r:'Deeper sadness'},'B°':{f:'Tense, unstable',r:'Creates urgency'},'F#°':{f:'Sharp tension',r:'Drives forward'},'C#°':{f:'Uneasy, sharp',r:'Desperate pull'},'G#°':{f:'Piercing tension',r:'Wants to resolve'},'E°':{f:'Unstable, eerie',r:'Needs to move'},'A°':{f:'Tense, restless',r:'Pulls strongly'},'D°':{f:'Dark tension',r:'Resolves downward'},'G°':{f:'Murky tension',r:'Unsettled'},'Db':{f:'Lush, deep',r:'Rich cinematic warmth'},'Gb':{f:'Mysterious',r:'Exotic, colorful'},'F#':{f:'Bright, tense',r:'Bold drive upward'},'Abm':{f:'Dark, floating',r:'Cool shadow depth'},'Bbm':{f:'Brooding, heavy',r:'Dense emotional weight'},'Ebm':{f:'Aching, cold',r:'Hollow longing'},'D#m':{f:'Eerie, tense',r:'Pulls toward resolution'},'C°':{f:'Sharp instability',r:'Urgent need to move'},'A#°':{f:'Tense, dark',r:'Edge of collapse'},'D#°':{f:'Dissonant pull',r:'Sharp urgency'}};
 
 // ─── EMOTION ENGINE ─────────────────────────────────────────
 const EMO={
@@ -430,6 +442,7 @@ const[tip,setTip]=useState(null);
 const[sd,setSd]=useState(false);
 const[sr,setSr]=useState(null);
 const[sv,setSv]=useState(false);
+const[kmf,setKmf]=useState('major');
 const[ec,setEc]=useState(null);
 const[ea,setEa]=useState(null);
 const[es,setEs]=useState({c:0,t:0});
@@ -577,7 +590,14 @@ return(
       </div>
       <div style={{marginBottom:12}}>
         <div style={S.lbl}>Choose a Key</div>
-        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{Object.keys(KEYS).map(kk=><button key={kk} onClick={()=>{setSk(kk);setSch(null);}} style={{...S.btn(sk===kk?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.04)',sk===kk?'#fff':'rgba(255,255,255,0.45)'),padding:'5px 10px',fontSize:11}}>{kk}</button>)}</div>
+        <div style={{display:'flex',gap:0,marginBottom:8,background:'rgba(255,255,255,0.05)',borderRadius:10,padding:3}}>
+          <button onClick={()=>{setKmf('major');if(KEYS[sk]?.m==='minor'){const r=RELATIVE[sk]||'C major';setSk(r);setSch(null);}}} style={{flex:1,background:kmf==='major'?'rgba(255,107,107,0.18)':'transparent',border:'none',borderRadius:8,padding:'8px 6px',cursor:'pointer',color:kmf==='major'?'#FF6B6B':'rgba(255,255,255,0.4)',fontWeight:700,fontSize:12,transition:'all 0.15s'}}>Major — Bright, open</button>
+          <button onClick={()=>{setKmf('minor');if(KEYS[sk]?.m==='major'){const r=RELATIVE[sk]||'A minor';setSk(r);setSch(null);}}} style={{flex:1,background:kmf==='minor'?'rgba(78,205,196,0.18)':'transparent',border:'none',borderRadius:8,padding:'8px 6px',cursor:'pointer',color:kmf==='minor'?'#4ECDC4':'rgba(255,255,255,0.4)',fontWeight:700,fontSize:12,transition:'all 0.15s'}}>Minor — Deep, emotional</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:4}}>
+          {(kmf==='major'?MAJOR_COF:MINOR_COF).map(kk=>{const root=kk.replace(' major','').replace(' minor','');return<button key={kk} onClick={()=>{setSk(kk);setSch(null);}} style={{...S.btn(sk===kk?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.04)',sk===kk?'#fff':'rgba(255,255,255,0.45)'),padding:'7px 2px',fontSize:11,fontWeight:sk===kk?700:500,textAlign:'center'}}>{root}{kmf==='minor'?'m':''}</button>;})}
+        </div>
+        <div style={{marginTop:4,fontSize:8,color:'rgba(255,255,255,0.25)',textAlign:'center',lineHeight:1.4}}>Circle of Fifths order — neighboring keys share the most notes</div>
       </div>
       {/* ── Progression panel ── */}
       <div style={{background:'rgba(0,0,0,0.3)',borderRadius:16,padding:14,marginBottom:12,minHeight:60,border:'1px solid rgba(255,255,255,0.06)'}}>
