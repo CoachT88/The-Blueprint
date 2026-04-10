@@ -2934,7 +2934,7 @@ function advanceEx(){
 // ═══════════════════════════════════════════════════════════════════════════
 // HYDRATION TRACKER
 // ═══════════════════════════════════════════════════════════════════════════
-function getTodayKey(){ return 'bp_hydration_'+new Date().toISOString().split('T')[0]; }
+function getTodayKey(){ return 'bp_hydration_'+(currentUser?.id||'')+'_'+new Date().toISOString().split('T')[0]; }
 function getHydration(){ return parseFloat(localStorage.getItem(getTodayKey())||'0'); }
 let _hydrationUnit='L'; // 'L' or 'oz'
 
@@ -3122,8 +3122,8 @@ function renderDailyTip(){
 // ═══════════════════════════════════════════════════════════════════════════
 // SLEEP & SORENESS TRACKER
 // ═══════════════════════════════════════════════════════════════════════════
-function getTodaySleepKey(){ return 'bp_sleep_'+new Date().toISOString().split('T')[0]; }
-function getTodaySorenessKey(){ return 'bp_soreness_'+new Date().toISOString().split('T')[0]; }
+function getTodaySleepKey(){ return 'bp_sleep_'+(currentUser?.id||'')+'_'+new Date().toISOString().split('T')[0]; }
+function getTodaySorenessKey(){ return 'bp_soreness_'+(currentUser?.id||'')+'_'+new Date().toISOString().split('T')[0]; }
 
 function setSleep(val){
     localStorage.setItem(getTodaySleepKey(), val);
@@ -3552,6 +3552,7 @@ async function handleForgotPassword(){
     else setAuthSuccess('Password reset email sent. Check your inbox.');
 }
 async function handleLogout(){
+    _flushSaveNow(); // ensure pending changes reach Supabase before signing out
     await sb.auth.signOut();
     currentUser=null;persisted={...DEFAULT_PERSISTED};
     showAuthScreen();
@@ -3575,15 +3576,12 @@ async function checkMembership(user){
     }
 }
 
-let _signingIn=false;
 async function onUserSignedIn(user){
-    if(_signingIn)return;
-    _signingIn=true;
+    if(currentUser?.id===user.id) return; // already fully initialized for this user
     currentUser=user;
     // Check membership
     const isMember=await checkMembership(user);
-    _signingIn=false;
-    if(!isMember) return;
+    if(!isMember){currentUser=null;return;}
     document.getElementById('hq-user-email').textContent=user.email;
     await loadPersisted();
     hideAuthScreen();
