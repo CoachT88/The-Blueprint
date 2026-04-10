@@ -407,6 +407,47 @@
     </div>
 </div>
 
+<!-- NOTIFICATION SETTINGS MODAL -->
+<div id="notif-modal" class="hidden fixed inset-0 z-[99992] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-700/60 rounded-3xl p-6 space-y-5">
+        <div class="flex justify-between items-center">
+            <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-bell"></i> Training Reminders</p>
+            <button id="notif-modal-close" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400"><i class="fas fa-xmark text-sm"></i></button>
+        </div>
+        <div id="notif-unsupported" class="hidden">
+            <p class="text-[11px] text-slate-500 leading-relaxed">Push notifications aren't supported in this browser. On iPhone, add The Blueprint to your Home Screen first, then open it from there.</p>
+        </div>
+        <div id="notif-supported">
+            <div class="space-y-4">
+                <p class="text-[11px] text-slate-400 leading-relaxed">Get reminders to train, streak warnings before you lose your streak, and milestone alerts.</p>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-bold text-slate-300">Daily reminder</p>
+                            <p class="text-[10px] text-slate-600">Sent if you haven't trained that day</p>
+                        </div>
+                        <input type="time" id="notif-time" value="19:00" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 font-bold">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-bold text-slate-300">Streak warnings</p>
+                            <p class="text-[10px] text-slate-600">Alert before you lose a streak ≥ 3 days</p>
+                        </div>
+                        <label id="streak-warn-toggle-label" class="flex items-center cursor-pointer">
+                            <div id="streak-warn-toggle" class="w-9 h-5 rounded-full bg-slate-700 border border-slate-600 relative transition-colors">
+                                <div id="streak-warn-thumb" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-400 transition-all"></div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <button id="notif-enable-btn" class="btn-primary py-3 text-sm w-full">Enable Notifications</button>
+                <button id="notif-disable-btn" class="hidden w-full py-3 text-[11px] font-black text-red-400 uppercase tracking-widest">Disable Notifications</button>
+                <p id="notif-status" class="text-[10px] text-slate-600 text-center italic"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MEASUREMENT HOW-TO OVERLAY -->
 <div id="measure-howto-modal" class="hidden fixed inset-0 z-[99992] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
     <div class="w-full max-w-sm bg-slate-900 border border-slate-700/60 rounded-3xl p-6 space-y-5">
@@ -543,6 +584,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <span id="current-date" class="text-[10px] font-black uppercase bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700/50 text-slate-300">-- --</span>
+                <button id="notif-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Notifications"><i id="notif-icon" class="fas fa-bell text-xs"></i></button>
                 <button id="logout-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Sign out"><i class="fas fa-right-from-bracket text-xs"></i></button>
             </div>
         </div>
@@ -746,6 +788,14 @@
             <button id="mission-length-btn" class="instruction-card hover:border-blue-500/50 transition-all flex flex-col items-center gap-3 py-8"><i class="fas fa-up-right-and-down-left-from-center text-2xl text-blue-400"></i><span class="text-xl font-black uppercase italic">Length</span></button>
             <button id="mission-girth-btn"  class="instruction-card hover:border-emerald-500/50 transition-all flex flex-col items-center gap-3 py-8"><i class="fas fa-expand text-2xl text-emerald-400"></i><span class="text-xl font-black uppercase italic">Girth</span></button>
         </div>
+        <button id="mission-stamina-btn" class="instruction-card hover:border-purple-500/50 transition-all flex items-center gap-5 px-6 py-5" style="border-color:rgba(168,85,247,0.15);">
+            <i class="fas fa-fire-flame-curved text-2xl text-purple-400 flex-shrink-0"></i>
+            <div class="text-left">
+                <p class="text-xl font-black uppercase italic text-purple-300">Stamina &amp; Blood Flow</p>
+                <p class="text-[10px] text-slate-500 font-semibold mt-0.5">Edging protocol — stamina training &amp; vascular conditioning</p>
+            </div>
+            <i class="fas fa-chevron-right text-slate-700 text-xs ml-auto flex-shrink-0"></i>
+        </button>
         <button id="mission-recovery-btn" class="instruction-card hover:border-amber-500/50 transition-all flex items-center gap-5 px-6 py-5 border-amber-500/20" style="border-color:rgba(245,158,11,0.15);">
             <i class="fas fa-heart-pulse text-2xl text-amber-400 flex-shrink-0"></i>
             <div class="text-left">
@@ -816,6 +866,7 @@
             <button id="ex-back-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 active:scale-95"><i class="fas fa-arrow-left text-sm"></i></button>
             <button id="ex-abort-btn" class="hidden"></button>
             <span id="ex-tag" class="text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">Phase 01</span>
+            <button id="ex-info-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 active:scale-95" title="How-To"><i class="fas fa-circle-info text-sm"></i></button>
             <button id="dim-toggle-btn" class="dim-toggle-btn" title="Dim screen"><i class="fas fa-moon text-slate-400 text-sm"></i></button>
         </div>
         <div class="flex items-center gap-2">
@@ -826,6 +877,12 @@
 
     <!-- Pip dots -->
     <div id="pip-container" class="flex justify-center gap-3 mb-3" style="position:relative;z-index:15"></div>
+
+    <!-- Pre-session circuit overview (shown before first set, hidden during active timer) -->
+    <div id="circuit-overview" class="hidden mx-2 mb-4 p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/05 text-left" style="position:relative;z-index:15;">
+        <p id="circuit-overview-label" class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><i class="fas fa-list-check"></i> Circuit Overview</p>
+        <div id="circuit-overview-steps" class="space-y-2"></div>
+    </div>
 
     <!-- Exercise title -->
     <h2 id="ex-title" class="text-4xl font-black italic uppercase leading-none text-slate-50 px-4 mb-4" style="position:relative;z-index:15">--</h2>
@@ -1150,12 +1207,21 @@
                     </div>
                     <div class="p-3 rounded-xl bg-emerald-500/05 border border-emerald-500/20">
                         <p class="text-emerald-300 font-bold text-xs mb-1"><i class="fas fa-expand mr-1.5"></i>Girth Protocol</p>
-                        <p class="mb-2">Targets the tunica and internal chambers through hydraulic pressure. Four exercises run in sequence.</p>
+                        <p class="mb-2">Targets the tunica and internal chambers through hydraulic pressure. Runs as a strict round-based circuit — Wet Jelq into Uli, repeated for the full round count, with a rest and re-lube interval between rounds. The final Uli of the final round ends the session immediately.</p>
                         <div class="space-y-2 mt-2">
-                            <p><strong class="text-slate-300">Uli — Manual Clamp</strong> — Static pressure hold. OK grip at the base traps blood. Free hand milks more pressure in. EQ: 80%. Sets and duration scale with your difficulty tier.</p>
-                            <p><strong class="text-slate-300">Jelq — Manual Milk</strong> — Dynamic stroke from base to just before the head. 3 seconds per stroke. EQ: 60–80%. Duration scales with tier: 5 min (Beginner) to 15 min (Advanced).</p>
-                            <p><strong class="text-slate-300">Squeeze Hold</strong> — Maximum pressure hold at the base. Do not increase squeeze mid-hold. EQ: 80%.</p>
-                            <p><strong class="text-slate-300">Edging Compression</strong> — Lateral compression from both sides at mid-shaft. Breathe out to deepen. EQ: 60–70%.</p>
+                            <p><strong class="text-slate-300">Wet Jelq</strong> — Dynamic stroke from base to just before the head. Exactly 3 seconds per stroke. Mandatory lube. EQ: 60–80%. Duration scales per tier.</p>
+                            <p><strong class="text-slate-300">Uli — Manual Clamp</strong> — Static pressure hold immediately after Jelq. OK grip at base traps blood; free hand milks more pressure in. EQ: 80%. Duration scales per tier.</p>
+                        </div>
+                        <div class="mt-2 pt-2 border-t border-slate-700/50">
+                            <p class="text-slate-500 text-[10px]">Beginner: 3 Rounds · Mid: 4 Rounds · Advanced: 5 Rounds · Elite: 5 Rounds (longer durations)</p>
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-purple-500/05 border border-purple-500/20">
+                        <p class="text-purple-300 font-bold text-xs mb-1"><i class="fas fa-fire-flame-curved mr-1.5"></i>Stamina &amp; Blood Flow</p>
+                        <p class="mb-2">A separate protocol focused on arousal management and vascular conditioning. Runs as standard sets — not a circuit.</p>
+                        <div class="space-y-2 mt-2">
+                            <p><strong class="text-slate-300">Edging — Controlled Hold</strong> — Slow strokes to the arousal plateau, then hold. Cycle controlled arousal for the full duration. EQ: 70–80%. Trains stamina through disciplined repetition.</p>
+                            <p><strong class="text-slate-300">Lateral Compression</strong> — Both hands compress mid-shaft from the sides. Breathe out to deepen the vascular response. EQ: 60–70%.</p>
                         </div>
                     </div>
                 </div>
@@ -1509,17 +1575,13 @@ const DIFFICULTIES=[
 
 // Per-exercise experience level overrides (Coach T's exact specs)
 // Key = exercise title, value = { beginner, intermediate, advanced } each = { sets, duration }
-const EX_EXPERIENCE = {
-    'Uli — Manual Clamp': {
-        beginner:     {sets:3, duration:30,  label:'3 sets × 30s'},
-        intermediate: {sets:4, duration:45,  label:'4 sets × 45s'},
-        advanced:     {sets:5, duration:60,  label:'5 sets × 60s'},
-    },
-    'Jelq — Manual Milk': {
-        beginner:     {sets:1, duration:300,  label:'5 minutes'},
-        intermediate: {sets:1, duration:600,  label:'10 minutes'},
-        advanced:     {sets:1, duration:900,  label:'15 minutes'},
-    },
+const EX_EXPERIENCE = {};
+// Girth is now a round-based circuit. Per-difficulty config lives here.
+const GIRTH_CIRCUIT = {
+    beginner:     {rounds:3, jelqDur:60,  uliDur:30, restDur:30},
+    intermediate: {rounds:4, jelqDur:120, uliDur:45, restDur:45},
+    advanced:     {rounds:5, jelqDur:150, uliDur:60, restDur:60},
+    elite:        {rounds:5, jelqDur:180, uliDur:60, restDur:60},
 };
 const MILESTONES=[
     {id:'first_session', icon:'fa-flag',              color:'text-blue-400',    title:'First Blood',       desc:'First session complete. The journey has begun.',              trigger:p=>p.sessionLog.length===1},
@@ -1585,76 +1647,48 @@ const ROUTINES={
     ],
     girth:[
         {
-            title:'Uli — Manual Clamp',
+            title:'Wet Jelq',
+            isGirthCircuit:true,
             howto:[
-                'Get to a solid 80% erection.',
-                'Apply your lube — coconut oil or a thick cream. Zero skin friction.',
-                'Form an OK grip with thumb and index finger at the very base.',
-                'Squeeze firmly to trap the blood. Nothing escapes.',
-                'Use your free hand to slowly push more blood from the base toward the mid-section — spike the pressure.',
-                'Hold that internal pressure for the full duration of the set.',
+                'This exercise requires lubrication — coconut oil or a thick water-based cream. Apply generously before you start.',
+                'Get to 60-80% erection. This is the sweet spot — enough volume to move, not so hard you risk blowout.',
+                'Form an OK grip at the very base of the shaft.',
+                'Slowly slide your hand toward the head. Each stroke takes exactly 3 seconds — count it out.',
+                'Stop just before you reach the head. Do not stroke past it.',
+                'Form a new OK grip at the base with your other hand and repeat. Steady, rhythmic milking motion for the full duration.',
             ],
-            sets:3, duration:30,
+            sets:1, duration:120,
+            eq:'6-8 EQ (60-80%)',
+            feel:'A rolling wave of hydraulic pressure moving from base to head with each stroke. Steady rhythm, even pressure.',
+            dontFeel:'Dry friction, skin burning, or stroking past the head. If you feel friction, add more lube immediately.',
+            cues:[
+                {time:120, text:'60-80% EQ — the sweet spot. Lube applied. OK grip at the base.'},
+                {time:100, text:'3 full seconds per stroke. Base to just before the head. Switch hands each rep.'},
+                {time:60,  text:'Halfway. EQ check — if you\'ve gone harder than 80%, stop, let it settle, then resume.'},
+                {time:20,  text:'Final stretch. Keep the rhythm — same pressure, same speed all the way through.'},
+                {time:5,   text:'Done. Release. Let the tissue rest — Uli is next.'}
+            ]
+        },
+        {
+            title:'Uli — Manual Clamp',
+            isGirthCircuit:true,
+            howto:[
+                'Get to a solid 80% erection before starting.',
+                'Reapply lube if needed — zero skin friction on this exercise.',
+                'Form an OK grip with thumb and index finger at the very base of the shaft.',
+                'Squeeze firmly to trap the blood. Nothing should escape from the base.',
+                'Use your free hand to slowly push more blood from the base upward into the shaft — spike the internal pressure.',
+                'Hold that pressure for the full duration. Release slowly when the timer ends.',
+            ],
+            sets:1, duration:45,
             eq:'7-8 EQ (80%)',
-            feel:'High internal pressure — like an overfilled balloon. The outer casing stretching from the inside out. Vascularity flush through the shaft.',
+            feel:'High internal pressure — like an overfilled balloon. The outer casing stretching from the inside out. Visible vascularity.',
             dontFeel:'Sharp pain, glans engorgement, tingling, or numbness. Those are overload signals — release immediately.',
             cues:[
-                {time:30, text:'Get to 80% EQ. Use coconut oil or a thick cream — zero skin friction on this one.'},
-                {time:25, text:'OK grip at the very base — thumb and index finger. Seal tight. Blood cannot escape.'},
-                {time:18, text:'Use your free hand to milk more blood up into the shaft. You are overfilling the container.'},
-                {time:10, text:'Hold the seal. Feel the internal walls expanding under pressure. This is the adaptation signal.'},
-                {time:3,  text:'Release slowly. Let blood redistribute fully before the next rep.'}
-            ]
-        },
-        {
-            title:'Jelq — Manual Milk',
-            howto:[
-                'Get to 60-80% erection. This is the sweet spot — enough volume to move, not so hard you risk blowout.',
-                'Apply plenty of lube. This is mandatory. No lube means friction burn, not gains.',
-                'Form an OK grip at the base of the shaft.',
-                'Slowly slide your hand toward the head. The stroke should take about 3 seconds.',
-                'Stop right before you reach the head.',
-                'Form a new OK grip at the base with your other hand and repeat. Steady, rhythmic milking motion.',
-            ],
-            sets:1, duration:600,
-            eq:'6-8 EQ (60-80%)',
-            feel:'A rolling wave of hydraulic pressure moving from base to head. Steady rhythm, even strokes.',
-            dontFeel:'Dry friction, skin burning, or any stroking past the head. Those mean wrong technique.',
-            cues:[
-                {time:600, text:'Get to 60-80% EQ — this is the sweet spot. Enough volume to move, not so hard you risk blowout.'},
-                {time:570, text:'Apply generous lube — this is mandatory. No lube means friction burn, not gains.'},
-                {time:540, text:'OK grip at the base. Slide slowly toward the head — take 3 full seconds per stroke.'},
-                {time:480, text:'Stop just before the head. Switch hands. Keep a steady, rhythmic milking motion.'},
-                {time:300, text:'Halfway. Maintain your EQ in the 60-80% range. If you go harder, stop and let it settle.'},
-                {time:60,  text:'Final minute. Keep the rhythm consistent. Same pressure, same speed, all the way through.'},
-                {time:5,   text:'Done. Let the tissue rest before moving to the next exercise.'}
-            ]
-        },
-        {
-            title:'Squeeze Hold',
-            sets:3, duration:30,
-            eq:'7-8 EQ',
-            feel:'Maximum expansion pressure held at the base. Shaft feels fully pressurized.',
-            dontFeel:'Throbbing pain, visible discoloration, or any coldness in the glans.',
-            cues:[
-                {time:30, text:'80% EQ. OK grip at the base — squeeze tight enough to trap the blood.'},
-                {time:20, text:'Hold the squeeze. Do not pump tighter. Just maintain the seal and feel the pressure build.'},
-                {time:8,  text:'Almost done. The tissue is under load right now — this is where adaptation happens.'},
-                {time:3,  text:'Release slowly over 2 seconds. Let blood redistribute before the next rep.'}
-            ]
-        },
-        {
-            title:'Edging Compression',
-            sets:2, duration:60,
-            eq:'6-7 EQ',
-            feel:'Deep internal pressure, expansion at base and mid-shaft. Steady and controlled.',
-            dontFeel:'Glans engorgement, head pressure, or any electric sensation.',
-            cues:[
-                {time:60, text:'60-70% EQ. Both hands grip mid-shaft with moderate pressure.'},
-                {time:45, text:'Compress inward — you are squeezing from the sides, not along the length.'},
-                {time:30, text:'Breathe out slowly. Let the exhale deepen the internal expansion.'},
-                {time:15, text:'Hold the compression. The tunica is under lateral stress right now.'},
-                {time:5,  text:'Release. Shake out your hands. Reset for the next set.'}
+                {time:45, text:'80% EQ. OK grip at the very base — seal it tight. Blood cannot escape.'},
+                {time:30, text:'Free hand milks blood upward. You are overfilling the container — max internal pressure.'},
+                {time:15, text:'Hold the seal. Feel the internal walls expanding. This is the adaptation signal.'},
+                {time:3,  text:'Release slowly over 2 seconds. Let blood redistribute before the next round.'}
             ]
         }
     ],
@@ -1756,6 +1790,51 @@ const ROUTINES={
                 {time:3,  text:'Sit back up slowly. Reset before the next set.'}
             ]
         }
+    ],
+    stamina:[
+        {
+            title:'Edging — Controlled Hold',
+            howto:[
+                'Get to 70-80% erection. You need solid volume but not full hardness.',
+                'Begin a slow, rhythmic stroke — about 2-3 seconds per pass.',
+                'As you feel arousal building toward the edge, slow down significantly or stop entirely.',
+                'Hold at that plateau for 10-15 seconds, letting arousal drop to roughly 60%.',
+                'Resume slow strokes and repeat the cycle for the full duration.',
+                'The goal is controlled arousal management — stamina training through repetition at the edge.',
+            ],
+            sets:3, duration:120,
+            eq:'7-8 EQ (70-80%)',
+            feel:'Controlled arousal at the plateau. You are managing the edge, not crossing it. Deep rhythmic breathing.',
+            dontFeel:'Rushing, crossing the edge, or losing focus on breath control. This is discipline training.',
+            cues:[
+                {time:120, text:'70-80% EQ. Begin slow strokes — 2 to 3 seconds per pass.'},
+                {time:90,  text:'Feel the plateau building — slow down now. Hold the edge for 10-15 seconds.'},
+                {time:60,  text:'Let arousal drop to 60%, then resume. Controlled cycle — this is the adaptation.'},
+                {time:30,  text:'Final stretch. Maintain breath control. Slow, deliberate, disciplined.'},
+                {time:5,   text:'Stop. Let arousal fully settle before the next set.'}
+            ]
+        },
+        {
+            title:'Lateral Compression',
+            howto:[
+                'Get to 60-70% erection — semi-hard. Do not attempt this fully erect.',
+                'Apply both hands to the mid-shaft, palms facing inward.',
+                'Apply firm lateral compression — squeezing inward from both sides simultaneously.',
+                'Do not stroke along the length. The pressure is purely lateral.',
+                'Breathe out slowly during each compression to deepen the vascular response.',
+                'Hold the compression for the full duration, then fully release between sets.',
+            ],
+            sets:3, duration:60,
+            eq:'6-7 EQ (60-70%)',
+            feel:'Deep internal pressure, lateral expansion at mid-shaft. Steady and controlled. No throbbing.',
+            dontFeel:'Glans engorgement, head pressure, or any electric/tingling sensation. Release immediately.',
+            cues:[
+                {time:60, text:'60-70% EQ. Both hands on mid-shaft — compress inward from both sides.'},
+                {time:45, text:'Squeeze from the sides only — not along the length. Breathe out slowly.'},
+                {time:25, text:'Hold the compression. The tunica is under lateral stress — this is the stimulus.'},
+                {time:5,  text:'Release fully. Shake your hands out. Reset for the next set.'}
+            ]
+        }
     ]
 };
 
@@ -1799,7 +1878,12 @@ async function loadPersisted(){
     if(!currentUser)return;
     try{
         const {data,error} = await sb.from('user_data').select('*').eq('id',currentUser.id).single();
-        if(error||!data)return;
+        if(error||!data){
+            // Fall back to localStorage backup
+            const local=localStorage.getItem('bp_data_'+currentUser.id);
+            if(local) try{persisted={...DEFAULT_PERSISTED,...JSON.parse(local)};}catch(e){}
+            return;
+        }
         persisted = {
             schedule:       data.schedule        || DEFAULT_PERSISTED.schedule,
             completedDays:  data.completed_days  || DEFAULT_PERSISTED.completedDays,
@@ -1822,45 +1906,61 @@ async function loadPersisted(){
             persisted.weekKey = currentWeek;
             savePersisted();
         }
-    }catch(e){console.error('loadPersisted:',e)}
+    }catch(e){
+        console.error('loadPersisted:',e);
+        const local=localStorage.getItem('bp_data_'+currentUser.id);
+        if(local) try{persisted={...DEFAULT_PERSISTED,...JSON.parse(local)};}catch(e2){}
+    }
 }
 
+function _buildSavePayload(){
+    return{
+        schedule:       persisted.schedule,
+        completed_days: persisted.completedDays,
+        total_xp:       persisted.totalXp,
+        session_log:    persisted.sessionLog,
+        measurements:   persisted.measurements,
+        seen_milestones:persisted.seenMilestones,
+        difficulty:     persisted.difficulty,
+        diff_unlocked_date: persisted.diffUnlockedDate||{intermediate:'',advanced:'',elite:''},
+        first_session_date: persisted.firstSessionDate||'',
+        week_key:       persisted.weekKey||getCurrentWeekKey(),
+        records:        persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+        tip_index:      persisted.tipIndex||0,
+        last_tip_date:  persisted.lastTipDate||'',
+        updated_at:     new Date().toISOString(),
+    };
+}
 function savePersisted(){
-    // Debounce — batch rapid saves into one call
+    // Always write to localStorage immediately as backup
+    if(currentUser) try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify(persisted));}catch(e){}
+    // Debounce the Supabase write
     clearTimeout(_saveDebounce);
     _saveDebounce = setTimeout(async()=>{
         if(!currentUser)return;
-        try{
-            await sb.from('user_data').update({
-                schedule:       persisted.schedule,
-                completed_days: persisted.completedDays,
-                total_xp:       persisted.totalXp,
-                session_log:    persisted.sessionLog,
-                measurements:   persisted.measurements,
-                seen_milestones:persisted.seenMilestones,
-                difficulty:     persisted.difficulty,
-                diff_unlocked_date: persisted.diffUnlockedDate||{intermediate:'',advanced:'',elite:''},
-                first_session_date: persisted.firstSessionDate||'',
-                week_key:       persisted.weekKey||getCurrentWeekKey(),
-                records:        persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
-                tip_index:      persisted.tipIndex||0,
-                last_tip_date:  persisted.lastTipDate||'',
-                updated_at:     new Date().toISOString(),
-            }).eq('id',currentUser.id);
-        }catch(e){console.error('savePersisted:',e)}
+        try{await sb.from('user_data').update(_buildSavePayload()).eq('id',currentUser.id);}
+        catch(e){console.error('savePersisted:',e)}
     }, 800);
+}
+function _flushSaveNow(){
+    // Called on visibility hidden — fire Supabase write immediately without debounce
+    if(!currentUser)return;
+    clearTimeout(_saveDebounce);
+    try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify(persisted));}catch(e){}
+    sb.from('user_data').update(_buildSavePayload()).eq('id',currentUser.id).catch(()=>{});
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION STATE
 // ═══════════════════════════════════════════════════════════════════════════
-let session={step:-1,routineType:'length',exerciseIndex:0,setIndex:1,directionalIndex:0,xp:0,timer:null,warmupTimer:null,selectedDayIdx:null,dimMode:false,carouselInterval:null,carouselIdx:0};
+let session={step:-1,routineType:'length',exerciseIndex:0,setIndex:1,directionalIndex:0,xp:0,timer:null,warmupTimer:null,selectedDayIdx:null,dimMode:false,carouselInterval:null,carouselIdx:0,girthRound:1,girthTotalRounds:3};
 function resetSession(){
     if(session.timer){session.timer.cancel();session.timer=null}
     if(session.warmupTimer){session.warmupTimer.cancel();session.warmupTimer=null}
     stopCarousel();
     session.exerciseIndex=0;session.setIndex=1;session.directionalIndex=0;session.xp=0;
     session.recoveryQueue=null;session.recoveryQueuePos=0;
+    session.girthRound=1;session.girthTotalRounds=3;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2040,15 +2140,21 @@ function renderDifficultySelector(){
     if(detail){
         if(isRecov){detail.innerHTML='';return}
         const d=getDiff();
-        const expKey=d.id==='elite'?'advanced':d.id;
-        // Show experience level info for the current mission type
-        const sampleEx=ROUTINES[session.routineType]?.[0]||ROUTINES.length[0];
-        const expOverride=EX_EXPERIENCE[sampleEx.title]?.[expKey];
-        if(expOverride){
-            detail.innerHTML=`${d.label}: ${expOverride.label}`;
+        const diffKey=d.id;
+        if(session.routineType==='girth'){
+            const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
+            const jelqLabel=cfg.jelqDur>=60?(cfg.jelqDur/60)+'m':cfg.jelqDur+'s';
+            detail.innerHTML=`${d.label}: ${cfg.rounds} Rounds — ${jelqLabel} Wet Jelq / ${cfg.uliDur}s Uli`;
+        } else if(session.routineType==='stamina'){
+            detail.innerHTML=`${d.label}: Edging Protocol — 3 sets · vascular conditioning`;
         } else {
-            const applied=applyDifficulty(sampleEx);
-            detail.innerHTML=`${d.label}: ${applied.duration}s per set · ${applied.sets} sets · ${d.xpMult}× XP`;
+            const sampleEx=ROUTINES[session.routineType]?.[0];
+            if(sampleEx){
+                const applied=applyDifficulty(sampleEx);
+                detail.innerHTML=`${d.label}: ${applied.duration}s per set · ${applied.sets} sets · ${d.xpMult}× XP`;
+            } else {
+                detail.innerHTML='';
+            }
         }
     }
 }
@@ -2139,17 +2245,21 @@ async function handlePhotoSelect(file){
     document.getElementById('photo-capture-btn').disabled=true;
     try{
         const blob=await compressImage(file);
+        if(!blob) throw new Error('Image compression failed — try a different photo.');
         const path=`${currentUser.id}/${Date.now()}.jpg`;
-        const {error}=await sb.storage.from('progress-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});
-        if(error)throw error;
-        // Show preview
+        const {data:uploadData, error}=await sb.storage.from('progress-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});
+        if(error){console.error('Storage upload error:',error.message,error);throw new Error(error.message||'Upload failed');}
+        if(!uploadData?.path){throw new Error('Upload returned no confirmation — check bucket policies.');}
         const previewUrl=URL.createObjectURL(blob);
         document.getElementById('photo-preview-img').src=previewUrl;
         document.getElementById('photo-preview').classList.remove('hidden');
         document.getElementById('photo-capture-btn').innerText='Replace Photo';
     }catch(e){
-        console.error('Photo upload:',e);
-        document.getElementById('photo-error').classList.remove('hidden');
+        console.error('Photo upload failed:',e);
+        const errEl=document.getElementById('photo-error');
+        errEl.classList.remove('hidden');
+        const msg=errEl.querySelector('p');
+        if(msg) msg.textContent=`Upload failed: ${e.message||'unknown error. Check storage bucket policies.'}`;
         document.getElementById('photo-capture-btn').disabled=false;
     }finally{
         document.getElementById('photo-uploading').classList.add('hidden');
@@ -2225,11 +2335,18 @@ async function handlePhotoLogUpload(file){
     uploading.classList.remove('hidden');errEl.classList.add('hidden');btn.disabled=true;
     try{
         const blob=await compressImage(file);
+        if(!blob) throw new Error('Image compression failed — try a different photo.');
         const path=`${currentUser.id}/${Date.now()}.jpg`;
-        const {error}=await sb.storage.from('progress-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});
-        if(error)throw error;
+        const {data:uploadData, error}=await sb.storage.from('progress-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});
+        if(error){console.error('Storage upload error:',error.message,error);throw new Error(error.message||'Upload failed');}
+        if(!uploadData?.path){throw new Error('Upload returned no confirmation — check bucket RLS policies.');}
         await renderGalleryInto('photo-log-gallery');
-    }catch(e){console.error('Photo upload:',e);errEl.classList.remove('hidden');}
+    }catch(e){
+        console.error('Photo upload failed:',e);
+        errEl.classList.remove('hidden');
+        const msg=errEl.querySelector('p');
+        if(msg) msg.textContent=`Upload failed: ${e.message||'unknown error'}`;
+    }
     finally{uploading.classList.add('hidden');btn.disabled=false;}
 }
 
@@ -2384,8 +2501,10 @@ function goToStep(step){
         document.getElementById('blackout-banner').classList.toggle('hidden',!blackout);
         document.getElementById('mission-length-btn').disabled=blackout;
         document.getElementById('mission-girth-btn').disabled=blackout;
+        document.getElementById('mission-stamina-btn').disabled=blackout;
         document.getElementById('mission-length-btn').style.opacity=blackout?'0.35':'';
         document.getElementById('mission-girth-btn').style.opacity=blackout?'0.35':'';
+        document.getElementById('mission-stamina-btn').style.opacity=blackout?'0.35':'';
         // Hydration warning
         const hydWarn=getHydrationWarning();
         const hydBanner=document.getElementById('hydration-warning-banner');
@@ -2586,6 +2705,12 @@ function startRecoverySession(){
 function getCurEx(){
     const ex = ROUTINES[session.routineType][session.exerciseIndex];
     if(ex.isRecovery) return ex;
+    if(session.routineType==='girth'){
+        const diffKey=getDiff().id;
+        const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
+        const dur=ex.title==='Wet Jelq'?cfg.jelqDur:cfg.uliDur;
+        return applyDeload({...ex, sets:1, duration:dur});
+    }
     return applyDeload(applyDifficulty(ex));
 }
 function updateExUI(){
@@ -2601,6 +2726,23 @@ function updateExUI(){
     document.getElementById('dont-feel-msg').innerText=ex.dontFeel;
     _curExDuration=ex.duration;
     document.getElementById('ex-timer').innerText=fmtDuration(ex.duration,ex.duration);
+
+    // Circuit overview for girth — show before first round starts
+    const circOv=document.getElementById('circuit-overview');
+    if(session.routineType==='girth' && session.girthRound===1 && session.exerciseIndex===0){
+        const diffKey=getDiff().id;
+        const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
+        const jelqLabel=cfg.jelqDur>=60?(cfg.jelqDur/60)+'m':cfg.jelqDur+'s';
+        document.getElementById('circuit-overview-label').innerHTML=`<i class="fas fa-list-check"></i> ${cfg.rounds}-Round Circuit`;
+        document.getElementById('circuit-overview-steps').innerHTML=`
+            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">1</span><p class="text-[11px] text-slate-300">Wet Jelq <span class="text-emerald-500">${jelqLabel}</span> — 3s per stroke, 60-80% EQ</p></div>
+            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">2</span><p class="text-[11px] text-slate-300">Uli — Manual Clamp <span class="text-emerald-500">${cfg.uliDur}s</span> — OK grip at base, 80% EQ</p></div>
+            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-[9px] font-black text-slate-400">↺</span><p class="text-[11px] text-slate-500">${cfg.restDur}s rest + re-lube between rounds</p></div>`;
+        circOv.classList.remove('hidden');
+    } else {
+        circOv.classList.add('hidden');
+    }
+
     // For directional exercises, show current direction in ready state
     if(ex.isDirectional){
         const dir=DIRECTIONALS[session.directionalIndex];
@@ -2615,21 +2757,29 @@ function updateExUI(){
 
     // Phase tag
     const tagEl=document.getElementById('ex-tag');
-    if(ex.isDirectional){
+    if(session.routineType==='girth'){
+        const exLabel=ex.title==='Wet Jelq'?'Jelq':'Uli';
+        tagEl.innerText=`Round ${session.girthRound}/${session.girthTotalRounds} · ${exLabel}`;
+        tagEl.className='text-[10px] font-black uppercase px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20';
+    } else if(ex.isDirectional){
         tagEl.innerText=`DIR ${session.directionalIndex+1}/5 · SET ${session.setIndex}/${ex.sets}`;
+        tagEl.className='text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20';
     } else {
         tagEl.innerText='Phase '+String(session.exerciseIndex+1).padStart(2,'0');
+        tagEl.className=isRecovSession
+            ?'text-[10px] font-black uppercase px-3 py-1.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20'
+            :'text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20';
     }
-    tagEl.className=isRecovSession
-        ?'text-[10px] font-black uppercase px-3 py-1.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20'
-        :'text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20';
 
     // Deload badge
     document.getElementById('deload-ex-badge').classList.toggle('hidden',!dl||isRecovSession);
 
     // Engage button
     const eb=document.getElementById('ex-btn');
-    if(ex.isDirectional){
+    if(session.routineType==='girth'){
+        const exLabel=ex.title==='Wet Jelq'?'Jelq':'Uli';
+        eb.innerText=`START — Round ${session.girthRound} ${exLabel}`;
+    } else if(ex.isDirectional){
         eb.innerText=`PULL ${DIRECTIONALS[session.directionalIndex]} — START`;
     } else {
         eb.innerText=`START ROUND ${session.setIndex}`;
@@ -2638,9 +2788,29 @@ function updateExUI(){
     document.getElementById('ex-pause-btn').style.display='none';
     document.getElementById('pause-icon').className='fas fa-pause text-2xl';
 
-    // Set pips
+    // Set/Round pips
     const pips=document.getElementById('pip-container');pips.innerHTML='';
-    if(ex.isDirectional){
+    if(session.routineType==='girth'){
+        // Round pips + exercise indicator for girth circuit
+        for(let i=1;i<=session.girthTotalRounds;i++){
+            const p=document.createElement('div');
+            const isDone=i<session.girthRound;
+            const isCurrent=i===session.girthRound;
+            p.className=`w-2.5 h-2.5 rounded-full ${isCurrent?'bg-emerald-400 shadow-[0_0_10px_#10b981]':isDone?'bg-emerald-700':'bg-slate-800'}`;
+            pips.appendChild(p);
+        }
+        // Exercise indicator within the round
+        const exDots=document.createElement('div');
+        exDots.className='flex gap-1.5 ml-3 pl-3 border-l border-slate-700';
+        ROUTINES.girth.forEach((e,i)=>{
+            const d=document.createElement('div');
+            const isCur=i===session.exerciseIndex;
+            const isDon=i<session.exerciseIndex;
+            d.className=`w-1.5 h-1.5 rounded-full ${isCur?'bg-emerald-300':isDon?'bg-emerald-700':'bg-slate-800'}`;
+            exDots.appendChild(d);
+        });
+        pips.appendChild(exDots);
+    } else if(ex.isDirectional){
         // Show all 5 direction labels, highlight current
         DIRECTIONALS.forEach((dir,i)=>{
             const p=document.createElement('div');
@@ -2706,12 +2876,13 @@ function setFocusedMode(active){
     const panels=document.getElementById('ex-info-panels');
     const cuePanel=document.getElementById('ex-active-cue');
     const pauseLbl=document.getElementById('pause-label');
-    const backBtn=document.getElementById('ex-back-btn');
-    const abortBtn=document.getElementById('ex-abort-btn');
+    const infoBtn=document.getElementById('ex-info-btn');
+    const circOv=document.getElementById('circuit-overview');
     if(panels) panels.style.display=active?'none':'';
     if(cuePanel) cuePanel.classList.toggle('hidden',!active);
+    if(circOv && active) circOv.classList.add('hidden');
     if(pauseLbl) pauseLbl.innerText='Pause';
-    // Back button always visible
+    if(infoBtn) infoBtn.style.color=''; // reset highlight on mode change
 }
 
 function updateActiveCue(txt){
@@ -2851,6 +3022,24 @@ function skipRest(){
     session.setIndex++;updateExUI();
 }
 function advanceEx(){
+    if(session.routineType==='girth'){
+        // Move to next exercise within the current round
+        if(session.exerciseIndex<ROUTINES.girth.length-1){
+            session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI();return;
+        }
+        // Completed last exercise of round (Uli)
+        if(session.girthRound>=session.girthTotalRounds){
+            // Final round complete — go directly to success, no rest
+            haptic([100,50,100,50,300]);
+            document.getElementById('success-xp-text').innerText=`+${session.xp} XP EARNED`;
+            goToStep(5);
+            return;
+        }
+        // Not final round — increment round counter and start inter-round rest
+        session.girthRound++;
+        startGirthRoundRest();
+        return;
+    }
     if(session.routineType==='recovery'&&session.recoveryQueue&&session.recoveryQueue.length){
         session.recoveryQueuePos=(session.recoveryQueuePos||0)+1;
         if(session.recoveryQueuePos<session.recoveryQueue.length){
@@ -2866,13 +3055,36 @@ function advanceEx(){
     goToStep(5);
 }
 
+function startGirthRoundRest(){
+    const diffKey=getDiff().id;
+    const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
+    const restDur=cfg.restDur;
+    const ov=document.getElementById('rest-overlay');ov.classList.remove('hidden');ov.style.opacity='1';
+    startBoxBreathing();
+    const arc=document.getElementById('rest-arc');
+    const circumference=326.7;
+    if(arc){arc.style.strokeDashoffset='0';}
+    const nextLbl=document.getElementById('rest-next-label');
+    if(nextLbl) nextLbl.innerText=`Re-lubricate now. Round ${session.girthRound} of ${session.girthTotalRounds} up next.`;
+    document.getElementById('rest-timer').innerText=restDur;
+    session.timer=createTimer(restDur,rem=>{
+        document.getElementById('rest-timer').innerText=rem;
+        if(arc) arc.style.strokeDashoffset=String((1-(rem/restDur))*circumference);
+    },()=>{
+        ov.classList.add('hidden');stopBoxBreathing();session.timer=null;
+        session.exerciseIndex=0;session.setIndex=1;session.directionalIndex=0;
+        updateExUI();haptic([100]);
+    });
+    session.timer.start();
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
 // HYDRATION TRACKER
 // ═══════════════════════════════════════════════════════════════════════════
-function getTodayKey(){ return 'bp_hydration_'+new Date().toISOString().split('T')[0]; }
+function getTodayKey(){ return 'bp_hydration_'+(currentUser?.id||'')+'_'+new Date().toISOString().split('T')[0]; }
 function getHydration(){ return parseFloat(localStorage.getItem(getTodayKey())||'0'); }
 let _hydrationUnit='L'; // 'L' or 'oz'
 
@@ -3008,8 +3220,8 @@ function renderLog(){
     if(!logs.length){c.innerHTML=`<p class="text-slate-600 text-[11px] italic text-center py-4">No sessions logged yet.</p>`;return}
     c.innerHTML=logs.map(log=>{
         const d=new Date(log.date),lbl=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-        const icon=log.routineType==='length'?'fa-up-right-and-down-left-from-center':log.routineType==='girth'?'fa-expand':'fa-heart-pulse';
-        const color=log.routineType==='length'?'text-blue-400':log.routineType==='girth'?'text-emerald-400':'text-amber-400';
+        const icon=log.routineType==='length'?'fa-up-right-and-down-left-from-center':log.routineType==='girth'?'fa-expand':log.routineType==='stamina'?'fa-fire-flame-curved':'fa-heart-pulse';
+        const color=log.routineType==='length'?'text-blue-400':log.routineType==='girth'?'text-emerald-400':log.routineType==='stamina'?'text-purple-400':'text-amber-400';
         const note=log.note?`<span class="w-full text-slate-600 text-[10px] italic mt-0.5 truncate">${esc(log.note)}</span>`:'';
         return`<div class="log-entry"><i class="fas ${icon} ${color} text-xs w-4 text-center"></i><span class="text-slate-300 capitalize text-[11px]">${log.routineType}</span><span class="text-slate-500 text-[10px]">${lbl}</span><span class="text-yellow-400 text-[10px] font-bold ml-auto">+${log.xpEarned} XP</span>${note}</div>`;
     }).join('');
@@ -3060,8 +3272,8 @@ function renderDailyTip(){
 // ═══════════════════════════════════════════════════════════════════════════
 // SLEEP & SORENESS TRACKER
 // ═══════════════════════════════════════════════════════════════════════════
-function getTodaySleepKey(){ return 'bp_sleep_'+new Date().toISOString().split('T')[0]; }
-function getTodaySorenessKey(){ return 'bp_soreness_'+new Date().toISOString().split('T')[0]; }
+function getTodaySleepKey(){ return 'bp_sleep_'+(currentUser?.id||'')+'_'+new Date().toISOString().split('T')[0]; }
+function getTodaySorenessKey(){ return 'bp_soreness_'+(currentUser?.id||'')+'_'+new Date().toISOString().split('T')[0]; }
 
 function setSleep(val){
     localStorage.setItem(getTodaySleepKey(), val);
@@ -3244,7 +3456,7 @@ function showWeeklyReport(){
             ${weekSessions.length===0?'<p class="text-slate-600 text-sm italic">No sessions this week yet.</p>':
             weekSessions.slice(-5).reverse().map(s=>{
                 const d=new Date(s.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-                return `<div class="flex items-center gap-2 py-1.5 border-b border-slate-800/50"><span class="text-[10px] text-slate-400 w-24 flex-shrink-0">${d}</span><span class="text-[10px] font-bold capitalize ${s.routineType==='length'?'text-blue-400':s.routineType==='girth'?'text-emerald-400':'text-amber-400'}">${s.routineType}</span>${s.eq?`<span class="text-[10px] text-slate-500 ml-auto">EQ ${s.eq}</span>`:''}</div>`;
+                return `<div class="flex items-center gap-2 py-1.5 border-b border-slate-800/50"><span class="text-[10px] text-slate-400 w-24 flex-shrink-0">${d}</span><span class="text-[10px] font-bold capitalize ${s.routineType==='length'?'text-blue-400':s.routineType==='girth'?'text-emerald-400':s.routineType==='stamina'?'text-purple-400':'text-amber-400'}">${s.routineType}</span>${s.eq?`<span class="text-[10px] text-slate-500 ml-auto">EQ ${s.eq}</span>`:''}</div>`;
             }).join('')}
         </div>
         <button id="view-all-sessions-btn" class="btn-outline py-3 text-sm w-full">View Full History</button>
@@ -3308,8 +3520,8 @@ function showSessionHistory(){
             const d=new Date(s.date);
             const dateStr=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
             const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-            const icon=s.routineType==='length'?'fa-up-right-and-down-left-from-center':s.routineType==='girth'?'fa-expand':'fa-heart-pulse';
-            const color=s.routineType==='length'?'text-blue-400':s.routineType==='girth'?'text-emerald-400':'text-amber-400';
+            const icon=s.routineType==='length'?'fa-up-right-and-down-left-from-center':s.routineType==='girth'?'fa-expand':s.routineType==='stamina'?'fa-fire-flame-curved':'fa-heart-pulse';
+            const color=s.routineType==='length'?'text-blue-400':s.routineType==='girth'?'text-emerald-400':s.routineType==='stamina'?'text-purple-400':'text-amber-400';
             return `<div class="instruction-card" style="padding:.85rem 1rem;">
                 <div class="flex items-center gap-3">
                     <i class="fas ${icon} ${color} text-sm w-5 text-center flex-shrink-0"></i>
@@ -3472,7 +3684,10 @@ async function handleAuthSubmit(){
             btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
             btn.disabled=false;return;
         }
-        // Success handled by onAuthStateChange
+        // Success — reset button and manually trigger sign-in in case onAuthStateChange is delayed (PWA/iOS)
+        btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
+        btn.disabled=false;
+        if(result.data?.user) await onUserSignedIn(result.data.user);
     }catch(e){
         setAuthError('Caught: '+(e.message||JSON.stringify(e)));
         btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
@@ -3487,6 +3702,7 @@ async function handleForgotPassword(){
     else setAuthSuccess('Password reset email sent. Check your inbox.');
 }
 async function handleLogout(){
+    _flushSaveNow(); // ensure pending changes reach Supabase before signing out
     await sb.auth.signOut();
     currentUser=null;persisted={...DEFAULT_PERSISTED};
     showAuthScreen();
@@ -3511,10 +3727,11 @@ async function checkMembership(user){
 }
 
 async function onUserSignedIn(user){
+    if(currentUser?.id===user.id) return; // already fully initialized for this user
     currentUser=user;
     // Check membership
     const isMember=await checkMembership(user);
-    if(!isMember) return;
+    if(!isMember){currentUser=null;return;}
     document.getElementById('hq-user-email').textContent=user.email;
     await loadPersisted();
     hideAuthScreen();
@@ -3527,6 +3744,96 @@ async function onUserSignedIn(user){
         document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
         const w=document.getElementById('step-welcome');
         w.classList.remove('hidden-step');w.classList.add('active-step');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PUSH NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+const VAPID_PUBLIC_KEY='BHNs21bsR6oKAN19h2o7tSH5s5QHEB3YCqrxaZ6WmMQ6zMJEeuPC7gZ0O7fUnf9qjFIEy19tLMoq2kT2v8q9jG8';
+function _urlBase64ToUint8(b64){const p=(b64+'='.repeat((4-b64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(p);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
+let _swRegistration=null;
+async function initServiceWorker(){
+    if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+    try{_swRegistration=await navigator.serviceWorker.register('/sw.js');}
+    catch(e){console.error('SW register:',e);}
+}
+function openNotifModal(){
+    const modal=document.getElementById('notif-modal');
+    const supported='serviceWorker' in navigator && 'PushManager' in window;
+    document.getElementById('notif-unsupported').classList.toggle('hidden',supported);
+    document.getElementById('notif-supported').classList.toggle('hidden',!supported);
+    if(supported) _refreshNotifUI();
+    modal.classList.remove('hidden');
+}
+function closeNotifModal(){document.getElementById('notif-modal').classList.add('hidden');}
+async function _refreshNotifUI(){
+    const perm=Notification.permission;
+    const sub=_swRegistration?await _swRegistration.pushManager.getSubscription():null;
+    const active=perm==='granted'&&!!sub;
+    document.getElementById('notif-enable-btn').classList.toggle('hidden',active);
+    document.getElementById('notif-disable-btn').classList.toggle('hidden',!active);
+    document.getElementById('notif-icon').className=active?'fas fa-bell text-xs text-blue-400':'fas fa-bell text-xs';
+    document.getElementById('notif-btn').style.borderColor=active?'rgba(59,130,246,.4)':'';
+    document.getElementById('notif-status').innerText=active?'Notifications are active.':perm==='denied'?'Notifications blocked in browser settings.':'';
+    // Load saved prefs
+    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
+    if(prefs.time) document.getElementById('notif-time').value=prefs.time;
+    const streakOn=prefs.streakWarn!==false;
+    _setToggleUI('streak-warn-toggle','streak-warn-thumb',streakOn);
+}
+function _setToggleUI(id,thumbId,on){
+    const t=document.getElementById(id),th=document.getElementById(thumbId);
+    t.style.background=on?'#3b82f6':'';t.style.borderColor=on?'#3b82f6':'';
+    th.style.transform=on?'translateX(16px)':'';th.style.background=on?'#fff':'';
+}
+async function enableNotifications(){
+    if(!_swRegistration){document.getElementById('notif-status').innerText='Service worker not ready — try again.';return;}
+    const btn=document.getElementById('notif-enable-btn');
+    btn.innerHTML='<i class="fas fa-spinner fa-spin mr-2"></i>Requesting...';btn.disabled=true;
+    try{
+        const perm=await Notification.requestPermission();
+        if(perm!=='granted'){document.getElementById('notif-status').innerText='Permission denied.';btn.innerHTML='Enable Notifications';btn.disabled=false;return;}
+        const sub=await _swRegistration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
+        await _savePushSubscription(sub);
+        await _refreshNotifUI();
+    }catch(e){console.error('Push subscribe:',e);document.getElementById('notif-status').innerText='Could not enable — try again.';}
+    btn.innerHTML='Enable Notifications';btn.disabled=false;
+}
+async function disableNotifications(){
+    if(!_swRegistration)return;
+    const sub=await _swRegistration.pushManager.getSubscription();
+    if(sub){await sub.unsubscribe();await _deletePushSubscription(sub);}
+    await _refreshNotifUI();
+}
+async function _savePushSubscription(sub){
+    if(!currentUser)return;
+    const j=sub.toJSON();
+    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
+    await sb.from('push_subscriptions').upsert({
+        user_id:currentUser.id,
+        endpoint:j.endpoint,
+        p256dh:j.keys.p256dh,
+        auth:j.keys.auth,
+        reminder_time:prefs.time||'19:00',
+        streak_warn:prefs.streakWarn!==false,
+        timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+        updated_at:new Date().toISOString(),
+    },{onConflict:'user_id'});
+}
+async function _deletePushSubscription(sub){
+    if(!currentUser)return;
+    await sb.from('push_subscriptions').delete().eq('user_id',currentUser.id);
+}
+async function saveNotifPrefs(){
+    const time=document.getElementById('notif-time').value;
+    const streakWarn=document.getElementById('streak-warn-toggle').style.background==='rgb(59, 130, 246)';
+    const prefs={time,streakWarn};
+    localStorage.setItem('bp_notif_prefs',JSON.stringify(prefs));
+    // Update in Supabase if subscribed
+    if(currentUser){
+        const sub=_swRegistration?await _swRegistration.pushManager.getSubscription():null;
+        if(sub) await sb.from('push_subscriptions').update({reminder_time:time,streak_warn:streakWarn}).eq('user_id',currentUser.id);
     }
 }
 
@@ -3621,7 +3928,21 @@ function init(){
     document.getElementById('warmup-skip-btn').addEventListener('click',nextStep);
     // Mission Select
     document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';goToStep(4)});
-    document.getElementById('mission-girth-btn').addEventListener('click',()=>{session.routineType='girth';goToStep(4)});
+    document.getElementById('mission-girth-btn').addEventListener('click',()=>{
+        session.routineType='girth';
+        const diffKey=getDiff().id;
+        const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
+        session.girthRound=1;session.girthTotalRounds=cfg.rounds;
+        goToStep(4);
+    });
+    document.getElementById('mission-stamina-btn').addEventListener('click',()=>{session.routineType='stamina';goToStep(4)});
+    // Update diff-detail subtext when hovering mission cards (so text updates before tap)
+    ['mission-length-btn','mission-girth-btn','mission-stamina-btn'].forEach(id=>{
+        const btn=document.getElementById(id);
+        const type=id.replace('mission-','').replace('-btn','');
+        btn.addEventListener('pointerenter',()=>{const prev=session.routineType;session.routineType=type;renderDifficultySelector();session.routineType=prev;});
+        btn.addEventListener('pointerleave',()=>renderDifficultySelector());
+    });
     document.getElementById('mission-recovery-btn').addEventListener('click',()=>{session.routineType='recovery';goToRecoveryPicker()});
     document.getElementById('recovery-back-btn').addEventListener('click',()=>goToStep(3));
     document.getElementById('recovery-select-all-btn').addEventListener('click',selectAllRecovery);
@@ -3663,6 +3984,12 @@ function init(){
     document.getElementById('ex-btn').addEventListener('click',startSet);
     document.getElementById('ex-pause-btn').addEventListener('click',pauseResumeSet);
     document.getElementById('dim-toggle-btn').addEventListener('click',toggleDimMode);
+    document.getElementById('ex-info-btn').addEventListener('click',()=>{
+        const panels=document.getElementById('ex-info-panels');
+        const isHidden=panels.style.display==='none';
+        panels.style.display=isHidden?'':'none';
+        document.getElementById('ex-info-btn').style.color=isHidden?'#60a5fa':'';
+    });
     // Success
     document.getElementById('ai-recovery-btn').addEventListener('click',analyzeRecovery);
     document.getElementById('finish-session-btn').addEventListener('click',finishSession);
@@ -3735,6 +4062,19 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if(_savedEmail){document.getElementById('auth-email').value=_savedEmail;document.getElementById('auth-password').focus();}
     document.getElementById('remember-me-row').addEventListener('click',()=>{_rememberMe=!_rememberMe;_setRememberUI(_rememberMe);if(!_rememberMe)localStorage.removeItem('bp_remember_email');});
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')_flushSaveNow();});
+    // Notifications
+    document.getElementById('notif-btn').addEventListener('click',openNotifModal);
+    document.getElementById('notif-modal-close').addEventListener('click',closeNotifModal);
+    document.getElementById('notif-enable-btn').addEventListener('click',enableNotifications);
+    document.getElementById('notif-disable-btn').addEventListener('click',disableNotifications);
+    document.getElementById('notif-time').addEventListener('change',saveNotifPrefs);
+    document.getElementById('streak-warn-toggle-label').addEventListener('click',()=>{
+        const on=document.getElementById('streak-warn-toggle').style.background!=='rgb(59, 130, 246)';
+        _setToggleUI('streak-warn-toggle','streak-warn-thumb',on);
+        saveNotifPrefs();
+    });
+    initServiceWorker();
     sb.auth.onAuthStateChange(async(event,session)=>{
         if(session?.user) await onUserSignedIn(session.user);
         else showAuthScreen();
