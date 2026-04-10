@@ -2453,10 +2453,10 @@ async function fetchClaude(userMsg, systemPrompt){
             body:JSON.stringify({userMsg,systemPrompt})
         });
         const data=await res.json();
-        if(!res.ok)return{ok:false,error:data.error?.message||'Coach Tee is temporarily unavailable.'};
+        if(!res.ok)return{ok:false,error:`[${res.status}] ${data.error?.message||JSON.stringify(data)}`};
         const text=data.content?.map(b=>b.type==='text'?b.text:'').join('')||'';
         return{ok:true,text};
-    }catch(e){return{ok:false,error:'Connection failed. Please try again.'}}
+    }catch(e){return{ok:false,error:'[fetch failed] '+e.message}}
 }
 
 async function askCoach(){
