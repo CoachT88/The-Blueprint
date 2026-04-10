@@ -3793,7 +3793,11 @@ async function checkMembership(user){
 }
 
 async function onUserSignedIn(user){
-    if(currentUser?.id===user.id) return; // already fully initialized for this user
+    // Only skip re-init if the app is already showing for this user (e.g. TOKEN_REFRESHED).
+    // If the auth screen is visible, always run the full init — the guard was previously
+    // firing when currentUser was stale from a prior session, leaving users stuck on sign-in.
+    const authVisible=!document.getElementById('auth-screen').classList.contains('hidden');
+    if(currentUser?.id===user.id && !authVisible) return;
     currentUser=user;
     // Check membership
     const isMember=await checkMembership(user);
@@ -4143,12 +4147,16 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     initServiceWorker();
     sb.auth.onAuthStateChange(async(event,session)=>{
         if(event==='SIGNED_OUT'){
-            // Clear user state so the guard in onUserSignedIn doesn't block re-login
             currentUser=null;persisted={...DEFAULT_PERSISTED};
             showAuthScreen();return;
         }
-        if(session?.user) await onUserSignedIn(session.user);
-        else showAuthScreen();
+        try{
+            if(session?.user) await onUserSignedIn(session.user);
+            else showAuthScreen();
+        }catch(e){
+            console.error('onAuthStateChange handler error:',e);
+            showAuthScreen();
+        }
     });
     // Check for password reset link first
     const isReset=await handlePasswordReset();
