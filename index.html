@@ -1931,6 +1931,10 @@ function _buildSavePayload(){
         updated_at:     new Date().toISOString(),
     };
 }
+function _upsertPayload(){
+    // upsert ensures the row is created if it doesn't exist (cross-device safe)
+    return{id:currentUser.id,..._buildSavePayload()};
+}
 function savePersisted(){
     // Always write to localStorage immediately as backup
     if(currentUser) try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify(persisted));}catch(e){}
@@ -1938,7 +1942,7 @@ function savePersisted(){
     clearTimeout(_saveDebounce);
     _saveDebounce = setTimeout(async()=>{
         if(!currentUser)return;
-        try{await sb.from('user_data').update(_buildSavePayload()).eq('id',currentUser.id);}
+        try{await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});}
         catch(e){console.error('savePersisted:',e)}
     }, 800);
 }
@@ -1947,7 +1951,7 @@ function _flushSaveNow(){
     if(!currentUser)return;
     clearTimeout(_saveDebounce);
     try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify(persisted));}catch(e){}
-    sb.from('user_data').update(_buildSavePayload()).eq('id',currentUser.id).catch(()=>{});
+    sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'}).catch(()=>{});
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4076,6 +4080,11 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     });
     initServiceWorker();
     sb.auth.onAuthStateChange(async(event,session)=>{
+        if(event==='SIGNED_OUT'){
+            // Clear user state so the guard in onUserSignedIn doesn't block re-login
+            currentUser=null;persisted={...DEFAULT_PERSISTED};
+            showAuthScreen();return;
+        }
         if(session?.user) await onUserSignedIn(session.user);
         else showAuthScreen();
     });
@@ -4086,9 +4095,9 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         if(!session) showAuthScreen();
     }
 
-    // Save on tab hide (catches closed browser mid-session)
+    // Save on tab hide (catches closed browser mid-session) — use flush, not debounce
     document.addEventListener('visibilitychange',()=>{
-        if(document.visibilityState==='hidden'&&currentUser) savePersisted();
+        if(document.visibilityState==='hidden') _flushSaveNow();
     });
 });
 </script>
