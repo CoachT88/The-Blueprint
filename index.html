@@ -3534,7 +3534,10 @@ async function handleAuthSubmit(){
             btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
             btn.disabled=false;return;
         }
-        // Success handled by onAuthStateChange
+        // Success — reset button and manually trigger sign-in in case onAuthStateChange is delayed (PWA/iOS)
+        btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
+        btn.disabled=false;
+        if(result.data?.user) await onUserSignedIn(result.data.user);
     }catch(e){
         setAuthError('Caught: '+(e.message||JSON.stringify(e)));
         btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
@@ -3572,10 +3575,14 @@ async function checkMembership(user){
     }
 }
 
+let _signingIn=false;
 async function onUserSignedIn(user){
+    if(_signingIn)return;
+    _signingIn=true;
     currentUser=user;
     // Check membership
     const isMember=await checkMembership(user);
+    _signingIn=false;
     if(!isMember) return;
     document.getElementById('hq-user-email').textContent=user.email;
     await loadPersisted();
