@@ -7,7 +7,7 @@ Complete emotion-driven music theory app for beginners
 
 // ─── AUDIO ENGINE ───────────────────────────────────────────
 class AudioEngine {
-constructor() { this.ctx=null; this.mg=null; this.rv=null; this.isPlaying=false; this.tids=[]; }
+constructor() { this.ctx=null; this.mg=null; this.rv=null; this.isPlaying=false; this.tids=[]; this.instrument='felt-piano'; this.pianoWave=null; this.rhodesWave=null; this.noteEnvs=[]; }
 init() {
 if(this.ctx){if(this.ctx.state==='suspended')this.ctx.resume();return;}
 // iOS speaker fix: the <audio> element must have REAL audio data to switch
@@ -25,64 +25,89 @@ comp.threshold.value=-20;comp.knee.value=10;comp.ratio.value=3;comp.attack.value
 const d=this.ctx.createDelay(1.0); d.delayTime.value=0.12;
 const f=this.ctx.createGain(); f.gain.value=0.2;
 const d2=this.ctx.createDelay(1.0); d2.delayTime.value=0.07;
-const f2=this.ctx.createGain(); f2.gain.value=0.12;
+const f2=this.ctx.createGain(); f2.gain.value=0.10;
 d.connect(f); f.connect(d); d.connect(comp);
 d2.connect(f2); f2.connect(d2); d2.connect(comp);
 f.connect(comp); f2.connect(comp);
 this.rv=d; this.rv2=d2; this.mg.connect(comp); comp.connect(this.ctx.destination);
+// Pre-build both instrument waves so switching is instant (no lag on first tap)
+this._buildWaves();
 }
+_buildWaves(){
+if(!this.pianoWave){
+// Felt Piano: softened Steinway spectrum — harmonics roll off gently above 12th partial
+const pa=[0,1.0,0.55,0.30,0.16,0.10,0.068,0.044,0.030,0.020,0.013,0.009,0.006,0.004];
+const N=pa.length,pr=new Float32Array(N),pi=new Float32Array(N);
+for(let i=1;i<N;i++)pr[i]=pa[i];
+this.pianoWave=this.ctx.createPeriodicWave(pr,pi,{disableNormalization:false});
+}
+if(!this.rhodesWave){
+// Warm Rhodes: tine resonator spectrum — strong fundamental, bell-like 2nd harmonic
+const ra=[0,1.0,0.46,0.16,0.065,0.028,0.012,0.005,0.002];
+const N=ra.length,rr=new Float32Array(N),ri=new Float32Array(N);
+for(let i=1;i<N;i++)rr[i]=ra[i];
+this.rhodesWave=this.ctx.createPeriodicWave(rr,ri,{disableNormalization:false});
+}
+}
+setInstrument(name){this.instrument=name;}
 noteToFreq(n) {
 const M={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,Fb:4,F:5,'E#':5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11,Cb:11,'B#':0};
 const m=n.match(/^([A-G][#b]?)(\d)$/); if(!m) return 440;
 return 440*Math.pow(2,(M[m[1]]-9+(parseInt(m[2])-4)*12)/12);
 }
-playNote(n,dur=1.2,vel=0.5,st=null){
-this.init(); const fr=typeof n==='number'?n:this.noteToFreq(n); const t=st||(this.ctx.currentTime+0.15);
-// Cached piano harmonic spectrum — measured from Steinway recordings
-if(!this.pianoWave){
-const amps=[0,1.0,0.62,0.38,0.22,0.16,0.11,0.075,0.052,0.036,0.025,0.018,0.013,0.009,0.0065,0.0046,0.0033,0.0024,0.0017,0.0012,0.00085,0.0006,0.00042,0.0003];
-const N=amps.length,real=new Float32Array(N),imag=new Float32Array(N);
-for(let i=1;i<N;i++)real[i]=amps[i];
-this.pianoWave=this.ctx.createPeriodicWave(real,imag,{disableNormalization:false});
-}
-// Brightness filter — velocity-sensitive, tracks note frequency
-const fl=this.ctx.createBiquadFilter(); fl.type='lowpass'; fl.Q.value=0.5;
-const cutHi=Math.min(fr*8+vel*3500+600,9000);
-const cutLo=Math.min(Math.max(fr*3+400,800),3800);
-fl.frequency.setValueAtTime(cutHi,t);
-fl.frequency.exponentialRampToValueAtTime(cutLo,t+dur*0.55);
-// Three detuned unison strings — real pianos have 3 strings per note creating beating
-const end=t+dur+0.3;
-[-9,0,9].forEach(d=>{const o=this.ctx.createOscillator();o.setPeriodicWave(this.pianoWave);o.frequency.value=fr;o.detune.value=d;o.connect(fl);o.start(t);o.stop(end);});
-// Inharmonicity — slightly sharp upper partial (piano string stiffness stretches harmonics)
-const hi=this.ctx.createOscillator(); hi.type='sine'; hi.frequency.value=fr*4.03;
-const hg=this.ctx.createGain();
-hg.gain.setValueAtTime(vel*0.045,t); hg.gain.exponentialRampToValueAtTime(0.0001,t+dur*0.35);
-hi.connect(hg); hg.connect(fl); hi.start(t); hi.stop(t+dur*0.4);
-// Hammer-strike noise — the physical key impact
-const bLen=Math.floor(this.ctx.sampleRate*0.018);
-const buf=this.ctx.createBuffer(1,bLen,this.ctx.sampleRate);
-const bd=buf.getChannelData(0);
-for(let i=0;i<bLen;i++)bd[i]=(Math.random()*2-1)*Math.pow(1-i/bLen,2.5);
-const ns=this.ctx.createBufferSource(); ns.buffer=buf;
+_playFeltPiano(fr,vel,t,dur){
+// Muted felt: lower filter cutoff, softer attack, reduced hammer
+const fl=this.ctx.createBiquadFilter();fl.type='lowpass';fl.Q.value=0.4;
+const cutHi=Math.min(fr*5+vel*2000+400,4800),cutLo=Math.min(Math.max(fr*2.2+300,600),2400);
+fl.frequency.setValueAtTime(cutHi,t);fl.frequency.exponentialRampToValueAtTime(cutLo,t+dur*0.6);
+[-6,0,6].forEach(dt=>{const o=this.ctx.createOscillator();o.setPeriodicWave(this.pianoWave);o.frequency.value=fr;o.detune.value=dt;o.connect(fl);o.start(t);o.stop(t+dur+0.35);});
+const hi=this.ctx.createOscillator();hi.type='sine';hi.frequency.value=fr*4.03;
+const hg=this.ctx.createGain();hg.gain.setValueAtTime(vel*0.03,t);hg.gain.exponentialRampToValueAtTime(0.0001,t+dur*0.3);
+hi.connect(hg);hg.connect(fl);hi.start(t);hi.stop(t+dur*0.35);
+const bLen=Math.floor(this.ctx.sampleRate*0.016),buf=this.ctx.createBuffer(1,bLen,this.ctx.sampleRate),bd=buf.getChannelData(0);
+for(let i=0;i<bLen;i++)bd[i]=(Math.random()*2-1)*Math.pow(1-i/bLen,3.0);
+const ns=this.ctx.createBufferSource();ns.buffer=buf;
 const ng=this.ctx.createGain(),nf=this.ctx.createBiquadFilter();
-nf.type='bandpass'; nf.frequency.value=Math.min(fr*3,5000); nf.Q.value=0.9;
-ng.gain.setValueAtTime(vel*0.16,t); ng.gain.exponentialRampToValueAtTime(0.0001,t+0.02);
-// Grand piano envelope: crisp attack → fast hammer decay → slow string sustain
+nf.type='bandpass';nf.frequency.value=Math.min(fr*2.5,3500);nf.Q.value=1.0;
+ng.gain.setValueAtTime(vel*0.09,t);ng.gain.exponentialRampToValueAtTime(0.0001,t+0.018);
+ns.connect(nf);nf.connect(ng);ng.connect(fl);ns.start(t);ns.stop(t+0.02);
 const env=this.ctx.createGain();
-env.gain.setValueAtTime(0,t);
-env.gain.linearRampToValueAtTime(vel*0.55,t+0.004);
-env.gain.exponentialRampToValueAtTime(vel*0.34,t+0.06);
-env.gain.exponentialRampToValueAtTime(vel*0.18,t+0.35);
-env.gain.exponentialRampToValueAtTime(vel*0.08,t+dur*0.8);
-env.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-// Signal chain
-ns.connect(nf); nf.connect(ng); ng.connect(env);
-fl.connect(env); env.connect(this.mg); env.connect(this.rv); if(this.rv2)env.connect(this.rv2);
-ns.start(t); ns.stop(t+0.02);
+env.gain.setValueAtTime(0,t);env.gain.linearRampToValueAtTime(vel*0.44,t+0.008);
+env.gain.exponentialRampToValueAtTime(vel*0.27,t+0.07);env.gain.exponentialRampToValueAtTime(vel*0.14,t+0.38);
+env.gain.exponentialRampToValueAtTime(vel*0.06,t+dur*0.82);env.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+fl.connect(env);return env;
 }
-playChord(notes,dur=1.5,stg=0.018) { this.init(); if(!notes||!notes.length)return; const t=this.ctx.currentTime+0.15; notes.forEach((n,i)=>this.playNote(n,dur,0.35,t+i*stg)); }
-setVolume(v){if(this.ctx)this.mg.gain.setTargetAtTime(Math.max(0,Math.min(1,v)),this.ctx.currentTime,0.02);}
+_playRhodes(fr,vel,t,dur){
+// Warm Rhodes: bell tine, chorus detune, characteristic bark, no hammer noise
+const fl=this.ctx.createBiquadFilter();fl.type='lowpass';fl.Q.value=0.55;
+const cutHi=Math.min(fr*6.5+vel*1400+700,6500);
+fl.frequency.setValueAtTime(cutHi,t);fl.frequency.exponentialRampToValueAtTime(Math.min(cutHi*0.65,3800),t+dur*0.5);
+const mf=this.ctx.createBiquadFilter();mf.type='peaking';mf.frequency.value=Math.min(fr*1.4,900);mf.Q.value=0.75;mf.gain.value=3.5;
+[-10,0,10].forEach(dt=>{const o=this.ctx.createOscillator();o.setPeriodicWave(this.rhodesWave);o.frequency.value=fr;o.detune.value=dt;o.connect(fl);o.start(t);o.stop(t+dur+0.55);});
+const bk=this.ctx.createOscillator();bk.type='sine';bk.frequency.value=fr*2.01;
+const bg=this.ctx.createGain();bg.gain.setValueAtTime(vel*0.30,t);bg.gain.exponentialRampToValueAtTime(0.0001,t+0.10);
+bk.connect(bg);bg.connect(fl);bk.start(t);bk.stop(t+0.12);
+const env=this.ctx.createGain();
+env.gain.setValueAtTime(0,t);env.gain.linearRampToValueAtTime(vel*0.50,t+0.005);
+env.gain.exponentialRampToValueAtTime(vel*0.34,t+0.04);env.gain.exponentialRampToValueAtTime(vel*0.22,t+0.28);
+env.gain.exponentialRampToValueAtTime(vel*0.11,t+dur*0.78);env.gain.exponentialRampToValueAtTime(0.0001,t+dur+0.18);
+fl.connect(mf);mf.connect(env);return env;
+}
+playNote(n,dur=1.2,vel=0.65,st=null){
+this.init();if(!this.pianoWave||!this.rhodesWave)this._buildWaves();
+const fr=typeof n==='number'?n:this.noteToFreq(n);const t=st||(this.ctx.currentTime+0.15);
+const env=this.instrument==='warm-rhodes'?this._playRhodes(fr,vel,t,dur):this._playFeltPiano(fr,vel,t,dur);
+env.connect(this.mg);env.connect(this.rv);if(this.rv2)env.connect(this.rv2);return env;
+}
+playChord(notes,dur=1.5,stg=0.018){
+this.init();if(!notes||!notes.length)return;
+const now=this.ctx.currentTime;
+// Fade out previous chord quickly so notes don't bleed
+this.noteEnvs.forEach(e=>{try{e.gain.cancelScheduledValues(now);e.gain.setTargetAtTime(0,now,0.04);}catch(x){}});
+this.noteEnvs=[];
+const t=now+0.12;
+notes.forEach((n,i)=>{const e=this.playNote(n,dur,0.65,t+i*stg);if(e)this.noteEnvs.push(e);});
+}
 playClick(hi,st){this.init();const t=st||(this.ctx.currentTime+0.15);const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sine';o.frequency.value=hi?1400:900;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.002);g.gain.exponentialRampToValueAtTime(0.0001,t+0.08);o.connect(g);g.connect(this.mg);o.start(t);o.stop(t+0.1);}
 countIn(bpm,beats,cb){this.init();const d=60/bpm;const t0=this.ctx.currentTime;for(let i=0;i<beats;i++)this.playClick(i===0,t0+i*d);const id=setTimeout(cb,beats*d*1000);this.tids.push(id);}
 play808Pattern(grid,notes,bpm,cb,loop){this.init();this.stop();this.isPlaying=true;const stepD=(60/bpm)/4;const steps=grid[0]?.length||16;const tot=steps*stepD*1000;const go=()=>{if(!this.isPlaying)return;for(let s=0;s<steps;s++){const tms=s*stepD*1000;this.tids.push(setTimeout(()=>{if(!this.isPlaying)return;for(let r=0;r<grid.length;r++)if(grid[r][s])this.play808(notes[r],stepD*4,0.85);if(cb)cb(s);},tms));}if(loop)this.tids.push(setTimeout(()=>{if(this.isPlaying)go();},tot));else this.tids.push(setTimeout(()=>{this.isPlaying=false;if(cb)cb(-1);},tot));};go();}
@@ -461,8 +486,8 @@ const[pa,setPa]=useState(false);
 const[genre,setGenre]=useState(null);
 const[progLooping,setProgLooping]=useState(false);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
-const[vol,setVol]=useState(0.26);
-useEffect(()=>{if(audio.ctx)audio.setVolume(vol);},[vol]);
+const[inst,setInst]=useState('felt-piano');
+useEffect(()=>{audio.setInstrument(inst);},[inst]);
 // Pre-warm AudioContext on first touch anywhere — before any button handler fires.
 // This separates context creation+resume from note scheduling, solving iOS first-tap silence.
 useEffect(()=>{
@@ -470,18 +495,18 @@ const warmup=()=>{audio.init();};
 document.addEventListener('touchstart',warmup,{once:true,passive:true,capture:true});
 return()=>document.removeEventListener('touchstart',warmup,{capture:true});
 },[]);
-useEffect(()=>{try{const s=localStorage.getItem('harmonymap_saved');if(s)setSaved(JSON.parse(s));const st=localStorage.getItem('harmonymap_settings');if(st){const o=JSON.parse(st);if(o.bpm)setBpm(o.bpm);if(o.beats)setBeats(o.beats);if(o.stg!=null)setStg(o.stg);if(o.sk)setSk(o.sk);if(o.vol!=null)setVol(o.vol);}}catch(e){}},[]);
+useEffect(()=>{try{const s=localStorage.getItem('harmonymap_saved');if(s)setSaved(JSON.parse(s));const st=localStorage.getItem('harmonymap_settings');if(st){const o=JSON.parse(st);if(o.bpm)setBpm(o.bpm);if(o.beats)setBeats(o.beats);if(o.stg!=null)setStg(o.stg);if(o.sk)setSk(o.sk);if(o.inst)setInst(o.inst);}}catch(e){}},[]);
 useEffect(()=>{try{localStorage.setItem('harmonymap_saved',JSON.stringify(saved));}catch(e){}},[saved]);
-useEffect(()=>{try{localStorage.setItem('harmonymap_settings',JSON.stringify({bpm,beats,stg,sk,vol}));}catch(e){}},[bpm,beats,stg,sk,vol]);
+useEffect(()=>{try{localStorage.setItem('harmonymap_settings',JSON.stringify({bpm,beats,stg,sk,inst}));}catch(e){}},[bpm,beats,stg,sk,inst]);
 const dr=useRef([]);dr.current=disc;
 const k=KEYS[sk],em=emo?EMO[emo]:null;
 const ps=useMemo(()=>presets(sk),[sk]);
 
-const playC=useCallback(s=>{if(s==='REST')return;const lbl=extChordLabel(k,s,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));setSch(s);const t=ctip('sel',{ch:s});if(t)setTip(t);},[k,ext]);
+const playC=useCallback(s=>{if(s==='REST')return;const lbl=extChordLabel(k,s,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,4));setSch(s);const t=ctip('sel',{ch:s});if(t)setTip(t);},[k,ext]);
 const addC=useCallback(s=>{setProg(p=>{const n=[...p,s];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});},[]);
 const remC=useCallback(i=>{setProg(p=>p.filter((_,j)=>j!==i));},[]);
-const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(n,bpm,i=>setPi(i),beats,stg);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
-const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(n,bpm,i=>{setPi(i);},beats,stg);},[prog]);
+const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,4));audio.playProgression(n,bpm,i=>setPi(i),beats,stg);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
+const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,4));setProgLooping(true);audio.playLoop(n,bpm,i=>{setPi(i);},beats,stg);},[prog]);
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
 const selEmo=useCallback(e=>{setEmo(e);if(EMO[e].ks[0])setSk(EMO[e].ks[0]);setScreen('emotion');},[]);
 const stopAll=useCallback(()=>{audio.stop();setPa(false);setPi(-1);setPRow(-1);setProgLooping(false);},[]);
@@ -504,15 +529,13 @@ return(
     <div style={{display:'flex',gap:1,overflowX:'auto',flexShrink:1}}>
       {tabs.map(t=><button key={t.k} onClick={()=>setScreen(t.k)} style={{background:screen===t.k?'rgba(255,255,255,0.12)':'transparent',border:'none',color:screen===t.k?'#fff':'rgba(255,255,255,0.4)',borderRadius:6,padding:'5px 7px',cursor:'pointer',fontSize:9,fontWeight:600,display:'flex',flexDirection:'column',alignItems:'center',whiteSpace:'nowrap',minHeight:44,justifyContent:'center'}}><span style={{fontSize:13}}>{t.i}</span><span>{t.l}</span></button>)}
     </div>
-    {(pa||progLooping||pi>=0||pRow>=0)&&<button onClick={stopAll} style={{background:'linear-gradient(135deg,#FF6B6B,#FF4444)',border:'1px solid rgba(255,107,107,0.6)',borderRadius:8,padding:'6px 12px',color:'#fff',cursor:'pointer',fontSize:11,fontWeight:800,flexShrink:0,marginLeft:6,boxShadow:'0 0 12px rgba(255,107,107,0.5)',animation:'pulse 1.4s ease-in-out infinite'}}>■ Stop All</button>}
+    <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0,marginLeft:6}}>
+      <div style={{display:'flex',background:'rgba(255,255,255,0.07)',borderRadius:50,padding:2,border:'1px solid rgba(255,255,255,0.1)'}}>
+        {[{v:'felt-piano',l:'🎹 Felt Piano'},{v:'warm-rhodes',l:'🎹 Rhodes'}].map(o=><button key={o.v} onClick={()=>setInst(o.v)} style={{background:inst===o.v?'rgba(78,205,196,0.22)':'transparent',border:'none',borderRadius:50,padding:'5px 9px',cursor:'pointer',color:inst===o.v?'#4ECDC4':'rgba(255,255,255,0.45)',fontWeight:inst===o.v?700:400,fontSize:10,whiteSpace:'nowrap',transition:'all 0.15s',boxShadow:inst===o.v?'0 1px 5px rgba(0,0,0,0.3)':'none'}}>{o.l}</button>)}
+      </div>
+      {(pa||progLooping||pi>=0||pRow>=0)&&<button onClick={stopAll} style={{background:'linear-gradient(135deg,#FF6B6B,#FF4444)',border:'1px solid rgba(255,107,107,0.6)',borderRadius:8,padding:'6px 10px',color:'#fff',cursor:'pointer',fontSize:11,fontWeight:800,flexShrink:0,boxShadow:'0 0 12px rgba(255,107,107,0.5)',animation:'pulse 1.4s ease-in-out infinite'}}>■ Stop</button>}
+    </div>
   </nav>
-
-  {/* VOLUME */}
-  <div style={{position:'sticky',top:44,zIndex:99,display:'flex',alignItems:'center',gap:8,padding:'4px 12px',background:'rgba(10,10,26,0.78)',backdropFilter:'blur(16px)',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
-    <span style={{fontSize:11,color:'rgba(255,255,255,0.4)',flexShrink:0}}>🔊</span>
-    <input type="range" min="0" max="1" step="0.01" value={vol} onChange={e=>setVol(parseFloat(e.target.value))} style={{flex:1,maxWidth:180,height:4}} aria-label="Master volume"/>
-    <span style={{fontSize:9,color:'rgba(255,255,255,0.35)',minWidth:26,textAlign:'right'}}>{Math.round(vol*100)}%</span>
-  </div>
 
   {/* CONTEXT TIP */}
   {tip&&<div style={{position:'relative',zIndex:50,margin:'8px 12px 0',background:'rgba(78,205,196,0.1)',border:'1px solid rgba(78,205,196,0.25)',borderRadius:12,padding:'12px 14px',display:'flex',gap:10,alignItems:'flex-start',animation:'fadeIn 0.3s'}}>
