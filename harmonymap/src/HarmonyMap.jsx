@@ -26,7 +26,7 @@ comp.threshold.value=-18;comp.knee.value=12;comp.ratio.value=3;comp.attack.value
 // Cuts harsh upper frequencies across the entire output bus.
 // 1800Hz at Q=0.7 gives a warm, tucked-in "studio" quality.
 const masterLP=this.ctx.createBiquadFilter();
-masterLP.type='lowpass';masterLP.frequency.value=1800;masterLP.Q.value=0.7;
+masterLP.type='lowpass';masterLP.frequency.value=1200;masterLP.Q.value=0.7;
 // ── Convolution Reverb (dark small room, ~0.9s RT60) ──────
 // Generated impulse response: exponential noise decay with 12ms
 // pre-delay and a 700Hz LP on the send so the reverb tail is dark.
@@ -72,11 +72,15 @@ const m=n.match(/^([A-G][#b]?)(\d)$/); if(!m) return 440;
 return 440*Math.pow(2,(M[m[1]]-9+(parseInt(m[2])-4)*12)/12);
 }
 _playFeltPiano(fr,vel,t,dur){
-// Muted felt: lower filter cutoff, softer attack, reduced hammer
+// Muted felt: lower filter, swell attack, tape wobble LFO
 const fl=this.ctx.createBiquadFilter();fl.type='lowpass';fl.Q.value=0.4;
 const cutHi=Math.min(fr*5+vel*2000+400,4800),cutLo=Math.min(Math.max(fr*2.2+300,600),2400);
 fl.frequency.setValueAtTime(cutHi,t);fl.frequency.exponentialRampToValueAtTime(cutLo,t+dur*0.6);
-[-6,0,6].forEach(dt=>{const o=this.ctx.createOscillator();o.setPeriodicWave(this.pianoWave);o.frequency.value=fr;o.detune.value=dt;o.connect(fl);o.start(t);o.stop(t+dur+0.35);});
+// Tape wobble: slow LFO (0.4-0.7 Hz, ±5 cents) — cassette warble character
+const lfo=this.ctx.createOscillator();const lfog=this.ctx.createGain();
+lfo.type='sine';lfo.frequency.value=0.4+Math.random()*0.3;lfog.gain.value=5;
+lfo.connect(lfog);lfo.start(t);lfo.stop(t+dur+0.5);
+[-6,0,6].forEach(dt=>{const o=this.ctx.createOscillator();o.setPeriodicWave(this.pianoWave);o.frequency.value=fr;o.detune.value=dt;lfog.connect(o.detune);o.connect(fl);o.start(t);o.stop(t+dur+0.35);});
 const hi=this.ctx.createOscillator();hi.type='sine';hi.frequency.value=fr*4.03;
 const hg=this.ctx.createGain();hg.gain.setValueAtTime(vel*0.03,t);hg.gain.exponentialRampToValueAtTime(0.0001,t+dur*0.3);
 hi.connect(hg);hg.connect(fl);hi.start(t);hi.stop(t+dur*0.35);
@@ -85,11 +89,12 @@ for(let i=0;i<bLen;i++)bd[i]=(Math.random()*2-1)*Math.pow(1-i/bLen,3.0);
 const ns=this.ctx.createBufferSource();ns.buffer=buf;
 const ng=this.ctx.createGain(),nf=this.ctx.createBiquadFilter();
 nf.type='bandpass';nf.frequency.value=Math.min(fr*2.5,3500);nf.Q.value=1.0;
-ng.gain.setValueAtTime(vel*0.09,t);ng.gain.exponentialRampToValueAtTime(0.0001,t+0.018);
+ng.gain.setValueAtTime(vel*0.07,t);ng.gain.exponentialRampToValueAtTime(0.0001,t+0.018);
 ns.connect(nf);nf.connect(ng);ng.connect(fl);ns.start(t);ns.stop(t+0.02);
 const env=this.ctx.createGain();
-env.gain.setValueAtTime(0,t);env.gain.linearRampToValueAtTime(vel*0.44,t+0.014);
-env.gain.exponentialRampToValueAtTime(vel*0.27,t+0.08);env.gain.exponentialRampToValueAtTime(vel*0.14,t+0.40);
+// Swell attack: 35ms linear ramp — chord blooms in, no click
+env.gain.setValueAtTime(0,t);env.gain.linearRampToValueAtTime(vel*0.44,t+0.035);
+env.gain.exponentialRampToValueAtTime(vel*0.27,t+0.10);env.gain.exponentialRampToValueAtTime(vel*0.14,t+0.42);
 env.gain.exponentialRampToValueAtTime(vel*0.06,t+dur*0.82);env.gain.exponentialRampToValueAtTime(0.0001,t+dur);
 fl.connect(env);return env;
 }
@@ -99,15 +104,32 @@ const fl=this.ctx.createBiquadFilter();fl.type='lowpass';fl.Q.value=0.55;
 const cutHi=Math.min(fr*6.5+vel*1400+700,6500);
 fl.frequency.setValueAtTime(cutHi,t);fl.frequency.exponentialRampToValueAtTime(Math.min(cutHi*0.65,3800),t+dur*0.5);
 const mf=this.ctx.createBiquadFilter();mf.type='peaking';mf.frequency.value=Math.min(fr*1.4,900);mf.Q.value=0.75;mf.gain.value=3.5;
-[-10,0,10].forEach(dt=>{const o=this.ctx.createOscillator();o.setPeriodicWave(this.rhodesWave);o.frequency.value=fr;o.detune.value=dt;o.connect(fl);o.start(t);o.stop(t+dur+0.55);});
+// Tape wobble: slower LFO (0.3-0.55 Hz, ±8 cents) — vintage electric piano warble
+const lfo=this.ctx.createOscillator();const lfog=this.ctx.createGain();
+lfo.type='sine';lfo.frequency.value=0.3+Math.random()*0.25;lfog.gain.value=8;
+lfo.connect(lfog);lfo.start(t);lfo.stop(t+dur+0.6);
+[-10,0,10].forEach(dt=>{const o=this.ctx.createOscillator();o.setPeriodicWave(this.rhodesWave);o.frequency.value=fr;o.detune.value=dt;lfog.connect(o.detune);o.connect(fl);o.start(t);o.stop(t+dur+0.55);});
 const bk=this.ctx.createOscillator();bk.type='sine';bk.frequency.value=fr*2.01;
 const bg=this.ctx.createGain();bg.gain.setValueAtTime(vel*0.30,t);bg.gain.exponentialRampToValueAtTime(0.0001,t+0.10);
 bk.connect(bg);bg.connect(fl);bk.start(t);bk.stop(t+0.12);
 const env=this.ctx.createGain();
-env.gain.setValueAtTime(0,t);env.gain.linearRampToValueAtTime(vel*0.50,t+0.010);
-env.gain.exponentialRampToValueAtTime(vel*0.34,t+0.05);env.gain.exponentialRampToValueAtTime(vel*0.22,t+0.28);
+// Swell attack: 40ms — chord swells in for intimate warmth
+env.gain.setValueAtTime(0,t);env.gain.linearRampToValueAtTime(vel*0.50,t+0.040);
+env.gain.exponentialRampToValueAtTime(vel*0.34,t+0.10);env.gain.exponentialRampToValueAtTime(vel*0.22,t+0.32);
 env.gain.exponentialRampToValueAtTime(vel*0.11,t+dur*0.78);env.gain.exponentialRampToValueAtTime(0.0001,t+dur+0.18);
 fl.connect(mf);mf.connect(env);return env;
+}
+_octaveDown(n){const m=n.match(/^([A-G][#b]?)(\d)$/);if(!m)return n;return m[1]+(parseInt(m[2])-1);}
+_playBass(fr,vel,t,dur){
+// Pure sine sub-bass root — LP at 200Hz keeps it clean, no reverb send to prevent mud
+const o=this.ctx.createOscillator();o.type='sine';o.frequency.value=fr;
+const lp=this.ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=200;lp.Q.value=0.5;
+const env=this.ctx.createGain();
+env.gain.setValueAtTime(0,t);env.gain.linearRampToValueAtTime(vel*0.55,t+0.04);
+env.gain.exponentialRampToValueAtTime(vel*0.30,t+0.15);env.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+o.connect(lp);lp.connect(env);env.connect(this.mg);
+o.start(t);o.stop(t+dur+0.1);
+return env;
 }
 playNote(n,dur=1.2,vel=0.42,st=null){
 this.init();if(!this.pianoWave||!this.rhodesWave)this._buildWaves();
@@ -118,10 +140,13 @@ env.connect(this.mg);env.connect(this.rv);if(this.rv2)env.connect(this.rv2);retu
 playChord(notes,dur=1.5,stg=0.018){
 this.init();if(!notes||!notes.length)return;
 const now=this.ctx.currentTime;
-// Fade out previous chord quickly so notes don't bleed
-this.noteEnvs.forEach(e=>{try{e.gain.cancelScheduledValues(now);e.gain.setTargetAtTime(0,now,0.04);}catch(x){}});
+// Choke group: ~45ms fade kills previous chord immediately on new tap
+this.noteEnvs.forEach(e=>{try{e.gain.cancelScheduledValues(now);e.gain.setTargetAtTime(0,now,0.015);}catch(x){}});
 this.noteEnvs=[];
-const t=now+0.12;
+const t=now+0.05;
+// Sub-octave bass root (one octave below first note) for warmth and body
+const be=this._playBass(this.noteToFreq(this._octaveDown(notes[0])),0.42,t,dur*0.75);
+if(be)this.noteEnvs.push(be);
 notes.forEach((n,i)=>{const e=this.playNote(n,dur,0.42,t+i*stg);if(e)this.noteEnvs.push(e);});
 }
 playClick(hi,st){this.init();const t=st||(this.ctx.currentTime+0.15);const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sine';o.frequency.value=hi?1400:900;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.002);g.gain.exponentialRampToValueAtTime(0.0001,t+0.08);o.connect(g);g.connect(this.mg);o.start(t);o.stop(t+0.1);}
@@ -518,11 +543,11 @@ const dr=useRef([]);dr.current=disc;
 const k=KEYS[sk],em=emo?EMO[emo]:null;
 const ps=useMemo(()=>presets(sk),[sk]);
 
-const playC=useCallback(s=>{if(s==='REST')return;const lbl=extChordLabel(k,s,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,4));setSch(s);const t=ctip('sel',{ch:s});if(t)setTip(t);},[k,ext]);
+const playC=useCallback(s=>{if(s==='REST')return;const lbl=extChordLabel(k,s,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));setSch(s);const t=ctip('sel',{ch:s});if(t)setTip(t);},[k,ext]);
 const addC=useCallback(s=>{setProg(p=>{const n=[...p,s];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});},[]);
 const remC=useCallback(i=>{setProg(p=>p.filter((_,j)=>j!==i));},[]);
-const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,4));audio.playProgression(n,bpm,i=>setPi(i),beats,stg);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
-const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,4));setProgLooping(true);audio.playLoop(n,bpm,i=>{setPi(i);},beats,stg);},[prog]);
+const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(n,bpm,i=>setPi(i),beats,stg);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
+const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(n,bpm,i=>{setPi(i);},beats,stg);},[prog]);
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
 const selEmo=useCallback(e=>{setEmo(e);if(EMO[e].ks[0])setSk(EMO[e].ks[0]);setScreen('emotion');},[]);
 const stopAll=useCallback(()=>{audio.stop();setPa(false);setPi(-1);setPRow(-1);setProgLooping(false);},[]);
