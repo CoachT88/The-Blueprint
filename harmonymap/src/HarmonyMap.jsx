@@ -309,8 +309,9 @@ const KEYS={
 const MAJOR_COF=['C major','G major','D major','A major','E major','B major','Gb major','Db major','Ab major','Eb major','Bb major','F major'];
 const MINOR_COF=['A minor','E minor','B minor','F# minor','C# minor','G# minor','Eb minor','Bb minor','F minor','C minor','G minor','D minor'];
 const RELATIVE={'C major':'A minor','A minor':'C major','G major':'E minor','E minor':'G major','D major':'B minor','B minor':'D major','A major':'F# minor','F# minor':'A major','E major':'C# minor','C# minor':'E major','B major':'G# minor','G# minor':'B major','Gb major':'Eb minor','Eb minor':'Gb major','Db major':'Bb minor','Bb minor':'Db major','Ab major':'F minor','F minor':'Ab major','Eb major':'C minor','C minor':'Eb major','Bb major':'G minor','G minor':'Bb major','F major':'D minor','D minor':'F major'};
-const FNM=['Home (I)','Shadow (ii)','Edge (iii)','Warmth (IV)','Pull (V)','Relative (vi)','Gateway (vii°)'];
-const FNm=['Home (i)','Edge (ii°)','Relative (III)','Shadow (iv)','Pull (v)','Warmth (VI)','Gateway (VII)'];
+const FNM=['Home (I / 1)','Shadow (ii / 2)','Edge (iii / 3)','Warmth (IV / 4)','Pull (V / 5)','Relative (vi / 6)','Gateway (vii° / 7)'];
+const FNm=['Home (i / 1)','Edge (ii° / 2)','Relative (III / 3)','Shadow (iv / 4)','Pull (v / 5)','Warmth (VI / 6)','Gateway (VII / 7)'];
+function chordRN(k,ch){if(!k?.ch)return'';const rn=['I','ii','iii','IV','V','vi','vii°'],rm=['i','ii°','III','iv','v','VI','VII'];const pos=k.ch.indexOf(ch);return pos===-1?'':`${k.m==='minor'?rm[pos]:rn[pos]} / ${pos+1}`;}
 function gcon(ch,mode='major'){if(!ch||ch.length<7)return[];const p=mode==='minor'?[[0,3],[0,4],[0,5],[1,4],[1,6],[2,5],[2,3],[3,0],[3,4],[3,1],[4,0],[4,5],[5,3],[5,1],[5,2],[5,6],[6,0],[6,2],[6,4]]:[[0,3],[0,4],[0,5],[1,4],[1,6],[2,5],[2,3],[3,0],[3,4],[3,1],[4,0],[4,5],[5,3],[5,1],[5,2],[6,0],[6,4]];return p.map(([a,b])=>({f:ch[a],t:ch[b],st:((a===4&&b===0)||(a===3&&b===0))?'strong':'normal'}));}
 
 // ─── KEY-AWARE PRESETS ──────────────────────────────────────
@@ -552,6 +553,7 @@ const[pa,setPa]=useState(false);
 const[genre,setGenre]=useState(null);
 const[progLooping,setProgLooping]=useState(false);
 const[swapIdx,setSwapIdx]=useState(null);
+const[undoProg,setUndoProg]=useState(null);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
 const[inst,setInst]=useState('underwater');
 useEffect(()=>{audio.setInstrument(inst);},[inst]);
@@ -572,6 +574,8 @@ useEffect(()=>{
 },[bpm,beats,stg,sk,inst]);
 const swapTid=useRef(null);
 const clearSwap=useCallback(()=>{setSwapIdx(null);if(swapTid.current){clearTimeout(swapTid.current);swapTid.current=null;}},[]);
+// Ctrl+Z / Cmd+Z: revert last swap session
+useEffect(()=>{const onKey=(e)=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&undoProg){setProg(undoProg);setUndoProg(null);clearSwap();}};document.addEventListener('keydown',onKey);return()=>document.removeEventListener('keydown',onKey);},[undoProg,clearSwap]);
 const dr=useRef([]);dr.current=disc;
 const k=KEYS[sk],em=emo?EMO[emo]:null;
 const ps=useMemo(()=>presets(sk),[sk]);
@@ -582,11 +586,13 @@ const playC=useCallback(s=>{
   audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));
   setSch(s);
   if(swapIdx!==null){
-    // Swap mode: replace the active slot, reset 15s timeout
+    // Swap mode: replace active slot, reset 8s inactivity timeout
     setProg(p=>{const n=[...p];n[swapIdx]=lbl;return n;});
     if(swapTid.current)clearTimeout(swapTid.current);
-    swapTid.current=setTimeout(()=>setSwapIdx(null),15000);
+    swapTid.current=setTimeout(()=>setSwapIdx(null),8000);
   } else {
+    // Default jam mode: play + immediately add to progression
+    setProg(p=>{const n=[...p,lbl];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});
     const t=ctip('sel',{ch:s});if(t)setTip(t);
   }
 },[k,ext,swapIdx]);
@@ -603,11 +609,13 @@ const remC=useCallback(i=>{
 const selectSlot=useCallback((i,c)=>{
   if(swapTid.current)clearTimeout(swapTid.current);
   if(swapIdx===i){setSwapIdx(null);swapTid.current=null;return;}
+  // Snapshot progression for undo before any swaps happen
+  setUndoProg(prog);
   setSwapIdx(i);
-  swapTid.current=setTimeout(()=>setSwapIdx(null),15000);
-  // Play the slot's current chord so user can hear what they're about to replace
+  swapTid.current=setTimeout(()=>setSwapIdx(null),8000);
+  // Play the slot's current chord so user hears what they're replacing
   if(c!=='REST'){const lbl=extChordLabel(k,c,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));}
-},[swapIdx,k,ext]);
+},[swapIdx,k,ext,prog]);
 const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(n,bpm,i=>setPi(i),beats,stg);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
 const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(n,bpm,i=>{setPi(i);},beats,stg);},[prog]);
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
@@ -741,10 +749,13 @@ return(
       {/* ── Progression panel ── */}
       <div style={{background:'rgba(0,0,0,0.3)',borderRadius:16,padding:14,marginBottom:12,minHeight:60,border:'1px solid rgba(255,255,255,0.06)'}}>
         <div style={S.lbl}>Your Progression {prog.length>0&&`(${prog.length} chords)`}</div>
-        {swapIdx!==null&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'rgba(255,215,0,0.10)',border:'1px solid rgba(255,215,0,0.40)',borderRadius:8,padding:'6px 10px',marginBottom:8}}>
-          <span style={{fontSize:11,color:'#FFD700',fontWeight:600}}>✏️ Swap Mode — tap any chord on the map to replace slot {swapIdx+1}</span>
-          <button onClick={clearSwap} style={{...S.btn('rgba(255,215,0,0.2)','#FFD700','rgba(255,215,0,0.5)'),padding:'3px 10px',fontSize:11,marginLeft:8}}>✓ Done</button>
-        </div>}
+        {/* Dynamic instruction box — context-aware hint */}
+        <div style={{background:swapIdx!==null?'rgba(255,215,0,0.08)':'rgba(78,205,196,0.07)',border:`1px solid ${swapIdx!==null?'rgba(255,215,0,0.35)':'rgba(78,205,196,0.22)'}`,borderRadius:8,padding:'6px 10px',marginBottom:8,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+          <span style={{fontSize:11,color:swapIdx!==null?'#FFD700':'rgba(78,205,196,0.9)',fontWeight:500,lineHeight:1.4}}>
+            {swapIdx!==null?`✏️ Slot ${swapIdx+1} active — tap any chord on the map to swap it in`:'🎵 Tap any chord on the map to hear it and add it to your progression'}
+          </span>
+          {swapIdx!==null&&<button onClick={clearSwap} style={{...S.btn('rgba(255,215,0,0.2)','#FFD700','rgba(255,215,0,0.5)'),padding:'3px 9px',fontSize:10,flexShrink:0}}>✓ Done</button>}
+        </div>
         {prog.length===0
           ?<div style={{color:'rgba(255,255,255,0.3)',fontSize:11,lineHeight:1.6,padding:'6px 0'}}>No chords yet — tap any chord on the map below to start building.</div>
           :<div>
@@ -752,15 +763,15 @@ return(
               {prog.map((c,i)=>{const isActive=swapIdx===i;return<div key={i} style={{position:'relative'}}>
                 {c==='REST'
                   ?<div onClick={()=>selectSlot(i,c)} style={{display:'inline-flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:isActive?'rgba(255,215,0,0.12)':'rgba(255,255,255,0.04)',color:isActive?'#FFD700':'rgba(255,255,255,0.35)',border:`1.5px ${isActive?'solid':'dashed'} rgba(255,215,0,${isActive?0.75:pi===i?0.5:0.2})`,borderRadius:10,padding:'8px 12px',fontSize:14,fontWeight:700,transform:isActive||pi===i?'scale(1.08)':'scale(1)',transition:'all 0.2s',cursor:'pointer',boxShadow:isActive?'0 0 16px rgba(255,215,0,0.55)':'none'}}>𝄽 rest{isActive&&<span style={{fontSize:8,color:'#FFD700',marginTop:2}}>← tap map</span>}</div>
-                  :<div onClick={()=>selectSlot(i,c)} style={{...S.pill(cc(c),pi===i&&!isActive),padding:'8px 12px',fontSize:14,cursor:'pointer',flexDirection:'column',display:'inline-flex',alignItems:'center',border:isActive?`2px solid #FFD700`:undefined,boxShadow:isActive?'0 0 18px rgba(255,215,0,0.65), inset 0 0 10px rgba(255,215,0,0.08)':undefined,transform:isActive?'scale(1.12)':pi===i?'scale(1.05)':'scale(1)',background:isActive?'rgba(255,215,0,0.15)':undefined,transition:'all 0.2s'}}>{c}{isActive&&<span style={{fontSize:8,color:'#FFD700',marginTop:2}}>← tap map</span>}</div>}
+                  :<div onClick={()=>selectSlot(i,c)} style={{...S.pill(cc(c),pi===i&&!isActive),padding:'8px 12px',fontSize:14,cursor:'pointer',flexDirection:'column',display:'inline-flex',alignItems:'center',border:isActive?`2px solid #FFD700`:undefined,boxShadow:isActive?'0 0 22px rgba(255,215,0,0.9), 0 0 44px rgba(255,215,0,0.35), inset 0 0 10px rgba(255,215,0,0.10)':undefined,transform:isActive?'scale(1.12)':pi===i?'scale(1.05)':'scale(1)',background:isActive?'rgba(255,215,0,0.18)':undefined,transition:'all 0.2s',animation:isActive?'swapPulse 1.2s ease-in-out infinite':undefined}}>{c}{isActive&&<span style={{fontSize:8,color:'#FFD700',marginTop:2}}>← tap map</span>}</div>}
                 <button onClick={()=>remC(i)} style={{position:'absolute',top:-5,right:-5,background:'rgba(255,60,60,0.8)',border:'none',borderRadius:'50%',width:16,height:16,color:'#fff',fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
               </div>;})}
               <button onClick={()=>addC('REST')} style={{background:'rgba(255,255,255,0.04)',border:'1.5px dashed rgba(255,255,255,0.2)',borderRadius:10,padding:'8px 10px',cursor:'pointer',color:'rgba(255,255,255,0.45)',fontSize:12,fontWeight:700}}>+ 𝄽 rest</button>
             </div>
             {prog.filter(c=>c!=='REST').length>=2&&<div style={{marginTop:10,background:'rgba(255,255,255,0.03)',borderRadius:10,padding:8}}>
               <div style={{...S.lbl,marginBottom:4}}>How these chords connect</div>
-              {prog.slice(1).map((c,i)=>{if(c==='REST'||prog[i]==='REST')return null;const m=mf(prog[i],c),v=vl(prog[i],c);return<div key={i} style={{marginBottom:4,background:'rgba(255,255,255,0.02)',borderRadius:8,padding:'5px 7px'}}>
-                <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:2}}><span style={{fontSize:12,fontWeight:700,color:cc(prog[i])}}>{prog[i]}</span><span style={{color:'rgba(255,255,255,0.2)',fontSize:10}}>→</span><span style={{fontSize:12,fontWeight:700,color:cc(c)}}>{c}</span><span style={{marginLeft:6,fontSize:10,color:'rgba(255,255,255,0.4)'}}>{m.e} {m.l}</span><span style={{marginLeft:'auto',fontSize:9,color:'rgba(255,255,255,0.25)',background:'rgba(255,255,255,0.04)',borderRadius:4,padding:'1px 5px'}}>{v.sm}</span></div>
+              {prog.slice(1).map((c,i)=>{if(c==='REST'||prog[i]==='REST')return null;const m=mf(prog[i],c),v=vl(prog[i],c),rA=chordRN(k,prog[i]),rB=chordRN(k,c);return<div key={i} style={{marginBottom:4,background:'rgba(255,255,255,0.02)',borderRadius:8,padding:'5px 7px'}}>
+                <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:2,flexWrap:'wrap'}}><span style={{fontSize:12,fontWeight:700,color:cc(prog[i])}}>{prog[i]}</span>{rA&&<span style={{fontSize:9,color:'rgba(255,215,0,0.65)'}}>({rA})</span>}<span style={{color:'rgba(255,255,255,0.2)',fontSize:10}}>→</span><span style={{fontSize:12,fontWeight:700,color:cc(c)}}>{c}</span>{rB&&<span style={{fontSize:9,color:'rgba(255,215,0,0.65)'}}>({rB})</span>}<span style={{marginLeft:6,fontSize:10,color:'rgba(255,255,255,0.4)'}}>{m.e} {m.l}</span><span style={{marginLeft:'auto',fontSize:9,color:'rgba(255,255,255,0.25)',background:'rgba(255,255,255,0.04)',borderRadius:4,padding:'1px 5px'}}>{v.sm}</span></div>
                 <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{v.mv.map((mv,j)=><span key={j} style={{fontSize:9,color:mv.s?'#4ECDC480':'#FFB34780',background:mv.s?'#4ECDC408':'#FFB34708',borderRadius:3,padding:'1px 5px'}}>{mv.s?`${mv.f} stays`:`${mv.f}→${mv.t}`}</span>)}</div>
               </div>;})}
               {prog.filter(c=>c!=='REST').length>=3&&idProg(prog.filter(c=>c!=='REST'))&&<div style={{marginTop:4,fontSize:10,color:'#FFB347',background:'rgba(255,183,71,0.08)',borderRadius:8,padding:'5px 8px'}}>✦ {idProg(prog.filter(c=>c!=='REST'))}</div>}
@@ -769,7 +780,8 @@ return(
               <button onClick={()=>playP(bpm,beats,stg)} style={{...S.btn('linear-gradient(135deg,#4ECDC4,#44B09E)','#fff','transparent'),border:'none'}}>▶ Play</button>
               <button onClick={progLooping?stopAll:()=>loopP(bpm,beats,stg)} style={{...S.btn(progLooping?'rgba(255,107,107,0.18)':'rgba(199,125,255,0.15)',progLooping?'#FF6B6B':'#C77DFF',progLooping?'rgba(255,107,107,0.4)':'rgba(199,125,255,0.3)')}}>{progLooping?'■ Stop':'↺ Loop'}</button>
               <button onClick={saveI} style={S.btn('rgba(255,215,0,0.15)','#FFD700','rgba(255,215,0,0.3)')}>♡ Save</button>
-              <button onClick={()=>{stopAll();setProg([]);}} style={S.btn()}>Clear</button>
+              {undoProg&&<button onClick={()=>{setProg(undoProg);setUndoProg(null);clearSwap();}} style={S.btn('rgba(78,205,196,0.12)','#4ECDC4','rgba(78,205,196,0.3)')}>↩ Undo</button>}
+              <button onClick={()=>{stopAll();setProg([]);setUndoProg(null);clearSwap();}} style={S.btn()}>Clear</button>
             </div>
           </div>}
       </div>
@@ -784,14 +796,15 @@ return(
               strokeDasharray={isStrong?'none':'5 5'}
               style={{transition:'all 0.3s',filter:h&&isStrong?'drop-shadow(0 0 4px #FFD700)':'none'}}/>;
           })}
-          {k&&ml(k.ch,200,200,140).map((nd,ni)=>{const col=cc(nd.c),sel=sch===nd.c,extLbl=extChordLabel(k,nd.c,ext),ip=prog.includes(extLbl)||prog.includes(nd.c),fn=k.m==='minor'?FNm:FNM;
+          {k&&ml(k.ch,200,200,140).map((nd,ni)=>{const col=cc(nd.c),sel=sch===nd.c,extLbl=extChordLabel(k,nd.c,ext),ip=prog.includes(extLbl)||prog.includes(nd.c),fn=k.m==='minor'?FNm:FNM;const fnParts=fn[ni].split(' (');const fnName=fnParts[0];const fnRN=fnParts[1]?.slice(0,-1);
             return<g key={ni} onClick={()=>playC(nd.c)} style={{cursor:'pointer'}}>
               <circle cx={nd.x} cy={nd.y} r={sel?38:30} fill={col+(sel?'18':'0a')} stroke={col+(sel?'60':'25')} strokeWidth={sel?2:1} style={{transition:'all 0.3s'}}/>
               <circle cx={nd.x} cy={nd.y} r={sel?28:23} fill={col+(sel?'30':'15')} stroke={col} strokeWidth={sel?3:1.5} style={{transition:'all 0.3s',filter:sel?`drop-shadow(0 0 12px ${col}90)`:'none'}}/>
               {ip&&<circle cx={nd.x} cy={nd.y} r={32} fill="none" stroke="#FFD700" strokeWidth={2.5} strokeDasharray="4 3"/>}
               <text x={nd.x} y={nd.y+1} textAnchor="middle" dominantBaseline="middle" fill={sel?'#fff':col} fontSize={sel?14:12} fontWeight="800" style={{pointerEvents:'none'}}>{extLbl}</text>
-              <text x={nd.x} y={nd.y+(sel?50:42)} textAnchor="middle" fill="rgba(255,255,255,0.78)" fontSize="7.5" fontWeight="600" style={{pointerEvents:'none'}}>{fn[ni]}</text>
-              <text x={nd.x} y={nd.y+(sel?61:53)} textAnchor="middle" fill="rgba(255,255,255,0.65)" fontSize="6.5" style={{pointerEvents:'none'}}>{extChordNotes(k,nd.c,ext).join('·')}</text>
+              <text x={nd.x} y={nd.y+(sel?47:39)} textAnchor="middle" fill="rgba(255,255,255,0.78)" fontSize="7" fontWeight="600" style={{pointerEvents:'none'}}>{fnName}</text>
+              <text x={nd.x} y={nd.y+(sel?55:47)} textAnchor="middle" fill="rgba(255,215,0,0.72)" fontSize="6" style={{pointerEvents:'none'}}>{fnRN&&`(${fnRN})`}</text>
+              <text x={nd.x} y={nd.y+(sel?63:55)} textAnchor="middle" fill="rgba(255,255,255,0.50)" fontSize="6" style={{pointerEvents:'none'}}>{extChordNotes(k,nd.c,ext).join('·')}</text>
             </g>;})}
           <text x="200" y="192" textAnchor="middle" fill={swapIdx!==null?'#FFD700':'rgba(255,255,255,0.35)'} fontSize="12" fontWeight="700">{sk}</text>
           <text x="200" y="208" textAnchor="middle" fill={swapIdx!==null?'rgba(255,215,0,0.6)':'rgba(255,255,255,0.22)'} fontSize="8">{swapIdx!==null?`replacing slot ${swapIdx+1}`:'Tap a chord'}</text>
@@ -1151,7 +1164,7 @@ return(
     </div>}
 
   </main>
-  <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(255,107,107,0.5)}50%{box-shadow:0 0 22px rgba(255,107,107,0.9)}}button:hover{filter:brightness(1.1)}button:active{transform:scale(0.97)!important}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}input[type=range]{-webkit-appearance:none;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;outline:none}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;box-shadow:0 0 8px rgba(78,205,196,0.5)}input[type=range]::-moz-range-thumb{width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;border:none}`}</style>
+  <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(255,107,107,0.5)}50%{box-shadow:0 0 22px rgba(255,107,107,0.9)}}@keyframes swapPulse{0%,100%{box-shadow:0 0 22px rgba(255,215,0,0.9),0 0 44px rgba(255,215,0,0.35)}50%{box-shadow:0 0 32px rgba(255,215,0,1),0 0 60px rgba(255,215,0,0.55)}}button:hover{filter:brightness(1.1)}button:active{transform:scale(0.97)!important}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}input[type=range]{-webkit-appearance:none;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;outline:none}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;box-shadow:0 0 8px rgba(78,205,196,0.5)}input[type=range]::-moz-range-thumb{width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;border:none}`}</style>
 </div>
 );
 }
