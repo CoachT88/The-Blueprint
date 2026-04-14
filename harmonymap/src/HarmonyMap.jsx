@@ -551,6 +551,7 @@ const[disc,setDisc]=useState([]);
 const[pa,setPa]=useState(false);
 const[genre,setGenre]=useState(null);
 const[progLooping,setProgLooping]=useState(false);
+const[swapIdx,setSwapIdx]=useState(null);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
 const[inst,setInst]=useState('underwater');
 useEffect(()=>{audio.setInstrument(inst);},[inst]);
@@ -569,13 +570,44 @@ useEffect(()=>{
   lsDeb.current=setTimeout(()=>{try{localStorage.setItem('harmonymap_settings',JSON.stringify({bpm,beats,stg,sk,inst}));}catch(e){}},500);
   return()=>{if(lsDeb.current)clearTimeout(lsDeb.current);};
 },[bpm,beats,stg,sk,inst]);
+const swapTid=useRef(null);
+const clearSwap=useCallback(()=>{setSwapIdx(null);if(swapTid.current){clearTimeout(swapTid.current);swapTid.current=null;}},[]);
 const dr=useRef([]);dr.current=disc;
 const k=KEYS[sk],em=emo?EMO[emo]:null;
 const ps=useMemo(()=>presets(sk),[sk]);
 
-const playC=useCallback(s=>{if(s==='REST')return;const lbl=extChordLabel(k,s,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));setSch(s);const t=ctip('sel',{ch:s});if(t)setTip(t);},[k,ext]);
+const playC=useCallback(s=>{
+  if(s==='REST')return;
+  const lbl=extChordLabel(k,s,ext);
+  audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));
+  setSch(s);
+  if(swapIdx!==null){
+    // Swap mode: replace the active slot, reset 15s timeout
+    setProg(p=>{const n=[...p];n[swapIdx]=lbl;return n;});
+    if(swapTid.current)clearTimeout(swapTid.current);
+    swapTid.current=setTimeout(()=>setSwapIdx(null),15000);
+  } else {
+    const t=ctip('sel',{ch:s});if(t)setTip(t);
+  }
+},[k,ext,swapIdx]);
 const addC=useCallback(s=>{setProg(p=>{const n=[...p,s];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});},[]);
-const remC=useCallback(i=>{setProg(p=>p.filter((_,j)=>j!==i));},[]);
+const remC=useCallback(i=>{
+  setProg(p=>p.filter((_,j)=>j!==i));
+  // If the removed slot was active, deselect; if it was before active, shift index down
+  setSwapIdx(cur=>{
+    if(cur===null)return null;
+    if(cur===i){if(swapTid.current){clearTimeout(swapTid.current);swapTid.current=null;}return null;}
+    return cur>i?cur-1:cur;
+  });
+},[]);
+const selectSlot=useCallback((i,c)=>{
+  if(swapTid.current)clearTimeout(swapTid.current);
+  if(swapIdx===i){setSwapIdx(null);swapTid.current=null;return;}
+  setSwapIdx(i);
+  swapTid.current=setTimeout(()=>setSwapIdx(null),15000);
+  // Play the slot's current chord so user can hear what they're about to replace
+  if(c!=='REST'){const lbl=extChordLabel(k,c,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));}
+},[swapIdx,k,ext]);
 const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(n,bpm,i=>setPi(i),beats,stg);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
 const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(n,bpm,i=>{setPi(i);},beats,stg);},[prog]);
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
@@ -709,14 +741,20 @@ return(
       {/* ── Progression panel ── */}
       <div style={{background:'rgba(0,0,0,0.3)',borderRadius:16,padding:14,marginBottom:12,minHeight:60,border:'1px solid rgba(255,255,255,0.06)'}}>
         <div style={S.lbl}>Your Progression {prog.length>0&&`(${prog.length} chords)`}</div>
+        {swapIdx!==null&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'rgba(255,215,0,0.10)',border:'1px solid rgba(255,215,0,0.40)',borderRadius:8,padding:'6px 10px',marginBottom:8}}>
+          <span style={{fontSize:11,color:'#FFD700',fontWeight:600}}>✏️ Swap Mode — tap any chord on the map to replace slot {swapIdx+1}</span>
+          <button onClick={clearSwap} style={{...S.btn('rgba(255,215,0,0.2)','#FFD700','rgba(255,215,0,0.5)'),padding:'3px 10px',fontSize:11,marginLeft:8}}>✓ Done</button>
+        </div>}
         {prog.length===0
           ?<div style={{color:'rgba(255,255,255,0.3)',fontSize:11,lineHeight:1.6,padding:'6px 0'}}>No chords yet — tap any chord on the map below to start building.</div>
           :<div>
             <div style={{display:'flex',gap:7,flexWrap:'wrap',alignItems:'center'}}>
-              {prog.map((c,i)=><div key={i} style={{position:'relative'}}>
-                {c==='REST'?<div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,0.04)',color:'rgba(255,255,255,0.35)',border:`1.5px dashed rgba(255,255,255,${pi===i?0.5:0.2})`,borderRadius:10,padding:'8px 12px',fontSize:14,fontWeight:700,transform:pi===i?'scale(1.08)':'scale(1)',transition:'all 0.2s'}}>𝄽 rest</div>:<div style={{...S.pill(cc(c),pi===i),padding:'8px 12px',fontSize:14}} onClick={()=>playC(c)}>{c}</div>}
+              {prog.map((c,i)=>{const isActive=swapIdx===i;return<div key={i} style={{position:'relative'}}>
+                {c==='REST'
+                  ?<div onClick={()=>selectSlot(i,c)} style={{display:'inline-flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:isActive?'rgba(255,215,0,0.12)':'rgba(255,255,255,0.04)',color:isActive?'#FFD700':'rgba(255,255,255,0.35)',border:`1.5px ${isActive?'solid':'dashed'} rgba(255,215,0,${isActive?0.75:pi===i?0.5:0.2})`,borderRadius:10,padding:'8px 12px',fontSize:14,fontWeight:700,transform:isActive||pi===i?'scale(1.08)':'scale(1)',transition:'all 0.2s',cursor:'pointer',boxShadow:isActive?'0 0 16px rgba(255,215,0,0.55)':'none'}}>𝄽 rest{isActive&&<span style={{fontSize:8,color:'#FFD700',marginTop:2}}>← tap map</span>}</div>
+                  :<div onClick={()=>selectSlot(i,c)} style={{...S.pill(cc(c),pi===i&&!isActive),padding:'8px 12px',fontSize:14,cursor:'pointer',flexDirection:'column',display:'inline-flex',alignItems:'center',border:isActive?`2px solid #FFD700`:undefined,boxShadow:isActive?'0 0 18px rgba(255,215,0,0.65), inset 0 0 10px rgba(255,215,0,0.08)':undefined,transform:isActive?'scale(1.12)':pi===i?'scale(1.05)':'scale(1)',background:isActive?'rgba(255,215,0,0.15)':undefined,transition:'all 0.2s'}}>{c}{isActive&&<span style={{fontSize:8,color:'#FFD700',marginTop:2}}>← tap map</span>}</div>}
                 <button onClick={()=>remC(i)} style={{position:'absolute',top:-5,right:-5,background:'rgba(255,60,60,0.8)',border:'none',borderRadius:'50%',width:16,height:16,color:'#fff',fontSize:9,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
-              </div>)}
+              </div>;})}
               <button onClick={()=>addC('REST')} style={{background:'rgba(255,255,255,0.04)',border:'1.5px dashed rgba(255,255,255,0.2)',borderRadius:10,padding:'8px 10px',cursor:'pointer',color:'rgba(255,255,255,0.45)',fontSize:12,fontWeight:700}}>+ 𝄽 rest</button>
             </div>
             {prog.filter(c=>c!=='REST').length>=2&&<div style={{marginTop:10,background:'rgba(255,255,255,0.03)',borderRadius:10,padding:8}}>
@@ -737,6 +775,8 @@ return(
       </div>
       <div style={{background:'rgba(0,0,0,0.4)',borderRadius:22,padding:14,border:'1px solid rgba(255,255,255,0.06)'}}>
         <svg viewBox="0 0 400 400" style={{width:'100%',height:'auto'}}>
+          {/* Click-away deselect for swap mode */}
+          <rect x="0" y="0" width="400" height="400" fill="transparent" onClick={()=>{if(swapIdx!==null)clearSwap();}}/>
           {k&&gcon(k.ch,k.m).map((c,i)=>{const ly=ml(k.ch,200,200,140);const f=ly.find(n=>n.c===c.f),t=ly.find(n=>n.c===c.t);if(!f||!t)return null;const h=sch&&(c.f===sch||c.t===sch);const isStrong=c.st==='strong';
             return<line key={i} x1={f.x} y1={f.y} x2={t.x} y2={t.y}
               stroke={h?(isStrong?'#FFD700':cc(sch)):isStrong?'rgba(255,215,0,0.35)':'rgba(255,255,255,0.08)'}
@@ -753,8 +793,8 @@ return(
               <text x={nd.x} y={nd.y+(sel?50:42)} textAnchor="middle" fill="rgba(255,255,255,0.78)" fontSize="7.5" fontWeight="600" style={{pointerEvents:'none'}}>{fn[ni]}</text>
               <text x={nd.x} y={nd.y+(sel?61:53)} textAnchor="middle" fill="rgba(255,255,255,0.65)" fontSize="6.5" style={{pointerEvents:'none'}}>{extChordNotes(k,nd.c,ext).join('·')}</text>
             </g>;})}
-          <text x="200" y="192" textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="12" fontWeight="700">{sk}</text>
-          <text x="200" y="208" textAnchor="middle" fill="rgba(255,255,255,0.22)" fontSize="8">Tap a chord</text>
+          <text x="200" y="192" textAnchor="middle" fill={swapIdx!==null?'#FFD700':'rgba(255,255,255,0.35)'} fontSize="12" fontWeight="700">{sk}</text>
+          <text x="200" y="208" textAnchor="middle" fill={swapIdx!==null?'rgba(255,215,0,0.6)':'rgba(255,255,255,0.22)'} fontSize="8">{swapIdx!==null?`replacing slot ${swapIdx+1}`:'Tap a chord'}</text>
         </svg>
       </div>
       {/* Legend */}
