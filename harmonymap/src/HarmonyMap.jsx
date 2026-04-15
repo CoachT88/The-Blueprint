@@ -195,6 +195,7 @@ this.tids.push(setTimeout(()=>{if(this.isPlaying)go();},tot));
 }; go();
 }
 stop() { this.isPlaying=false; this.tids.forEach(t=>clearTimeout(t)); this.tids=[]; }
+absoluteStop(){this.isPlaying=false;this.tids.forEach(t=>clearTimeout(t));this.tids=[];const now=this.ctx?this.ctx.currentTime:0;this.noteEnvs.forEach(e=>{try{e.gain.cancelScheduledValues(now);e.gain.setTargetAtTime(0,now,0.003);setTimeout(()=>{try{e.disconnect();}catch(x){}},80);}catch(x){}});this.noteEnvs=[];if(this.mg&&this.ctx){try{this.mg.gain.cancelScheduledValues(now);this.mg.gain.setValueAtTime(0,now);this.mg.gain.linearRampToValueAtTime(0.32,now+0.12);}catch(x){}}}
 play808(n,dur=2.0,vel=0.85,st=null){
 this.init(); const base=typeof n==='number'?n:this.noteToFreq((typeof n==='string'&&!/\d/.test(n))?n+'2':n); const t=st||(this.ctx.currentTime+0.15);
 const o=this.ctx.createOscillator(),g=this.ctx.createGain(),lp=this.ctx.createBiquadFilter();
@@ -546,6 +547,7 @@ function generateBlueprint(prog,k){
   const endFeel=endQ==='major'?'resolves into light':endQ==='minor'?'settles into shadow':endQ==='dominant'?'ends on tension — leaves the listener wanting more':'fades into ambiguity';
   return`Your ${f.length}-chord progression traces a ${arc} — starting on ${f[0]} and moving through ${f.slice(1,-1).join(' → ')}. It ${endFeel}.`;
 }
+function vibeScore(prog){const f=prog.filter(s=>s&&s!=='REST');if(f.length<2)return{score:0,label:'Too short'};const tls=f.slice(1).map((c,i)=>tensionLevel(f[i],c));const avg=tls.reduce((a,b)=>a+b,0)/(tls.length||1);const spread=Math.max(...tls)-Math.min(...tls);const raw=Math.round(100-Math.abs(avg-2.2)*12-(spread>3?8:0));const score=Math.max(10,Math.min(100,raw));const label=score>=85?'Smooth Flow':score>=70?'Dynamic Groove':score>=50?'Tension Builder':'Wild Card';return{score,label};}
 // ─── STYLES ─────────────────────────────────────────────────
 const S={
 card:(bc='rgba(255,255,255,0.06)')=>({background:'rgba(255,255,255,0.04)',borderRadius:16,padding:16,border:`1px solid ${bc}`,marginBottom:12}),
@@ -587,6 +589,12 @@ const[swapIdx,setSwapIdx]=useState(null);
 const[undoProg,setUndoProg]=useState(null);
 const[originalKey,setOriginalKey]=useState(null);
 const[keyToast,setKeyToast]=useState(null);
+const[streak,setStreak]=useState({count:0,lastDate:null});
+const[xp,setXp]=useState(0);
+const[dailyAvail,setDailyAvail]=useState(false);
+const[dailySecs,setDailySecs]=useState(60);
+const[dailyActive,setDailyActive]=useState(false);
+const[dailyDone,setDailyDone]=useState(false);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
 const[inst,setInst]=useState('underwater');
 useEffect(()=>{audio.setInstrument(inst);},[inst]);
@@ -597,8 +605,10 @@ const warmup=()=>{audio.init();};
 document.addEventListener('touchstart',warmup,{once:true,passive:true,capture:true});
 return()=>document.removeEventListener('touchstart',warmup,{capture:true});
 },[]);
-useEffect(()=>{try{const s=localStorage.getItem('harmonymap_saved');if(s)setSaved(JSON.parse(s));const st=localStorage.getItem('harmonymap_settings');if(st){const o=JSON.parse(st);if(o.bpm)setBpm(o.bpm);if(o.beats)setBeats(o.beats);if(o.stg!=null)setStg(o.stg);if(o.sk)setSk(o.sk);if(o.inst==='underwater'||o.inst==='cinematic')setInst(o.inst);}}catch(e){}},[]);
+useEffect(()=>{try{const s=localStorage.getItem('harmonymap_saved');if(s)setSaved(JSON.parse(s));const st=localStorage.getItem('harmonymap_settings');if(st){const o=JSON.parse(st);if(o.bpm)setBpm(o.bpm);if(o.beats)setBeats(o.beats);if(o.stg!=null)setStg(o.stg);if(o.sk)setSk(o.sk);if(o.inst==='underwater'||o.inst==='cinematic')setInst(o.inst);}const sk2=localStorage.getItem('harmonymap_streak');if(sk2)setStreak(JSON.parse(sk2));const xp2=localStorage.getItem('harmonymap_xp');if(xp2)setXp(parseInt(xp2)||0);const today=new Date().toISOString().slice(0,10);const dl=localStorage.getItem('harmonymap_daily');if(!dl||JSON.parse(dl).date!==today)setDailyAvail(true);}catch(e){}},[]);
 useEffect(()=>{try{localStorage.setItem('harmonymap_saved',JSON.stringify(saved));}catch(e){}},[saved]);
+useEffect(()=>{try{localStorage.setItem('harmonymap_streak',JSON.stringify(streak));}catch(e){}},[streak]);
+useEffect(()=>{try{localStorage.setItem('harmonymap_xp',String(xp));}catch(e){}},[xp]);
 const lsDeb=useRef(null);
 useEffect(()=>{
   if(lsDeb.current)clearTimeout(lsDeb.current);
@@ -607,6 +617,8 @@ useEffect(()=>{
 },[bpm,beats,stg,sk,inst]);
 const swapTid=useRef(null);
 const toastTid=useRef(null);
+const dailyTid=useRef(null);
+useEffect(()=>{if(!dailyActive)return;if(dailySecs<=0){setDailyActive(false);setDailyDone(true);setDailyAvail(false);setXp(x=>x+10);try{localStorage.setItem('harmonymap_daily',JSON.stringify({date:new Date().toISOString().slice(0,10)}));}catch(e){}return;}dailyTid.current=setInterval(()=>setDailySecs(s=>s-1),1000);return()=>clearInterval(dailyTid.current);},[dailyActive,dailySecs]);
 const clearSwap=useCallback(()=>{setSwapIdx(null);if(swapTid.current){clearTimeout(swapTid.current);swapTid.current=null;}},[]);
 // Ctrl+Z / Cmd+Z: revert last swap session
 useEffect(()=>{const onKey=(e)=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&undoProg){setProg(undoProg);setUndoProg(null);clearSwap();}};document.addEventListener('keydown',onKey);return()=>document.removeEventListener('keydown',onKey);},[undoProg,clearSwap]);
@@ -671,19 +683,22 @@ const returnHome=useCallback(()=>{
 },[originalKey]);
 const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(n,bpm,i=>setPi(i),beats,stg);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
 const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(n,bpm,i=>{setPi(i);},beats,stg);},[prog]);
-const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
+const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);setXp(x=>x+2);const today=new Date().toISOString().slice(0,10);setStreak(s=>{const diff=s.lastDate?(new Date(today)-new Date(s.lastDate))/(86400000):null;const cnt=diff===1?(s.count||0)+1:diff===0?s.count||1:1;return{count:cnt,lastDate:today};});},[prog,emo,sk]);
 const selEmo=useCallback(e=>{setEmo(e);if(EMO[e].ks[0])setSk(EMO[e].ks[0]);setSch(null);setScreen('emotion');},[]);
-const stopAll=useCallback(()=>{audio.stop();setPa(false);setPi(-1);setPRow(-1);setProgLooping(false);},[]);
+const stopAll=useCallback(()=>{audio.absoluteStop();setPa(false);setPi(-1);setPRow(-1);setProgLooping(false);},[]);
 const newEar=useCallback(()=>{setEa(null);const c=earGen(et);setEc(c);if(c)setTimeout(()=>{if(c.pt==='chord')audio.playChord(c.pd);else if(c.pt==='melodic')audio.playMelodicInterval(c.pd[0],c.pd[1]);else if(c.pt==='two'){audio.playChord(c.pd[0],1.3);setTimeout(()=>audio.playChord(c.pd[1],1.3),1500);}},300);},[et]);
 const replayEar=useCallback(()=>{if(!ec)return;if(ec.pt==='chord')audio.playChord(ec.pd);else if(ec.pt==='melodic')audio.playMelodicInterval(ec.pd[0],ec.pd[1]);else if(ec.pt==='two'){audio.playChord(ec.pd[0],1.3);setTimeout(()=>audio.playChord(ec.pd[1],1.3),1500);}},[ec]);
-const ansEar=useCallback(a=>{if(ea)return;setEa(a);setEs(s=>({c:s.c+(a===ec?.ans?1:0),t:s.t+1}));if(a===ec?.ans&&!dr.current.includes('fe'))setDisc(d=>[...d,'fe']);},[ec,ea]);
+const ansEar=useCallback(a=>{if(ea)return;setEa(a);const ok=a===ec?.ans;setEs(s=>({c:s.c+(ok?1:0),t:s.t+1}));if(ok){setXp(x=>x+1);if(!dr.current.includes('fe'))setDisc(d=>[...d,'fe']);}if(dailyActive)setTimeout(()=>setEa(null)||newEar(),900);},[ec,ea,dailyActive,newEar]);
 
+const startDaily=useCallback(()=>{setDailySecs(60);setDailyActive(true);setEa(null);setEc(null);newEar();},[newEar]);
 const tabs=[{k:'home',i:'⌂',l:'Home'},{k:'chordmap',i:'◉',l:'Map'},{k:'melody',i:'♪',l:'Melody'},{k:'ear',i:'👂',l:'Ear'},{k:'intervals',i:'↕',l:'Intervals'},{k:'learn',i:'✦',l:'Learn'},{k:'mix',i:'🎚',l:'Mix'},{k:'saved',i:'♡',l:'Saved'}];
 
 return(
 <div style={{width:'100%',minHeight:'100vh',background:em?em.gr:'linear-gradient(135deg,#0a0a1a,#1a0a2e,#0a1a2d)',color:'#F0F0F0',fontFamily:"'Segoe UI','SF Pro Display',-apple-system,sans-serif",position:'relative',overflow:'hidden',transition:'background 0.8s'}}>
 <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:`radial-gradient(ellipse at 30% 20%,${em?em.co[0]+'15':'#4ECDC415'} 0%,transparent 60%),radial-gradient(ellipse at 70% 80%,${em?em.co[1]+'10':'#FF6B6B10'} 0%,transparent 60%)`,pointerEvents:'none',zIndex:0}}/>
 
+  {/* FLOATING STOP — always visible */}
+  <button onClick={()=>{stopAll();}} style={{position:'fixed',bottom:76,right:14,zIndex:200,background:pa||progLooping||pi>=0||pRow>=0?'linear-gradient(135deg,#FF4444,#CC0000)':'rgba(40,40,50,0.82)',border:`1.5px solid ${pa||progLooping||pi>=0||pRow>=0?'rgba(255,80,80,0.7)':'rgba(255,255,255,0.1)'}`,borderRadius:'50%',width:44,height:44,color:pa||progLooping||pi>=0||pRow>=0?'#fff':'rgba(255,255,255,0.3)',cursor:'pointer',fontSize:13,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:pa||progLooping||pi>=0||pRow>=0?'0 4px 18px rgba(255,60,60,0.55)':'0 2px 8px rgba(0,0,0,0.4)',animation:pa||progLooping||pi>=0||pRow>=0?'pulse 1.8s ease-in-out infinite':undefined,transition:'background 0.3s,border 0.3s,color 0.3s'}}>■</button>
   {/* KEY WARP TOAST */}
   {keyToast&&<div style={{position:'fixed',top:80,left:'50%',transform:'translateX(-50%)',background:'rgba(78,205,196,0.95)',color:'#0a0a1a',borderRadius:12,padding:'10px 20px',fontSize:12,fontWeight:700,zIndex:300,boxShadow:'0 4px 20px rgba(0,0,0,0.5)',whiteSpace:'nowrap',animation:'fadeIn 0.3s',backdropFilter:'blur(10px)'}}>{keyToast}</div>}
   {/* NAV */}
@@ -692,8 +707,9 @@ return(
       <div style={{width:24,height:24,borderRadius:'50%',background:'linear-gradient(135deg,#FF6B6B,#4ECDC4,#C77DFF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900}}>H</div>
       <span style={{fontWeight:700,fontSize:13}}>HarmonyMap</span>
     </div>
-    <div style={{display:'flex',gap:1,overflowX:'auto',flexShrink:1}}>
-      {tabs.map(t=><button key={t.k} onClick={()=>setScreen(t.k)} style={{background:screen===t.k?'rgba(255,255,255,0.12)':'transparent',border:'none',color:screen===t.k?'#fff':'rgba(255,255,255,0.4)',borderRadius:6,padding:'5px 7px',cursor:'pointer',fontSize:9,fontWeight:600,display:'flex',flexDirection:'column',alignItems:'center',whiteSpace:'nowrap',minHeight:44,justifyContent:'center'}}><span style={{fontSize:13}}>{t.i}</span><span>{t.l}</span></button>)}
+    <div style={{display:'flex',gap:1,overflowX:'auto',flexShrink:1,alignItems:'center'}}>
+      {tabs.map(t=><button key={t.k} onClick={()=>setScreen(t.k)} style={{background:screen===t.k?'rgba(255,255,255,0.12)':'transparent',border:'none',color:screen===t.k?'#fff':'rgba(255,255,255,0.4)',borderRadius:6,padding:'5px 7px',cursor:'pointer',fontSize:9,fontWeight:600,display:'flex',flexDirection:'column',alignItems:'center',whiteSpace:'nowrap',minHeight:44,justifyContent:'center',position:'relative'}}><span style={{fontSize:13,position:'relative'}}>{t.i}{t.k==='ear'&&dailyAvail&&!dailyDone&&<span style={{position:'absolute',top:-2,right:-3,width:6,height:6,background:'#FFB347',borderRadius:'50%',boxShadow:'0 0 5px #FFB347',display:'block'}}/>}</span><span>{t.l}</span></button>)}
+      {streak.count>0&&<div style={{display:'flex',alignItems:'center',paddingLeft:5,paddingRight:3,fontSize:10,color:'rgba(255,200,100,0.75)',fontWeight:800,flexShrink:0,whiteSpace:'nowrap'}}>🔥{streak.count}</div>}
     </div>
     <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0,marginLeft:6}}>
       {(pa||progLooping||pi>=0||pRow>=0)&&<button onClick={stopAll} style={{background:'linear-gradient(135deg,#FF6B6B,#FF4444)',border:'1px solid rgba(255,107,107,0.6)',borderRadius:8,padding:'6px 10px',color:'#fff',cursor:'pointer',fontSize:11,fontWeight:800,flexShrink:0,boxShadow:'0 0 12px rgba(255,107,107,0.5)',animation:'pulse 1.4s ease-in-out infinite'}}>■ Stop</button>}
@@ -952,6 +968,13 @@ return(
           <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{v.mv.map((mv,j)=><span key={j} style={{fontSize:9,color:mv.s?'#4ECDC480':'#FFB34780',background:mv.s?'#4ECDC408':'#FFB34708',borderRadius:3,padding:'1px 5px'}}>{mv.s?`${mv.f} stays`:`${mv.f}→${mv.t}`}</span>)}</div>
           {idProg(fp)&&<div style={{marginTop:4,fontSize:10,color:'#FFB347',background:'rgba(255,183,71,0.08)',borderRadius:6,padding:'4px 7px'}}>✦ {idProg(fp)}</div>}
         </div>;})()||null}
+        {/* Vibe Score + Export Stats */}
+        {prog.filter(c=>c&&c!=='REST').length>=4&&(()=>{const vs=vibeScore(prog);return<div style={{background:'rgba(78,205,196,0.05)',border:'1px solid rgba(78,205,196,0.18)',borderRadius:10,padding:'8px 12px',marginBottom:8,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+          <div><div style={{fontSize:9,color:'rgba(255,255,255,0.3)',fontWeight:700,textTransform:'uppercase',letterSpacing:0.8}}>Vibe Score</div>
+            <div style={{display:'flex',alignItems:'center',gap:5,marginTop:1}}><span style={{fontSize:22,fontWeight:900,color:'#4ECDC4',lineHeight:1}}>{vs.score}</span><span style={{fontSize:10,color:'rgba(255,255,255,0.5)',fontWeight:600}}>{vs.label}</span></div>
+          </div>
+          <button onClick={()=>{const vs2=vibeScore(prog);const txt=[`🎵 HarmonyMap`,`Vibe: ${vs2.score}% ${vs2.label}`,`Streak: 🔥${streak.count}`,`Progression: ${prog.filter(s=>s&&s!=='REST').join(' → ')}`,`XP: ${xp}`].join('\n');try{navigator.clipboard.writeText(txt);setTip('Stats copied!');}catch(er){}}} style={{...S.btn('rgba(78,205,196,0.12)','#4ECDC4','rgba(78,205,196,0.3)'),padding:'5px 10px',fontSize:10,flexShrink:0}}>📋 Export Stats</button>
+        </div>;})()||null}
         {/* Actions */}
         {prog.length>0&&<div>
           <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
@@ -1121,7 +1144,22 @@ return(
     {/* ═══ EAR TRAINING ═══ */}
     {screen==='ear'&&<div style={{padding:'16px',maxWidth:600,margin:'0 auto'}}>
       <h2 style={{fontSize:20,fontWeight:800,marginBottom:3}}>Ear Training</h2>
-      <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:16}}>Train your ears to recognize chord qualities, intervals, and emotional movement by feel.</p>
+      <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:12}}>Train your ears to recognize chord qualities, intervals, and emotional movement by feel.</p>
+      {/* Daily Drop Challenge */}
+      {dailyDone?<div style={{background:'rgba(78,205,196,0.08)',border:'1px solid rgba(78,205,196,0.3)',borderRadius:12,padding:'10px 14px',marginBottom:14,fontSize:11,color:'#4ECDC4',fontWeight:600,animation:'fadeIn 0.3s'}}>✓ Daily Drop complete — +10 XP earned today!</div>
+      :dailyAvail&&<div style={{background:'linear-gradient(135deg,rgba(255,183,71,0.1),rgba(255,140,40,0.06))',border:'1px solid rgba(255,183,71,0.4)',borderRadius:14,padding:'12px 14px',marginBottom:14,animation:'fadeIn 0.3s'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:dailyActive?6:0}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:800,color:'#FFB347'}}>🎯 Daily Drop Challenge</div>
+            <div style={{fontSize:9,color:'rgba(255,255,255,0.4)',marginTop:2}}>Answer questions in 60 seconds — earn +10 XP</div>
+          </div>
+          {dailyActive
+            ?<div style={{fontSize:20,fontWeight:900,color:dailySecs<=10?'#FF6B6B':'#FFB347',minWidth:40,textAlign:'right'}}>{dailySecs}s</div>
+            :<button onClick={startDaily} style={{...S.btn('rgba(255,183,71,0.2)','#FFB347','rgba(255,183,71,0.5)'),padding:'6px 14px',fontSize:11,fontWeight:800,flexShrink:0}}>Start</button>
+          }
+        </div>
+        {dailyActive&&<div style={{height:3,background:'rgba(255,255,255,0.08)',borderRadius:2,overflow:'hidden'}}><div style={{width:`${(dailySecs/60)*100}%`,height:'100%',background:dailySecs<=10?'#FF6B6B':'#FFB347',borderRadius:2,transition:'width 1s linear'}}/></div>}
+      </div>}
       {es.t>0&&<div style={{...S.card('#4ECDC430'),display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div><div style={{fontSize:22,fontWeight:800,color:'#4ECDC4'}}>{es.c}/{es.t}</div><div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>{es.t>=5?(es.c/es.t>=0.8?'Your ears are sharp.':es.c/es.t>=0.5?'Building sensitivity.':'Every miss teaches your ear.'):'Keep listening...'}</div></div>
         <button onClick={()=>setEs({c:0,t:0})} style={{...S.btn(),fontSize:10}}>Reset</button>
@@ -1260,15 +1298,23 @@ return(
 
   </main>
   {/* SOUND TRAY */}
-  <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:90,background:'rgba(8,8,20,0.94)',backdropFilter:'blur(22px)',borderTop:'1px solid rgba(255,255,255,0.08)',padding:'8px 14px',display:'flex',alignItems:'center',gap:10}}>
+  <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:90,background:'rgba(8,8,20,0.94)',backdropFilter:'blur(22px)',borderTop:'1px solid rgba(255,255,255,0.08)',padding:'6px 10px',display:'flex',alignItems:'center',gap:8}}>
     <span style={{fontSize:9,color:'rgba(255,255,255,0.3)',fontWeight:700,textTransform:'uppercase',letterSpacing:0.8,flexShrink:0}}>Sound</span>
-    <div style={{display:'flex',background:'rgba(255,255,255,0.06)',borderRadius:50,padding:2,border:'1px solid rgba(255,255,255,0.1)',flex:1}}>
-      {[{v:'underwater',l:'🌊 Underwater',d:'R&B'},{v:'cinematic',l:'🎬 Cinematic',d:'Trap'}].map(o=><button key={o.v} onClick={()=>setInst(o.v)} style={{flex:1,background:inst===o.v?'rgba(78,205,196,0.22)':'transparent',border:'none',borderRadius:50,padding:'7px 10px',cursor:'pointer',color:inst===o.v?'#4ECDC4':'rgba(255,255,255,0.4)',fontWeight:inst===o.v?700:500,fontSize:11,transition:'all 0.15s',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
-        <span>{o.l}</span>
-        {inst===o.v&&<span style={{fontSize:8,color:'rgba(78,205,196,0.55)',fontWeight:500}}>{o.d}</span>}
+    <div style={{display:'flex',background:'rgba(255,255,255,0.06)',borderRadius:50,padding:2,border:'1px solid rgba(255,255,255,0.1)'}}>
+      {[{v:'underwater',l:'🌊',d:'R&B'},{v:'cinematic',l:'🎬',d:'Trap'}].map(o=><button key={o.v} onClick={()=>setInst(o.v)} style={{background:inst===o.v?'rgba(78,205,196,0.22)':'transparent',border:'none',borderRadius:50,padding:'6px 9px',cursor:'pointer',color:inst===o.v?'#4ECDC4':'rgba(255,255,255,0.4)',fontWeight:inst===o.v?700:500,fontSize:10,transition:'all 0.15s',display:'flex',alignItems:'center',gap:3,whiteSpace:'nowrap'}}>
+        <span>{o.l}</span><span>{o.d}</span>
       </button>)}
     </div>
-    <div style={{fontSize:11,fontWeight:700,color:'#4ECDC4',flexShrink:0,minWidth:48,textAlign:'right'}}>{bpm}<span style={{fontSize:8,color:'rgba(255,255,255,0.3)',fontWeight:500,marginLeft:2}}>bpm</span></div>
+    <div style={{display:'flex',gap:4,alignItems:'center'}}>
+      {[{v:'808sub',l:'🎸',t:'808',xpReq:25},{v:'rhodes',l:'🎹',t:'Rhodes',xpReq:50},{v:'midpad',l:'🌙',t:'Pad',xpReq:100}].map(o=>{const unlocked=xp>=o.xpReq;return<button key={o.v} onClick={()=>{if(unlocked)setInst(o.v);}} style={{background:inst===o.v&&unlocked?'rgba(199,125,255,0.2)':'rgba(255,255,255,0.04)',border:`1px solid ${inst===o.v&&unlocked?'rgba(199,125,255,0.45)':'rgba(255,255,255,0.08)'}`,borderRadius:8,padding:'5px 7px',cursor:unlocked?'pointer':'default',color:unlocked?(inst===o.v?'#C77DFF':'rgba(255,255,255,0.55)'):'rgba(255,255,255,0.2)',fontSize:10,display:'flex',flexDirection:'column',alignItems:'center',gap:1,opacity:unlocked?1:0.6,flexShrink:0}}>
+        <span style={{fontSize:12}}>{unlocked?o.l:'🔒'}</span>
+        <span style={{fontSize:7,lineHeight:1}}>{unlocked?o.t:`${o.xpReq}xp`}</span>
+      </button>;})}
+    </div>
+    <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+      <div style={{fontSize:9,color:'rgba(199,125,255,0.7)',fontWeight:700}}>{xp}<span style={{fontSize:7,color:'rgba(255,255,255,0.25)',marginLeft:1}}>xp</span></div>
+      <div style={{fontSize:11,fontWeight:700,color:'#4ECDC4',minWidth:40,textAlign:'right'}}>{bpm}<span style={{fontSize:8,color:'rgba(255,255,255,0.3)',fontWeight:500,marginLeft:2}}>bpm</span></div>
+    </div>
   </div>
   <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(255,107,107,0.5)}50%{box-shadow:0 0 22px rgba(255,107,107,0.9)}}@keyframes swapPulse{0%,100%{box-shadow:0 0 22px rgba(255,215,0,0.9),0 0 44px rgba(255,215,0,0.35)}50%{box-shadow:0 0 32px rgba(255,215,0,1),0 0 60px rgba(255,215,0,0.55)}}@keyframes svgRingPulse{0%,100%{stroke-opacity:0.45}50%{stroke-opacity:1}}button:hover{filter:brightness(1.1)}button:active{transform:scale(0.97)!important}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}input[type=range]{-webkit-appearance:none;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;outline:none}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;box-shadow:0 0 8px rgba(78,205,196,0.5)}input[type=range]::-moz-range-thumb{width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;border:none}`}</style>
 </div>
