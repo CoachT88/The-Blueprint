@@ -554,6 +554,8 @@ const[genre,setGenre]=useState(null);
 const[progLooping,setProgLooping]=useState(false);
 const[swapIdx,setSwapIdx]=useState(null);
 const[undoProg,setUndoProg]=useState(null);
+const[originalKey,setOriginalKey]=useState(null);
+const[keyToast,setKeyToast]=useState(null);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
 const[inst,setInst]=useState('underwater');
 useEffect(()=>{audio.setInstrument(inst);},[inst]);
@@ -573,12 +575,15 @@ useEffect(()=>{
   return()=>{if(lsDeb.current)clearTimeout(lsDeb.current);};
 },[bpm,beats,stg,sk,inst]);
 const swapTid=useRef(null);
+const toastTid=useRef(null);
 const clearSwap=useCallback(()=>{setSwapIdx(null);if(swapTid.current){clearTimeout(swapTid.current);swapTid.current=null;}},[]);
 // Ctrl+Z / Cmd+Z: revert last swap session
 useEffect(()=>{const onKey=(e)=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&undoProg){setProg(undoProg);setUndoProg(null);clearSwap();}};document.addEventListener('keydown',onKey);return()=>document.removeEventListener('keydown',onKey);},[undoProg,clearSwap]);
 const dr=useRef([]);dr.current=disc;
 const k=KEYS[sk],em=emo?EMO[emo]:null;
 const ps=useMemo(()=>presets(sk),[sk]);
+const bestNext=useMemo(()=>{if(!sch||!k)return[];const conns=gcon(k.ch,k.m).filter(c=>c.f===sch);const sorted=[...conns].sort((a,b)=>a.st==='strong'?-1:b.st==='strong'?1:0);return sorted.slice(0,3).map(c=>c.t);},[sch,k]);
+const ghostChords=useMemo(()=>{if(!k||!sk)return[];const pName=k.m==='major'?`${k.r} minor`:`${k.r} major`;const pk=KEYS[pName];if(!pk)return[];const idxs=k.m==='major'?[3,6]:[0,3];return idxs.map(i=>({chord:pk.ch[i],fromKey:pName,idx:i})).filter(g=>g.chord&&!k.ch.includes(g.chord));},[k,sk]);
 
 const playC=useCallback(s=>{
   if(s==='REST')return;
@@ -616,6 +621,23 @@ const selectSlot=useCallback((i,c)=>{
   // Play the slot's current chord so user hears what they're replacing
   if(c!=='REST'){const lbl=extChordLabel(k,c,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));}
 },[swapIdx,k,ext,prog]);
+const warpKey=useCallback((ghostChordBase,fromKeyName)=>{
+  const pk=KEYS[fromKeyName];if(!pk)return;
+  audio.playChord(cn(pc(ghostChordBase).r,pc(ghostChordBase).t,3));
+  setOriginalKey(cur=>cur===null?sk:cur);
+  setSk(fromKeyName);setSch(ghostChordBase);setKmf(pk.m);
+  setProg(p=>[...p,ghostChordBase]);
+  if(toastTid.current)clearTimeout(toastTid.current);
+  setKeyToast(`Key shifted to ${fromKeyName} — tap 🏠 to return`);
+  toastTid.current=setTimeout(()=>setKeyToast(null),3500);
+},[sk]);
+const returnHome=useCallback(()=>{
+  if(!originalKey)return;const ok=KEYS[originalKey];if(!ok)return;
+  setSk(originalKey);setSch(null);setKmf(ok.m);setOriginalKey(null);
+  if(toastTid.current)clearTimeout(toastTid.current);
+  setKeyToast(`Returned to ${originalKey}`);
+  toastTid.current=setTimeout(()=>setKeyToast(null),2500);
+},[originalKey]);
 const playP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(n,bpm,i=>setPi(i),beats,stg);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog]);
 const loopP=useCallback((bpm=72,beats=4,stg=0.018)=>{const n=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(n,bpm,i=>{setPi(i);},beats,stg);},[prog]);
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);},[prog,emo,sk]);
@@ -631,6 +653,8 @@ return(
 <div style={{width:'100%',minHeight:'100vh',background:em?em.gr:'linear-gradient(135deg,#0a0a1a,#1a0a2e,#0a1a2d)',color:'#F0F0F0',fontFamily:"'Segoe UI','SF Pro Display',-apple-system,sans-serif",position:'relative',overflow:'hidden',transition:'background 0.8s'}}>
 <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:`radial-gradient(ellipse at 30% 20%,${em?em.co[0]+'15':'#4ECDC415'} 0%,transparent 60%),radial-gradient(ellipse at 70% 80%,${em?em.co[1]+'10':'#FF6B6B10'} 0%,transparent 60%)`,pointerEvents:'none',zIndex:0}}/>
 
+  {/* KEY WARP TOAST */}
+  {keyToast&&<div style={{position:'fixed',top:80,left:'50%',transform:'translateX(-50%)',background:'rgba(78,205,196,0.95)',color:'#0a0a1a',borderRadius:12,padding:'10px 20px',fontSize:12,fontWeight:700,zIndex:300,boxShadow:'0 4px 20px rgba(0,0,0,0.5)',whiteSpace:'nowrap',animation:'fadeIn 0.3s',backdropFilter:'blur(10px)'}}>{keyToast}</div>}
   {/* NAV */}
   <nav style={{position:'sticky',top:0,zIndex:100,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 10px',background:'rgba(10,10,26,0.88)',backdropFilter:'blur(20px)',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
     <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
@@ -732,7 +756,10 @@ return(
         <strong style={{color:'#4ECDC4'}}>How to use:</strong> Tap any chord on the map to hear it and add it to your progression. Build your sequence below, then play it back and save it.
       </div>
       <div style={{marginBottom:12}}>
-        <div style={S.lbl}>Choose a Key</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+          <div style={{...S.lbl,marginBottom:0}}>Choose a Key</div>
+          {originalKey&&<button onClick={returnHome} style={{...S.btn('rgba(78,205,196,0.15)','#4ECDC4','rgba(78,205,196,0.4)'),padding:'4px 10px',fontSize:10,fontWeight:700}}>🏠 {originalKey.replace(' major','').replace(' minor','m')}</button>}
+        </div>
         <div style={{display:'flex',gap:0,marginBottom:8,background:'rgba(255,255,255,0.05)',borderRadius:10,padding:3}}>
           <button onClick={()=>{setKmf('major');if(KEYS[sk]?.m==='minor'){const r=RELATIVE[sk]||'C major';setSk(r);setSch(null);}}} style={{flex:1,background:kmf==='major'?'rgba(255,107,107,0.18)':'transparent',border:'none',borderRadius:8,padding:'8px 6px',cursor:'pointer',color:kmf==='major'?'#FF6B6B':'rgba(255,255,255,0.4)',fontWeight:700,fontSize:12,transition:'all 0.15s'}}>Major — Bright, open</button>
           <button onClick={()=>{setKmf('minor');if(KEYS[sk]?.m==='major'){const r=RELATIVE[sk]||'A minor';setSk(r);setSch(null);}}} style={{flex:1,background:kmf==='minor'?'rgba(78,205,196,0.18)':'transparent',border:'none',borderRadius:8,padding:'8px 6px',cursor:'pointer',color:kmf==='minor'?'#4ECDC4':'rgba(255,255,255,0.4)',fontWeight:700,fontSize:12,transition:'all 0.15s'}}>Minor — Deep, emotional</button>
@@ -796,8 +823,9 @@ return(
               strokeDasharray={isStrong?'none':'5 5'}
               style={{transition:'all 0.3s',filter:h&&isStrong?'drop-shadow(0 0 4px #FFD700)':'none'}}/>;
           })}
-          {k&&ml(k.ch,200,200,140).map((nd,ni)=>{const col=cc(nd.c),sel=sch===nd.c,extLbl=extChordLabel(k,nd.c,ext),ip=prog.includes(extLbl)||prog.includes(nd.c),fn=k.m==='minor'?FNm:FNM;const fnParts=fn[ni].split(' (');const fnName=fnParts[0];const fnRN=fnParts[1]?.slice(0,-1);
+          {k&&ml(k.ch,200,200,140).map((nd,ni)=>{const col=cc(nd.c),sel=sch===nd.c,extLbl=extChordLabel(k,nd.c,ext),ip=prog.includes(extLbl)||prog.includes(nd.c),fn=k.m==='minor'?FNm:FNM;const fnParts=fn[ni].split(' (');const fnName=fnParts[0];const fnRN=fnParts[1]?.slice(0,-1);const bnRank=bestNext.indexOf(nd.c);const isBestNext=bnRank!==-1;
             return<g key={ni} onClick={()=>playC(nd.c)} style={{cursor:'pointer'}}>
+              {isBestNext&&<circle cx={nd.x} cy={nd.y} r={44} fill="none" stroke={col} strokeWidth={bnRank===0?3.5:2.5} strokeOpacity={bnRank===0?0.9:0.65} style={{animation:'svgRingPulse 1.4s ease-in-out infinite',animationDelay:`${bnRank*0.4}s`}}/>}
               <circle cx={nd.x} cy={nd.y} r={sel?38:30} fill={col+(sel?'18':'0a')} stroke={col+(sel?'60':'25')} strokeWidth={sel?2:1} style={{transition:'all 0.3s'}}/>
               <circle cx={nd.x} cy={nd.y} r={sel?28:23} fill={col+(sel?'30':'15')} stroke={col} strokeWidth={sel?3:1.5} style={{transition:'all 0.3s',filter:sel?`drop-shadow(0 0 12px ${col}90)`:'none'}}/>
               {ip&&<circle cx={nd.x} cy={nd.y} r={32} fill="none" stroke="#FFD700" strokeWidth={2.5} strokeDasharray="4 3"/>}
@@ -810,6 +838,17 @@ return(
           <text x="200" y="208" textAnchor="middle" fill={swapIdx!==null?'rgba(255,215,0,0.6)':'rgba(255,255,255,0.22)'} fontSize="8">{swapIdx!==null?`replacing slot ${swapIdx+1}`:'Tap a chord'}</text>
         </svg>
       </div>
+      {/* Ghost Chords Panel */}
+      {ghostChords.length>0&&<div style={{background:'rgba(199,125,255,0.06)',border:'1px dashed rgba(199,125,255,0.4)',borderRadius:14,padding:'12px 14px',marginTop:10}}>
+        <div style={{...S.lbl,color:'rgba(199,125,255,0.85)',marginBottom:6}}>Ghost Chords — Borrowed from parallel key</div>
+        <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginBottom:10,lineHeight:1.5}}>Outside your key but they blend. Tap one to hear it and shift the map.</div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {ghostChords.map((g,i)=><button key={i} onClick={()=>warpKey(g.chord,g.fromKey)} style={{background:'rgba(199,125,255,0.12)',border:'1px dashed rgba(199,125,255,0.55)',borderRadius:10,padding:'10px 16px',cursor:'pointer',color:'#C77DFF',fontWeight:700,fontSize:14,textAlign:'center',transition:'all 0.2s'}}>
+            <div>{g.chord}</div>
+            <div style={{fontSize:9,color:'rgba(199,125,255,0.65)',marginTop:3,fontWeight:500}}>from {g.fromKey.replace(' major','maj').replace(' minor','min')}</div>
+          </button>)}
+        </div>
+      </div>}
       {/* Legend */}
       <div style={{display:'flex',gap:10,padding:'10px 4px',marginTop:4,flexWrap:'wrap'}}>
         <div style={{display:'flex',alignItems:'center',gap:7,background:'rgba(255,215,0,0.08)',border:'1px solid rgba(255,215,0,0.25)',borderRadius:8,padding:'6px 10px',flex:1}}>
@@ -1164,7 +1203,7 @@ return(
     </div>}
 
   </main>
-  <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(255,107,107,0.5)}50%{box-shadow:0 0 22px rgba(255,107,107,0.9)}}@keyframes swapPulse{0%,100%{box-shadow:0 0 22px rgba(255,215,0,0.9),0 0 44px rgba(255,215,0,0.35)}50%{box-shadow:0 0 32px rgba(255,215,0,1),0 0 60px rgba(255,215,0,0.55)}}button:hover{filter:brightness(1.1)}button:active{transform:scale(0.97)!important}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}input[type=range]{-webkit-appearance:none;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;outline:none}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;box-shadow:0 0 8px rgba(78,205,196,0.5)}input[type=range]::-moz-range-thumb{width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;border:none}`}</style>
+  <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 12px rgba(255,107,107,0.5)}50%{box-shadow:0 0 22px rgba(255,107,107,0.9)}}@keyframes swapPulse{0%,100%{box-shadow:0 0 22px rgba(255,215,0,0.9),0 0 44px rgba(255,215,0,0.35)}50%{box-shadow:0 0 32px rgba(255,215,0,1),0 0 60px rgba(255,215,0,0.55)}}@keyframes svgRingPulse{0%,100%{stroke-opacity:0.45}50%{stroke-opacity:1}}button:hover{filter:brightness(1.1)}button:active{transform:scale(0.97)!important}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}input[type=range]{-webkit-appearance:none;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;outline:none}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;box-shadow:0 0 8px rgba(78,205,196,0.5)}input[type=range]::-moz-range-thumb{width:18px;height:18px;background:#4ECDC4;border-radius:50%;cursor:pointer;border:none}`}</style>
 </div>
 );
 }
