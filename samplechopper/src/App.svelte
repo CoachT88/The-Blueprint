@@ -427,7 +427,7 @@
       <span class="time-display">{fmt(currentTime)}</span>
     </div>
 
-    <!-- Auto-chop controls -->
+    <!-- Auto-chop controls (compact) -->
     <div class="chop-controls">
       <div class="sensitivity-row">
         <label class="sens-label" for="sens-range">
@@ -442,90 +442,52 @@
           class="range-slider"
         />
       </div>
-      <div class="sensitivity-row">
-        <label class="sens-label" for="pitch-range">
-          Pitch
-          <span class="sens-val">{pitchSemitones > 0 ? '+' : ''}{pitchSemitones} st</span>
-        </label>
-        <input
-          id="pitch-range"
-          type="range"
-          min="-12" max="12" step="1"
-          bind:value={pitchSemitones}
-          class="range-slider range-slider--pitch"
-        />
-      </div>
       <div class="chop-btn-row">
         <button class="btn-accent" on:click={autoChop}>
           <span>Auto Chop</span>
-          <span class="btn-sub">detect transients</span>
+          <span class="btn-sub">{chopCount > 0 ? `${chopCount} slices` : 'detect transients'}</span>
         </button>
-        <button class="btn-ghost" on:click={clearChops}>Clear All</button>
+        <button class="btn-ghost" on:click={clearChops}>Clear</button>
       </div>
     </div>
 
-    <!-- MPC pad grid (up to 16 pads) -->
-    {#if chopCount > 0}
-      <div class="pad-section">
-        <div class="pad-section-header">
-          <span>Audition Pads</span>
-          <span class="muted">
-            {pitchSemitones === 0 ? 'original pitch' : `${pitchSemitones > 0 ? '+' : ''}${pitchSemitones} semitones`}
-          </span>
-        </div>
-        <div class="pad-grid">
-          {#each { length: 16 } as _, i}
-            <button
-              class="pad"
-              class:pad--active={activePads.has(i)}
-              class:pad--empty={i >= chopCount}
-              on:click={() => playPad(i)}
-              style={i < chopCount ? `--pad-color:${DOT_COLORS[i % DOT_COLORS.length]}` : ''}
-              disabled={i >= chopCount}
-              aria-label={i < chopCount ? `Play chop ${i + 1}` : 'Empty pad'}
-            >
-              {#if i < chopCount}
-                <span class="pad-num">{i + 1}</span>
-                <span class="pad-dur">{chopDuration(i)}</span>
-              {/if}
-            </button>
-          {/each}
-        </div>
-      </div>
-    {/if}
+    <!-- Pitch slider — lives directly above the pads -->
+    <div class="pitch-row">
+      <span class="pitch-label">Pitch</span>
+      <input
+        id="pitch-range"
+        type="range"
+        min="-12" max="12" step="1"
+        bind:value={pitchSemitones}
+        class="range-slider range-slider--pitch"
+        aria-label="Pitch shift in semitones"
+      />
+      <span class="pitch-val">{pitchSemitones > 0 ? '+' : ''}{pitchSemitones === 0 ? '0' : pitchSemitones} st</span>
+    </div>
 
-    <!-- Chop list -->
-    {#if chopCount > 0}
-      <div class="chop-list">
-        <div class="chop-list-header">
-          <span>{chopCount} chop{chopCount !== 1 ? 's' : ''}</span>
-          <span class="muted">tap ✕ to merge with previous</span>
-        </div>
-        <div class="chop-scroll">
-          {#each { length: chopCount } as _, i}
-            <div class="chop-row">
-              <span
-                class="chop-dot"
-                style="background:{DOT_COLORS[i % DOT_COLORS.length]}"
-              ></span>
-              <span class="chop-num">#{i + 1}</span>
-              <span class="chop-times">{fmt(chopPoints[i])} → {fmt(chopPoints[i + 1])}</span>
-              <span class="chop-dur">{chopDuration(i)}</span>
-              {#if i > 0}
-                <button
-                  class="chop-del"
-                  on:click={() => removeChopPoint(i)}
-                  title="Remove this boundary"
-                  aria-label="Remove chop {i + 1} boundary"
-                >✕</button>
-              {:else}
-                <span class="chop-del-spacer"></span>
-              {/if}
-            </div>
-          {/each}
-        </div>
+    <!-- ── MPC PAD GRID — the instrument ─────────────────────────────── -->
+    <div class="pad-section">
+      <div class="pad-grid">
+        {#each { length: 16 } as _, i}
+          <button
+            class="pad"
+            class:pad--active={activePads.has(i)}
+            class:pad--empty={i >= chopCount}
+            on:pointerdown={() => playPad(i)}
+            style={i < chopCount ? `--pad-color:${DOT_COLORS[i % DOT_COLORS.length]}` : ''}
+            disabled={i >= chopCount}
+            aria-label={i < chopCount ? `Play chop ${i + 1}` : 'Empty pad'}
+          >
+            {#if i < chopCount}
+              <span class="pad-num">{i + 1}</span>
+              <span class="pad-dur">{chopDuration(i)}</span>
+            {:else}
+              <span class="pad-empty-dot"></span>
+            {/if}
+          </button>
+        {/each}
       </div>
-    {/if}
+    </div>
 
     <!-- Export -->
     <div class="export-bar">
@@ -861,83 +823,32 @@
     gap: 10px;
   }
 
-  /* ── Chop list ───────────────────────────────────────────────────────── */
-  .chop-list {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .chop-list-header {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 20px 6px;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: #636366;
-  }
-  .chop-scroll {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    max-height: 220px;
-    padding: 0 16px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .chop-row {
+  /* ── Pitch row ───────────────────────────────────────────────────────── */
+  .pitch-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: #1c1c1e;
-    border-radius: 10px;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #111;
+    border-bottom: 1px solid #1c1c1e;
   }
-  .chop-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .chop-num {
-    font-size: 12px;
-    font-weight: 600;
-    color: #636366;
-    min-width: 30px;
-    font-variant-numeric: tabular-nums;
-  }
-  .chop-times {
-    flex: 1;
-    font-size: 13px;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .chop-dur {
+  .pitch-label {
     font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     color: #636366;
+    flex-shrink: 0;
+    width: 36px;
+  }
+  .pitch-val {
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
-    min-width: 46px;
+    color: #00e5ff;
+    flex-shrink: 0;
+    width: 36px;
     text-align: right;
   }
-  .chop-del {
-    background: none;
-    border: none;
-    color: #48484a;
-    font-size: 13px;
-    cursor: pointer;
-    padding: 4px;
-    min-width: 28px;
-    min-height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    flex-shrink: 0;
-  }
-  .chop-del:active { background: rgba(255,69,58,0.2); color: #ff453a; }
-  .chop-del-spacer { width: 28px; flex-shrink: 0; }
 
   /* ── Export bar ──────────────────────────────────────────────────────── */
   .export-bar {
@@ -1037,76 +948,93 @@
     white-space: nowrap;
     border: 0;
   }
-  .muted { color: #3a3a3c; }
-
   /* ── Pitch slider accent ─────────────────────────────────────────────── */
   .range-slider--pitch::-webkit-slider-thumb { background: #00e5ff; box-shadow: 0 2px 8px rgba(0,229,255,0.45); }
   .range-slider--pitch::-moz-range-thumb     { background: #00e5ff; }
 
-  /* ── MPC pad grid ────────────────────────────────────────────────────── */
+  /* ── MPC pad grid — the instrument ──────────────────────────────────── */
   .pad-section {
-    border-bottom: 1px solid #1c1c1e;
-  }
-  .pad-section-header {
+    flex: 1;                       /* fills all remaining vertical space    */
     display: flex;
-    justify-content: space-between;
-    padding: 10px 20px 4px;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: #636366;
+    flex-direction: column;
+    padding: 12px 12px 8px;
+    min-height: 0;
   }
   .pad-grid {
+    flex: 1;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    padding: 8px 16px 16px;
+    grid-template-rows: repeat(4, 1fr);
+    gap: 10px;
+    min-height: 0;
   }
   .pad {
-    aspect-ratio: 1;
-    border-radius: 10px;
+    border-radius: 12px;
     background: #1c1c1e;
-    border: 1.5px solid var(--pad-color, transparent);
+    border: 2px solid var(--pad-color, #2c2c2e);
     color: #f2f2f7;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    padding: 4px;
+    gap: 4px;
     position: relative;
     overflow: hidden;
-    transition: transform 0.07s;
+    /* hardware-accelerated press feedback — no layout reflow on mobile */
+    transition: transform 0.06s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                background 0.06s;
     -webkit-appearance: none;
+    touch-action: manipulation;    /* prevents 300 ms tap delay on iOS      */
+    user-select: none;
+    -webkit-user-select: none;
+    width: 100%;
+    height: 100%;
   }
-  /* Tinted fill using the pad colour */
+  /* Colour tint fill */
   .pad::before {
     content: '';
     position: absolute;
     inset: 0;
     background: var(--pad-color, transparent);
-    opacity: 0.12;
-    border-radius: inherit;
+    opacity: 0.10;
     pointer-events: none;
   }
-  .pad:active  { transform: scale(0.88); }
-  .pad--active { transform: scale(0.88); border-color: var(--pad-color, #ff6b35); }
-  .pad--active::before { opacity: 0.32; }
-  .pad--empty  { opacity: 0.15; cursor: default; border-color: transparent !important; }
+  /* Press state — fires instantly via pointerdown */
+  .pad:active,
+  .pad--active {
+    transform: scale(0.90);
+    border-color: var(--pad-color, #ff6b35);
+    background: #2c2c2e;
+  }
+  .pad--active::before { opacity: 0.28; }
+  /* Empty / no chop assigned */
+  .pad--empty {
+    opacity: 0.18;
+    cursor: default;
+    border-color: #1c1c1e !important;
+    background: #111 !important;
+  }
   .pad--empty::before { display: none; }
   .pad-num {
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 18px;
+    font-weight: 800;
     line-height: 1;
     position: relative;
     z-index: 1;
+    color: #f2f2f7;
   }
   .pad-dur {
-    font-size: 9px;
+    font-size: 10px;
     color: #8e8e93;
     position: relative;
     z-index: 1;
     font-variant-numeric: tabular-nums;
+  }
+  .pad-empty-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2c2c2e;
   }
 </style>
