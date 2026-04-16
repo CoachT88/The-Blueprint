@@ -30,6 +30,49 @@
   let isPlaying   = false
   let currentTime = 0
 
+  // ── Pads — MPC audition grid ──────────────────────────────────────────────
+  // All pads share the single audioCtx — never create per-pad contexts.
+  let pitchSemitones = 0
+  $: playbackRate = 2 ** (pitchSemitones / 12)   // vinyl-style: pitch changes speed
+
+  let activePads  = new Set()   // reactive Set drives pad--active CSS
+  const padSources = {}          // padIndex → AudioBufferSourceNode (non-reactive)
+
+  function playPad(i) {
+    if (!audioCtx || !audioBuffer || i >= chopCount) return
+    unlockAudio()
+
+    // Retrigger: stop any still-playing source for this slot
+    if (padSources[i]) {
+      try { padSources[i].stop() } catch (_) {}
+      delete padSources[i]
+    }
+
+    const src = audioCtx.createBufferSource()
+    src.buffer            = audioBuffer
+    src.playbackRate.value = playbackRate
+    src.connect(audioCtx.destination)
+
+    const offset  = chopPoints[i]
+    const chopLen = chopPoints[i + 1] - chopPoints[i]
+    src.start(0, offset, chopLen)
+    padSources[i] = src
+
+    activePads = new Set([...activePads, i])
+    src.onended = () => {
+      delete padSources[i]
+      activePads = new Set([...activePads].filter(x => x !== i))
+    }
+  }
+
+  function stopAllPads() {
+    for (const src of Object.values(padSources)) {
+      try { src.stop() } catch (_) {}
+    }
+    for (const k of Object.keys(padSources)) delete padSources[k]
+    activePads = new Set()
+  }
+
   // ── Zoom ─────────────────────────────────────────────────────────────────
   // pixels-per-second; 0 = fit-to-container (default overview)
   let zoomPx = 0
@@ -85,11 +128,13 @@
       wsRegions   = null
     }
 
-    state       = 'loading'
-    errorMsg    = ''
-    fileName    = file.name
-    audioBuffer = null
-    zoomPx      = 0
+    stopAllPads()
+    state          = 'loading'
+    errorMsg       = ''
+    fileName       = file.name
+    audioBuffer    = null
+    zoomPx         = 0
+    pitchSemitones = 0
 
     try {
       const mimeType  = file.type || 'audio/mpeg'
@@ -208,7 +253,7 @@
   // ── Auto-chop ─────────────────────────────────────────────────────────────
   function autoChop() {
     if (!audioBuffer) return
-    const transients = detectTransients(audioBuffer, { threshold: sensitivity })
+    const transients = detectTransients(audioBuffer, { threshold: sensitivity, minGap: 0.25 })
     const raw        = [0, ...transients, duration]
     const seen       = new Set()
     chopPoints = raw
@@ -219,6 +264,7 @@
   }
 
   function clearChops() {
+    stopAllPads()
     chopPoints = [0, duration]
     redrawRegions()
   }
@@ -267,6 +313,7 @@
   }
 
   onDestroy(() => {
+    stopAllPads()
     wavesurfer?.destroy()
     audioCtx?.close()
     audioBuffer = null
@@ -301,7 +348,7 @@
         New
         <input
           type="file"
-          accept="audio/*,video/mp4,video/quicktime"
+          accept="audio/*, video/*, .mp3, .wav, .m4a, .mp4, .mov, .aiff, .ogg, .flac"
           on:change={handleFileSelect}
           class="sr-only"
         />
@@ -325,7 +372,7 @@
         Upload Sample
         <input
           type="file"
-          accept="audio/*,video/mp4,video/quicktime"
+          accept="audio/*, video/*, .mp3, .wav, .m4a, .mp4, .mov, .aiff, .ogg, .flac"
           on:change={handleFileSelect}
           class="sr-only"
         />
@@ -395,6 +442,19 @@
           class="range-slider"
         />
       </div>
+      <div class="sensitivity-row">
+        <label class="sens-label" for="pitch-range">
+          Pitch
+          <span class="sens-val">{pitchSemitones > 0 ? '+' : ''}{pitchSemitones} st</span>
+        </label>
+        <input
+          id="pitch-range"
+          type="range"
+          min="-12" max="12" step="1"
+          bind:value={pitchSemitones}
+          class="range-slider range-slider--pitch"
+        />
+      </div>
       <div class="chop-btn-row">
         <button class="btn-accent" on:click={autoChop}>
           <span>Auto Chop</span>
@@ -403,6 +463,36 @@
         <button class="btn-ghost" on:click={clearChops}>Clear All</button>
       </div>
     </div>
+
+    <!-- MPC pad grid (up to 16 pads) -->
+    {#if chopCount > 0}
+      <div class="pad-section">
+        <div class="pad-section-header">
+          <span>Audition Pads</span>
+          <span class="muted">
+            {pitchSemitones === 0 ? 'original pitch' : `${pitchSemitones > 0 ? '+' : ''}${pitchSemitones} semitones`}
+          </span>
+        </div>
+        <div class="pad-grid">
+          {#each { length: 16 } as _, i}
+            <button
+              class="pad"
+              class:pad--active={activePads.has(i)}
+              class:pad--empty={i >= chopCount}
+              on:click={() => playPad(i)}
+              style={i < chopCount ? `--pad-color:${DOT_COLORS[i % DOT_COLORS.length]}` : ''}
+              disabled={i >= chopCount}
+              aria-label={i < chopCount ? `Play chop ${i + 1}` : 'Empty pad'}
+            >
+              {#if i < chopCount}
+                <span class="pad-num">{i + 1}</span>
+                <span class="pad-dur">{chopDuration(i)}</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
 
     <!-- Chop list -->
     {#if chopCount > 0}
@@ -948,4 +1038,75 @@
     border: 0;
   }
   .muted { color: #3a3a3c; }
+
+  /* ── Pitch slider accent ─────────────────────────────────────────────── */
+  .range-slider--pitch::-webkit-slider-thumb { background: #00e5ff; box-shadow: 0 2px 8px rgba(0,229,255,0.45); }
+  .range-slider--pitch::-moz-range-thumb     { background: #00e5ff; }
+
+  /* ── MPC pad grid ────────────────────────────────────────────────────── */
+  .pad-section {
+    border-bottom: 1px solid #1c1c1e;
+  }
+  .pad-section-header {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 20px 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #636366;
+  }
+  .pad-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 8px 16px 16px;
+  }
+  .pad {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    background: #1c1c1e;
+    border: 1.5px solid var(--pad-color, transparent);
+    color: #f2f2f7;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.07s;
+    -webkit-appearance: none;
+  }
+  /* Tinted fill using the pad colour */
+  .pad::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--pad-color, transparent);
+    opacity: 0.12;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  .pad:active  { transform: scale(0.88); }
+  .pad--active { transform: scale(0.88); border-color: var(--pad-color, #ff6b35); }
+  .pad--active::before { opacity: 0.32; }
+  .pad--empty  { opacity: 0.15; cursor: default; border-color: transparent !important; }
+  .pad--empty::before { display: none; }
+  .pad-num {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+  }
+  .pad-dur {
+    font-size: 9px;
+    color: #8e8e93;
+    position: relative;
+    z-index: 1;
+    font-variant-numeric: tabular-nums;
+  }
 </style>

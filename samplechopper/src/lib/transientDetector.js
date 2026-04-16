@@ -20,7 +20,7 @@ export function detectTransients(audioBuffer, {
   frameSize = 512,
   hopSize   = 256,
   threshold = 0.15,
-  minGap    = 0.08,
+  minGap    = 0.25,   // 250 ms — enforces real drum hits, not micro-fluctuations
 } = {}) {
   const data     = toMono(audioBuffer)
   const sr       = audioBuffer.sampleRate
