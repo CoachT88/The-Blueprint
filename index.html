@@ -7,7 +7,7 @@
     <title>THE BLUEPRINT | Session Pilot</title>
     <meta name="theme-color" content="#020617">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2.46.0/dist/umd/supabase.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700&display=swap');
@@ -3746,7 +3746,10 @@ async function handleAuthSubmit(){
             }
         }
         if(result.error){
-            setAuthError('Error: '+result.error.message+' ('+result.error.status+')');
+            const msg = result.error.status===0
+                ? 'Network error — check your connection or try again in a moment.'
+                : 'Error: '+result.error.message;
+            setAuthError(msg);
             btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
             btn.disabled=false;return;
         }
