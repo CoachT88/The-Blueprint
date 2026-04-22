@@ -743,17 +743,21 @@ const replayTake=useCallback((take)=>{
   replayTids.current.forEach(clearTimeout);
   replayTids.current=[];
   setRecState('replaying');
-  take.events.forEach(ev=>{
+  take.events.forEach((ev,i)=>{
+    const nextT=take.events[i+1]?.t;
+    // Duration = gap to next tap, scaled to 0.88 so chords don't bleed into each other.
+    // Last chord gets 2s or the median gap, whichever is larger.
+    const dur=nextT!=null?Math.max(0.18,(nextT-ev.t)/1000*0.88):2.0;
     const tid=setTimeout(()=>{
-      audio.playChord(cn(pc(ev.chord).r,pc(ev.chord).t,3));
+      audio.playChord(cn(pc(ev.chord).r,pc(ev.chord).t,3),dur,stg);
       setSch(ev.mapChord||pc(ev.chord).r);
       setReplayChord(ev.chord);
     },ev.t);
     replayTids.current.push(tid);
   });
   const lastT=take.events[take.events.length-1]?.t||0;
-  replayTids.current.push(setTimeout(()=>{setRecState('idle');setReplayChord(null);setSch(null);},lastT+1800));
-},[]);
+  replayTids.current.push(setTimeout(()=>{setRecState('idle');setReplayChord(null);setSch(null);},lastT+2400));
+},[stg]);
 
 const stopReplay=useCallback(()=>{
   replayTids.current.forEach(clearTimeout);
