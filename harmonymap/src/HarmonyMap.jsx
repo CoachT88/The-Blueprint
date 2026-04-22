@@ -75,7 +75,7 @@ const ENH={Cb:'B',Fb:'E','E#':'F','B#':'C'};
 const CT={major:{iv:[0,4,7],q:'major'},minor:{iv:[0,3,7],q:'minor'},dim:{iv:[0,3,6],q:'diminished'},aug:{iv:[0,4,8],q:'augmented'},dom7:{iv:[0,4,7,10],q:'dominant'},maj7:{iv:[0,4,7,11],q:'major'},min7:{iv:[0,3,7,10],q:'minor'},'m7b5':{iv:[0,3,6,10],q:'diminished'},sus2:{iv:[0,2,7],q:'suspended'},sus4:{iv:[0,5,7],q:'suspended'},add9:{iv:[0,4,7,14],q:'major'}};
 function cn(root,type,oct=4){const r=ENH[root]||root;const ri=NN.indexOf(r)!==-1?NN.indexOf(r):FN.indexOf(r);if(ri===-1)return[];const d=CT[type];if(!d)return[];return d.iv.map(v=>{const ni=(ri+v)%12;return NN[ni]+(oct+Math.floor((ri+v)/12));});}
 function pc(sym){const m=sym.match(/^([A-G][#b]?)(m7b5|m7|maj7|add9|sus2|sus4|°|\+|m|7)?$/);if(!m)return{r:'C',t:'major'};const M={'':'major',m:'minor','°':'dim','+':'aug','7':'dom7',maj7:'maj7',m7:'min7',m7b5:'m7b5',sus2:'sus2',sus4:'sus4',add9:'add9'};return{r:m[1],t:M[m[2]||'']||'major'};}
-function cc(s){const q=CT[pc(s).t]?.q;return{major:'#FF4D6D',minor:'#00F0C8',diminished:'#D946EF',augmented:'#A3E635',dominant:'#FF8C00',suspended:'#38BDF8'}[q]||'#fff';}
+function cc(s){const q=CT[pc(s).t]?.q;return{major:'#FF3D6A',minor:'#00FFD0',diminished:'#E040FB',augmented:'#B5F000',dominant:'#FF9500',suspended:'#29D4FF'}[q]||'#fff';}
 function ql(s){const q=CT[pc(s).t]?.q;return{major:'Major',minor:'Minor',diminished:'Diminished',augmented:'Augmented',dominant:'Dominant 7th',suspended:'Suspended'}[q]||'Chord';}
 
 const IVS=[{s:0,n:'Unison',sn:'P1',f:'Identity — pure stillness',c:'perfect'},{s:1,n:'Minor 2nd',sn:'m2',f:'Tension — two notes pressing together',c:'dissonant'},{s:2,n:'Major 2nd',sn:'M2',f:'Gentle movement — a step forward',c:'mild'},{s:3,n:'Minor 3rd',sn:'m3',f:'Sadness, tenderness — heart of minor',c:'consonant'},{s:4,n:'Major 3rd',sn:'M3',f:'Brightness, joy — heart of major',c:'consonant'},{s:5,n:'Perfect 4th',sn:'P4',f:'Openness — floating, calm suspension',c:'perfect'},{s:6,n:'Tritone',sn:'TT',f:'Maximum tension — wants to resolve desperately',c:'dissonant'},{s:7,n:'Perfect 5th',sn:'P5',f:'Power — foundation of almost all chords',c:'perfect'},{s:8,n:'Minor 6th',sn:'m6',f:'Longing — aches gorgeously',c:'consonant'},{s:9,n:'Major 6th',sn:'M6',f:'Warmth, nostalgia — golden and familiar',c:'consonant'},{s:10,n:'Minor 7th',sn:'m7',f:'Bluesy pull — cool tension',c:'mild'},{s:11,n:'Major 7th',sn:'M7',f:'Dreamy tension — floating below resolution',c:'dissonant'},{s:12,n:'Octave',sn:'P8',f:'Completion — same note higher',c:'perfect'}];
@@ -153,10 +153,10 @@ function generateBlueprint(prog,k){const f=prog.filter(s=>s&&s!=='REST');if(f.le
 function vibeScore(prog){const f=prog.filter(s=>s&&s!=='REST');if(f.length<2)return{score:0,label:'Too short'};const tls=f.slice(1).map((c,i)=>tensionLevel(f[i],c));const avg=tls.reduce((a,b)=>a+b,0)/(tls.length||1);const spread=Math.max(...tls)-Math.min(...tls);const raw=Math.round(100-Math.abs(avg-2.2)*12-(spread>3?8:0));const score=Math.max(10,Math.min(100,raw));const label=score>=85?'Smooth Flow':score>=70?'Dynamic Groove':score>=50?'Tension Builder':'Wild Card';return{score,label};}
 
 const S={
-card:(bc='rgba(255,255,255,0.06)')=>({background:'rgba(255,255,255,0.04)',borderRadius:16,padding:16,border:`1px solid ${bc}`,marginBottom:12}),
-lbl:{fontSize:10,color:'rgba(255,255,255,0.35)',fontWeight:700,textTransform:'uppercase',letterSpacing:1,marginBottom:6,marginTop:0},
-btn:(bg='rgba(255,255,255,0.08)',c='#fff',bc='rgba(255,255,255,0.12)')=>({background:bg,border:`1px solid ${bc}`,borderRadius:10,padding:'8px 16px',color:c,cursor:'pointer',fontSize:12,fontWeight:600,transition:'all 0.2s'}),
-pill:(col,play=false)=>({display:'inline-flex',alignItems:'center',justifyContent:'center',background:col+'20',color:col,border:`1.5px solid ${col}60`,borderRadius:10,padding:'6px 14px',fontSize:15,fontWeight:700,boxShadow:play?`0 0 15px ${col}60`:'none',transform:play?'scale(1.08)':'scale(1)',transition:'all 0.2s',cursor:'pointer'}),
+card:(bc='rgba(255,255,255,0.10)')=>({background:'rgba(255,255,255,0.07)',borderRadius:16,padding:16,border:`1px solid ${bc}`,marginBottom:12}),
+lbl:{fontSize:10,color:'rgba(255,255,255,0.45)',fontWeight:700,textTransform:'uppercase',letterSpacing:1,marginBottom:6,marginTop:0},
+btn:(bg='rgba(255,255,255,0.10)',c='#fff',bc='rgba(255,255,255,0.16)')=>({background:bg,border:`1px solid ${bc}`,borderRadius:10,padding:'8px 16px',color:c,cursor:'pointer',fontSize:12,fontWeight:600,transition:'all 0.2s'}),
+pill:(col,play=false)=>({display:'inline-flex',alignItems:'center',justifyContent:'center',background:col+'28',color:col,border:`1.5px solid ${col}70`,borderRadius:10,padding:'6px 14px',fontSize:15,fontWeight:700,boxShadow:play?`0 0 18px ${col}70`:'none',transform:play?'scale(1.08)':'scale(1)',transition:'all 0.2s',cursor:'pointer'}),
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -454,56 +454,103 @@ backdropFilter: 'blur(12px)',
 // ═══════════════════════════════════════════════════════════════
 // FLOATING RECORDER COMPONENT
 // ═══════════════════════════════════════════════════════════════
-function FloatingRecorder({recState,takes,setTakes,recElapsed,recChordCount,replayChord,onStart,onStop,onStopReplay,onReplay,onLoad}){
-const[panelOpen,setPanelOpen]=useState(false);
+function FloatingRecorder({recState,takes,setTakes,recElapsed,recChordCount,replayChord,onStart,onStop,onStopReplay,onReplay}){
+const[histOpen,setHistOpen]=useState(false);
 const isRec=recState==='recording';
 const isRepl=recState==='replaying';
-const btnClick=()=>{
-  if(isRec){onStop();return;}
-  if(isRepl){onStopReplay();return;}
-  if(takes.length>0){setPanelOpen(v=>!v);return;}
-  onStart();
-};
+const mm=String(Math.floor(recElapsed/60)).padStart(2,'0');
+const ss=String(recElapsed%60).padStart(2,'0');
 return(<>
-  {panelOpen&&!isRec&&!isRepl&&(
-    <div style={{position:'fixed',bottom:76,left:66,zIndex:300,background:'rgba(8,8,20,0.97)',backdropFilter:'blur(24px)',border:'1.5px solid rgba(255,77,109,0.3)',borderRadius:16,padding:12,boxShadow:'0 4px 32px rgba(0,0,0,0.7)',width:250,maxHeight:380,overflowY:'auto',animation:'fadeIn 0.2s'}}>
+  {/* History panel — opens above the history button */}
+  {histOpen&&!isRec&&!isRepl&&(
+    <div style={{position:'fixed',bottom:130,left:14,zIndex:300,background:'rgba(8,8,20,0.97)',backdropFilter:'blur(24px)',border:'1.5px solid rgba(255,77,109,0.28)',borderRadius:16,padding:12,boxShadow:'0 4px 32px rgba(0,0,0,0.7)',width:248,maxHeight:340,overflowY:'auto',animation:'fadeIn 0.2s'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-        <span style={{fontSize:10,color:'#FF4D6D',fontWeight:800,textTransform:'uppercase',letterSpacing:1}}>Session Takes</span>
-        <button onClick={()=>{setPanelOpen(false);onStart();}} style={{background:'rgba(255,77,109,0.18)',border:'1px solid rgba(255,77,109,0.4)',borderRadius:12,padding:'3px 9px',color:'#FF4D6D',cursor:'pointer',fontSize:9,fontWeight:800}}>⏺ New</button>
+        <span style={{fontSize:10,color:'#FF4D6D',fontWeight:800,textTransform:'uppercase',letterSpacing:1}}>Recorded Takes</span>
+        <button onClick={()=>setHistOpen(false)} style={{background:'none',border:'none',color:'rgba(255,255,255,0.3)',cursor:'pointer',fontSize:14,lineHeight:1}}>×</button>
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
         {takes.map(take=>(
-          <div key={take.id} style={{background:'rgba(0,0,0,0.3)',borderRadius:10,padding:'8px 10px',border:'1px solid rgba(255,255,255,0.06)'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
+          <div key={take.id} style={{background:'rgba(255,255,255,0.04)',borderRadius:10,padding:'8px 10px',border:'1px solid rgba(255,255,255,0.07)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
               <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                <span style={{fontSize:9,color:'rgba(255,255,255,0.6)',fontWeight:700}}>{take.key.replace(' major','').replace(' minor','m')}</span>
+                <span style={{fontSize:9,color:'rgba(255,255,255,0.65)',fontWeight:700}}>{take.key.replace(' major','').replace(' minor','m')}</span>
                 <span style={{fontSize:8,color:'rgba(255,255,255,0.2)'}}>·</span>
-                <span style={{fontSize:9,color:'rgba(255,255,255,0.4)'}}>{take.chordCount}c</span>
+                <span style={{fontSize:9,color:'rgba(255,255,255,0.4)'}}>{take.chordCount} chords</span>
                 <span style={{fontSize:8,color:'rgba(255,255,255,0.2)'}}>·</span>
-                <span style={{fontSize:9,color:'rgba(255,255,255,0.35)'}}>{Math.round(take.duration/1000)}s</span>
+                <span style={{fontSize:9,color:'rgba(255,255,255,0.3)'}}>{Math.round(take.duration/1000)}s</span>
               </div>
               <div style={{display:'flex',gap:3}}>
-                <button onClick={()=>onReplay(take)} disabled={recState!=='idle'} style={{background:'rgba(0,240,200,0.15)',border:'1px solid rgba(0,240,200,0.3)',borderRadius:6,padding:'2px 7px',color:'#00F0C8',cursor:'pointer',fontSize:9,fontWeight:700,opacity:recState!=='idle'?0.4:1}}>▶</button>
-                <button onClick={()=>{onLoad(take);setPanelOpen(false);}} style={{background:'rgba(199,125,255,0.15)',border:'1px solid rgba(199,125,255,0.3)',borderRadius:6,padding:'2px 7px',color:'#C77DFF',cursor:'pointer',fontSize:9,fontWeight:700}}>↗</button>
-                <button onClick={()=>setTakes(prev=>prev.filter(t=>t.id!==take.id))} style={{background:'none',border:'none',color:'rgba(255,255,255,0.2)',cursor:'pointer',fontSize:11,padding:'0 2px'}}>×</button>
+                <button onClick={()=>onReplay(take)} disabled={recState!=='idle'} style={{background:'rgba(0,240,200,0.15)',border:'1px solid rgba(0,240,200,0.3)',borderRadius:6,padding:'2px 8px',color:'#00F0C8',cursor:'pointer',fontSize:9,fontWeight:700,opacity:recState!=='idle'?0.4:1}}>▶ Play</button>
+                <button onClick={()=>setTakes(prev=>prev.filter(t=>t.id!==take.id))} style={{background:'none',border:'none',color:'rgba(255,255,255,0.2)',cursor:'pointer',fontSize:13,padding:'0 2px',lineHeight:1}}>×</button>
               </div>
             </div>
             <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
-              {take.events.slice(0,10).map((ev,i)=>(
-                <span key={i} style={{fontSize:8,fontWeight:700,color:replayChord===ev.chord&&isRepl?cc(ev.chord):'rgba(255,255,255,0.4)',background:replayChord===ev.chord&&isRepl?cc(ev.chord)+'20':'rgba(255,255,255,0.05)',borderRadius:4,padding:'1px 4px',border:`1px solid ${replayChord===ev.chord&&isRepl?cc(ev.chord)+'50':'rgba(255,255,255,0.06)'}`,transition:'all 0.1s'}}>{ev.chord}</span>
+              {take.events.slice(0,12).map((ev,i)=>(
+                <span key={i} style={{fontSize:8,fontWeight:700,color:replayChord===ev.chord&&isRepl?cc(ev.chord):'rgba(255,255,255,0.38)',background:replayChord===ev.chord&&isRepl?cc(ev.chord)+'22':'rgba(255,255,255,0.04)',borderRadius:4,padding:'1px 4px',border:`1px solid ${replayChord===ev.chord&&isRepl?cc(ev.chord)+'55':'rgba(255,255,255,0.07)'}`,transition:'all 0.1s'}}>{ev.chord}</span>
               ))}
-              {take.events.length>10&&<span style={{fontSize:7,color:'rgba(255,255,255,0.2)'}}>+{take.events.length-10}</span>}
+              {take.events.length>12&&<span style={{fontSize:7,color:'rgba(255,255,255,0.2)'}}>+{take.events.length-12}</span>}
             </div>
           </div>
         ))}
       </div>
     </div>
   )}
-  <button onClick={btnClick} style={{position:'fixed',bottom:76,left:14,zIndex:300,background:isRec?'rgba(255,77,109,0.2)':isRepl?'rgba(0,240,200,0.15)':'rgba(10,10,26,0.88)',border:`1.5px solid ${isRec?'rgba(255,77,109,0.7)':isRepl?'rgba(0,240,200,0.5)':panelOpen?'rgba(255,77,109,0.45)':'rgba(255,255,255,0.1)'}`,borderRadius:isRec?22:'50%',height:44,minWidth:44,padding:isRec?'0 10px':0,color:isRec?'#FF4D6D':isRepl?'#00F0C8':takes.length>0?'#FF4D6D':'rgba(255,255,255,0.35)',cursor:'pointer',fontSize:isRec?10:16,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',gap:5,boxShadow:isRec?'0 0 20px rgba(255,77,109,0.55)':'0 2px 8px rgba(0,0,0,0.4)',backdropFilter:'blur(12px)',transition:'all 0.25s',animation:isRec?'pulse 1.4s ease-in-out infinite':'none',whiteSpace:'nowrap'}}>
-    {isRec?(<><span style={{width:7,height:7,borderRadius:2,background:'#FF4D6D',flexShrink:0}}/><span>{String(Math.floor(recElapsed/60)).padStart(2,'0')}:{String(recElapsed%60).padStart(2,'0')}</span><span style={{opacity:0.5,fontSize:8}}>{recChordCount}</span></>):isRepl?'↺':'⏺'}
+
+  {/* Main record button — always ⏺ Rec when idle, pill while recording */}
+  <button
+    onClick={()=>{
+      if(isRec){onStop();return;}
+      if(isRepl){onStopReplay();return;}
+      onStart();
+    }}
+    style={{
+      position:'fixed',bottom:76,left:14,zIndex:300,
+      background:isRec?'rgba(255,50,80,0.22)':isRepl?'rgba(0,240,200,0.15)':'rgba(10,10,26,0.88)',
+      border:`1.5px solid ${isRec?'rgba(255,77,109,0.75)':isRepl?'rgba(0,240,200,0.55)':'rgba(255,77,109,0.35)'}`,
+      borderRadius:isRec?22:'50%',
+      height:44,minWidth:44,
+      padding:isRec?'0 12px':0,
+      color:isRec?'#FF4D6D':isRepl?'#00F0C8':'#FF4D6D',
+      cursor:'pointer',fontSize:isRec?11:15,fontWeight:800,
+      display:'flex',alignItems:'center',justifyContent:'center',gap:6,
+      boxShadow:isRec?'0 0 22px rgba(255,77,109,0.6),0 0 8px rgba(255,77,109,0.3)':'0 0 14px rgba(255,77,109,0.25)',
+      backdropFilter:'blur(12px)',
+      transition:'all 0.25s',
+      animation:isRec?'pulse 1.4s ease-in-out infinite':'none',
+      whiteSpace:'nowrap',
+    }}>
+    {isRec?(
+      <>
+        <span style={{width:8,height:8,borderRadius:2,background:'#FF4D6D',flexShrink:0,boxShadow:'0 0 6px #FF4D6D'}}/>
+        <span>{mm}:{ss}</span>
+        <span style={{opacity:0.55,fontSize:9,fontWeight:700}}>{recChordCount}</span>
+      </>
+    ):isRepl?(
+      <span style={{fontSize:11,fontWeight:800}}>■ Stop</span>
+    ):(
+      <span style={{fontSize:11,fontWeight:800}}>⏺ Rec</span>
+    )}
   </button>
+
+  {/* History button — only when takes exist and not recording/replaying */}
   {takes.length>0&&!isRec&&!isRepl&&(
-    <div style={{position:'fixed',bottom:114,left:28,zIndex:301,background:'#FF4D6D',borderRadius:'50%',width:16,height:16,fontSize:8,fontWeight:900,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 0 8px rgba(255,77,109,0.7)',pointerEvents:'none'}}>{takes.length}</div>
+    <button
+      onClick={()=>setHistOpen(v=>!v)}
+      style={{
+        position:'fixed',bottom:76,left:66,zIndex:300,
+        background:histOpen?'rgba(255,77,109,0.18)':'rgba(10,10,26,0.82)',
+        border:`1px solid ${histOpen?'rgba(255,77,109,0.5)':'rgba(255,255,255,0.1)'}`,
+        borderRadius:22,height:44,minWidth:36,padding:'0 10px',
+        color:histOpen?'#FF4D6D':'rgba(255,255,255,0.4)',
+        cursor:'pointer',fontSize:9,fontWeight:800,
+        display:'flex',alignItems:'center',justifyContent:'center',gap:4,
+        backdropFilter:'blur(12px)',
+        transition:'all 0.2s',
+        boxShadow:histOpen?'0 0 14px rgba(255,77,109,0.35)':'none',
+      }}>
+      <span style={{fontSize:12}}>◎</span>
+      <span>{takes.length}</span>
+    </button>
   )}
 </>);}
 
@@ -731,13 +778,29 @@ const startRec=useCallback(()=>{
 const stopRec=useCallback(()=>{
   isRecording.current=false;
   clearInterval(recElapsedTid.current);
-  if(recEventsRef.current.length>0){
+  const evs=recEventsRef.current;
+  if(evs.length>0){
     const duration=Date.now()-recStartRef.current;
-    const take={id:Date.now(),key:sk,events:[...recEventsRef.current],duration,date:new Date().toLocaleTimeString(),chordCount:recEventsRef.current.length};
+    const take={id:Date.now(),key:sk,events:[...evs],duration,date:new Date().toLocaleTimeString(),chordCount:evs.length};
     setTakes(prev=>[take,...prev].slice(0,10));
+    // Compute rhythm pattern from inter-chord gaps then load to grid + auto-loop
+    const beatPerMs=bpm/60000;
+    const recPat=evs.slice(0,16).map((ev,i)=>{
+      const nextT=evs[i+1]?.t;
+      if(nextT!=null)return Math.max(0.25,Math.round((nextT-ev.t)*beatPerMs*4)/4);
+      return 4;
+    });
+    const chords=evs.slice(0,16).map(e=>e.chord);
+    setProg(chords);
+    setRhythmPat(recPat);
+    setTimeout(()=>{
+      const n=chords.map(ch=>ch==='REST'?null:cn(pc(ch).r,pc(ch).t,3));
+      setProgLooping(true);
+      audio.playLoop(n,bpm,i=>setPi(i),beats,stg,recPat);
+    },220);
   }
   setRecState('idle');
-},[sk]);
+},[sk,bpm,beats,stg]);
 
 const replayTake=useCallback((take)=>{
   replayTids.current.forEach(clearTimeout);
@@ -905,8 +968,8 @@ const isAudioActive = pa || progLooping || pi >= 0 || pRow >= 0;
 
 return(
 
-<div style={{width:'100%',minHeight:'100vh',background:em?em.gr:'linear-gradient(135deg,#09091e,#160830,#060f22)',color:'#F0F0F0',fontFamily:"'Segoe UI','SF Pro Display',-apple-system,sans-serif",position:'relative',overflow:'hidden',transition:'background 0.8s'}}>
-<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:`radial-gradient(ellipse at 15% 12%,${em?em.co[0]+'28':'#FF4D6D28'} 0%,transparent 50%),radial-gradient(ellipse at 85% 80%,${em?em.co[1]+'22':'#00F0C820'} 0%,transparent 50%),radial-gradient(ellipse at 55% 45%,${em?em.co[0]+'10':'#D946EF14'} 0%,transparent 45%)`,pointerEvents:'none',zIndex:0,animation:'orbFloat 14s ease-in-out infinite'}}/>
+<div style={{width:'100%',minHeight:'100vh',background:em?em.gr:'linear-gradient(135deg,#0d0d24,#1a0a38,#060f26)',color:'#F2F2F2',fontFamily:"'Segoe UI','SF Pro Display',-apple-system,sans-serif",position:'relative',overflow:'hidden',transition:'background 0.8s'}}>
+<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:`radial-gradient(ellipse at 15% 12%,${em?em.co[0]+'40':'#FF4D6D40'} 0%,transparent 52%),radial-gradient(ellipse at 85% 80%,${em?em.co[1]+'32':'#00F0C830'} 0%,transparent 52%),radial-gradient(ellipse at 55% 45%,${em?em.co[0]+'1e':'#D946EF24'} 0%,transparent 48%)`,pointerEvents:'none',zIndex:0,animation:'orbFloat 14s ease-in-out infinite'}}/>
 
 {/* FLOATING STOP */}
 <button onClick={stopAll} style={{position:'fixed',bottom:76,right:14,zIndex:200,background:isAudioActive?'linear-gradient(135deg,#FF4444,#CC0000)':'rgba(40,40,50,0.82)',border:`1.5px solid ${isAudioActive?'rgba(255,80,80,0.7)':'rgba(255,255,255,0.1)'}`,borderRadius:'50%',width:44,height:44,color:isAudioActive?'#fff':'rgba(255,255,255,0.3)',cursor:'pointer',fontSize:13,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:isAudioActive?'0 4px 18px rgba(255,60,60,0.55)':'0 2px 8px rgba(0,0,0,0.4)',animation:isAudioActive?'pulse 1.8s ease-in-out infinite':undefined,transition:'background 0.3s,border 0.3s,color 0.3s',backdropFilter:'blur(12px)'}}>■</button>
@@ -927,7 +990,7 @@ visible={prog.length > 0}
   recState={recState} takes={takes} setTakes={setTakes}
   recElapsed={recElapsed} recChordCount={recChordCount} replayChord={replayChord}
   onStart={startRec} onStop={stopRec} onStopReplay={stopReplay}
-  onReplay={replayTake} onLoad={loadTake}
+  onReplay={replayTake}
 />
 
 {/* FLOATING RHYTHM */}
