@@ -435,11 +435,11 @@ backdropFilter: 'blur(12px)',
             ))}
           </div>
           {/* BPM */}
-          <div style={{ textAlign: 'center', marginBottom: 10 }}>
-            <span style={{ fontSize: 28, fontWeight: 900, color: metrOn ? '#FFB347' : 'rgba(255,255,255,0.6)' }}>{metBpm}</span>
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginLeft: 4 }}>BPM</span>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
+            <button onClick={()=>{const v=Math.max(40,metBpm-1);setMetBpm(v);if(onBpmChange)onBpmChange(v);}} style={{width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,0.08)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}}>−</button>
+            <input type="number" min="40" max="200" value={metBpm} onChange={e=>{const v=Math.max(40,Math.min(200,parseInt(e.target.value)||40));setMetBpm(v);if(onBpmChange)onBpmChange(v);}} style={{flex:1,textAlign:'center',fontSize:22,fontWeight:900,color:metrOn?'#FFB347':'rgba(255,255,255,0.6)',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,padding:'5px 0',outline:'none',WebkitAppearance:'none',MozAppearance:'textfield'}}/>
+            <button onClick={()=>{const v=Math.min(200,metBpm+1);setMetBpm(v);if(onBpmChange)onBpmChange(v);}} style={{width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,0.08)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
           </div>
-          <input type="range" min="40" max="200" value={metBpm} onChange={e=>{const v=parseInt(e.target.value);setMetBpm(v);if(onBpmChange)onBpmChange(v);}} style={{ width: '100%', marginBottom: 10 }} />
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={toggleMetro} style={{ flex: 1, background: metrOn ? 'rgba(255,107,107,0.15)' : 'rgba(255,183,71,0.15)', border: `1px solid ${metrOn ? 'rgba(255,107,107,0.4)' : 'rgba(255,183,71,0.4)'}`, borderRadius: 10, padding: '9px 0', color: metrOn ? '#FF6B6B' : '#FFB347', cursor: 'pointer', fontSize: 13, fontWeight: 800 }}>{metrOn ? '■ Stop' : '▶ Start'}</button>
             <button onClick={tapTempo} style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '9px 0', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Tap</button>
@@ -716,6 +716,7 @@ const recEventsRef=useRef([]);
 const recStartRef=useRef(null);
 const recElapsedTid=useRef(null);
 const replayTids=useRef([]);
+const lastTapTimeRef=useRef(null);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
 const[inst,setInst]=useState('underwater');
 useEffect(()=>{audio.setInstrument(inst);},[inst]);
@@ -751,9 +752,9 @@ audio.playProgression(n, bpm, i => setPi(i), beats, stg);
 }, [prog, bpm, beats, stg])
 );
 
-const playC=useCallback(s=>{if(s==='REST')return;const lbl=extChordLabel(k,s,ext);if(lbl.startsWith('note:')){audio.playNote(lbl.slice(5)+'4',1.0,0.45);}else{audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));}setSch(s);if(isRecording.current){recEventsRef.current.push({chord:lbl,mapChord:s,t:Date.now()-recStartRef.current});setRecChordCount(n=>n+1);};if(swapIdx!==null){setProg(p=>{const n=[...p];n[swapIdx]=lbl;return n;});if(swapTid.current)clearTimeout(swapTid.current);swapTid.current=setTimeout(()=>setSwapIdx(null),5000);}else{setProg(p=>{if(p.length>=16)return p;const n=[...p,lbl];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});const t=ctip('sel',{ch:s});if(t)setTip(t);}},[k,ext,swapIdx]);
+const playC=useCallback(s=>{if(s==='REST')return;const lbl=extChordLabel(k,s,ext);if(lbl.startsWith('note:')){audio.playNote(lbl.slice(5)+'4',1.0,0.45);}else{audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));}setSch(s);if(isRecording.current){recEventsRef.current.push({chord:lbl,mapChord:s,t:Date.now()-recStartRef.current});setRecChordCount(n=>n+1);};if(swapIdx!==null){setProg(p=>{const n=[...p];n[swapIdx]=lbl;return n;});if(swapTid.current)clearTimeout(swapTid.current);swapTid.current=setTimeout(()=>setSwapIdx(null),5000);}else{const now=Date.now();setRhythmPat(p=>{const arr=p?[...p]:[];if(lastTapTimeRef.current!==null){const g=Math.max(0.25,Math.min(8,Math.round((now-lastTapTimeRef.current)*bpm/60000*4)/4));if(arr.length>0)arr[arr.length-1]=g;}return[...arr,4];});lastTapTimeRef.current=now;setProg(p=>{if(p.length>=16)return p;const n=[...p,lbl];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});const t=ctip('sel',{ch:s});if(t)setTip(t);}},[k,ext,swapIdx,bpm]);
 const addC=useCallback(s=>{setProg(p=>{if(p.length>=16)return p;const n=[...p,s];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});},[]);
-const remC=useCallback(i=>{setProg(p=>p.filter((_,j)=>j!==i));setSwapIdx(cur=>{if(cur===null)return null;if(cur===i){if(swapTid.current){clearTimeout(swapTid.current);swapTid.current=null;}return null;}return cur>i?cur-1:cur;});},[]);
+const remC=useCallback(i=>{setProg(p=>p.filter((_,j)=>j!==i));setRhythmPat(p=>p?p.filter((_,j)=>j!==i):null);setSwapIdx(cur=>{if(cur===null)return null;if(cur===i){if(swapTid.current){clearTimeout(swapTid.current);swapTid.current=null;}return null;}return cur>i?cur-1:cur;});},[]);
 const selectSlot=useCallback((i,c)=>{if(swapTid.current)clearTimeout(swapTid.current);if(swapIdx===i){setSwapIdx(null);swapTid.current=null;return;}setUndoProg(prog);setSwapIdx(i);swapTid.current=setTimeout(()=>setSwapIdx(null),5000);if(c!=='REST'){if(c.startsWith('note:')){audio.playNote(c.slice(5)+'4',1.0,0.45);}else{const lbl=extChordLabel(k,c,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));}}},[swapIdx,k,ext,prog]);
 const warpKey=useCallback((ghostChordBase,fromKeyName)=>{const pk=KEYS[fromKeyName];if(!pk)return;audio.playChord(cn(pc(ghostChordBase).r,pc(ghostChordBase).t,3));setOriginalKey(cur=>cur===null?sk:cur);setSk(fromKeyName);setSch(ghostChordBase);setKmf(pk.m);setProg(p=>[...p,ghostChordBase]);if(toastTid.current)clearTimeout(toastTid.current);setKeyToast(`Key shifted to ${fromKeyName} — tap 🏠 to return`);toastTid.current=setTimeout(()=>setKeyToast(null),3500);},[sk]);
 const returnHome=useCallback(()=>{if(!originalKey)return;const ok=KEYS[originalKey];if(!ok)return;setSk(originalKey);setSch(null);setKmf(ok.m);setOriginalKey(null);if(toastTid.current)clearTimeout(toastTid.current);setKeyToast(`Returned to ${originalKey}`);toastTid.current=setTimeout(()=>setKeyToast(null),2500);},[originalKey]);
@@ -948,7 +949,7 @@ return (
       <button onClick={() => addC('REST')} style={{ ...S.btn(), padding: '8px 10px', fontSize: 11 }}>𝄽 Rest</button>
       <button onClick={saveI} style={S.btn('rgba(255,215,0,0.15)', '#FFD700', 'rgba(255,215,0,0.3)')}>♡ Save</button>
       {undoProg && <button onClick={() => { setProg(undoProg); setUndoProg(null); clearSwap(); }} style={S.btn('rgba(78,205,196,0.12)', '#4ECDC4', 'rgba(78,205,196,0.3)')}>↩ Undo</button>}
-      <button onClick={() => { stopAll(); setProg([]); setUndoProg(null); clearSwap(); setBlueprint(null); }} style={S.btn()}>Clear</button>
+      <button onClick={() => { stopAll(); setProg([]); setRhythmPat(null); lastTapTimeRef.current=null; setUndoProg(null); clearSwap(); setBlueprint(null); }} style={S.btn()}>Clear</button>
     </div>
     {prog.filter(c => c && c !== 'REST').length >= 4 && <div style={{ marginBottom: 6 }}>
       {!blueprint
@@ -989,6 +990,9 @@ visible={prog.length > 0}
   onStart={startRec} onStop={stopRec} onStopReplay={stopReplay}
   onReplay={replayTake}
 />
+
+{/* FLOATING METRONOME */}
+<FloatingMetronome bpm={bpm} onBpmChange={setBpm}/>
 
 {/* KEY WARP TOAST */}
 {keyToast&&<div style={{position:'fixed',top:80,left:'50%',transform:'translateX(-50%)',background:'rgba(78,205,196,0.95)',color:'#0a0a1a',borderRadius:12,padding:'10px 20px',fontSize:12,fontWeight:700,zIndex:300,boxShadow:'0 4px 20px rgba(0,0,0,0.5)',whiteSpace:'nowrap',animation:'fadeIn 0.3s',backdropFilter:'blur(10px)'}}>{keyToast}</div>}
@@ -1124,9 +1128,9 @@ visible={prog.length > 0}
   {/* ── BPM STRIP ── */}
   <div style={{display:'flex',alignItems:'center',gap:0,marginBottom:12,background:'rgba(255,255,255,0.05)',borderRadius:50,padding:'3px 3px 3px 14px',border:'1px solid rgba(255,255,255,0.08)'}}>
     <span style={{flex:1,fontSize:11,color:'rgba(255,255,255,0.45)',fontWeight:600,letterSpacing:1}}>BPM</span>
-    <span style={{fontSize:18,fontWeight:800,color:'#4ECDC4',minWidth:42,textAlign:'center'}}>{bpm}</span>
-    <button onClick={()=>setBpm(b=>Math.max(40,b-5))} style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s'}}>−</button>
-    <button onClick={()=>setBpm(b=>Math.min(200,b+5))} style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s'}}>+</button>
+    <input type="number" min="40" max="200" value={bpm} onChange={e=>{const v=Math.max(40,Math.min(200,parseInt(e.target.value)||40));setBpm(v);}} style={{fontSize:18,fontWeight:800,color:'#4ECDC4',width:52,textAlign:'center',background:'transparent',border:'none',outline:'none',WebkitAppearance:'none',MozAppearance:'textfield'}}/>
+    <button onClick={()=>setBpm(b=>Math.max(40,b-1))} style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s'}}>−</button>
+    <button onClick={()=>setBpm(b=>Math.min(200,b+1))} style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s'}}>+</button>
   </div>
 
   {/* ── SVG CHORD MAP ── */}
