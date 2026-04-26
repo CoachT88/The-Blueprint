@@ -72,9 +72,9 @@ function idProg(ch){if(!ch||ch.length<3)return null;const ts=ch.map(c=>pc(c).t);
 const NN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FN=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
 const ENH={Cb:'B',Fb:'E','E#':'F','B#':'C'};
-const CT={major:{iv:[0,4,7],q:'major'},minor:{iv:[0,3,7],q:'minor'},dim:{iv:[0,3,6],q:'diminished'},aug:{iv:[0,4,8],q:'augmented'},dom7:{iv:[0,4,7,10],q:'dominant'},maj7:{iv:[0,4,7,11],q:'major'},min7:{iv:[0,3,7,10],q:'minor'},'m7b5':{iv:[0,3,6,10],q:'diminished'},sus2:{iv:[0,2,7],q:'suspended'},sus4:{iv:[0,5,7],q:'suspended'},add9:{iv:[0,4,7,14],q:'major'}};
+const CT={major:{iv:[0,4,7],q:'major'},minor:{iv:[0,3,7],q:'minor'},dim:{iv:[0,3,6],q:'diminished'},aug:{iv:[0,4,8],q:'augmented'},dom7:{iv:[0,4,7,10],q:'dominant'},maj7:{iv:[0,4,7,11],q:'major'},min7:{iv:[0,3,7,10],q:'minor'},'m7b5':{iv:[0,3,6,10],q:'diminished'},sus2:{iv:[0,2,7],q:'suspended'},sus4:{iv:[0,5,7],q:'suspended'},add9:{iv:[0,4,7,14],q:'major'},power:{iv:[0,7],q:'power'},single:{iv:[0],q:'single'}};
 function cn(root,type,oct=4){const r=ENH[root]||root;const ri=NN.indexOf(r)!==-1?NN.indexOf(r):FN.indexOf(r);if(ri===-1)return[];const d=CT[type];if(!d)return[];return d.iv.map(v=>{const ni=(ri+v)%12;return NN[ni]+(oct+Math.floor((ri+v)/12));});}
-function pc(sym){const m=sym.match(/^([A-G][#b]?)(m7b5|m7|maj7|add9|sus2|sus4|°|\+|m|7)?$/);if(!m)return{r:'C',t:'major'};const M={'':'major',m:'minor','°':'dim','+':'aug','7':'dom7',maj7:'maj7',m7:'min7',m7b5:'m7b5',sus2:'sus2',sus4:'sus4',add9:'add9'};return{r:m[1],t:M[m[2]||'']||'major'};}
+function pc(sym){if(!sym)return{r:'C',t:'major'};if(sym.startsWith('note:'))return{r:sym.slice(5),t:'single'};const m=sym.match(/^([A-G][#b]?)(m7b5|m7|maj7|add9|sus2|sus4|°|\+|m|7|5)?$/);if(!m)return{r:'C',t:'major'};const M={'':'major',m:'minor','°':'dim','+':'aug','7':'dom7',maj7:'maj7',m7:'min7',m7b5:'m7b5',sus2:'sus2',sus4:'sus4',add9:'add9','5':'power'};return{r:m[1],t:M[m[2]||'']||'major'};}
 function cc(s){const q=CT[pc(s).t]?.q;return{major:'#FF3D6A',minor:'#00FFD0',diminished:'#E040FB',augmented:'#B5F000',dominant:'#FF9500',suspended:'#29D4FF'}[q]||'#fff';}
 function ql(s){const q=CT[pc(s).t]?.q;return{major:'Major',minor:'Minor',diminished:'Diminished',augmented:'Augmented',dominant:'Dominant 7th',suspended:'Suspended'}[q]||'Chord';}
 
@@ -117,8 +117,8 @@ function gvoi(sym){const{r,t}=pc(sym);const rn=ENH[r]||r;const ri=NN.indexOf(rn)
 function chordNotesInKey(k,chordName){if(!k||!k.ch||!k.sc)return cn(pc(chordName).r,pc(chordName).t,4).map(n=>n.replace(/\d/,''));const pos=k.ch.indexOf(chordName);if(pos===-1)return cn(pc(chordName).r,pc(chordName).t,4).map(n=>n.replace(/\d/,''));return[k.sc[pos],k.sc[(pos+2)%7],k.sc[(pos+4)%7]];}
 function notePC(note){const M={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,Fb:4,F:5,'E#':5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11,Cb:11,'B#':0};return M[note]??-1;}
 function pcToKeyNote(pc12,k){if(k?.sc){const found=k.sc.find(n=>notePC(n)===pc12);if(found)return found;}const useFlats=k?.sc?.some(n=>n.includes('b'))??false;return useFlats?FN[pc12]:NN[pc12];}
-function extChordLabel(k,baseName,ext){if(!ext||ext==='triad')return baseName;if(!k||!k.ch)return baseName;const pos=k.ch.indexOf(baseName);if(pos===-1)return baseName;const{r}=pc(baseName);const isDim=(k.m==='major'&&pos===6)||(k.m==='minor'&&pos===1);if(ext==='sus2'){return isDim?baseName:r+'sus2';}if(ext==='sus4'){return isDim?baseName:r+'sus4';}if(ext==='7ths'){if(isDim)return r+'m7b5';const isMaj7=(k.m==='major'&&(pos===0||pos===3))||(k.m==='minor'&&(pos===2||pos===5));const isDom7=(k.m==='major'&&pos===4)||(k.m==='minor'&&pos===6);if(isMaj7)return r+'maj7';if(isDom7)return r+'7';return r+'m7';}return baseName;}
-function extChordNotes(k,baseName,ext){if(!k||!k.ch||!k.sc)return chordNotesInKey(k,baseName);const pos=k.ch.indexOf(baseName);if(pos===-1)return chordNotesInKey(k,baseName);const root=k.sc[pos],third=k.sc[(pos+2)%7],fifth=k.sc[(pos+4)%7];const isDim=(k.m==='major'&&pos===6)||(k.m==='minor'&&pos===1);if(!ext||ext==='triad')return[root,third,fifth];if(ext==='7ths')return[root,third,fifth,k.sc[(pos+6)%7]];if(ext==='sus2'){if(isDim)return[root,third,fifth];return[root,pcToKeyNote((notePC(root)+2)%12,k),fifth];}if(ext==='sus4'){if(isDim)return[root,third,fifth];return[root,pcToKeyNote((notePC(root)+5)%12,k),fifth];}return[root,third,fifth];}
+function extChordLabel(k,baseName,ext){if(!ext||ext==='triad')return baseName;if(!k||!k.ch)return baseName;const pos=k.ch.indexOf(baseName);if(pos===-1)return baseName;const{r}=pc(baseName);const isDim=(k.m==='major'&&pos===6)||(k.m==='minor'&&pos===1);if(ext==='power')return r+'5';if(ext==='note')return 'note:'+(pos!==-1&&k.sc?k.sc[pos]:r);if(ext==='sus2'){return isDim?baseName:r+'sus2';}if(ext==='sus4'){return isDim?baseName:r+'sus4';}if(ext==='7ths'){if(isDim)return r+'m7b5';const isMaj7=(k.m==='major'&&(pos===0||pos===3))||(k.m==='minor'&&(pos===2||pos===5));const isDom7=(k.m==='major'&&pos===4)||(k.m==='minor'&&pos===6);if(isMaj7)return r+'maj7';if(isDom7)return r+'7';return r+'m7';}return baseName;}
+function extChordNotes(k,baseName,ext){if(!k||!k.ch||!k.sc)return chordNotesInKey(k,baseName);const pos=k.ch.indexOf(baseName);if(pos===-1)return chordNotesInKey(k,baseName);const root=k.sc[pos],third=k.sc[(pos+2)%7],fifth=k.sc[(pos+4)%7];const isDim=(k.m==='major'&&pos===6)||(k.m==='minor'&&pos===1);if(!ext||ext==='triad')return[root,third,fifth];if(ext==='power')return[root,fifth];if(ext==='note')return[root];if(ext==='7ths')return[root,third,fifth,k.sc[(pos+6)%7]];if(ext==='sus2'){if(isDim)return[root,third,fifth];return[root,pcToKeyNote((notePC(root)+2)%12,k),fifth];}if(ext==='sus4'){if(isDim)return[root,third,fifth];return[root,pcToKeyNote((notePC(root)+5)%12,k),fifth];}return[root,third,fifth];}
 
 const CE={'C':{f:'Bright, pure',r:'Home base'},'Dm':{f:'Melancholy',r:'Pulls inward'},'Em':{f:'Cool, quiet',r:'Contemplation'},'F':{f:'Open, warm',r:'Expands sound'},'G':{f:'Bright, driving',r:'Pushes forward'},'Am':{f:'Sad, deep',r:'Emotional heart'},'Bm':{f:'Dark, serious',r:'Adds weight'},'D':{f:'Warm, confident',r:'Lifts clearly'},'E':{f:'Tense, powerful',r:'Strong pull'},'A':{f:'Bright, joyful',r:'Open confidence'},'Bb':{f:'Dramatic, full',r:'Cinematic color'},'Eb':{f:'Rich, soulful',r:'Gospel warmth'},'Ab':{f:'Lush, floating',r:'Dreamy lift'},'Cm':{f:'Dark, heavy',r:'Brooding weight'},'Fm':{f:'Aching, raw',r:'Deep sorrow'},'Gm':{f:'Moody, restless',r:'Shadow depth'},'G#m':{f:'Eerie, intense',r:'Unsettled beauty'},'C#m':{f:'Haunting',r:'Cold beauty'},'F#m':{f:'Somber',r:'Deeper sadness'},'B°':{f:'Tense, unstable',r:'Creates urgency'}};
 
@@ -751,14 +751,15 @@ audio.playProgression(n, bpm, i => setPi(i), beats, stg);
 }, [prog, bpm, beats, stg])
 );
 
-const playC=useCallback(s=>{if(s==='REST')return;const lbl=extChordLabel(k,s,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));setSch(s);if(isRecording.current){recEventsRef.current.push({chord:lbl,mapChord:s,t:Date.now()-recStartRef.current});setRecChordCount(n=>n+1);};if(swapIdx!==null){setProg(p=>{const n=[...p];n[swapIdx]=lbl;return n;});if(swapTid.current)clearTimeout(swapTid.current);swapTid.current=setTimeout(()=>setSwapIdx(null),5000);}else{setProg(p=>{if(p.length>=16)return p;const n=[...p,lbl];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});const t=ctip('sel',{ch:s});if(t)setTip(t);}},[k,ext,swapIdx]);
+const playC=useCallback(s=>{if(s==='REST')return;const lbl=extChordLabel(k,s,ext);if(lbl.startsWith('note:')){audio.playNote(lbl.slice(5)+'4',1.0,0.45);}else{audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));}setSch(s);if(isRecording.current){recEventsRef.current.push({chord:lbl,mapChord:s,t:Date.now()-recStartRef.current});setRecChordCount(n=>n+1);};if(swapIdx!==null){setProg(p=>{const n=[...p];n[swapIdx]=lbl;return n;});if(swapTid.current)clearTimeout(swapTid.current);swapTid.current=setTimeout(()=>setSwapIdx(null),5000);}else{setProg(p=>{if(p.length>=16)return p;const n=[...p,lbl];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});const t=ctip('sel',{ch:s});if(t)setTip(t);}},[k,ext,swapIdx]);
 const addC=useCallback(s=>{setProg(p=>{if(p.length>=16)return p;const n=[...p,s];const t=ctip('add',{prog:n});if(t)setTip(t);if(!dr.current.includes('fc')&&n.length===1)setDisc(d=>[...d,'fc']);if(!dr.current.includes('fp')&&n.length===4)setDisc(d=>[...d,'fp']);return n;});},[]);
 const remC=useCallback(i=>{setProg(p=>p.filter((_,j)=>j!==i));setSwapIdx(cur=>{if(cur===null)return null;if(cur===i){if(swapTid.current){clearTimeout(swapTid.current);swapTid.current=null;}return null;}return cur>i?cur-1:cur;});},[]);
-const selectSlot=useCallback((i,c)=>{if(swapTid.current)clearTimeout(swapTid.current);if(swapIdx===i){setSwapIdx(null);swapTid.current=null;return;}setUndoProg(prog);setSwapIdx(i);swapTid.current=setTimeout(()=>setSwapIdx(null),5000);if(c!=='REST'){const lbl=extChordLabel(k,c,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));}},[swapIdx,k,ext,prog]);
+const selectSlot=useCallback((i,c)=>{if(swapTid.current)clearTimeout(swapTid.current);if(swapIdx===i){setSwapIdx(null);swapTid.current=null;return;}setUndoProg(prog);setSwapIdx(i);swapTid.current=setTimeout(()=>setSwapIdx(null),5000);if(c!=='REST'){if(c.startsWith('note:')){audio.playNote(c.slice(5)+'4',1.0,0.45);}else{const lbl=extChordLabel(k,c,ext);audio.playChord(cn(pc(lbl).r,pc(lbl).t,3));}}},[swapIdx,k,ext,prog]);
 const warpKey=useCallback((ghostChordBase,fromKeyName)=>{const pk=KEYS[fromKeyName];if(!pk)return;audio.playChord(cn(pc(ghostChordBase).r,pc(ghostChordBase).t,3));setOriginalKey(cur=>cur===null?sk:cur);setSk(fromKeyName);setSch(ghostChordBase);setKmf(pk.m);setProg(p=>[...p,ghostChordBase]);if(toastTid.current)clearTimeout(toastTid.current);setKeyToast(`Key shifted to ${fromKeyName} — tap 🏠 to return`);toastTid.current=setTimeout(()=>setKeyToast(null),3500);},[sk]);
 const returnHome=useCallback(()=>{if(!originalKey)return;const ok=KEYS[originalKey];if(!ok)return;setSk(originalKey);setSch(null);setKmf(ok.m);setOriginalKey(null);if(toastTid.current)clearTimeout(toastTid.current);setKeyToast(`Returned to ${originalKey}`);toastTid.current=setTimeout(()=>setKeyToast(null),2500);},[originalKey]);
-const playP=useCallback((b=bpm,bt=beats,s=stg)=>{const n=prog.map(ch=>ch==='REST'?null:cn(pc(ch).r,pc(ch).t,3));audio.playProgression(n,b,i=>setPi(i),bt,s,rhythmPat);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog,bpm,beats,stg,rhythmPat]);
-const loopP=useCallback((b=bpm,bt=beats,s=stg)=>{const n=prog.map(ch=>ch==='REST'?null:cn(pc(ch).r,pc(ch).t,3));setProgLooping(true);audio.playLoop(n,b,i=>{setPi(i);},bt,s,rhythmPat);},[prog,bpm,beats,stg,rhythmPat]);
+const resolveNotes=useCallback(ch=>{if(ch==='REST')return null;if(ch.startsWith('note:'))return[ch.slice(5)+'4'];return cn(pc(ch).r,pc(ch).t,3);},[]);
+const playP=useCallback((b=bpm,bt=beats,s=stg)=>{const n=prog.map(resolveNotes);audio.playProgression(n,b,i=>setPi(i),bt,s,rhythmPat);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog,bpm,beats,stg,rhythmPat,resolveNotes]);
+const loopP=useCallback((b=bpm,bt=beats,s=stg)=>{const n=prog.map(resolveNotes);setProgLooping(true);audio.playLoop(n,b,i=>{setPi(i);},bt,s,rhythmPat);},[prog,bpm,beats,stg,rhythmPat,resolveNotes]);
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);setXp(x=>x+2);const today=new Date().toISOString().slice(0,10);setStreak(s=>{const diff=s.lastDate?Math.round((new Date(today)-new Date(s.lastDate))/86400000):null;const cnt=diff===1?(s.count||0)+1:diff===0?s.count||1:1;return{count:cnt,lastDate:today};});},[prog,emo,sk]);
 const selEmo=useCallback(e=>{const entry=EMO[e];setEmo(e);const fk=entry.ks[0];if(fk){setSk(fk);setKmf(KEYS[fk]?.m||'major');}setSch(null);if(entry.pr?.[0]?.ch)setProg(entry.pr[0].ch);const pb=parseInt(entry.tp);if(pb)setBpm(pb);setScreen('chordmap');},[]);
 const stopAll=useCallback(()=>{audio.absoluteStop();setPa(false);setPi(-1);setPRow(-1);setProgLooping(false);},[]);
@@ -814,7 +815,7 @@ const replayTake=useCallback((take)=>{
     // Last chord gets 2s or the median gap, whichever is larger.
     const dur=nextT!=null?Math.max(0.18,(nextT-ev.t)/1000*0.88):2.0;
     const tid=setTimeout(()=>{
-      audio.playChord(cn(pc(ev.chord).r,pc(ev.chord).t,3),dur,stg);
+      if(ev.chord.startsWith('note:')){audio.playNote(ev.chord.slice(5)+'4',dur,0.45);}else{audio.playChord(cn(pc(ev.chord).r,pc(ev.chord).t,3),dur,stg);}
       setSch(ev.mapChord||pc(ev.chord).r);
       setReplayChord(ev.chord);
     },ev.t);
@@ -1110,8 +1111,22 @@ visible={prog.length > 0}
   </div>
 
   {/* ── CHORD EXTENSION ── */}
-  <div style={{display:'flex',gap:0,marginBottom:12,background:'rgba(255,255,255,0.05)',borderRadius:50,padding:3,border:'1px solid rgba(255,255,255,0.08)'}}>
-    {[{v:'triad',l:'Triads'},{v:'7ths',l:'7ths'},{v:'sus2',l:'Sus2'},{v:'sus4',l:'Sus4'}].map(o=><button key={o.v} onClick={()=>setExt(o.v)} style={{flex:1,background:ext===o.v?'rgba(255,255,255,0.14)':'transparent',border:'none',borderRadius:50,padding:'8px 4px',cursor:'pointer',color:ext===o.v?'#fff':'rgba(255,255,255,0.45)',fontWeight:ext===o.v?700:500,fontSize:12,transition:'all 0.15s',boxShadow:ext===o.v?'0 1px 6px rgba(0,0,0,0.35)':'none'}}>{o.l}</button>)}
+  <div style={{marginBottom:10}}>
+    <div style={{display:'flex',gap:0,marginBottom:4,background:'rgba(255,255,255,0.05)',borderRadius:50,padding:3,border:'1px solid rgba(255,255,255,0.08)'}}>
+      {[{v:'triad',l:'Triads',d:'3 notes'},{v:'7ths',l:'7ths',d:'4 notes'},{v:'sus2',l:'Sus2',d:'open'},{v:'sus4',l:'Sus4',d:'lifted'}].map(o=><button key={o.v} onClick={()=>setExt(o.v)} style={{flex:1,background:ext===o.v?'rgba(255,255,255,0.14)':'transparent',border:'none',borderRadius:50,padding:'7px 2px',cursor:'pointer',color:ext===o.v?'#fff':'rgba(255,255,255,0.45)',fontWeight:ext===o.v?700:500,fontSize:11,transition:'all 0.15s',boxShadow:ext===o.v?'0 1px 6px rgba(0,0,0,0.35)':'none'}}>{o.l}</button>)}
+    </div>
+    <div style={{display:'flex',gap:4}}>
+      <button onClick={()=>setExt('power')} style={{flex:1,background:ext==='power'?'rgba(255,107,107,0.18)':'rgba(255,255,255,0.04)',border:`1px solid ${ext==='power'?'rgba(255,107,107,0.5)':'rgba(255,255,255,0.08)'}`,borderRadius:50,padding:'7px 8px',cursor:'pointer',color:ext==='power'?'#FF6B6B':'rgba(255,255,255,0.45)',fontWeight:ext==='power'?700:500,fontSize:11,transition:'all 0.15s'}}>⚡ Power (root+5th)</button>
+      <button onClick={()=>setExt('note')} style={{flex:1,background:ext==='note'?'rgba(78,205,196,0.18)':'rgba(255,255,255,0.04)',border:`1px solid ${ext==='note'?'rgba(78,205,196,0.5)':'rgba(255,255,255,0.08)'}`,borderRadius:50,padding:'7px 8px',cursor:'pointer',color:ext==='note'?'#4ECDC4':'rgba(255,255,255,0.45)',fontWeight:ext==='note'?700:500,fontSize:11,transition:'all 0.15s'}}>♪ Notes (melody)</button>
+    </div>
+  </div>
+
+  {/* ── BPM STRIP ── */}
+  <div style={{display:'flex',alignItems:'center',gap:0,marginBottom:12,background:'rgba(255,255,255,0.05)',borderRadius:50,padding:'3px 3px 3px 14px',border:'1px solid rgba(255,255,255,0.08)'}}>
+    <span style={{flex:1,fontSize:11,color:'rgba(255,255,255,0.45)',fontWeight:600,letterSpacing:1}}>BPM</span>
+    <span style={{fontSize:18,fontWeight:800,color:'#4ECDC4',minWidth:42,textAlign:'center'}}>{bpm}</span>
+    <button onClick={()=>setBpm(b=>Math.max(40,b-5))} style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s'}}>−</button>
+    <button onClick={()=>setBpm(b=>Math.min(200,b+5))} style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s'}}>+</button>
   </div>
 
   {/* ── SVG CHORD MAP ── */}
@@ -1121,19 +1136,19 @@ visible={prog.length > 0}
       {k&&gcon(k.ch,k.m).map((c,i)=>{const ly=ml(k.ch,200,200,140);const f=ly.find(n=>n.c===c.f),t=ly.find(n=>n.c===c.t);if(!f||!t)return null;const h=sch&&(c.f===sch||c.t===sch);const isStrong=c.st==='strong';
         return<line key={i} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke={h?(isStrong?'#FFD700':cc(sch)):isStrong?'rgba(255,215,0,0.45)':'rgba(255,255,255,0.11)'} strokeWidth={h?(isStrong?4:2.5):isStrong?2.5:1} strokeDasharray={isStrong?'none':'5 5'} style={{transition:'all 0.3s',filter:h&&isStrong?'drop-shadow(0 0 4px #FFD700)':'none'}}/>;
       })}
-      {k&&ml(k.ch,200,200,140).map((nd,ni)=>{const col=cc(nd.c),sel=sch===nd.c,extLbl=extChordLabel(k,nd.c,ext),ip=prog.includes(extLbl)||prog.includes(nd.c),fn=k.m==='minor'?FNm:FNM;const fnParts=fn[ni].split(' (');const fnName=fnParts[0];const fnRN=fnParts[1]?.slice(0,-1);const bnRank=bestNext.indexOf(nd.c);const isBestNext=bnRank!==-1;
+      {k&&ml(k.ch,200,200,140).map((nd,ni)=>{const col=cc(nd.c),sel=sch===nd.c,extLbl=extChordLabel(k,nd.c,ext),isNoteMode=ext==='note',displayLbl=isNoteMode?extLbl.slice(5):extLbl,ip=prog.includes(extLbl)||prog.includes(nd.c),fn=k.m==='minor'?FNm:FNM;const fnParts=fn[ni].split(' (');const fnName=fnParts[0];const fnRN=fnParts[1]?.slice(0,-1);const bnRank=bestNext.indexOf(nd.c);const isBestNext=bnRank!==-1&&!isNoteMode;
         return<g key={ni} onClick={()=>playC(nd.c)} style={{cursor:'pointer'}}>
           {isBestNext&&<circle cx={nd.x} cy={nd.y} r={44} fill="none" stroke={col} strokeWidth={bnRank===0?3.5:2.5} strokeOpacity={bnRank===0?0.9:0.65} style={{animation:'svgRingPulse 1.4s ease-in-out infinite',animationDelay:`${bnRank*0.4}s`}}/>}
           <circle cx={nd.x} cy={nd.y} r={sel?38:30} fill={col+(sel?'30':'10')} stroke={col+(sel?'80':'35')} strokeWidth={sel?2:1} style={{transition:'all 0.3s'}}/>
           <circle cx={nd.x} cy={nd.y} r={sel?28:23} fill={col+(sel?'30':'15')} stroke={col} strokeWidth={sel?3:1.5} style={{transition:'all 0.3s',filter:sel?`drop-shadow(0 0 12px ${col}90)`:'none'}}/>
           {ip&&<circle cx={nd.x} cy={nd.y} r={32} fill="none" stroke="#FFD700" strokeWidth={2.5} strokeDasharray="4 3"/>}
-          <text x={nd.x} y={nd.y+1} textAnchor="middle" dominantBaseline="middle" fill={sel?'#fff':col} fontSize={sel?14:12} fontWeight="800" style={{pointerEvents:'none'}}>{extLbl}</text>
+          <text x={nd.x} y={nd.y+1} textAnchor="middle" dominantBaseline="middle" fill={sel?'#fff':col} fontSize={sel?14:12} fontWeight="800" style={{pointerEvents:'none'}}>{displayLbl}</text>
           <text x={nd.x} y={nd.y+(sel?47:39)} textAnchor="middle" fill="rgba(255,255,255,0.78)" fontSize="7" fontWeight="600" style={{pointerEvents:'none'}}>{fnName}</text>
-          <text x={nd.x} y={nd.y+(sel?55:47)} textAnchor="middle" fill="rgba(255,215,0,0.72)" fontSize="6" style={{pointerEvents:'none'}}>{fnRN&&`(${fnRN})`}</text>
+          {!isNoteMode&&<text x={nd.x} y={nd.y+(sel?55:47)} textAnchor="middle" fill="rgba(255,215,0,0.72)" fontSize="6" style={{pointerEvents:'none'}}>{fnRN&&`(${fnRN})`}</text>}
           <text x={nd.x} y={nd.y+(sel?63:55)} textAnchor="middle" fill="rgba(255,255,255,0.50)" fontSize="6" style={{pointerEvents:'none'}}>{extChordNotes(k,nd.c,ext).join('·')}</text>
         </g>;})}
       <text x="200" y="192" textAnchor="middle" fill={swapIdx!==null?'#FFD700':'rgba(255,255,255,0.35)'} fontSize="12" fontWeight="700">{sk}</text>
-      <text x="200" y="208" textAnchor="middle" fill={swapIdx!==null?'rgba(255,215,0,0.6)':'rgba(255,255,255,0.22)'} fontSize="8">{swapIdx!==null?`replacing slot ${swapIdx+1}`:'Tap a chord'}</text>
+      <text x="200" y="208" textAnchor="middle" fill={swapIdx!==null?'rgba(255,215,0,0.6)':'rgba(255,255,255,0.22)'} fontSize="8">{swapIdx!==null?`replacing slot ${swapIdx+1}`:ext==='note'?'Tap a note':'Tap a chord'}</text>
     </svg>
   </div>
 
@@ -1152,8 +1167,17 @@ visible={prog.length > 0}
   {/* ── PROGRESSION GRID — NOW DIRECTLY BELOW THE MAP ── */}
   <ProgGrid />
 
-  {/* Chord detail */}
-  {sch&&<div style={{...S.card(cc(sch)+'30'),marginTop:4,animation:'fadeIn 0.3s'}}>
+  {/* Chord / Note detail */}
+  {sch&&ext==='note'&&(()=>{const ni=k?.ch.indexOf(sch);const noteName=ni!==-1&&k?.sc?k.sc[ni]:pc(sch).r;const fn=(k?.m==='minor'?FNm:FNM)[ni]||'';const deg=['1st','2nd','3rd','4th','5th','6th','7th'][ni]||'';return(<div style={{...S.card(cc(sch)+'30'),marginTop:4,animation:'fadeIn 0.3s'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+      <div><h3 style={{fontSize:32,fontWeight:800,color:cc(sch),margin:'0 0 2px'}}>{noteName}</h3><div style={{fontSize:11,color:'rgba(255,255,255,0.55)'}}>{deg} degree · {fn.split(' (')[0]}</div></div>
+      <button onClick={()=>addC('note:'+noteName)} style={S.btn(cc(sch)+'25',cc(sch),cc(sch)+'50')}>+ Add</button>
+    </div>
+    <div style={{fontSize:11,color:'rgba(255,255,255,0.5)',lineHeight:1.6,background:'rgba(0,0,0,0.2)',borderRadius:8,padding:'8px 10px'}}>
+      {ni===0?'The root — your tonal home. Always safe, always resolves.':ni===1?'Creates tension over the tonic. Use for suspense.':ni===2?'The third — defines major/minor mood.':ni===3?'The fourth — lifts and opens. Relaxed tension.':ni===4?'The fifth — powerful and stable. Pure energy.':ni===5?'The sixth — emotional and bittersweet.':'The seventh — floats just below resolution.'}
+    </div>
+  </div>);})()}
+  {sch&&ext!=='note'&&<div style={{...S.card(cc(sch)+'30'),marginTop:4,animation:'fadeIn 0.3s'}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
       <div>
         <h3 style={{fontSize:26,fontWeight:800,color:cc(sch),margin:'0 0 2px'}}>{extChordLabel(k,sch,ext)}</h3>
