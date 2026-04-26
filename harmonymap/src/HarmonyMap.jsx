@@ -720,6 +720,8 @@ const recElapsedTid=useRef(null);
 const replayTids=useRef([]);
 const lastTapTimeRef=useRef(null);
 const[bpm,setBpm]=useState(90);const[beats,setBeats]=useState(4);const[stg,setStg]=useState(0.018);
+const[bpmInput,setBpmInput]=useState('90');
+useEffect(()=>{setBpmInput(String(bpm));},[bpm]);
 const{metrOn,toggleMetro}=useMetronome(bpm,setBpm);
 const[inst,setInst]=useState('underwater');
 useEffect(()=>{audio.setInstrument(inst);},[inst]);
@@ -765,7 +767,19 @@ const resolveNotes=useCallback(ch=>{if(ch==='REST')return null;if(ch.startsWith(
 
 // Pattern recognition for repetition teaching
 const progPattern=useMemo(()=>{const seen=new Map();const L='ABCDEFGHIJKLMNOP';let idx=0;return prog.map(c=>{if(!c||c==='REST')return null;if(!seen.has(c))seen.set(c,L[idx++]||'?');return seen.get(c);});},[prog]);
-const patternTip=useMemo(()=>{const ls=progPattern.filter(Boolean);if(ls.length<3)return null;const u=new Set(ls);const s=ls.join('');const pat=ls.join(' ');if(u.size===1)return{pat,msg:'Hypnotic loop — simple and powerful'};if(u.size===ls.length)return{pat,msg:'All different — repeat one chord for a hook'};if(s==='ABAB')return{pat,msg:'Loop pattern — great for verses and choruses'};if(s==='AABA')return{pat,msg:'Classic hook — the most common song structure'};if(s==='ABAC')return{pat,msg:'Returns home — familiar with surprise'};if(s==='ABCA')return{pat,msg:'Bookend — same start and end feels complete'};if(s==='AAAB')return{pat,msg:'Build-up — the new chord hits harder after repetition'};if(s==='ABBA')return{pat,msg:'Mirror — symmetrical and satisfying'};if(ls.slice(1).includes(ls[0]))return{pat,msg:`"${ls[0]}" is your anchor — listeners will feel home`};return{pat,msg:'Repetition forming — this is how hooks are born'};},[progPattern]);
+const patternGuide=useMemo(()=>{
+  const ls=progPattern.filter(Boolean);
+  const ltc={};
+  prog.forEach((c,i)=>{if(c&&c!=='REST'&&progPattern[i]&&!ltc[progPattern[i]])ltc[progPattern[i]]=c.startsWith('note:')?c.slice(5):c;});
+  const NM={'ABAB':{name:'Loop',icon:'↺',tip:'The most common structure in pop music'},'AABA':{name:'Classic Hook',icon:'✦',tip:'Used in the majority of hit songs'},'ABAC':{name:'Story Arc',icon:'→',tip:'Returns home with a twist each time'},'ABCA':{name:'Bookend',icon:'⟨⟩',tip:'Same start and end feels complete'},'AAAB':{name:'Build-Up',icon:'△',tip:'The new chord hits harder after repetition'},'ABBA':{name:'Mirror',icon:'⇄',tip:'Symmetrical and deeply satisfying'},'AAAA':{name:'Mantra',icon:'○',tip:'Hypnotic simplicity — repetition IS the hook'},'ABCD':{name:'All New',icon:'?',tip:'Too varied — repeat one chord to create a hook'}};
+  if(ls.length===0)return{type:'start',msg:'Tap any chord — it becomes your A'};
+  if(ls.length===1)return{type:'building',current:'A _ _ _',steps:[{action:`Tap ${ltc['A']} again`,result:'A A _ _',hint:'builds a mantra'},{action:'Tap a different chord',result:'A B _ _',hint:'adds contrast'}]};
+  if(ls.length===2){const[a,b]=ls;if(a===b)return{type:'building',current:'A A _ _',steps:[{action:`Tap something new (B)`,result:'A A B _',hint:'then A = AABA classic hook'},{action:`Tap ${ltc['A']} again`,result:'A A A _',hint:'building a mantra'}]};return{type:'building',current:'A B _ _',steps:[{action:`Tap ${ltc['A']} (A)`,result:'A B A _',hint:'sets up a hook or loop'},{action:`Tap ${ltc['B']} (B)`,result:'A B B _',hint:'doubles down on B'}]};}
+  if(ls.length===3){const sugs=[];['A','B','C','D'].forEach(n=>{const c=[...ls,n].join('');if(NM[c]){const ch=ltc[n];sugs.push({action:ch?`Tap ${ch} (${n})`:`Tap new chord (${n})`,result:[...ls,n].join(' '),name:NM[c].name,icon:NM[c].icon});}});return{type:'almost',current:ls.join(' ')+' _',sugs:sugs.slice(0,3)};}
+  const named=NM[ls.slice(0,4).join('')];
+  if(named)return{type:'named',name:named.name,icon:named.icon,pattern:ls.slice(0,4).join(' '),tip:named.tip};
+  return{type:'custom',pattern:ls.join(' '),tip:'Your own pattern — repeat it to lock in the feel'};
+},[prog,progPattern]);
 const playP=useCallback((b=bpm,bt=beats,s=stg)=>{const n=prog.map(resolveNotes);const pat=rhythmPat?rhythmPat.map(sec=>sec*b/60):null;audio.playProgression(n,b,i=>setPi(i),bt,s,pat);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog,bpm,beats,stg,rhythmPat,resolveNotes]);
 const loopP=useCallback((b=bpm,bt=beats,s=stg)=>{const n=prog.map(resolveNotes);const pat=rhythmPat?rhythmPat.map(sec=>sec*b/60):null;setProgLooping(true);audio.playLoop(n,b,i=>{setPi(i);},bt,s,pat);},[prog,bpm,beats,stg,rhythmPat,resolveNotes]);
 // Restart loop at new BPM whenever tempo changes while looping
@@ -870,11 +884,23 @@ return (
   </div>
 
   {/* Pattern tip */}
-  {patternTip&&<div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,padding:'6px 10px',background:'rgba(78,205,196,0.06)',borderRadius:8,border:'1px solid rgba(78,205,196,0.15)'}}>
-    <span style={{fontSize:13,fontWeight:900,letterSpacing:4,color:'#4ECDC4',flexShrink:0}}>{patternTip.pat}</span>
-    <span style={{fontSize:9,color:'rgba(255,255,255,0.35)',flexShrink:0}}>—</span>
-    <span style={{fontSize:9,color:'rgba(255,255,255,0.5)',lineHeight:1.3}}>{patternTip.msg}</span>
-  </div>}
+  {patternGuide&&(()=>{const g=patternGuide;
+    if(g.type==='start')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(78,205,196,0.06)',borderRadius:10,border:'1px solid rgba(78,205,196,0.12)'}}>
+      <div style={{fontSize:9,color:'rgba(78,205,196,0.6)',fontWeight:700,letterSpacing:1,marginBottom:3}}>PATTERN GUIDE</div>
+      <div style={{fontSize:11,color:'rgba(255,255,255,0.55)'}}>{g.msg}</div></div>;
+    if(g.type==='building')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(78,205,196,0.06)',borderRadius:10,border:'1px solid rgba(78,205,196,0.12)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}><span style={{fontSize:9,color:'rgba(78,205,196,0.6)',fontWeight:700,letterSpacing:1}}>BUILDING</span><span style={{fontSize:14,fontWeight:900,letterSpacing:5,color:'#4ECDC4'}}>{g.current}</span></div>
+      {g.steps.map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:5,marginBottom:i<g.steps.length-1?4:0}}><span style={{fontSize:10,color:'#FFB347',fontWeight:700}}>→</span><span style={{fontSize:10,color:'rgba(255,255,255,0.7)',fontWeight:600}}>{s.action}</span><span style={{fontSize:9,color:'rgba(255,255,255,0.3)'}}>{s.hint}</span></div>)}</div>;
+    if(g.type==='almost')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(255,183,71,0.07)',borderRadius:10,border:'1px solid rgba(255,183,71,0.2)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}><span style={{fontSize:9,color:'rgba(255,183,71,0.8)',fontWeight:700,letterSpacing:1}}>ONE MORE CHORD</span><span style={{fontSize:14,fontWeight:900,letterSpacing:5,color:'#FFB347'}}>{g.current}</span></div>
+      {g.sugs.map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:5,marginBottom:i<g.sugs.length-1?4:0}}><span style={{fontSize:11,color:'#FFB347'}}>{s.icon}</span><span style={{fontSize:10,color:'rgba(255,255,255,0.7)',fontWeight:600}}>{s.action}</span><span style={{fontSize:9,color:'rgba(255,183,71,0.7)',fontWeight:700}}>→ {s.name}</span></div>)}</div>;
+    if(g.type==='named')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(78,205,196,0.1)',borderRadius:10,border:'1px solid rgba(78,205,196,0.3)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}><span style={{fontSize:16}}>{g.icon}</span><span style={{fontSize:13,fontWeight:900,color:'#4ECDC4'}}>{g.name}</span><span style={{fontSize:11,fontWeight:900,letterSpacing:4,color:'rgba(78,205,196,0.5)'}}>{g.pattern}</span></div>
+      <div style={{fontSize:10,color:'rgba(255,255,255,0.5)'}}>{g.tip}</div></div>;
+    return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(78,205,196,0.06)',borderRadius:10,border:'1px solid rgba(78,205,196,0.12)'}}>
+      <span style={{fontSize:12,fontWeight:900,letterSpacing:3,color:'#4ECDC4'}}>{g.pattern}</span>
+      <div style={{fontSize:9,color:'rgba(255,255,255,0.4)',marginTop:2}}>{g.tip}</div></div>;
+  })()}
 
   {/* 4×4 grid */}
   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 10 }}>
@@ -1144,7 +1170,7 @@ visible={prog.length > 0}
   {/* ── BPM STRIP ── */}
   <div style={{display:'flex',alignItems:'center',gap:0,marginBottom:12,background:'rgba(255,255,255,0.05)',borderRadius:50,padding:'3px 3px 3px 14px',border:'1px solid rgba(255,255,255,0.08)'}}>
     <span style={{flex:1,fontSize:11,color:'rgba(255,255,255,0.45)',fontWeight:600,letterSpacing:1}}>BPM</span>
-    <input type="number" min="40" max="200" value={bpm} onChange={e=>{const v=Math.max(40,Math.min(200,parseInt(e.target.value)||40));setBpm(v);}} style={{fontSize:18,fontWeight:800,color:'#4ECDC4',width:52,textAlign:'center',background:'transparent',border:'none',outline:'none',WebkitAppearance:'none',MozAppearance:'textfield'}}/>
+    <input type="number" min="40" max="200" value={bpmInput} onChange={e=>setBpmInput(e.target.value)} onBlur={()=>{const v=Math.max(40,Math.min(200,parseInt(bpmInput)||90));setBpm(v);setBpmInput(String(v));}} onKeyDown={e=>{if(e.key==='Enter'){const v=Math.max(40,Math.min(200,parseInt(bpmInput)||90));setBpm(v);setBpmInput(String(v));e.target.blur();}}} style={{fontSize:18,fontWeight:800,color:'#4ECDC4',width:52,textAlign:'center',background:'transparent',border:'none',outline:'none',WebkitAppearance:'none',MozAppearance:'textfield'}}/>
     <button onClick={()=>setBpm(b=>Math.max(40,b-1))} style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s'}}>−</button>
     <button onClick={()=>setBpm(b=>Math.min(200,b+1))} style={{width:38,height:38,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:18,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.15s'}}>+</button>
   </div>
