@@ -237,12 +237,13 @@ const startRecording = useCallback(async () => {
 try {
 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 chunksRef.current = [];
-const mr = new MediaRecorder(stream);
+const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t))||'';
+const mr = new MediaRecorder(stream, mimeType ? {mimeType} : {});
 mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
 mr.onstop = () => {
-const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+const blob = new Blob(chunksRef.current, { type: mimeType||'audio/webm' });
 const url = URL.createObjectURL(blob);
-setMemos(prev => [...prev, { id: Date.now(), url, date: new Date().toLocaleTimeString(), duration: 0 }]);
+setMemos(prev => [...prev, { id: Date.now(), url, mimeType, date: new Date().toLocaleTimeString(), duration: 0 }]);
 stream.getTracks().forEach(t => t.stop());
 };
 mediaRecRef.current = mr;
@@ -259,13 +260,14 @@ setRecording(false);
 }, [recording]);
 
 const playMemo = useCallback((memo) => {
-if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-if (playingMemo === memo.id) { setPlayingMemo(null); return; }
+if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; setPlayingMemo(null); }
+if (playingMemo === memo.id) { return; }
 const a = new Audio(memo.url);
-a.onended = () => setPlayingMemo(null);
-a.play();
+a.onended = () => { setPlayingMemo(null); audioRef.current = null; };
+a.onerror = () => { setPlayingMemo(null); audioRef.current = null; };
 audioRef.current = a;
 setPlayingMemo(memo.id);
+a.play().catch(() => { setPlayingMemo(null); audioRef.current = null; });
 }, [playingMemo]);
 
 const deleteMemo = useCallback((id) => {
@@ -1017,29 +1019,22 @@ visible={prog.length > 0}
   <main style={{position:'relative',zIndex:1,paddingBottom:72}}>
 
 {/* ═══ HOME ═══ */}
-{screen==='home'&&<div style={{padding:'24px 16px',maxWidth:600,margin:'0 auto'}}>
-  <div style={{textAlign:'center',marginBottom:20}}>
-    <h1 style={{fontSize:26,fontWeight:800,margin:'0 0 8px',background:'linear-gradient(135deg,#FF6B6B,#4ECDC4,#C77DFF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>What should your music feel like?</h1>
-    <p style={{fontSize:13,color:'rgba(255,255,255,0.5)',margin:0}}>Start with a feeling. We'll find the chords, scales, and melodies.</p>
-  </div>
-  <div style={{display:'flex',gap:0,marginBottom:20,background:'rgba(255,255,255,0.03)',borderRadius:14,border:'1px solid rgba(255,255,255,0.06)',overflow:'hidden'}}>
-    {[{n:'1',l:'Pick a feeling',d:'below',c:'#FF6B6B'},{n:'2',l:'Choose a progression',d:'tap Listen then Use this →',c:'#4ECDC4'},{n:'3',l:'Build your progression',d:'in the Chord Map',c:'#C77DFF'},{n:'4',l:'Add melody & mix',d:'Melody + Mix tabs',c:'#FFB347'}].map((s,i)=><div key={i} style={{flex:1,padding:'10px 6px',textAlign:'center',borderRight:i<3?'1px solid rgba(255,255,255,0.04)':'none'}}>
-      <div style={{fontSize:14,fontWeight:800,color:s.c,marginBottom:2}}>{s.n}</div>
-      <div style={{fontSize:9,fontWeight:700,color:'rgba(255,255,255,0.65)',lineHeight:1.3,marginBottom:1}}>{s.l}</div>
-      <div style={{fontSize:8,color:'rgba(255,255,255,0.3)',lineHeight:1.3}}>{s.d}</div>
-    </div>)}
+{screen==='home'&&(()=>{const EMO_IC={sad:'○',hopeful:'✦',dark:'◆',dreamy:'◎',powerful:'⬟',nostalgic:'◇',romantic:'♡',aggressive:'▲',cinematic:'◐',lonely:'·'};return(<div style={{padding:'28px 16px 36px',maxWidth:600,margin:'0 auto'}}>
+  <div style={{textAlign:'center',marginBottom:28}}>
+    <div style={{fontSize:10,fontWeight:700,color:'rgba(255,255,255,0.28)',letterSpacing:3,textTransform:'uppercase',marginBottom:12}}>Start here</div>
+    <h1 style={{fontSize:32,fontWeight:900,margin:'0 0 10px',lineHeight:1.1,background:'linear-gradient(135deg,#FF6B6B 0%,#C77DFF 50%,#4ECDC4 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>What should it feel like?</h1>
+    <p style={{fontSize:13,color:'rgba(255,255,255,0.38)',margin:0,lineHeight:1.5}}>Pick a mood — we set the key, tempo, and first progression.</p>
   </div>
   <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
-    {Object.entries(EMO).map(([k,e])=><button key={k} onClick={()=>selEmo(k)} style={{background:e.gr,border:`1px solid ${e.co[0]}35`,borderRadius:14,padding:'18px 14px',cursor:'pointer',textAlign:'left',position:'relative',overflow:'hidden'}}>
-      <div style={{position:'absolute',top:-15,right:-15,width:50,height:50,borderRadius:'50%',background:e.co[0]+'20',filter:'blur(15px)'}}/>
-      <div style={{fontSize:20,fontWeight:800,color:e.co[0],marginBottom:3,position:'relative'}}>{e.l}</div>
-      <div style={{fontSize:10,color:'rgba(255,255,255,0.45)',position:'relative',lineHeight:1.3}}>{e.p}</div>
+    {Object.entries(EMO).map(([ek,e])=><button key={ek} onClick={()=>selEmo(ek)} style={{background:e.gr,border:`1.5px solid ${e.co[0]}28`,borderRadius:18,padding:'20px 16px 16px',cursor:'pointer',textAlign:'left',position:'relative',overflow:'hidden',minHeight:110,transition:'border-color 0.2s,transform 0.15s'}}>
+      <div style={{position:'absolute',top:-24,right:-24,width:90,height:90,borderRadius:'50%',background:e.co[0]+'22',filter:'blur(28px)',pointerEvents:'none'}}/>
+      <div style={{position:'absolute',top:14,right:14,fontSize:20,color:e.co[0],opacity:0.45,fontWeight:900,lineHeight:1,pointerEvents:'none'}}>{EMO_IC[ek]||'◉'}</div>
+      <div style={{fontSize:19,fontWeight:800,color:e.co[0],marginBottom:4,position:'relative'}}>{e.l}</div>
+      <div style={{fontSize:10,color:'rgba(255,255,255,0.48)',position:'relative',lineHeight:1.4,marginBottom:10}}>{e.p}</div>
+      <div style={{fontSize:9,color:e.co[0],opacity:0.6,position:'relative',fontWeight:700,letterSpacing:0.3}}>{e.ks[0]?.replace(' major','').replace(' minor','m')} · {e.tp} BPM</div>
     </button>)}
   </div>
-  <div style={{marginTop:16,display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
-    {[{k:'chordmap',l:'◉ Chord Map'},{k:'ear',l:'👂 Ear Training'},{k:'learn',l:'✦ Learn Theory'}].map(b=><button key={b.k} onClick={()=>setScreen(b.k)} style={S.btn()}>{b.l}</button>)}
-  </div>
-  {disc.length>0&&<div style={{...S.card(),marginTop:20}}>
+  {disc.length>0&&<div style={{...S.card(),marginTop:16}}>
     <div style={S.lbl}>Your Discoveries</div>
     <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
       {disc.includes('fc')&&<span style={{fontSize:11,color:'#4ECDC4',background:'#4ECDC415',borderRadius:6,padding:'4px 10px'}}>First chord</span>}
@@ -1048,7 +1043,7 @@ visible={prog.length > 0}
       {disc.includes('fe')&&<span style={{fontSize:11,color:'#C77DFF',background:'#C77DFF15',borderRadius:6,padding:'4px 10px'}}>Ear training win</span>}
     </div>
   </div>}
-</div>}
+</div>);})()}
 
 {/* ═══ EMOTION ═══ */}
 {screen==='emotion'&&em&&<div style={{padding:'16px',maxWidth:600,margin:'0 auto'}}>
