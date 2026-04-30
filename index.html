@@ -1895,29 +1895,41 @@ function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
 
 async function loadPersisted(){
     if(!currentUser)return;
+    // Read localStorage backup first so we can compare timestamps
+    let localData=null;
+    try{const raw=localStorage.getItem('bp_data_'+currentUser.id);if(raw)localData=JSON.parse(raw);}catch(e){}
     try{
         const {data,error} = await sb.from('user_data').select('*').eq('id',currentUser.id).single();
         if(error||!data){
-            // Fall back to localStorage backup
-            const local=localStorage.getItem('bp_data_'+currentUser.id);
-            if(local) try{persisted={...DEFAULT_PERSISTED,...JSON.parse(local)};}catch(e){}
+            if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e){}
             return;
         }
-        persisted = {
-            schedule:       data.schedule        || DEFAULT_PERSISTED.schedule,
-            completedDays:  data.completed_days  || DEFAULT_PERSISTED.completedDays,
-            totalXp:        data.total_xp        || 0,
-            sessionLog:     data.session_log     || [],
-            measurements:   data.measurements    || [],
-            seenMilestones: data.seen_milestones || [],
-            difficulty:     data.difficulty      || 'intermediate',
-            diffUnlockedDate: data.diff_unlocked_date || {intermediate:'',advanced:'',elite:''},
-            firstSessionDate: data.first_session_date || '',
-            weekKey:        data.week_key        || '',
-            records:        data.records         || {longestStreak:0,bestWeekXp:0,bestSessionXp:0},
-            tipIndex:       data.tip_index       || 0,
-            lastTipDate:    data.last_tip_date   || '',
-        };
+        // If the local backup is strictly newer than the Supabase row, use it — the
+        // last Supabase write may have silently failed (PWA / flaky mobile network).
+        const dbTime=new Date(data.updated_at||0).getTime();
+        const localTime=localData?new Date(localData._savedAt||0).getTime():0;
+        if(localTime>dbTime && localData){
+            const {_savedAt:_,...rest}=localData;
+            persisted={...DEFAULT_PERSISTED,...rest};
+            // Re-sync Supabase with the newer local data
+            try{await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});}catch(e){}
+        } else {
+            persisted = {
+                schedule:       data.schedule        || DEFAULT_PERSISTED.schedule,
+                completedDays:  data.completed_days  || DEFAULT_PERSISTED.completedDays,
+                totalXp:        data.total_xp        || 0,
+                sessionLog:     data.session_log     || [],
+                measurements:   data.measurements    || [],
+                seenMilestones: data.seen_milestones || [],
+                difficulty:     data.difficulty      || 'intermediate',
+                diffUnlockedDate: data.diff_unlocked_date || {intermediate:'',advanced:'',elite:''},
+                firstSessionDate: data.first_session_date || '',
+                weekKey:        data.week_key        || '',
+                records:        data.records         || {longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+                tipIndex:       data.tip_index       || 0,
+                lastTipDate:    data.last_tip_date   || '',
+            };
+        }
         // Auto-reset completedDays if we're in a new week
         const currentWeek = getCurrentWeekKey();
         if(persisted.weekKey !== currentWeek){
@@ -1927,8 +1939,7 @@ async function loadPersisted(){
         }
     }catch(e){
         console.error('loadPersisted:',e);
-        const local=localStorage.getItem('bp_data_'+currentUser.id);
-        if(local) try{persisted={...DEFAULT_PERSISTED,...JSON.parse(local)};}catch(e2){}
+        if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e2){}
     }
 }
 
@@ -1955,8 +1966,8 @@ function _upsertPayload(){
     return{id:currentUser.id,..._buildSavePayload()};
 }
 function savePersisted(){
-    // Always write to localStorage immediately as backup
-    if(currentUser) try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify(persisted));}catch(e){}
+    // Always write to localStorage immediately as backup (with timestamp so loadPersisted can prefer newer source)
+    if(currentUser) try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));}catch(e){}
     // Debounce the Supabase write
     clearTimeout(_saveDebounce);
     _saveDebounce = setTimeout(async()=>{
@@ -1969,7 +1980,7 @@ function _flushSaveNow(){
     // Called on visibility hidden — fire Supabase write immediately without debounce
     if(!currentUser)return;
     clearTimeout(_saveDebounce);
-    try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify(persisted));}catch(e){}
+    try{localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));}catch(e){}
     sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'}).catch(()=>{});
 }
 
@@ -3733,7 +3744,8 @@ async function handleAuthSubmit(){
     try{
         let result;
         if(authMode==='login'){
-            result=await sb.auth.signInWithPassword({email,password});
+            const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Connection timed out. Check your network and try again.')),20000));
+            result=await Promise.race([sb.auth.signInWithPassword({email,password}),_timeout]);
             if(!result.error){
                 if(_rememberMe)localStorage.setItem('bp_remember_email',email);
                 else localStorage.removeItem('bp_remember_email');
