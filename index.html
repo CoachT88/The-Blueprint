@@ -3834,6 +3834,7 @@ async function onUserSignedIn(user){
     if(!isMember){currentUser=null;return;}
     document.getElementById('hq-user-email').textContent=user.email;
     await loadPersisted();
+    _scheduleLocalNotif(); // re-arm scheduler now that persisted data is loaded
     hideAuthScreen();
     const welcomed=localStorage.getItem('bp_welcomed_'+user.id);
     const onboarded=localStorage.getItem('bp_onboarded_'+user.id);
@@ -3854,13 +3855,85 @@ const VAPID_PUBLIC_KEY='BHNs21bsR6oKAN19h2o7tSH5s5QHEB3YCqrxaZ6WmMQ6zMJEeuPC7gZ0
 function _urlBase64ToUint8(b64){const p=(b64+'='.repeat((4-b64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(p);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
 let _swRegistration=null;
 async function initServiceWorker(){
-    if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+    if(!('serviceWorker' in navigator))return;
     try{_swRegistration=await navigator.serviceWorker.register('/sw.js');}
     catch(e){console.error('SW register:',e);}
 }
+
+// ── Local notification scheduler ──────────────────────────────────────────
+// Fires at the user-set time directly from the browser — no server needed.
+// Works as long as the PWA or browser tab is running. Re-schedules daily.
+let _localNotifTimer=null;
+
+const _NOTIF_MSGS={
+    rest:[
+        {title:'Recovery day.',body:'Hip flexors + RK holds. 5 minutes locks in the gains.'},
+        {title:'Active recovery today.',body:'Pelvic floor release + box breathing. 5 min. Do it.'},
+        {title:'Rest day protocol.',body:'Reverse kegels + hip openers. Recovery work compounds.'},
+        {title:'5-min recovery session.',body:'Stretch, breathe, release. Your tissue rebuilds tonight.'},
+        {title:'Recovery is the work.',body:'Drop into pelvic floor release + RK holds. 5 minutes.'},
+        {title:'Open The Blueprint.',body:'Recovery Protocol today — pelvic stretches + RK holds.'},
+        {title:'Rest day. Do the work.',body:'Hip openers + reverse kegels keep the floor supple.'},
+    ],
+    streak:[
+        (s)=>({title:`Day ${s+1}. Keep it moving.`,body:'Warm up, hit the protocol, log it. Streak stays alive.'}),
+        (s)=>({title:`${s}-day streak on the line.`,body:'One session keeps the chain unbroken. Open the app.'}),
+        (s)=>({title:`Day ${s+1}.`,body:'Consistent reps compound. Do not let today be the gap.'}),
+        (s)=>({title:`${s} days straight.`,body:'Warmup → protocol → done. That is the whole move.'}),
+        (s)=>({title:`Streak alive: ${s} days.`,body:'Tissue adapts in recovery. Give it the stimulus first.'}),
+        (s)=>({title:`Day ${s+1}. You know the drill.`,body:'10 minutes of warmup and the work is half done.'}),
+        (s)=>({title:`${s} days in.`,body:'This is where most guys stop. You are not most guys.'}),
+    ],
+    train:[
+        {title:'Time to train.',body:'10-min warmup → protocol → done. Open The Blueprint.'},
+        {title:'Your tissue is ready.',body:'Nothing left but the work. Open the app and get it done.'},
+        {title:'Consistency is the protocol.',body:'One session today keeps the adaptation cycle running.'},
+        {title:'Get the session in.',body:'Warm up, execute, recover. That is the whole job.'},
+        {title:'Progress is made tonight.',body:'Collagen remodels 48–72 h after the stimulus. Give it one.'},
+        {title:'Open The Blueprint.',body:'Start the warmup. The rest follows.'},
+        {title:'One session. That is it.',body:'Warmup, work, done. Your future self does not skip.'},
+    ],
+};
+
+function _buildNotifPayload(){
+    const day=new Date().getDay();
+    const todayKey=new Date().toISOString().split('T')[0];
+    const trained=(persisted?.sessionLog||[]).some(s=>s.date?.startsWith(todayKey));
+    if(trained) return null;
+    const todayType=(persisted?.schedule||[])[day]||'rest';
+    const isRest=todayType==='rest';
+    if(isRest) return _NOTIF_MSGS.rest[day%7];
+    const streak=getCurrentStreak();
+    if(streak>0) return _NOTIF_MSGS.streak[day%7](streak);
+    return _NOTIF_MSGS.train[day%7];
+}
+
+async function _fireLocalNotif(){
+    const payload=_buildNotifPayload();
+    if(payload){
+        const opts={body:payload.body,icon:'/icon-192.png',badge:'/badge-72.png',tag:'daily-reminder',data:{url:'/'},silent:false};
+        if(_swRegistration) await _swRegistration.showNotification(payload.title,opts).catch(()=>{});
+        else if(Notification.permission==='granted') new Notification(payload.title,{body:payload.body,icon:'/icon-192.png'});
+    }
+    _scheduleLocalNotif(); // re-arm for tomorrow
+}
+
+function _scheduleLocalNotif(){
+    clearTimeout(_localNotifTimer);_localNotifTimer=null;
+    if(Notification.permission!=='granted') return;
+    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
+    if(!prefs.time) return;
+    const [h,m]=prefs.time.split(':').map(Number);
+    const now=new Date();
+    const target=new Date(now);
+    target.setHours(h,m,0,0);
+    if(target<=now) target.setDate(target.getDate()+1);
+    _localNotifTimer=setTimeout(_fireLocalNotif,target.getTime()-now.getTime());
+}
+
 function openNotifModal(){
     const modal=document.getElementById('notif-modal');
-    const supported='serviceWorker' in navigator && 'PushManager' in window;
+    const supported='Notification' in window && 'serviceWorker' in navigator;
     document.getElementById('notif-unsupported').classList.toggle('hidden',supported);
     document.getElementById('notif-supported').classList.toggle('hidden',!supported);
     if(supported) _refreshNotifUI();
@@ -3869,41 +3942,42 @@ function openNotifModal(){
 function closeNotifModal(){document.getElementById('notif-modal').classList.add('hidden');}
 async function _refreshNotifUI(){
     const perm=Notification.permission;
-    const sub=_swRegistration?await _swRegistration.pushManager.getSubscription():null;
-    const active=perm==='granted'&&!!sub;
+    const active=perm==='granted';
     document.getElementById('notif-enable-btn').classList.toggle('hidden',active);
     document.getElementById('notif-disable-btn').classList.toggle('hidden',!active);
     document.getElementById('notif-icon').className=active?'fas fa-bell text-xs text-blue-400':'fas fa-bell text-xs';
     document.getElementById('notif-btn').style.borderColor=active?'rgba(59,130,246,.4)':'';
     document.getElementById('notif-status').innerText=active?'Notifications are active.':perm==='denied'?'Notifications blocked in browser settings.':'';
-    // Load saved prefs
     const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
     if(prefs.time) document.getElementById('notif-time').value=prefs.time;
     const streakOn=prefs.streakWarn!==false;
     _setToggleUI('streak-warn-toggle','streak-warn-thumb',streakOn);
 }
-function _setToggleUI(id,thumbId,on){
-    const t=document.getElementById(id),th=document.getElementById(thumbId);
-    t.style.background=on?'#3b82f6':'';t.style.borderColor=on?'#3b82f6':'';
-    th.style.transform=on?'translateX(16px)':'';th.style.background=on?'#fff':'';
-}
 async function enableNotifications(){
-    if(!_swRegistration){document.getElementById('notif-status').innerText='Service worker not ready — try again.';return;}
     const btn=document.getElementById('notif-enable-btn');
     btn.innerHTML='<i class="fas fa-spinner fa-spin mr-2"></i>Requesting...';btn.disabled=true;
     try{
         const perm=await Notification.requestPermission();
         if(perm!=='granted'){document.getElementById('notif-status').innerText='Permission denied.';btn.innerHTML='Enable Notifications';btn.disabled=false;return;}
-        const sub=await _swRegistration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
-        await _savePushSubscription(sub);
+        // Local scheduler — works immediately, no server needed
+        _scheduleLocalNotif();
+        // Best-effort push subscription for server-side delivery (non-blocking)
+        if(_swRegistration&&'PushManager' in window){
+            try{
+                const sub=await _swRegistration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
+                await _savePushSubscription(sub);
+            }catch(e){/* push subscription optional — local scheduler already armed */}
+        }
         await _refreshNotifUI();
-    }catch(e){console.error('Push subscribe:',e);document.getElementById('notif-status').innerText='Could not enable — try again.';}
+    }catch(e){console.error('Enable notifications:',e);document.getElementById('notif-status').innerText='Could not enable — try again.';}
     btn.innerHTML='Enable Notifications';btn.disabled=false;
 }
 async function disableNotifications(){
-    if(!_swRegistration)return;
-    const sub=await _swRegistration.pushManager.getSubscription();
-    if(sub){await sub.unsubscribe();await _deletePushSubscription(sub);}
+    clearTimeout(_localNotifTimer);_localNotifTimer=null;
+    if(_swRegistration&&'PushManager' in window){
+        const sub=await _swRegistration.pushManager.getSubscription().catch(()=>null);
+        if(sub){await sub.unsubscribe().catch(()=>{});await _deletePushSubscription(sub);}
+    }
     await _refreshNotifUI();
 }
 async function _savePushSubscription(sub){
@@ -3930,10 +4004,11 @@ async function saveNotifPrefs(){
     const streakWarn=document.getElementById('streak-warn-toggle').style.background==='rgb(59, 130, 246)';
     const prefs={time,streakWarn};
     localStorage.setItem('bp_notif_prefs',JSON.stringify(prefs));
+    _scheduleLocalNotif(); // re-arm with new time
     // Update in Supabase if subscribed
-    if(currentUser){
-        const sub=_swRegistration?await _swRegistration.pushManager.getSubscription():null;
-        if(sub) await sb.from('push_subscriptions').update({reminder_time:time,streak_warn:streakWarn}).eq('user_id',currentUser.id);
+    if(currentUser&&_swRegistration&&'PushManager' in window){
+        const sub=await _swRegistration.pushManager.getSubscription().catch(()=>null);
+        if(sub) await sb.from('push_subscriptions').update({reminder_time:time,streak_warn:streakWarn}).eq('user_id',currentUser.id).catch(()=>{});
     }
 }
 
