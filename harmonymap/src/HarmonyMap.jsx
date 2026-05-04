@@ -728,18 +728,6 @@ const{metrOn,toggleMetro}=useMetronome(bpm,setBpm);
 const[inst,setInst]=useState('underwater');
 useEffect(()=>{audio.setInstrument(inst);},[inst]);
 useEffect(()=>{const warmup=()=>{audio.init();};document.addEventListener('touchstart',warmup,{once:true,passive:true,capture:true});return()=>document.removeEventListener('touchstart',warmup,{capture:true});},[]);
-// Resume AudioContext and restart loop when tab comes back to foreground
-const progLoopingRef=useRef(false);
-useEffect(()=>{progLoopingRef.current=progLooping;},[progLooping]);
-useEffect(()=>{
-  const onVisible=()=>{
-    if(document.visibilityState!=='visible')return;
-    if(audio.ctx&&audio.ctx.state==='suspended')audio.ctx.resume();
-    if(progLoopingRef.current)setTimeout(()=>loopP(),80);
-  };
-  document.addEventListener('visibilitychange',onVisible);
-  return()=>document.removeEventListener('visibilitychange',onVisible);
-},[loopP]);
 useEffect(()=>{try{const s=localStorage.getItem('harmonymap_saved');if(s)setSaved(JSON.parse(s));const st=localStorage.getItem('harmonymap_settings');if(st){const o=JSON.parse(st);if(o.bpm)setBpm(o.bpm);if(o.beats)setBeats(o.beats);if(o.stg!=null)setStg(o.stg);if(o.sk)setSk(o.sk);if(['underwater','cinematic','analog-pad'].includes(o.inst))setInst(o.inst);}const sk2=localStorage.getItem('harmonymap_streak');if(sk2)setStreak(JSON.parse(sk2));const xp2=localStorage.getItem('harmonymap_xp');if(xp2)setXp(parseInt(xp2)||0);const today=new Date().toISOString().slice(0,10);const dl=localStorage.getItem('harmonymap_daily');if(!dl||JSON.parse(dl).date!==today)setDailyAvail(true);}catch(e){}},[]);
 useEffect(()=>{try{localStorage.setItem('harmonymap_saved',JSON.stringify(saved));}catch(e){}},[saved]);
 useEffect(()=>{try{localStorage.setItem('harmonymap_streak',JSON.stringify(streak));}catch(e){}},[streak]);
@@ -798,6 +786,18 @@ const patternGuide=useMemo(()=>{
 const nextTapChord=useMemo(()=>{if(!patternGuide||patternGuide.type!=='almost')return null;const sug=patternGuide.sugs[0];if(!sug)return null;const m=sug.action.match(/^Tap (\S+)/);return m?m[1]:null;},[patternGuide]);
 const playP=useCallback((b=bpm,bt=beats,s=stg)=>{const n=prog.map(resolveNotes);const raw=rhythmPat||getAutoRhythm();const pat=raw?raw.map(sec=>sec*b/60):null;audio.playProgression(n,b,i=>setPi(i),bt,s,pat);const t=ctip('play',{prog});if(t)setTimeout(()=>setTip(t),2000);},[prog,bpm,beats,stg,rhythmPat,getAutoRhythm,resolveNotes]);
 const loopP=useCallback((b=bpm,bt=beats,s=stg)=>{const n=prog.map(resolveNotes);const raw=rhythmPat||getAutoRhythm();const pat=raw?raw.map(sec=>sec*b/60):null;setProgLooping(true);audio.playLoop(n,b,i=>{setPi(i);},bt,s,pat);},[prog,bpm,beats,stg,rhythmPat,getAutoRhythm,resolveNotes]);
+// Resume AudioContext and restart loop when tab comes back to foreground
+const progLoopingRef=useRef(false);
+useEffect(()=>{progLoopingRef.current=progLooping;},[progLooping]);
+useEffect(()=>{
+  const onVisible=()=>{
+    if(document.visibilityState!=='visible')return;
+    if(audio.ctx&&audio.ctx.state==='suspended')audio.ctx.resume();
+    if(progLoopingRef.current)setTimeout(()=>loopP(),80);
+  };
+  document.addEventListener('visibilitychange',onVisible);
+  return()=>document.removeEventListener('visibilitychange',onVisible);
+},[loopP]);
 // Restart loop at new BPM whenever tempo changes while looping
 useEffect(()=>{if(progLooping)loopP();},[bpm,beats]);// eslint-disable-line react-hooks/exhaustive-deps
 const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[...p,{id:Date.now(),emo,k:sk,prog:[...prog],date:new Date().toLocaleDateString()}]);if(!dr.current.includes('fs'))setDisc(d=>[...d,'fs']);setXp(x=>x+2);const today=new Date().toISOString().slice(0,10);setStreak(s=>{const diff=s.lastDate?Math.round((new Date(today)-new Date(s.lastDate))/86400000):null;const cnt=diff===1?(s.count||0)+1:diff===0?s.count||1:1;return{count:cnt,lastDate:today};});},[prog,emo,sk]);
