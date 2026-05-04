@@ -79,11 +79,11 @@ function cc(s){const q=CT[pc(s).t]?.q;return{major:'#FF3D6A',minor:'#00FFD0',dim
 function ql(s){const q=CT[pc(s).t]?.q;return{major:'Major',minor:'Minor',diminished:'Diminished',augmented:'Augmented',dominant:'Dominant 7th',suspended:'Suspended'}[q]||'Chord';}
 
 const IVS=[{s:0,n:'Unison',sn:'P1',f:'Identity — pure stillness',c:'perfect'},{s:1,n:'Minor 2nd',sn:'m2',f:'Tension — two notes pressing together',c:'dissonant'},{s:2,n:'Major 2nd',sn:'M2',f:'Gentle movement — a step forward',c:'mild'},{s:3,n:'Minor 3rd',sn:'m3',f:'Sadness, tenderness — heart of minor',c:'consonant'},{s:4,n:'Major 3rd',sn:'M3',f:'Brightness, joy — heart of major',c:'consonant'},{s:5,n:'Perfect 4th',sn:'P4',f:'Openness — floating, calm suspension',c:'perfect'},{s:6,n:'Tritone',sn:'TT',f:'Maximum tension — wants to resolve desperately',c:'dissonant'},{s:7,n:'Perfect 5th',sn:'P5',f:'Power — foundation of almost all chords',c:'perfect'},{s:8,n:'Minor 6th',sn:'m6',f:'Longing — aches gorgeously',c:'consonant'},{s:9,n:'Major 6th',sn:'M6',f:'Warmth, nostalgia — golden and familiar',c:'consonant'},{s:10,n:'Minor 7th',sn:'m7',f:'Bluesy pull — cool tension',c:'mild'},{s:11,n:'Major 7th',sn:'M7',f:'Dreamy tension — floating below resolution',c:'dissonant'},{s:12,n:'Octave',sn:'P8',f:'Completion — same note higher',c:'perfect'}];
-function ic(c){return{perfect:'#4ECDC4',consonant:'#FFB347',mild:'#87CEEB',dissonant:'#FF6B6B'}[c]||'#fff';}
+function ic(c){return{perfect:'#F5A623',consonant:'#FFB347',mild:'#87CEEB',dissonant:'#FF6B6B'}[c]||'#fff';}
 
 const DM=[{d:1,n:'Root',f:'Home',st:'anchor'},{d:2,n:'Supertonic',f:'Gentle longing',st:'passing'},{d:3,n:'Mediant',f:'Emotional identity',st:'stable'},{d:4,n:'Subdominant',f:'Leaning forward',st:'mild-tension'},{d:5,n:'Dominant',f:'Strong anchor',st:'anchor'},{d:6,n:'Submediant',f:'Sweet, nostalgic',st:'stable'},{d:7,n:'Leading Tone',f:'Maximum pull to root',st:'tension'}];
 const Dm=[{d:1,n:'Root',f:'Heavy home',st:'anchor'},{d:2,n:'Supertonic',f:'Restless urgency',st:'passing'},{d:3,n:'Mediant',f:'Minor identity',st:'stable'},{d:4,n:'Subdominant',f:'Weight',st:'mild-tension'},{d:5,n:'Dominant',f:'Cold or strong',st:'anchor'},{d:6,n:'Submediant',f:'Dark warmth',st:'stable'},{d:7,n:'Subtonic',f:'Soft pull',st:'mild-tension'}];
-function dc(s){return{anchor:'#4ECDC4',stable:'#87CEEB',passing:'#FFB347','mild-tension':'#DDA0DD',tension:'#FF6B6B'}[s]||'#fff';}
+function dc(s){return{anchor:'#F5A623',stable:'#87CEEB',passing:'#FFB347','mild-tension':'#DDA0DD',tension:'#FF6B6B'}[s]||'#fff';}
 
 function vl(f,t){const fn=cn(pc(f).r,pc(f).t,4).map(n=>({n:n.replace(/\d/,''),m:NN.indexOf(n.replace(/\d/,''))}));const tn=cn(pc(t).r,pc(t).t,4).map(n=>({n:n.replace(/\d/,''),m:NN.indexOf(n.replace(/\d/,''))}));const mv=[],u=new Set();fn.forEach(a=>{let bd=99,bi=0;tn.forEach((b,i)=>{if(u.has(i))return;const d=Math.min(Math.abs(b.m-a.m),12-Math.abs(b.m-a.m));if(d<bd){bd=d;bi=i;}});u.add(bi);const b=tn[bi]||a;mv.push({f:a.n,t:b.n,d:bd,s:a.n===b.n});});const sc=mv.filter(m=>m.s).length,tm=mv.reduce((s,m)=>s+m.d,0);return{mv,sc,tm,sm:tm>6?'Dramatic':tm>3?'Moderate':'Smooth'};}
 function mf(f,t){const a=CT[pc(f).t]?.q||'major',b=CT[pc(t).t]?.q||'major';if(a==='minor'&&b==='major') return{l:'Opening up',e:'🌅'};if(a==='major'&&b==='minor') return{l:'Turning inward',e:'🌙'};if(a==='dominant'&&b==='major') return{l:'Resolving',e:'✨'};if(a==='dominant'&&b==='minor') return{l:'Dark resolution',e:'⚡'};if(a==='diminished') return{l:'Escaping tension',e:'💨'};if(b==='diminished') return{l:'Into unknown',e:'🌀'};if(a===b) return{l:'Staying in mood',e:'〰️'};return{l:'Shifting color',e:'🎭'};}
@@ -341,16 +341,16 @@ return (
 position: 'fixed', bottom: 130, right: 14, zIndex: 300,
 background: isActive ? 'rgba(10,10,26,0.96)' : 'rgba(10,10,26,0.88)',
 backdropFilter: 'blur(24px)',
-border: `1.5px solid ${isActive ? 'rgba(78,205,196,0.5)' : 'rgba(255,255,255,0.1)'}`,
+border: `1.5px solid ${isActive ? 'rgba(245,166,35,0.5)' : 'rgba(255,255,255,0.1)'}`,
 borderRadius: minimized ? 50 : 18,
 padding: minimized ? '10px 14px' : '12px 14px',
-boxShadow: isActive ? '0 4px 28px rgba(78,205,196,0.25)' : '0 4px 20px rgba(0,0,0,0.5)',
+boxShadow: isActive ? '0 4px 28px rgba(245,166,35,0.25)' : '0 4px 20px rgba(0,0,0,0.5)',
 transition: 'all 0.3s',
 minWidth: minimized ? 'auto' : 200,
 animation: isActive ? 'floatPulse 3s ease-in-out infinite' : 'none',
 }}>
 {minimized ? (
-<button onClick={() => setMinimized(false)} style={{ background: 'none', border: 'none', color: isActive ? '#4ECDC4' : 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 18, padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+<button onClick={() => setMinimized(false)} style={{ background: 'none', border: 'none', color: isActive ? '#F5A623' : 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 18, padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
 {isActive ? '▶' : '◉'} <span style={{ fontSize: 10, fontWeight: 700 }}>{bpm}</span>
 </button>
 ) : (
@@ -358,7 +358,7 @@ animation: isActive ? 'floatPulse 3s ease-in-out infinite' : 'none',
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
 <div>
 <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Playbar</div>
-<div style={{ fontSize: 11, color: isActive ? '#4ECDC4' : 'rgba(255,255,255,0.5)', fontWeight: 700 }}>{sk.replace(' major','').replace(' minor','m')} · {bpm} BPM</div>
+<div style={{ fontSize: 11, color: isActive ? '#F5A623' : 'rgba(255,255,255,0.5)', fontWeight: 700 }}>{sk.replace(' major','').replace(' minor','m')} · {bpm} BPM</div>
 </div>
 <button onClick={() => setMinimized(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.25)', cursor: 'pointer', fontSize: 14, padding: 0 }}>−</button>
 </div>
@@ -371,7 +371,7 @@ animation: isActive ? 'floatPulse 3s ease-in-out infinite' : 'none',
 </div>
 )}
 <div style={{ display: 'flex', gap: 6 }}>
-<button onClick={onPlay} style={{ flex: 1, background: 'rgba(78,205,196,0.15)', border: '1px solid rgba(78,205,196,0.35)', borderRadius: 10, padding: '8px 0', color: '#4ECDC4', cursor: 'pointer', fontSize: 14, fontWeight: 800 }}>▶</button>
+<button onClick={onPlay} style={{ flex: 1, background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.35)', borderRadius: 10, padding: '8px 0', color: '#F5A623', cursor: 'pointer', fontSize: 14, fontWeight: 800 }}>▶</button>
 <button onClick={progLooping ? onStop : onLoop} style={{ flex: 1, background: progLooping ? 'rgba(255,107,107,0.15)' : 'rgba(199,125,255,0.15)', border: `1px solid ${progLooping ? 'rgba(255,107,107,0.35)' : 'rgba(199,125,255,0.35)'}`, borderRadius: 10, padding: '8px 0', color: progLooping ? '#FF6B6B' : '#C77DFF', cursor: 'pointer', fontSize: 14, fontWeight: 800 }}>{progLooping ? '■' : '↺'}</button>
 <button onClick={onStop} style={{ background: 'rgba(255,107,107,0.12)', border: '1px solid rgba(255,107,107,0.25)', borderRadius: 10, padding: '8px 10px', color: '#FF6B6B', cursor: 'pointer', fontSize: 14, fontWeight: 800 }}>◼</button>
 <button onClick={onClear} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '8px 10px', color: 'rgba(255,255,255,0.45)', cursor: 'pointer', fontSize: 13, fontWeight: 800 }}>⌫</button>
@@ -430,8 +430,8 @@ backdropFilter: 'blur(12px)',
               <div key={i} style={{
                 width: i === 0 ? 14 : 10, height: i === 0 ? 14 : 10,
                 borderRadius: '50%',
-                background: metrOn && beat === i ? (i === 0 ? '#FFB347' : '#4ECDC4') : 'rgba(255,255,255,0.1)',
-                boxShadow: metrOn && beat === i ? `0 0 ${i === 0 ? 14 : 8}px ${i === 0 ? '#FFB347' : '#4ECDC4'}` : 'none',
+                background: metrOn && beat === i ? (i === 0 ? '#FFB347' : '#F5A623') : 'rgba(255,255,255,0.1)',
+                boxShadow: metrOn && beat === i ? `0 0 ${i === 0 ? 14 : 8}px ${i === 0 ? '#FFB347' : '#F5A623'}` : 'none',
                 transition: 'all 0.06s',
               }} />
             ))}
@@ -484,7 +484,7 @@ return(<>
                 <span style={{fontSize:9,color:'rgba(255,255,255,0.3)'}}>{Math.round(take.duration/1000)}s</span>
               </div>
               <div style={{display:'flex',gap:3}}>
-                <button onClick={()=>onReplay(take)} disabled={recState!=='idle'} style={{background:'rgba(0,240,200,0.15)',border:'1px solid rgba(0,240,200,0.3)',borderRadius:6,padding:'2px 8px',color:'#00F0C8',cursor:'pointer',fontSize:9,fontWeight:700,opacity:recState!=='idle'?0.4:1}}>▶ Play</button>
+                <button onClick={()=>onReplay(take)} disabled={recState!=='idle'} style={{background:'rgba(245,166,35,0.15)',border:'1px solid rgba(245,166,35,0.3)',borderRadius:6,padding:'2px 8px',color:'#F5A623',cursor:'pointer',fontSize:9,fontWeight:700,opacity:recState!=='idle'?0.4:1}}>▶ Play</button>
                 <button onClick={()=>setTakes(prev=>prev.filter(t=>t.id!==take.id))} style={{background:'none',border:'none',color:'rgba(255,255,255,0.2)',cursor:'pointer',fontSize:13,padding:'0 2px',lineHeight:1}}>×</button>
               </div>
             </div>
@@ -509,12 +509,12 @@ return(<>
     }}
     style={{
       position:'fixed',bottom:76,left:14,zIndex:300,
-      background:isRec?'rgba(255,50,80,0.22)':isRepl?'rgba(0,240,200,0.15)':'rgba(10,10,26,0.88)',
-      border:`1.5px solid ${isRec?'rgba(255,77,109,0.75)':isRepl?'rgba(0,240,200,0.55)':'rgba(255,77,109,0.35)'}`,
+      background:isRec?'rgba(255,50,80,0.22)':isRepl?'rgba(245,166,35,0.15)':'rgba(10,10,26,0.88)',
+      border:`1.5px solid ${isRec?'rgba(255,77,109,0.75)':isRepl?'rgba(245,166,35,0.55)':'rgba(255,77,109,0.35)'}`,
       borderRadius:isRec?22:'50%',
       height:44,minWidth:44,
       padding:isRec?'0 12px':0,
-      color:isRec?'#FF4D6D':isRepl?'#00F0C8':'#FF4D6D',
+      color:isRec?'#FF4D6D':isRepl?'#F5A623':'#FF4D6D',
       cursor:'pointer',fontSize:isRec?11:15,fontWeight:800,
       display:'flex',alignItems:'center',justifyContent:'center',gap:6,
       boxShadow:isRec?'0 0 22px rgba(255,77,109,0.6),0 0 8px rgba(255,77,109,0.3)':'0 0 14px rgba(255,77,109,0.25)',
@@ -873,14 +873,14 @@ return (
 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
 <div style={S.lbl}>Progression Grid {prog.length > 0 && `${prog.length}/16`}</div>
 <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-{prog.length > 0 && <button onClick={() => exportMIDI(prog, bpm, beats)} style={{ ...S.btn('rgba(78,205,196,0.12)', '#4ECDC4', 'rgba(78,205,196,0.3)'), padding: '3px 8px', fontSize: 9, fontWeight: 700 }}>⬇ MIDI</button>}
+{prog.length > 0 && <button onClick={() => exportMIDI(prog, bpm, beats)} style={{ ...S.btn('rgba(245,166,35,0.12)', '#F5A623', 'rgba(245,166,35,0.3)'), padding: '3px 8px', fontSize: 9, fontWeight: 700 }}>⬇ MIDI</button>}
 {dragging !== null && <span style={{ fontSize: 9, color: '#FFD700', fontWeight: 700 }}>Drop to reorder</span>}
 </div>
 </div>
 
   {/* Mode banner */}
-  <div style={{ background: dragging !== null ? 'rgba(255,215,0,0.12)' : swapIdx !== null ? 'rgba(255,215,0,0.08)' : 'rgba(78,205,196,0.07)', border: `1px solid ${dragging !== null ? 'rgba(255,215,0,0.5)' : swapIdx !== null ? 'rgba(255,215,0,0.35)' : 'rgba(78,205,196,0.22)'}`, borderRadius: 8, padding: '6px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-    <span style={{ fontSize: 11, color: dragging !== null ? '#FFD700' : swapIdx !== null ? '#FFD700' : 'rgba(78,205,196,0.9)', fontWeight: 500, lineHeight: 1.4 }}>
+  <div style={{ background: dragging !== null ? 'rgba(255,215,0,0.12)' : swapIdx !== null ? 'rgba(255,215,0,0.08)' : 'rgba(245,166,35,0.07)', border: `1px solid ${dragging !== null ? 'rgba(255,215,0,0.5)' : swapIdx !== null ? 'rgba(255,215,0,0.35)' : 'rgba(245,166,35,0.22)'}`, borderRadius: 8, padding: '6px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+    <span style={{ fontSize: 11, color: dragging !== null ? '#FFD700' : swapIdx !== null ? '#FFD700' : 'rgba(245,166,35,0.9)', fontWeight: 500, lineHeight: 1.4 }}>
       {dragging !== null ? `✋ Dragging slot ${dragging + 1} — drop on another slot to swap` : swapIdx !== null ? `✏️ Slot ${swapIdx + 1} active — tap a chord on the map to swap it in` : '🎵 Tap chords on the map · Long-press to drag & reorder'}
     </span>
     {swapIdx !== null && dragging === null && <button onClick={clearSwap} style={{ ...S.btn('rgba(255,215,0,0.2)', '#FFD700', 'rgba(255,215,0,0.5)'), padding: '3px 9px', fontSize: 10, flexShrink: 0 }}>✓ Done</button>}
@@ -889,20 +889,20 @@ return (
 
   {/* Pattern tip */}
   {patternGuide&&(()=>{const g=patternGuide;
-    if(g.type==='start')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(78,205,196,0.06)',borderRadius:10,border:'1px solid rgba(78,205,196,0.12)'}}>
-      <div style={{fontSize:9,color:'rgba(78,205,196,0.6)',fontWeight:700,letterSpacing:1,marginBottom:3}}>PATTERN GUIDE</div>
+    if(g.type==='start')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(245,166,35,0.06)',borderRadius:10,border:'1px solid rgba(245,166,35,0.12)'}}>
+      <div style={{fontSize:9,color:'rgba(245,166,35,0.6)',fontWeight:700,letterSpacing:1,marginBottom:3}}>PATTERN GUIDE</div>
       <div style={{fontSize:11,color:'rgba(255,255,255,0.55)'}}>{g.msg}</div></div>;
-    if(g.type==='building')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(78,205,196,0.06)',borderRadius:10,border:'1px solid rgba(78,205,196,0.12)'}}>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}><span style={{fontSize:9,color:'rgba(78,205,196,0.6)',fontWeight:700,letterSpacing:1}}>BUILDING</span><span style={{fontSize:14,fontWeight:900,letterSpacing:5,color:'#4ECDC4'}}>{g.current}</span></div>
+    if(g.type==='building')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(245,166,35,0.06)',borderRadius:10,border:'1px solid rgba(245,166,35,0.12)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}><span style={{fontSize:9,color:'rgba(245,166,35,0.6)',fontWeight:700,letterSpacing:1}}>BUILDING</span><span style={{fontSize:14,fontWeight:900,letterSpacing:5,color:'#F5A623'}}>{g.current}</span></div>
       {g.steps.map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:5,marginBottom:i<g.steps.length-1?4:0}}><span style={{fontSize:10,color:'#FFB347',fontWeight:700}}>→</span><span style={{fontSize:10,color:'rgba(255,255,255,0.7)',fontWeight:600}}>{s.action}</span><span style={{fontSize:9,color:'rgba(255,255,255,0.3)'}}>{s.hint}</span></div>)}</div>;
     if(g.type==='almost')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(255,183,71,0.07)',borderRadius:10,border:'1px solid rgba(255,183,71,0.2)'}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}><span style={{fontSize:9,color:'rgba(255,183,71,0.8)',fontWeight:700,letterSpacing:1}}>ONE MORE CHORD</span><span style={{fontSize:14,fontWeight:900,letterSpacing:5,color:'#FFB347'}}>{g.current}</span></div>
       {g.sugs.map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:5,marginBottom:i<g.sugs.length-1?4:0}}><span style={{fontSize:11,color:'#FFB347'}}>{s.icon}</span><span style={{fontSize:10,color:'rgba(255,255,255,0.7)',fontWeight:600}}>{s.action}</span><span style={{fontSize:9,color:'rgba(255,183,71,0.7)',fontWeight:700}}>→ {s.name}</span></div>)}</div>;
-    if(g.type==='named')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(78,205,196,0.1)',borderRadius:10,border:'1px solid rgba(78,205,196,0.3)'}}>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}><span style={{fontSize:16}}>{g.icon}</span><span style={{fontSize:13,fontWeight:900,color:'#4ECDC4'}}>{g.name}</span><span style={{fontSize:11,fontWeight:900,letterSpacing:4,color:'rgba(78,205,196,0.5)'}}>{g.pattern}</span></div>
+    if(g.type==='named')return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(245,166,35,0.1)',borderRadius:10,border:'1px solid rgba(245,166,35,0.3)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}><span style={{fontSize:16}}>{g.icon}</span><span style={{fontSize:13,fontWeight:900,color:'#F5A623'}}>{g.name}</span><span style={{fontSize:11,fontWeight:900,letterSpacing:4,color:'rgba(245,166,35,0.5)'}}>{g.pattern}</span></div>
       <div style={{fontSize:10,color:'rgba(255,255,255,0.5)'}}>{g.tip}</div></div>;
-    return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(78,205,196,0.06)',borderRadius:10,border:'1px solid rgba(78,205,196,0.12)'}}>
-      <span style={{fontSize:12,fontWeight:900,letterSpacing:3,color:'#4ECDC4'}}>{g.pattern}</span>
+    return<div style={{marginBottom:8,padding:'8px 12px',background:'rgba(245,166,35,0.06)',borderRadius:10,border:'1px solid rgba(245,166,35,0.12)'}}>
+      <span style={{fontSize:12,fontWeight:900,letterSpacing:3,color:'#F5A623'}}>{g.pattern}</span>
       <div style={{fontSize:9,color:'rgba(255,255,255,0.4)',marginTop:2}}>{g.tip}</div></div>;
   })()}
 
@@ -934,8 +934,8 @@ return (
             onPointerUp={() => { onLongPressEnd(); if (!isDragSource) selectSlot(i, c); }}
             onPointerLeave={onLongPressEnd}
             style={{
-              background: isDragSource ? 'rgba(255,215,0,0.32)' : isDragTarget ? 'rgba(0,240,200,0.22)' : isActive ? 'rgba(255,215,0,0.22)' : cc(c) + '2a',
-              border: isDragSource ? '2px solid #FFD700' : isDragTarget ? '2px solid #4ECDC4' : isActive ? '2px solid #FFD700' : `1.5px solid ${cc(c)}45`,
+              background: isDragSource ? 'rgba(255,215,0,0.32)' : isDragTarget ? 'rgba(245,166,35,0.22)' : isActive ? 'rgba(255,215,0,0.22)' : cc(c) + '2a',
+              border: isDragSource ? '2px solid #FFD700' : isDragTarget ? '2px solid #F5A623' : isActive ? '2px solid #FFD700' : `1.5px solid ${cc(c)}45`,
               borderRadius: 10, minHeight: 54, padding: '8px 4px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               cursor: 'grab', touchAction: 'none', userSelect: 'none',
@@ -944,7 +944,7 @@ return (
               boxShadow: isDragSource ? '0 8px 28px rgba(255,215,0,0.6)' : isActive ? '0 0 20px rgba(255,215,0,0.8),0 0 40px rgba(255,215,0,0.3)' : isPlaying ? `0 0 18px ${cc(c)}a0,0 0 36px ${cc(c)}40` : 'none',
               transform: isDragSource ? 'scale(1.08) rotate(2deg)' : isPlaying && !isActive ? 'scale(1.05)' : undefined,
             }}>
-            {progPattern[i]&&<div style={{position:'absolute',top:3,left:5,fontSize:8,fontWeight:900,color:isDragSource||isActive?'rgba(255,215,0,0.6)':'rgba(78,205,196,0.5)',lineHeight:1,letterSpacing:0}}>{progPattern[i]}</div>}
+            {progPattern[i]&&<div style={{position:'absolute',top:3,left:5,fontSize:8,fontWeight:900,color:isDragSource||isActive?'rgba(255,215,0,0.6)':'rgba(245,166,35,0.5)',lineHeight:1,letterSpacing:0}}>{progPattern[i]}</div>}
             <div style={{ fontSize: 11, fontWeight: 800, color: isDragSource ? '#FFD700' : isActive ? '#FFD700' : cc(c), textAlign: 'center', lineHeight: 1.2 }}>{c}</div>
             <div style={{ fontSize: 7, color: isActive ? 'rgba(255,215,0,0.55)' : 'rgba(255,255,255,0.25)', marginTop: 2 }}>{i + 1}</div>
             {dragging === null && isActive && <div style={{ fontSize: 7, color: '#FFD700', marginTop: 1 }}>←tap</div>}
@@ -968,11 +968,11 @@ return (
         <span style={{ fontSize: 12, fontWeight: 700, color: cc(lt) }}>{lt}</span>{rB && <span style={{ fontSize: 9, color: 'rgba(255,215,0,0.65)' }}>({rB})</span>}
         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginLeft: 2 }}>{m.e} {m.l}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 2, alignItems: 'center' }}>
-          {Array.from({ length: 5 }, (_, j) => <div key={j} style={{ width: 5, height: 10, borderRadius: 1, background: j < tl ? (tl >= 4 ? '#FF6B6B' : tl >= 3 ? '#FFB347' : '#4ECDC4') : 'rgba(255,255,255,0.1)' }} />)}
+          {Array.from({ length: 5 }, (_, j) => <div key={j} style={{ width: 5, height: 10, borderRadius: 1, background: j < tl ? (tl >= 4 ? '#FF6B6B' : tl >= 3 ? '#FFB347' : '#F5A623') : 'rgba(255,255,255,0.1)' }} />)}
           <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.35)', marginLeft: 3 }}>{tl >= 4 ? 'Dramatic' : tl >= 3 ? 'High' : tl >= 2 ? 'Medium' : 'Smooth'}</span>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>{v.mv.map((mv, j) => <span key={j} style={{ fontSize: 9, color: mv.s ? '#4ECDC480' : '#FFB34780', background: mv.s ? '#4ECDC408' : '#FFB34708', borderRadius: 3, padding: '1px 5px' }}>{mv.s ? `${mv.f} stays` : `${mv.f}→${mv.t}`}</span>)}</div>
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>{v.mv.map((mv, j) => <span key={j} style={{ fontSize: 9, color: mv.s ? '#F5A62380' : '#FFB34780', background: mv.s ? '#F5A62308' : '#FFB34708', borderRadius: 3, padding: '1px 5px' }}>{mv.s ? `${mv.f} stays` : `${mv.f}→${mv.t}`}</span>)}</div>
       {idProg(fp) && <div style={{ marginTop: 4, fontSize: 10, color: '#FFB347', background: 'rgba(255,183,71,0.08)', borderRadius: 6, padding: '4px 7px' }}>✦ {idProg(fp)}</div>}
     </div>;
   })() || null}
@@ -980,22 +980,22 @@ return (
   {/* Vibe Score */}
   {prog.filter(c => c && c !== 'REST').length >= 4 && (() => {
     const vs = vibeScore(prog);
-    return <div style={{ background: 'rgba(78,205,196,0.05)', border: '1px solid rgba(78,205,196,0.18)', borderRadius: 10, padding: '8px 12px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+    return <div style={{ background: 'rgba(245,166,35,0.05)', border: '1px solid rgba(245,166,35,0.18)', borderRadius: 10, padding: '8px 12px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
       <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Vibe Score</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}><span style={{ fontSize: 22, fontWeight: 900, color: '#4ECDC4', lineHeight: 1 }}>{vs.score}</span><span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{vs.label}</span></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}><span style={{ fontSize: 22, fontWeight: 900, color: '#F5A623', lineHeight: 1 }}>{vs.score}</span><span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{vs.label}</span></div>
       </div>
-      <button onClick={() => { const vs2 = vibeScore(prog); const txt = [`🎵 HarmonyMap`, `Vibe: ${vs2.score}% ${vs2.label}`, `Streak: 🔥${streak.count}`, `Progression: ${prog.filter(s => s && s !== 'REST').join(' → ')}`, `XP: ${xp}`].join('\n'); try { navigator.clipboard.writeText(txt); setTip('Stats copied!'); } catch (er) { } }} style={{ ...S.btn('rgba(78,205,196,0.12)', '#4ECDC4', 'rgba(78,205,196,0.3)'), padding: '5px 10px', fontSize: 10, flexShrink: 0 }}>📋 Export Stats</button>
+      <button onClick={() => { const vs2 = vibeScore(prog); const txt = [`🎵 HarmonyMap`, `Vibe: ${vs2.score}% ${vs2.label}`, `Streak: 🔥${streak.count}`, `Progression: ${prog.filter(s => s && s !== 'REST').join(' → ')}`, `XP: ${xp}`].join('\n'); try { navigator.clipboard.writeText(txt); setTip('Stats copied!'); } catch (er) { } }} style={{ ...S.btn('rgba(245,166,35,0.12)', '#F5A623', 'rgba(245,166,35,0.3)'), padding: '5px 10px', fontSize: 10, flexShrink: 0 }}>📋 Export Stats</button>
     </div>;
   })() || null}
 
   {/* Actions */}
   {prog.length > 0 && <div>
     <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-      <button onClick={() => playP()} style={{ ...S.btn('linear-gradient(135deg,#4ECDC4,#44B09E)', '#fff', 'transparent'), border: 'none' }}>▶ Play</button>
+      <button onClick={() => playP()} style={{ ...S.btn('linear-gradient(135deg,#F5A623,#C87D0F)', '#fff', 'transparent'), border: 'none' }}>▶ Play</button>
       <button onClick={progLooping ? stopAll : () => loopP()} style={{ ...S.btn(progLooping ? 'rgba(255,107,107,0.18)' : 'rgba(199,125,255,0.15)', progLooping ? '#FF6B6B' : '#C77DFF', progLooping ? 'rgba(255,107,107,0.4)' : 'rgba(199,125,255,0.3)') }}>{progLooping ? '■ Stop' : '↺ Loop'}</button>
       <button onClick={() => addC('REST')} style={{ ...S.btn(), padding: '8px 10px', fontSize: 11 }}>𝄽 Rest</button>
       <button onClick={saveI} style={S.btn('rgba(255,215,0,0.15)', '#FFD700', 'rgba(255,215,0,0.3)')}>♡ Save</button>
-      {undoProg && <button onClick={() => { setProg(undoProg); setUndoProg(null); clearSwap(); }} style={S.btn('rgba(78,205,196,0.12)', '#4ECDC4', 'rgba(78,205,196,0.3)')}>↩ Undo</button>}
+      {undoProg && <button onClick={() => { setProg(undoProg); setUndoProg(null); clearSwap(); }} style={S.btn('rgba(245,166,35,0.12)', '#F5A623', 'rgba(245,166,35,0.3)')}>↩ Undo</button>}
       <button onClick={() => { stopAll(); setProg([]); setRhythmPat(null); lastTapTimeRef.current=null; setUndoProg(null); clearSwap(); setBlueprint(null); }} style={S.btn()}>Clear</button>
     </div>
     {prog.filter(c => c && c !== 'REST').length >= 4 && <div style={{ marginBottom: 6 }}>
@@ -1014,13 +1014,13 @@ return (
 );
 }, [prog, pi, progLooping, swapIdx, dragging, dragOver, bpm, beats, stg, k, ext, undoProg, blueprint, streak, xp, clearSwap, cancelDrag, onLongPressStart, onLongPressEnd, onDragEnter, onDrop, selectSlot, remC, addC, playP, loopP, saveI, stopAll]);
 
-const tabs=[{k:'chordmap',i:'◉',l:'Map',c:'#00F0C8'},{k:'home',i:'✦',l:'Explore',c:'#FF4D6D'},{k:'ear',i:'👂',l:'Train',c:'#FFB347'},{k:'saved',i:'♡',l:'Studio',c:'#C77DFF'}];
+const tabs=[{k:'chordmap',i:'◉',l:'Map',c:'#F5A623'},{k:'home',i:'✦',l:'Explore',c:'#FF4D6D'},{k:'ear',i:'👂',l:'Train',c:'#FFB347'},{k:'saved',i:'♡',l:'Studio',c:'#C77DFF'}];
 const isAudioActive = pa || progLooping || pi >= 0 || pRow >= 0;
 
 return(
 
 <div style={{width:'100%',minHeight:'100vh',background:em?em.gr:'linear-gradient(135deg,#0d0d24,#1a0a38,#060f26)',color:'#F2F2F2',fontFamily:"'Segoe UI','SF Pro Display',-apple-system,sans-serif",position:'relative',overflow:'hidden',transition:'background 0.8s'}}>
-<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:`radial-gradient(ellipse at 15% 12%,${em?em.co[0]+'40':'#FF4D6D40'} 0%,transparent 52%),radial-gradient(ellipse at 85% 80%,${em?em.co[1]+'32':'#00F0C830'} 0%,transparent 52%),radial-gradient(ellipse at 55% 45%,${em?em.co[0]+'1e':'#D946EF24'} 0%,transparent 48%)`,pointerEvents:'none',zIndex:0,animation:'orbFloat 14s ease-in-out infinite'}}/>
+<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:`radial-gradient(ellipse at 15% 12%,${em?em.co[0]+'40':'#FF4D6D40'} 0%,transparent 52%),radial-gradient(ellipse at 85% 80%,${em?em.co[1]+'32':'#F5A62330'} 0%,transparent 52%),radial-gradient(ellipse at 55% 45%,${em?em.co[0]+'1e':'#D946EF24'} 0%,transparent 48%)`,pointerEvents:'none',zIndex:0,animation:'orbFloat 14s ease-in-out infinite'}}/>
 
 {/* FLOATING PLAYBAR */}
 <FloatingPlaybar
@@ -1041,13 +1041,13 @@ visible={prog.length > 0}
 
 
 {/* KEY WARP TOAST */}
-{keyToast&&<div style={{position:'fixed',top:80,left:'50%',transform:'translateX(-50%)',background:'rgba(78,205,196,0.95)',color:'#0a0a1a',borderRadius:12,padding:'10px 20px',fontSize:12,fontWeight:700,zIndex:300,boxShadow:'0 4px 20px rgba(0,0,0,0.5)',whiteSpace:'nowrap',animation:'fadeIn 0.3s',backdropFilter:'blur(10px)'}}>{keyToast}</div>}
+{keyToast&&<div style={{position:'fixed',top:80,left:'50%',transform:'translateX(-50%)',background:'rgba(245,166,35,0.95)',color:'#0a0a1a',borderRadius:12,padding:'10px 20px',fontSize:12,fontWeight:700,zIndex:300,boxShadow:'0 4px 20px rgba(0,0,0,0.5)',whiteSpace:'nowrap',animation:'fadeIn 0.3s',backdropFilter:'blur(10px)'}}>{keyToast}</div>}
 
 {/* NAV */}
 
-  <nav style={{position:'sticky',top:0,zIndex:100,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 10px',background:'rgba(8,8,20,0.92)',backdropFilter:'blur(24px)',borderBottom:`2px solid ${tabs.find(t=>t.k===screen)?.c||'#00F0C8'}50`}}>
+  <nav style={{position:'sticky',top:0,zIndex:100,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 10px',background:'rgba(8,8,20,0.92)',backdropFilter:'blur(24px)',borderBottom:`2px solid ${tabs.find(t=>t.k===screen)?.c||'#F5A623'}50`}}>
     <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
-      <div style={{width:24,height:24,borderRadius:'50%',background:'linear-gradient(135deg,#FF6B6B,#4ECDC4,#C77DFF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900}}>H</div>
+      <div style={{width:24,height:24,borderRadius:'50%',background:'linear-gradient(135deg,#FF6B6B,#F5A623,#C77DFF)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900}}>H</div>
       <span style={{fontWeight:700,fontSize:13}}>HarmonyMap</span>
     </div>
     <div style={{display:'flex',gap:1,overflowX:'auto',flexShrink:1,alignItems:'center'}}>
@@ -1060,7 +1060,7 @@ visible={prog.length > 0}
   </nav>
 
 {/* CONTEXT TIP */}
-{tip&&<div style={{position:'relative',zIndex:50,margin:'8px 12px 0',background:'rgba(78,205,196,0.1)',border:'1px solid rgba(78,205,196,0.25)',borderRadius:12,padding:'12px 14px',display:'flex',gap:10,alignItems:'flex-start',animation:'fadeIn 0.3s'}}>
+{tip&&<div style={{position:'relative',zIndex:50,margin:'8px 12px 0',background:'rgba(245,166,35,0.1)',border:'1px solid rgba(245,166,35,0.25)',borderRadius:12,padding:'12px 14px',display:'flex',gap:10,alignItems:'flex-start',animation:'fadeIn 0.3s'}}>
 <span style={{fontSize:16,flexShrink:0}}>💡</span>
 <div style={{flex:1,fontSize:12,color:'rgba(255,255,255,0.75)',lineHeight:1.6}}>{tip}</div>
 <button onClick={()=>setTip(null)} style={{background:'none',border:'none',color:'rgba(255,255,255,0.3)',cursor:'pointer',fontSize:14,padding:0}}>×</button>
@@ -1073,7 +1073,7 @@ visible={prog.length > 0}
 {screen==='home'&&(()=>{const EMO_IC={sad:'○',hopeful:'✦',dark:'◆',dreamy:'◎',powerful:'⬟',nostalgic:'◇',romantic:'♡',aggressive:'▲',cinematic:'◐',lonely:'·'};return(<div style={{padding:'28px 16px 36px',maxWidth:600,margin:'0 auto'}}>
   <div style={{textAlign:'center',marginBottom:28}}>
     <div style={{fontSize:10,fontWeight:700,color:'rgba(255,255,255,0.28)',letterSpacing:3,textTransform:'uppercase',marginBottom:12}}>Start here</div>
-    <h1 style={{fontSize:32,fontWeight:900,margin:'0 0 10px',lineHeight:1.1,background:'linear-gradient(135deg,#FF6B6B 0%,#C77DFF 50%,#4ECDC4 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>What should it feel like?</h1>
+    <h1 style={{fontSize:32,fontWeight:900,margin:'0 0 10px',lineHeight:1.1,background:'linear-gradient(135deg,#FF6B6B 0%,#C77DFF 50%,#F5A623 100%)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>What should it feel like?</h1>
     <p style={{fontSize:13,color:'rgba(255,255,255,0.38)',margin:0,lineHeight:1.5}}>Pick a mood — we set the key, tempo, and first progression.</p>
   </div>
   <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
@@ -1088,7 +1088,7 @@ visible={prog.length > 0}
   {disc.length>0&&<div style={{...S.card(),marginTop:16}}>
     <div style={S.lbl}>Your Discoveries</div>
     <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-      {disc.includes('fc')&&<span style={{fontSize:11,color:'#4ECDC4',background:'#4ECDC415',borderRadius:6,padding:'4px 10px'}}>First chord</span>}
+      {disc.includes('fc')&&<span style={{fontSize:11,color:'#F5A623',background:'#F5A62315',borderRadius:6,padding:'4px 10px'}}>First chord</span>}
       {disc.includes('fp')&&<span style={{fontSize:11,color:'#FFB347',background:'#FFB34715',borderRadius:6,padding:'4px 10px'}}>First progression</span>}
       {disc.includes('fs')&&<span style={{fontSize:11,color:'#FF6B6B',background:'#FF6B6B15',borderRadius:6,padding:'4px 10px'}}>First save</span>}
       {disc.includes('fe')&&<span style={{fontSize:11,color:'#C77DFF',background:'#C77DFF15',borderRadius:6,padding:'4px 10px'}}>Ear training win</span>}
@@ -1123,10 +1123,10 @@ visible={prog.length > 0}
       <button onClick={()=>setSd(!sd)} style={{...S.btn(),fontSize:10,padding:'4px 10px'}}>{sd?'Roles':'Degrees'}</button>
     </div>
     <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-      {em.sn.map((n,ni)=>{const iS=em.sf.includes(n),iT=em.tn.includes(n),iC=em.cl.includes(n);const bg=iS?'#4ECDC430':iT?'#FF6B6B30':iC?'#FFB34730':'rgba(255,255,255,0.06)';const bc=iS?'#4ECDC4':iT?'#FF6B6B':iC?'#FFB347':'rgba(255,255,255,0.2)';const tc=iS?'#4ECDC4':iT?'#FF6B6B':iC?'#FFB347':'#fff';const dg=(k?.m==='minor'?Dm:DM)[ni];
+      {em.sn.map((n,ni)=>{const iS=em.sf.includes(n),iT=em.tn.includes(n),iC=em.cl.includes(n);const bg=iS?'#F5A62330':iT?'#FF6B6B30':iC?'#FFB34730':'rgba(255,255,255,0.06)';const bc=iS?'#F5A623':iT?'#FF6B6B':iC?'#FFB347':'rgba(255,255,255,0.2)';const tc=iS?'#F5A623':iT?'#FF6B6B':iC?'#FFB347':'#fff';const dg=(k?.m==='minor'?Dm:DM)[ni];
         return <button key={n} onClick={()=>{audio.playNote(n+'4',0.8,0.5);setMn(n);setTimeout(()=>setMn(null),500);}} style={{background:bg,border:`1.5px solid ${bc}60`,borderRadius:10,padding:'8px 12px',color:tc,cursor:'pointer',fontSize:14,fontWeight:700,textAlign:'center',minWidth:42,boxShadow:mn===n?`0 0 15px ${bc}50`:'none',transform:mn===n?'scale(1.08)':'scale(1)',transition:'all 0.15s'}}><div>{n}</div><div style={{fontSize:7,opacity:0.65,marginTop:2}}>{sd?(dg?.d||''):(iS?'safe':iT?'tension':iC?'color':'')}</div></button>;})}
     </div>
-    <div style={{display:'flex',gap:10,marginTop:8}}><span style={{fontSize:9,color:'#4ECDC4'}}>● Safe</span><span style={{fontSize:9,color:'#FFB347'}}>● Color</span><span style={{fontSize:9,color:'#FF6B6B'}}>● Tension</span></div>
+    <div style={{display:'flex',gap:10,marginTop:8}}><span style={{fontSize:9,color:'#F5A623'}}>● Safe</span><span style={{fontSize:9,color:'#FFB347'}}>● Color</span><span style={{fontSize:9,color:'#FF6B6B'}}>● Tension</span></div>
   </div>
 </div>}
 
@@ -1137,7 +1137,7 @@ visible={prog.length > 0}
   <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
     <div style={{display:'flex',background:'rgba(255,255,255,0.06)',borderRadius:8,padding:2,flexShrink:0}}>
       <button onClick={()=>{setKmf('major');if(KEYS[sk]?.m==='minor'){const r=RELATIVE[sk]||'C major';setSk(r);setSch(null);}}} style={{background:kmf==='major'?'rgba(255,107,107,0.22)':'transparent',border:'none',borderRadius:6,padding:'5px 10px',cursor:'pointer',color:kmf==='major'?'#FF6B6B':'rgba(255,255,255,0.38)',fontWeight:700,fontSize:11,transition:'all 0.15s'}}>Maj</button>
-      <button onClick={()=>{setKmf('minor');if(KEYS[sk]?.m==='major'){const r=RELATIVE[sk]||'A minor';setSk(r);setSch(null);}}} style={{background:kmf==='minor'?'rgba(78,205,196,0.22)':'transparent',border:'none',borderRadius:6,padding:'5px 10px',cursor:'pointer',color:kmf==='minor'?'#4ECDC4':'rgba(255,255,255,0.38)',fontWeight:700,fontSize:11,transition:'all 0.15s'}}>Min</button>
+      <button onClick={()=>{setKmf('minor');if(KEYS[sk]?.m==='major'){const r=RELATIVE[sk]||'A minor';setSk(r);setSch(null);}}} style={{background:kmf==='minor'?'rgba(245,166,35,0.22)':'transparent',border:'none',borderRadius:6,padding:'5px 10px',cursor:'pointer',color:kmf==='minor'?'#F5A623':'rgba(255,255,255,0.38)',fontWeight:700,fontSize:11,transition:'all 0.15s'}}>Min</button>
     </div>
     <div style={{flex:1,display:'flex',gap:4,overflowX:'auto',scrollbarWidth:'none'}}>
       {(kmf==='major'?MAJOR_COF:MINOR_COF).map(kk=>{const root=kk.replace(' major','').replace(' minor','');const active=sk===kk;const ac=kmf==='major'?'255,107,107':'78,205,196';return<button key={kk} onClick={()=>{setSk(kk);setSch(null);}} style={{flexShrink:0,background:active?`rgba(${ac},0.18)`:'rgba(255,255,255,0.04)',border:`1.5px solid ${active?`rgba(${ac},0.55)`:'rgba(255,255,255,0.06)'}`,borderRadius:7,padding:'5px 8px',cursor:'pointer',color:active?`rgb(${ac})`:'rgba(255,255,255,0.42)',fontWeight:active?800:500,fontSize:11,boxShadow:active?`0 0 8px rgba(${ac},0.4)`:'none',transition:'all 0.15s'}}>{root}{kmf==='minor'?'m':''}</button>;})}
@@ -1151,7 +1151,7 @@ visible={prog.length > 0}
     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
       <span style={{fontSize:10,color:'rgba(255,255,255,0.4)',fontWeight:700,letterSpacing:1}}>BPM</span>
       <button onClick={()=>setBpm(b=>Math.max(40,b-5))} style={{width:28,height:28,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.6)',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>−</button>
-      <input type="number" min="40" max="200" value={bpmInput} onChange={e=>setBpmInput(e.target.value)} onBlur={()=>{const v=Math.max(40,Math.min(200,parseInt(bpmInput)||90));setBpm(v);setBpmInput(String(v));}} onKeyDown={e=>{if(e.key==='Enter'){const v=Math.max(40,Math.min(200,parseInt(bpmInput)||90));setBpm(v);setBpmInput(String(v));e.target.blur();}}} style={{fontSize:20,fontWeight:900,color:'#4ECDC4',width:52,textAlign:'center',background:'transparent',border:'none',outline:'none',WebkitAppearance:'none',MozAppearance:'textfield'}}/>
+      <input type="number" min="40" max="200" value={bpmInput} onChange={e=>setBpmInput(e.target.value)} onBlur={()=>{const v=Math.max(40,Math.min(200,parseInt(bpmInput)||90));setBpm(v);setBpmInput(String(v));}} onKeyDown={e=>{if(e.key==='Enter'){const v=Math.max(40,Math.min(200,parseInt(bpmInput)||90));setBpm(v);setBpmInput(String(v));e.target.blur();}}} style={{fontSize:20,fontWeight:900,color:'#F5A623',width:52,textAlign:'center',background:'transparent',border:'none',outline:'none',WebkitAppearance:'none',MozAppearance:'textfield'}}/>
       <button onClick={()=>setBpm(b=>Math.min(200,b+5))} style={{width:28,height:28,borderRadius:'50%',background:'rgba(255,255,255,0.07)',border:'none',color:'rgba(255,255,255,0.6)',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
       <button onClick={()=>setBpm(b=>Math.max(40,b-1))} style={{marginLeft:4,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:6,padding:'3px 7px',cursor:'pointer',color:'rgba(255,255,255,0.4)',fontSize:10}}>−1</button>
       <button onClick={()=>setBpm(b=>Math.min(200,b+1))} style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:6,padding:'3px 7px',cursor:'pointer',color:'rgba(255,255,255,0.4)',fontSize:10}}>+1</button>
@@ -1167,7 +1167,7 @@ visible={prog.length > 0}
         </button>)}
       </div>
     </div>}
-    {originalKey&&<button onClick={returnHome} style={{marginTop:8,...S.btn('rgba(78,205,196,0.12)','#4ECDC4','rgba(78,205,196,0.35)'),fontSize:10,padding:'5px 12px'}}>🏠 Return to {originalKey}</button>}
+    {originalKey&&<button onClick={returnHome} style={{marginTop:8,...S.btn('rgba(245,166,35,0.12)','#F5A623','rgba(245,166,35,0.35)'),fontSize:10,padding:'5px 12px'}}>🏠 Return to {originalKey}</button>}
   </div>}
 
   {/* ── SVG CHORD MAP (hero) ── */}
@@ -1198,13 +1198,13 @@ visible={prog.length > 0}
         <text x="200" y="404" textAnchor="middle" fill="#FFB347" fontSize="10" fontWeight="800" style={{pointerEvents:'none'}}>{s.icon} {s.action} → {s.name}</text>
       </>;})()}
       {patternGuide&&patternGuide.type==='building'&&patternGuide.steps[0]&&<>
-        <text x="200" y="388" textAnchor="middle" fill="rgba(78,205,196,0.5)" fontSize="8" fontWeight="600" style={{pointerEvents:'none'}}>NEXT</text>
-        <text x="200" y="404" textAnchor="middle" fill="rgba(78,205,196,0.8)" fontSize="10" style={{pointerEvents:'none'}}>{patternGuide.steps[0].action}</text>
+        <text x="200" y="388" textAnchor="middle" fill="rgba(245,166,35,0.5)" fontSize="8" fontWeight="600" style={{pointerEvents:'none'}}>NEXT</text>
+        <text x="200" y="404" textAnchor="middle" fill="rgba(245,166,35,0.8)" fontSize="10" style={{pointerEvents:'none'}}>{patternGuide.steps[0].action}</text>
       </>}
       {patternGuide&&patternGuide.type==='start'&&<text x="200" y="400" textAnchor="middle" fill="rgba(255,255,255,0.18)" fontSize="9" style={{pointerEvents:'none'}}>Tap any chord — it becomes your A</text>}
       {patternGuide&&patternGuide.type==='named'&&<>
-        <text x="200" y="386" textAnchor="middle" fill="rgba(78,205,196,0.55)" fontSize="8" fontWeight="700" style={{pointerEvents:'none'}}>{patternGuide.icon} {patternGuide.name.toUpperCase()}</text>
-        <text x="200" y="402" textAnchor="middle" fill="rgba(78,205,196,0.75)" fontSize="10" letterSpacing="4" fontWeight="900" style={{pointerEvents:'none'}}>{patternGuide.pattern}</text>
+        <text x="200" y="386" textAnchor="middle" fill="rgba(245,166,35,0.55)" fontSize="8" fontWeight="700" style={{pointerEvents:'none'}}>{patternGuide.icon} {patternGuide.name.toUpperCase()}</text>
+        <text x="200" y="402" textAnchor="middle" fill="rgba(245,166,35,0.75)" fontSize="10" letterSpacing="4" fontWeight="900" style={{pointerEvents:'none'}}>{patternGuide.pattern}</text>
       </>}
     </svg>
   </div>
@@ -1215,7 +1215,7 @@ visible={prog.length > 0}
       ?<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'rgba(255,255,255,0.18)',fontSize:11,background:'rgba(255,255,255,0.02)',borderRadius:12,border:'1px dashed rgba(255,255,255,0.06)'}}>Your chords appear here</div>
       :prog.map((c,i)=><div key={i} style={{position:'relative',flexShrink:0}}>
         <div onClick={()=>selectSlot(i,c)} style={{background:cc(c)+'22',border:`${pi===i?2:1.5}px solid ${swapIdx===i?'#FFD700':pi===i?cc(c):cc(c)+'45'}`,borderRadius:10,padding:'7px 11px',cursor:'pointer',boxShadow:pi===i?`0 0 14px ${cc(c)}80`:swapIdx===i?'0 0 18px rgba(255,215,0,0.7)':'none',animation:swapIdx===i?'swapPulse 1.2s ease-in-out infinite':undefined,transform:pi===i?'scale(1.06)':undefined,transition:'all 0.15s',minWidth:46,textAlign:'center'}}>
-          {progPattern[i]&&<div style={{fontSize:7,fontWeight:900,color:'rgba(78,205,196,0.5)',lineHeight:1,marginBottom:1}}>{progPattern[i]}</div>}
+          {progPattern[i]&&<div style={{fontSize:7,fontWeight:900,color:'rgba(245,166,35,0.5)',lineHeight:1,marginBottom:1}}>{progPattern[i]}</div>}
           <div style={{fontSize:13,fontWeight:800,color:cc(c),lineHeight:1.2}}>{c}</div>
           <div style={{fontSize:7,color:'rgba(255,255,255,0.18)',marginTop:1}}>{i+1}</div>
         </div>
@@ -1227,14 +1227,14 @@ visible={prog.length > 0}
 
   {/* ── CONTROLS ── */}
   {prog.length>0&&<div style={{display:'flex',gap:6,marginBottom:10}}>
-    <button onClick={()=>playP()} style={{...S.btn('linear-gradient(135deg,#4ECDC4,#44B09E)','#fff','transparent'),border:'none',flex:1}}>▶ Play</button>
+    <button onClick={()=>playP()} style={{...S.btn('linear-gradient(135deg,#F5A623,#C87D0F)','#fff','transparent'),border:'none',flex:1}}>▶ Play</button>
     <button onClick={progLooping?stopAll:()=>loopP()} style={{...S.btn(progLooping?'rgba(255,107,107,0.18)':'rgba(199,125,255,0.15)',progLooping?'#FF6B6B':'#C77DFF',progLooping?'rgba(255,107,107,0.4)':'rgba(199,125,255,0.3)'),flex:1}}>{progLooping?'■ Stop':'↺ Loop'}</button>
     <button onClick={saveI} style={{...S.btn('rgba(255,215,0,0.12)','#FFD700','rgba(255,215,0,0.3)'),padding:'8px 12px'}}>♡</button>
     <button onClick={()=>{stopAll();setProg([]);setRhythmPat(null);autoCaptureRef.current=[];lastTapTimeRef.current=null;setUndoProg(null);clearSwap();setBlueprint(null);}} style={{...S.btn(),padding:'8px 12px'}}>✕</button>
   </div>}
 
   {/* Rhythm capture indicator */}
-  {autoCaptureRef.current.length>1&&<div style={{fontSize:9,color:'rgba(78,205,196,0.5)',textAlign:'center',marginBottom:8,fontWeight:600,letterSpacing:0.5}}>● rhythm captured — play to hear your timing</div>}
+  {autoCaptureRef.current.length>1&&<div style={{fontSize:9,color:'rgba(245,166,35,0.5)',textAlign:'center',marginBottom:8,fontWeight:600,letterSpacing:0.5}}>● rhythm captured — play to hear your timing</div>}
 
   {/* Swap mode banner */}
   {swapIdx!==null&&dragging===null&&<div style={{background:'rgba(255,215,0,0.08)',border:'1px solid rgba(255,215,0,0.3)',borderRadius:10,padding:'8px 12px',marginBottom:8,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,animation:'fadeIn 0.2s'}}>
@@ -1253,13 +1253,13 @@ visible={prog.length > 0}
   <VoiceMemoPanel />
 
   {/* Play Along */}
-  {prog.length>=2?<div style={{...S.card(pa?'#4ECDC440':'rgba(255,255,255,0.06)'),marginBottom:14}}>
+  {prog.length>=2?<div style={{...S.card(pa?'#F5A62340':'rgba(255,255,255,0.06)'),marginBottom:14}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
       <div>
-        <h3 style={{fontSize:14,fontWeight:700,margin:'0 0 2px',color:pa?'#4ECDC4':'#fff'}}>{pa?'● Playing Along':'Play Along'}</h3>
+        <h3 style={{fontSize:14,fontWeight:700,margin:'0 0 2px',color:pa?'#F5A623':'#fff'}}>{pa?'● Playing Along':'Play Along'}</h3>
         <div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>{pa?'Progression looping underneath you.':'Loop your chords and improvise a melody on top.'}</div>
       </div>
-      <button onClick={()=>{if(pa){audio.stop();setPa(false);setPi(-1);setPRow(-1);}else{setPa(true);audio.playLoop(prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3)),bpm,idx=>{setPi(idx);setPRow(-1);},beats,stg);}}} style={{...S.btn(pa?'#FF6B6B25':'#4ECDC425',pa?'#FF6B6B':'#4ECDC4',pa?'#FF6B6B50':'#4ECDC450'),fontSize:13,fontWeight:700,padding:'10px 20px'}}>{pa?'■ Stop':'▶ Start Loop'}</button>
+      <button onClick={()=>{if(pa){audio.stop();setPa(false);setPi(-1);setPRow(-1);}else{setPa(true);audio.playLoop(prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3)),bpm,idx=>{setPi(idx);setPRow(-1);},beats,stg);}}} style={{...S.btn(pa?'#FF6B6B25':'#F5A62325',pa?'#FF6B6B':'#F5A623',pa?'#FF6B6B50':'#F5A62350'),fontSize:13,fontWeight:700,padding:'10px 20px'}}>{pa?'■ Stop':'▶ Start Loop'}</button>
     </div>
     {pa&&<div style={{display:'flex',gap:5,marginTop:10,flexWrap:'wrap'}}>{prog.map((c,i)=><span key={i} style={{...S.pill(cc(c),pi===i),fontSize:13,padding:'5px 12px'}}>{c}</span>)}</div>}
   </div>:<div style={{...S.card(),marginBottom:14,textAlign:'center'}}><div style={{fontSize:11,color:'rgba(255,255,255,0.35)'}}>Build 2+ chords in the Map to unlock Play Along.</div></div>}
@@ -1283,7 +1283,7 @@ visible={prog.length > 0}
 {screen==='ear'&&<div style={{padding:'16px',maxWidth:600,margin:'0 auto'}}>
   <h2 style={{fontSize:20,fontWeight:800,marginBottom:3}}>Ear Training</h2>
   <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:12}}>Train your ears to recognize chord qualities, intervals, and emotional movement.</p>
-  {dailyDone?<div style={{background:'rgba(78,205,196,0.08)',border:'1px solid rgba(78,205,196,0.3)',borderRadius:12,padding:'10px 14px',marginBottom:14,fontSize:11,color:'#4ECDC4',fontWeight:600,animation:'fadeIn 0.3s'}}>✓ Daily Drop complete — +10 XP earned today!</div>
+  {dailyDone?<div style={{background:'rgba(245,166,35,0.08)',border:'1px solid rgba(245,166,35,0.3)',borderRadius:12,padding:'10px 14px',marginBottom:14,fontSize:11,color:'#F5A623',fontWeight:600,animation:'fadeIn 0.3s'}}>✓ Daily Drop complete — +10 XP earned today!</div>
   :dailyAvail&&<div style={{background:'linear-gradient(135deg,rgba(255,183,71,0.1),rgba(255,140,40,0.06))',border:'1px solid rgba(255,183,71,0.4)',borderRadius:14,padding:'12px 14px',marginBottom:14,animation:'fadeIn 0.3s'}}>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:dailyActive?6:0}}>
       <div><div style={{fontSize:12,fontWeight:800,color:'#FFB347'}}>🎯 Daily Drop Challenge</div><div style={{fontSize:9,color:'rgba(255,255,255,0.4)',marginTop:2}}>Answer questions in 60 seconds — earn +10 XP</div></div>
@@ -1291,8 +1291,8 @@ visible={prog.length > 0}
     </div>
     {dailyActive&&<div style={{height:3,background:'rgba(255,255,255,0.08)',borderRadius:2,overflow:'hidden'}}><div style={{width:`${(dailySecs/60)*100}%`,height:'100%',background:dailySecs<=10?'#FF6B6B':'#FFB347',borderRadius:2,transition:'width 1s linear'}}/></div>}
   </div>}
-  {es.t>0&&<div style={{...S.card('#4ECDC430'),display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-    <div><div style={{fontSize:22,fontWeight:800,color:'#4ECDC4'}}>{es.c}/{es.t}</div><div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>{es.t>=5?(es.c/es.t>=0.8?'Your ears are sharp.':es.c/es.t>=0.5?'Building sensitivity.':'Every miss teaches your ear.'):'Keep listening...'}</div></div>
+  {es.t>0&&<div style={{...S.card('#F5A62330'),display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+    <div><div style={{fontSize:22,fontWeight:800,color:'#F5A623'}}>{es.c}/{es.t}</div><div style={{fontSize:10,color:'rgba(255,255,255,0.4)'}}>{es.t>=5?(es.c/es.t>=0.8?'Your ears are sharp.':es.c/es.t>=0.5?'Building sensitivity.':'Every miss teaches your ear.'):'Keep listening...'}</div></div>
     <button onClick={()=>setEs({c:0,t:0})} style={{...S.btn(),fontSize:10}}>Reset</button>
   </div>}
   <div style={{marginBottom:14}}>
@@ -1301,15 +1301,15 @@ visible={prog.length > 0}
       {[{k:'chord-quality',l:'Chord Quality',d:'Major/Minor/Dim'},{k:'interval',l:'Intervals',d:'Note distances'},{k:'movement',l:'Movement',d:'Emotional direction'}].map(t=><button key={t.k} onClick={()=>{setEt(t.k);setEc(null);setEa(null);}} style={{...S.btn(et===t.k?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.04)',et===t.k?'#fff':'rgba(255,255,255,0.45)'),padding:'8px 12px',fontSize:10,textAlign:'left'}}><div style={{fontWeight:700}}>{t.l}</div><div style={{fontSize:8,opacity:0.5,marginTop:1}}>{t.d}</div></button>)}
     </div>
   </div>
-  {!ec?<div style={{textAlign:'center',padding:'40px 20px'}}><button onClick={newEar} style={{background:'linear-gradient(135deg,#4ECDC4,#44B09E)',border:'none',borderRadius:14,padding:'16px 32px',color:'#fff',cursor:'pointer',fontSize:16,fontWeight:700}}>Start a Challenge</button></div>:
-  <div style={S.card('#4ECDC420')}>
+  {!ec?<div style={{textAlign:'center',padding:'40px 20px'}}><button onClick={newEar} style={{background:'linear-gradient(135deg,#F5A623,#C87D0F)',border:'none',borderRadius:14,padding:'16px 32px',color:'#fff',cursor:'pointer',fontSize:16,fontWeight:700}}>Start a Challenge</button></div>:
+  <div style={S.card('#F5A62320')}>
     <h3 style={{fontSize:15,fontWeight:700,margin:'0 0 12px',color:'#fff'}}>{ec.q}</h3>
-    <button onClick={replayEar} style={{background:'linear-gradient(135deg,#4ECDC425,#44B09E25)',border:'1px solid #4ECDC440',borderRadius:12,padding:'14px 24px',color:'#4ECDC4',cursor:'pointer',fontSize:14,fontWeight:700,width:'100%',marginBottom:14}}>🔊 Play Again</button>
+    <button onClick={replayEar} style={{background:'linear-gradient(135deg,#F5A62325,#C87D0F25)',border:'1px solid #F5A62340',borderRadius:12,padding:'14px 24px',color:'#F5A623',cursor:'pointer',fontSize:14,fontWeight:700,width:'100%',marginBottom:14}}>🔊 Play Again</button>
     <div style={{display:'flex',flexDirection:'column',gap:6}}>
-      {ec.ops.map((o,i)=>{const ok=ea&&o===ec.ans,no=ea===o&&o!==ec.ans;return<button key={i} onClick={()=>ansEar(o)} style={{background:ok?'#4ECDC420':no?'#FF6B6B20':'rgba(255,255,255,0.04)',border:`1.5px solid ${ok?'#4ECDC460':no?'#FF6B6B60':'rgba(255,255,255,0.08)'}`,borderRadius:10,padding:'12px 14px',cursor:ea?'default':'pointer',color:ok?'#4ECDC4':no?'#FF6B6B':'rgba(255,255,255,0.7)',fontSize:13,fontWeight:600,textAlign:'left'}}>{o}{ok&&' ✓'}{no&&' ✗'}</button>;})}
+      {ec.ops.map((o,i)=>{const ok=ea&&o===ec.ans,no=ea===o&&o!==ec.ans;return<button key={i} onClick={()=>ansEar(o)} style={{background:ok?'#F5A62320':no?'#FF6B6B20':'rgba(255,255,255,0.04)',border:`1.5px solid ${ok?'#F5A62360':no?'#FF6B6B60':'rgba(255,255,255,0.08)'}`,borderRadius:10,padding:'12px 14px',cursor:ea?'default':'pointer',color:ok?'#F5A623':no?'#FF6B6B':'rgba(255,255,255,0.7)',fontSize:13,fontWeight:600,textAlign:'left'}}>{o}{ok&&' ✓'}{no&&' ✗'}</button>;})}
     </div>
     {ea&&<div style={{marginTop:14,background:'rgba(0,0,0,0.2)',borderRadius:10,padding:12,animation:'fadeIn 0.3s'}}>
-      <div style={{fontSize:13,fontWeight:700,color:ea===ec.ans?'#4ECDC4':'#FFB347',marginBottom:4}}>{ea===ec.ans?'Correct!':`Answer: ${ec.ans}`}</div>
+      <div style={{fontSize:13,fontWeight:700,color:ea===ec.ans?'#F5A623':'#FFB347',marginBottom:4}}>{ea===ec.ans?'Correct!':`Answer: ${ec.ans}`}</div>
       <div style={{fontSize:11,color:'rgba(255,255,255,0.55)',lineHeight:1.6,marginBottom:10}}>{ec.h}</div>
       <button onClick={newEar} style={S.btn('rgba(255,255,255,0.1)','#fff','rgba(255,255,255,0.2)')}>Next →</button>
     </div>}
@@ -1364,7 +1364,7 @@ visible={prog.length > 0}
 {screen==='mix'&&<div style={{padding:'16px',maxWidth:600,margin:'0 auto'}}>
   <h2 style={{fontSize:20,fontWeight:800,marginBottom:3}}>Mix Lab</h2>
   <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:16}}>How to get a loud, punchy, professional-sounding mix.</p>
-  {[{title:'Levels & Structure',color:'#4ECDC4',items:[{i:'🏗️',t:'Build your mix like a pyramid',d:'Your kick and 808 should be the loudest things. Then snare. Then chords and pads. Then melody on top.'},{i:'📏',t:'Leave breathing room at the top',d:'Keep your mix from maxing out. If everything is already at full volume, you have no room to make it louder.'},{i:'🔺',t:'Group your sounds into 3 layers',d:'Bottom: drums and 808. Middle: chords, pads, and rhythm sounds. Top: melody and vocals.'},{i:'🎚️',t:'Start every track quieter than you think',d:'Turn all tracks down low first. Then bring each up until the mix sounds balanced.'}]},{title:'Tone Shaping (EQ)',color:'#FFB347',items:[{i:'✂️',t:'Take away before you add',d:'If something sounds muddy, try removing frequencies first instead of adding more.'},{i:'🎯',t:'Give every sound its own space',d:'If piano and pad are clashing, cut overlapping frequencies from one. Every sound needs its own lane.'},{i:'🔉',t:'Remove low rumble from everything except bass',d:'On everything that isn\'t kick, 808, or bass — cut out the very low rumbling frequencies.'},{i:'💡',t:'Boosting upper-mids makes things cut through',d:'That range is what your ears hear most clearly. Boosting it makes a sound closer and more present.'}]},{title:'Width & Space',color:'#87CEEB',items:[{i:'↔️',t:'Keep bass sounds in the center',d:'808 and bass always from center. If spread wide, they disappear on phone speakers.'},{i:'🌊',t:'Use reverb to put sounds in a room',d:'Snare: small reverb. Chords and pads: medium reverb. Kick and 808: dry — no reverb.'},{i:'📍',t:'Pan sounds left and right',d:'Kick, snare, 808, main melody: center. Hi-hats, extra layers, background chords: spread wide.'}]},{title:'Making It Loud',color:'#FF6B6B',items:[{i:'🔒',t:'Add a limiter as your very last step',d:'A limiter at the end of your master channel stops your mix from ever going above a set volume.'},{i:'🎧',t:'Use a reference track',d:'Put a song you love in your project and listen to it next to your mix. Match the energy and tone.'},{i:'📱',t:'Test your mix on multiple speakers',d:'Listen on studio headphones, laptop speakers, phone speaker, and in your car. All four.'},{i:'🔵',t:'Check your mix in mono',d:'If something disappears in mono, two sounds are canceling each other. Move them apart or lower one.'}]}].map((section,si)=>(
+  {[{title:'Levels & Structure',color:'#F5A623',items:[{i:'🏗️',t:'Build your mix like a pyramid',d:'Your kick and 808 should be the loudest things. Then snare. Then chords and pads. Then melody on top.'},{i:'📏',t:'Leave breathing room at the top',d:'Keep your mix from maxing out. If everything is already at full volume, you have no room to make it louder.'},{i:'🔺',t:'Group your sounds into 3 layers',d:'Bottom: drums and 808. Middle: chords, pads, and rhythm sounds. Top: melody and vocals.'},{i:'🎚️',t:'Start every track quieter than you think',d:'Turn all tracks down low first. Then bring each up until the mix sounds balanced.'}]},{title:'Tone Shaping (EQ)',color:'#FFB347',items:[{i:'✂️',t:'Take away before you add',d:'If something sounds muddy, try removing frequencies first instead of adding more.'},{i:'🎯',t:'Give every sound its own space',d:'If piano and pad are clashing, cut overlapping frequencies from one. Every sound needs its own lane.'},{i:'🔉',t:'Remove low rumble from everything except bass',d:'On everything that isn\'t kick, 808, or bass — cut out the very low rumbling frequencies.'},{i:'💡',t:'Boosting upper-mids makes things cut through',d:'That range is what your ears hear most clearly. Boosting it makes a sound closer and more present.'}]},{title:'Width & Space',color:'#87CEEB',items:[{i:'↔️',t:'Keep bass sounds in the center',d:'808 and bass always from center. If spread wide, they disappear on phone speakers.'},{i:'🌊',t:'Use reverb to put sounds in a room',d:'Snare: small reverb. Chords and pads: medium reverb. Kick and 808: dry — no reverb.'},{i:'📍',t:'Pan sounds left and right',d:'Kick, snare, 808, main melody: center. Hi-hats, extra layers, background chords: spread wide.'}]},{title:'Making It Loud',color:'#FF6B6B',items:[{i:'🔒',t:'Add a limiter as your very last step',d:'A limiter at the end of your master channel stops your mix from ever going above a set volume.'},{i:'🎧',t:'Use a reference track',d:'Put a song you love in your project and listen to it next to your mix. Match the energy and tone.'},{i:'📱',t:'Test your mix on multiple speakers',d:'Listen on studio headphones, laptop speakers, phone speaker, and in your car. All four.'},{i:'🔵',t:'Check your mix in mono',d:'If something disappears in mono, two sounds are canceling each other. Move them apart or lower one.'}]}].map((section,si)=>(
     <div key={si} style={{marginBottom:18}}>
       <div style={{fontSize:10,fontWeight:800,color:section.color,textTransform:'uppercase',letterSpacing:1.5,marginBottom:8,paddingLeft:2}}>{section.title}</div>
       {section.items.map((s,i)=><div key={i} style={{background:'rgba(0,0,0,0.2)',borderRadius:10,padding:'10px 12px',marginBottom:6,display:'flex',gap:10,alignItems:'flex-start',border:`1px solid ${section.color}15`}}><span style={{fontSize:16,flexShrink:0,marginTop:1}}>{s.i}</span><div><div style={{fontSize:12,fontWeight:700,color:section.color,marginBottom:2}}>{s.t}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.55)',lineHeight:1.5}}>{s.d}</div></div></div>)}
@@ -1394,17 +1394,17 @@ visible={prog.length > 0}
 
 {/* SOUND TRAY */}
 
-  <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:90,background:'rgba(6,6,16,0.97)',backdropFilter:'blur(28px)',borderTop:`2px solid ${tabs.find(t=>t.k===screen)?.c||'#00F0C8'}35`,padding:'6px 10px',display:'flex',alignItems:'center',gap:8}}>
+  <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:90,background:'rgba(6,6,16,0.97)',backdropFilter:'blur(28px)',borderTop:`2px solid ${tabs.find(t=>t.k===screen)?.c||'#F5A623'}35`,padding:'6px 10px',display:'flex',alignItems:'center',gap:8}}>
     <span style={{fontSize:9,color:'rgba(255,255,255,0.3)',fontWeight:700,textTransform:'uppercase',letterSpacing:0.8,flexShrink:0}}>Sound</span>
     <div style={{display:'flex',background:'rgba(255,255,255,0.06)',borderRadius:50,padding:2,border:'1px solid rgba(255,255,255,0.1)'}}>
-      {[{v:'underwater',l:'🌊',d:'R&B'},{v:'cinematic',l:'🎬',d:'Trap'}].map(o=><button key={o.v} onClick={()=>setInst(o.v)} style={{background:inst===o.v?'rgba(78,205,196,0.22)':'transparent',border:'none',borderRadius:50,padding:'6px 9px',cursor:'pointer',color:inst===o.v?'#4ECDC4':'rgba(255,255,255,0.4)',fontWeight:inst===o.v?700:500,fontSize:10,transition:'all 0.15s',display:'flex',alignItems:'center',gap:3,whiteSpace:'nowrap'}}><span>{o.l}</span><span>{o.d}</span></button>)}
+      {[{v:'underwater',l:'🌊',d:'R&B'},{v:'cinematic',l:'🎬',d:'Trap'}].map(o=><button key={o.v} onClick={()=>setInst(o.v)} style={{background:inst===o.v?'rgba(245,166,35,0.22)':'transparent',border:'none',borderRadius:50,padding:'6px 9px',cursor:'pointer',color:inst===o.v?'#F5A623':'rgba(255,255,255,0.4)',fontWeight:inst===o.v?700:500,fontSize:10,transition:'all 0.15s',display:'flex',alignItems:'center',gap:3,whiteSpace:'nowrap'}}><span>{o.l}</span><span>{o.d}</span></button>)}
     </div>
     <div style={{display:'flex',gap:4,alignItems:'center'}}>
       {[{v:'analog-pad',l:'🎹',t:'Pad',xpReq:25},{v:'rhodes',l:'✨',t:'Rhodes',xpReq:50},{v:'midpad',l:'🌙',t:'Mid',xpReq:100}].map(o=>{const unlocked=xp>=o.xpReq;return<button key={o.v} onClick={()=>{if(unlocked)setInst(o.v);}} style={{background:inst===o.v&&unlocked?'rgba(199,125,255,0.2)':'rgba(255,255,255,0.04)',border:`1px solid ${inst===o.v&&unlocked?'rgba(199,125,255,0.45)':'rgba(255,255,255,0.08)'}`,borderRadius:8,padding:'5px 7px',cursor:unlocked?'pointer':'default',color:unlocked?(inst===o.v?'#C77DFF':'rgba(255,255,255,0.55)'):'rgba(255,255,255,0.2)',fontSize:10,display:'flex',flexDirection:'column',alignItems:'center',gap:1,opacity:unlocked?1:0.6,flexShrink:0}}><span style={{fontSize:12}}>{unlocked?o.l:'🔒'}</span><span style={{fontSize:7,lineHeight:1}}>{unlocked?o.t:`${o.xpReq}xp`}</span></button>;})}
     </div>
     <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
       <div style={{fontSize:10,fontWeight:900,background:'linear-gradient(135deg,#D946EF,#FF4D6D)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',filter:'drop-shadow(0 0 6px rgba(217,70,239,0.6))'}}>{xp}<span style={{fontSize:7,WebkitTextFillColor:'rgba(199,125,255,0.55)',marginLeft:1}}>xp</span></div>
-      <div style={{fontSize:11,fontWeight:700,color:'#4ECDC4',minWidth:40,textAlign:'right'}}>{bpm}<span style={{fontSize:8,color:'rgba(255,255,255,0.3)',fontWeight:500,marginLeft:2}}>bpm</span></div>
+      <div style={{fontSize:11,fontWeight:700,color:'#F5A623',minWidth:40,textAlign:'right'}}>{bpm}<span style={{fontSize:8,color:'rgba(255,255,255,0.3)',fontWeight:500,marginLeft:2}}>bpm</span></div>
       <button onClick={toggleMetro} style={{width:34,height:34,borderRadius:'50%',background:metrOn?'rgba(255,183,71,0.2)':'rgba(255,255,255,0.06)',border:`1.5px solid ${metrOn?'rgba(255,183,71,0.6)':'rgba(255,255,255,0.12)'}`,color:metrOn?'#FFB347':'rgba(255,255,255,0.35)',cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:metrOn?'0 0 12px rgba(255,183,71,0.35)':'none',transition:'all 0.2s'}}>♩</button>
     </div>
   </div>
@@ -1417,15 +1417,15 @@ visible={prog.length > 0}
     @keyframes pulse{0%,100%{box-shadow:0 0 14px rgba(255,77,109,0.6)}50%{box-shadow:0 0 28px rgba(255,77,109,1),0 0 50px rgba(255,77,109,0.4)}}
     @keyframes swapPulse{0%,100%{box-shadow:0 0 24px rgba(255,215,0,1),0 0 48px rgba(255,215,0,0.5)}50%{box-shadow:0 0 38px rgba(255,215,0,1),0 0 72px rgba(255,215,0,0.7)}}
     @keyframes svgRingPulse{0%,100%{stroke-opacity:0.45}50%{stroke-opacity:1}}
-    @keyframes floatPulse{0%,100%{box-shadow:0 4px 28px rgba(78,205,196,0.25)}50%{box-shadow:0 4px 36px rgba(78,205,196,0.4)}}
+    @keyframes floatPulse{0%,100%{box-shadow:0 4px 28px rgba(245,166,35,0.25)}50%{box-shadow:0 4px 36px rgba(245,166,35,0.4)}}
     @keyframes metrPulse{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
     button:hover{filter:brightness(1.1)}
     button:active{transform:scale(0.97)!important}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}
-    input[type=range]{-webkit-appearance:none;height:4px;background:linear-gradient(90deg,rgba(0,240,200,0.2),rgba(255,77,109,0.1));border-radius:2px;outline:none}
-    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:linear-gradient(135deg,#00F0C8,#4ECDC4);border-radius:50%;cursor:pointer;box-shadow:0 0 12px rgba(0,240,200,0.7)}
-    input[type=range]::-moz-range-thumb{width:18px;height:18px;background:linear-gradient(135deg,#00F0C8,#4ECDC4);border-radius:50%;cursor:pointer;border:none;box-shadow:0 0 10px rgba(0,240,200,0.6)}
+    input[type=range]{-webkit-appearance:none;height:4px;background:linear-gradient(90deg,rgba(245,166,35,0.2),rgba(255,77,109,0.1));border-radius:2px;outline:none}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:linear-gradient(135deg,#F5A623,#C87D0F);border-radius:50%;cursor:pointer;box-shadow:0 0 12px rgba(245,166,35,0.7)}
+    input[type=range]::-moz-range-thumb{width:18px;height:18px;background:linear-gradient(135deg,#F5A623,#C87D0F);border-radius:50%;cursor:pointer;border:none;box-shadow:0 0 10px rgba(245,166,35,0.6)}
   `}</style>
 
 </div>
