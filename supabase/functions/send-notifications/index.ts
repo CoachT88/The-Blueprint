@@ -87,10 +87,11 @@ Deno.serve(async () => {
         const now = new Date();
         const currentHour = now.getUTCHours();
 
-        // Fetch all active push subscriptions
+        // Fetch active push subscriptions (bounded to prevent memory issues at scale)
         const { data: subs, error } = await supabase
             .from('push_subscriptions')
-            .select('*');
+            .select('*')
+            .limit(1000);
 
         if (error || !subs?.length) {
             return new Response(JSON.stringify({ sent: 0 }), { status: 200 });
@@ -134,15 +135,19 @@ Deno.serve(async () => {
                 const todayType: string = schedule[localDayOfWeek] || 'rest';
                 const isRestDay = todayType === 'rest';
 
-                // Calculate streak
+                // Calculate streak — O(N sessions) by walking unique dates backward
                 let streak = 0;
-                const days = new Set(sessionLog.map((s: { date: string }) => s.date?.split('T')[0]));
-                for (let i = 0; i < 365; i++) {
-                    const d = new Date(now);
-                    d.setUTCDate(d.getUTCDate() - i);
-                    const key = d.toISOString().split('T')[0];
-                    if (days.has(key)) { streak++; }
-                    else if (i > 0) { break; }
+                const sessionDays = new Set(sessionLog.map((s: { date: string }) =>
+                    getUserLocalDateISO(new Date(s.date), timezone)
+                ));
+                // Walk backward from today; allow today to be empty (streak from yesterday still alive)
+                const cursor = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+                cursor.setHours(12, 0, 0, 0);
+                for (let i = 0; i < 366; i++) {
+                    const key = getUserLocalDateISO(cursor, timezone);
+                    if (sessionDays.has(key)) { streak++; }
+                    else if (i > 0) { break; } // allow today to not have a session yet
+                    cursor.setDate(cursor.getDate() - 1);
                 }
 
                 let notification = null;

@@ -2000,29 +2000,48 @@ function _upsertPayload(){
     return{id:currentUser.id,..._buildSavePayload()};
 }
 function savePersisted(){
-    if(currentUser) try{
-        localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
-        localStorage.setItem('bp_dirty_'+currentUser.id,'1'); // cleared only after Supabase confirms
-    }catch(e){}
+    if(currentUser){
+        const uid=currentUser.id;
+        try{
+            localStorage.setItem('bp_data_'+uid,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
+            localStorage.setItem('bp_dirty_'+uid,'1'); // cleared only after Supabase confirms
+        }catch(e){
+            console.warn('localStorage write failed, retrying with pruned data:',e);
+            try{
+                const compact={...persisted,sessionLog:(persisted.sessionLog||[]).slice(-50)};
+                localStorage.setItem('bp_data_'+uid,JSON.stringify({...compact,_savedAt:new Date().toISOString()}));
+                localStorage.setItem('bp_dirty_'+uid,'1');
+            }catch(e2){console.error('localStorage write failed after pruning:',e2);}
+        }
+    }
     clearTimeout(_saveDebounce);
     _saveDebounce=setTimeout(async()=>{
         if(!currentUser)return;
+        const uid=currentUser.id; // capture before await so logout can't null it mid-flight
         try{
             await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
-            localStorage.removeItem('bp_dirty_'+currentUser.id);
+            localStorage.removeItem('bp_dirty_'+uid);
         }catch(e){console.error('savePersisted:',e)}
     },800);
 }
 function _flushSaveNow(){
-    // Called on visibility hidden — fire Supabase write immediately without debounce
+    // Called on visibility hidden or logout — fire Supabase write immediately without debounce
     if(!currentUser)return;
+    const uid=currentUser.id; // capture before any async so logout can't null it mid-flight
     clearTimeout(_saveDebounce);
     try{
-        localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
-        localStorage.setItem('bp_dirty_'+currentUser.id,'1');
-    }catch(e){}
+        localStorage.setItem('bp_data_'+uid,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
+        localStorage.setItem('bp_dirty_'+uid,'1');
+    }catch(e){
+        console.warn('localStorage write failed:',e);
+        try{
+            const compact={...persisted,sessionLog:(persisted.sessionLog||[]).slice(-50)};
+            localStorage.setItem('bp_data_'+uid,JSON.stringify({...compact,_savedAt:new Date().toISOString()}));
+            localStorage.setItem('bp_dirty_'+uid,'1');
+        }catch(e2){console.error('localStorage write failed after pruning:',e2);}
+    }
     sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'})
-        .then(()=>{if(currentUser)localStorage.removeItem('bp_dirty_'+currentUser.id);})
+        .then(()=>{ localStorage.removeItem('bp_dirty_'+uid); }) // uid captured above — safe after logout
         .catch(()=>{});
 }
 
@@ -2300,6 +2319,8 @@ function checkMilestones(){
     if(!unseen.length)return;
     milestoneQueue.push(...unseen);
     unseen.forEach(m=>persisted.seenMilestones.push(m.id));
+    // Cap seenMilestones to avoid unbounded growth
+    if(persisted.seenMilestones.length>100)persisted.seenMilestones=persisted.seenMilestones.slice(-100);
     savePersisted();processNextMilestone();
 }
 function processNextMilestone(){
@@ -2608,11 +2629,12 @@ function nextStep(){if(session.step===2)goToStep(3);else goToStep(session.step+1
 // ═══════════════════════════════════════════════════════════════════════════
 // WARMUP
 // ═══════════════════════════════════════════════════════════════════════════
-function resetWarmupUI(){document.getElementById('warmup-timer').innerText='10:00';document.getElementById('warmup-btn').innerText='Start';if(session.warmupTimer){session.warmupTimer.cancel();session.warmupTimer=null}}
+let _warmupNextStep=null;
+function resetWarmupUI(){document.getElementById('warmup-timer').innerText='10:00';document.getElementById('warmup-btn').innerText='Start';if(session.warmupTimer){session.warmupTimer.cancel();session.warmupTimer=null}clearTimeout(_warmupNextStep);_warmupNextStep=null;}
 function toggleWarmup(){
     const btn=document.getElementById('warmup-btn');
     if(!session.warmupTimer){
-        session.warmupTimer=createTimer(600,rem=>{const m=Math.floor(rem/60).toString().padStart(2,'0'),s=(rem%60).toString().padStart(2,'0');document.getElementById('warmup-timer').innerText=`${m}:${s}`},()=>{btn.innerText='Complete!';haptic([80,40,80,40,200]);_syncWakeLock();setTimeout(()=>nextStep(),800)});
+        session.warmupTimer=createTimer(600,rem=>{const m=Math.floor(rem/60).toString().padStart(2,'0'),s=(rem%60).toString().padStart(2,'0');document.getElementById('warmup-timer').innerText=`${m}:${s}`},()=>{btn.innerText='Complete!';haptic([80,40,80,40,200]);_syncWakeLock();clearTimeout(_warmupNextStep);_warmupNextStep=setTimeout(()=>nextStep(),800);});
         session.warmupTimer.start();btn.innerText='Pause';_syncWakeLock();
     }else if(session.warmupTimer.isRunning()){session.warmupTimer.pause();btn.innerText='Resume';_syncWakeLock();}
     else{session.warmupTimer.resume();btn.innerText='Pause';_syncWakeLock();}
@@ -3029,7 +3051,7 @@ function startSet(){
     }
     session.timer=createTimer(ex.duration,rem=>{
         document.getElementById('ex-timer').innerText=fmtDuration(rem);
-        document.getElementById('live-xp').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP`;
+        document.getElementById('live-xp').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||SESSION_XP.intermediate)} XP`;
         // Uli: cue stays static. Wet Jelq: pacer interval owns cue updates.
         if(!isUli&&!isWetJelq){
             const activeCue=[...ex.cues].sort((a,b)=>a.time-b.time).find(c=>c.time>=rem);
@@ -3174,7 +3196,7 @@ function advanceEx(){
         if(session.girthRound>=session.girthTotalRounds){
             // Final round complete — go directly to success, no rest
             haptic([100,50,100,50,300]);
-            document.getElementById('success-xp-text').innerText=`+${SESSION_XP[getDiff().id]||100} XP EARNED`;
+            document.getElementById('success-xp-text').innerText=`+${SESSION_XP[getDiff().id]||SESSION_XP.intermediate} XP EARNED`;
             goToStep(5);
             return;
         }
@@ -3194,7 +3216,7 @@ function advanceEx(){
         if(session.exerciseIndex<exs.length-1){session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI();return;}
     }
     haptic([100,50,100,50,300]);
-    document.getElementById('success-xp-text').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
+    document.getElementById('success-xp-text').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||SESSION_XP.intermediate)} XP EARNED`;
     goToStep(5);
 }
 
@@ -3349,11 +3371,13 @@ function resumeSession(){
     if(!draft)return;
     localStorage.removeItem(draftKey);
     session._resuming=true;
-    session.exerciseIndex=draft.exerciseIndex;
-    session.setIndex=draft.setIndex;
     session.routineType=draft.routineType;
-    session.directionalIndex=draft.directionalIndex;
-    session.xp=draft.xp;
+    // Guard against draft index exceeding the current routine length (e.g. routine was edited)
+    const routineLen=(ROUTINES[draft.routineType]||[]).length;
+    session.exerciseIndex=(draft.exerciseIndex>=0&&draft.exerciseIndex<routineLen)?draft.exerciseIndex:0;
+    session.setIndex=draft.setIndex||1;
+    session.directionalIndex=draft.directionalIndex||0;
+    session.xp=draft.xp||0;
     _sessionStartTime=draft.sessionStartTime||Date.now();
     goToStep(4);
     session._resuming=false;
@@ -3373,11 +3397,14 @@ function renderLog(){
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION FINISH
 // ═══════════════════════════════════════════════════════════════════════════
+let _finishingSession=false;
 function finishSession(){
+    if(_finishingSession)return; // guard against double-tap
+    _finishingSession=true;
     const bpel=parseFloat(document.getElementById('input-bpel').value);
     const mseg=parseFloat(document.getElementById('input-mseg').value);
     const note=document.getElementById('session-note-input').value.trim();
-    const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100);
+    const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||SESSION_XP.intermediate);
     persisted.totalXp+=earnedXp;
     persisted.completedDays[new Date().getDay()]=true;
     persisted.sessionLog.push({
@@ -3389,12 +3416,24 @@ function finishSession(){
         rpe:selectedRPE,
         duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):null,
     });
-    if(persisted.sessionLog.length>50)persisted.sessionLog=persisted.sessionLog.slice(-50);
-    if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);if(persisted.measurements.length>100)persisted.measurements=persisted.measurements.slice(-100)}
+    if(persisted.sessionLog.length>500)persisted.sessionLog=persisted.sessionLog.slice(-500);
+    // Validate measurements — reject negative or physiologically impossible values
+    if(!isNaN(bpel)||!isNaN(mseg)){
+        const bpelOk=!isNaN(bpel)&&bpel>0&&bpel<30;
+        const msegOk=!isNaN(mseg)&&mseg>0&&mseg<30;
+        if(bpelOk||msegOk){
+            const e={date:new Date().toISOString()};
+            if(bpelOk)e.bpel=bpel;
+            if(msegOk)e.mseg=mseg;
+            persisted.measurements.push(e);
+            if(persisted.measurements.length>100)persisted.measurements=persisted.measurements.slice(-100);
+        }
+    }
     updateRecords(earnedXp);
     savePersisted();
     checkMilestones();
     showSessionSummary(earnedXp);
+    setTimeout(()=>_finishingSession=false,500); // reset after modal is visible
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3485,17 +3524,22 @@ function selectRPE(val){
 // Returns the number of consecutive days (ending today or yesterday) that
 // have at least one logged session. Uses sessionLog dates, not completedDays,
 // so it works correctly across week boundaries.
+function _localDateStr(date){
+    // Returns YYYY-MM-DD in the user's local timezone (en-CA locale gives this format)
+    return date.toLocaleDateString('en-CA');
+}
 function getCurrentStreak(log){
     const sessions=log||(persisted.sessionLog||[]);
     if(!sessions.length) return 0;
-    const days=new Set(sessions.map(s=>s.date.split('T')[0]));
+    // Use local timezone so a session at 11 PM local counts for that calendar day
+    const days=new Set(sessions.map(s=>_localDateStr(new Date(s.date))));
     const today=new Date();
     let streak=0;
     for(let i=0;i<365;i++){
         const d=new Date(today);d.setDate(d.getDate()-i);
-        const key=d.toISOString().split('T')[0];
+        const key=_localDateStr(d);
         if(days.has(key)){streak++;}
-        else if(i>0){break;} // allow today to not yet have a session without snapping streak
+        else if(i>0){break;} // allow today to not yet have a session without breaking streak
     }
     return streak;
 }
@@ -3674,7 +3718,7 @@ function showSessionHistory(){
                         </div>
                         <p class="text-[10px] text-slate-500 mt-0.5">${dateStr} · ${timeStr}</p>
                         ${s.eq||s.rpe?`<div class="flex gap-3 mt-1.5">${s.eq?`<span class="text-[10px] text-slate-400">EQ <span class="text-white font-bold">${s.eq}</span></span>`:''}${s.rpe?`<span class="text-[10px] text-slate-400">RPE <span class="text-white font-bold">${s.rpe}</span></span>`:''}</div>`:''}
-                        ${s.note?`<p class="text-[10px] text-slate-500 italic mt-1 truncate">${s.note}</p>`:''}
+                        ${s.note?`<p class="text-[10px] text-slate-500 italic mt-1 truncate">${esc(s.note)}</p>`:''}
                     </div>
                 </div>
             </div>`;
@@ -3847,14 +3891,26 @@ async function handleForgotPassword(){
     else setAuthSuccess('Password reset email sent. Check your inbox.');
 }
 async function handleLogout(){
+    // Flush any pending local write to Supabase BEFORE clearing currentUser so the
+    // upsert has a valid user id and the dirty flag gets cleared on success.
+    _flushSaveNow();
     // Clear state and show auth screen immediately — don't wait on the network.
     // Any in-flight onUserSignedIn will see currentUser cleared and abort.
+    const loggedOutUid=currentUser?.id;
     currentUser=null;persisted={...DEFAULT_PERSISTED};
+    // Clean up per-user localStorage keys (sleep, soreness, etc.)
+    if(loggedOutUid){
+        const keysToRemove=[];
+        for(let i=0;i<localStorage.length;i++){
+            const k=localStorage.key(i);
+            if(k&&(k.startsWith('bp_sleep_'+loggedOutUid)||k.startsWith('bp_soreness_'+loggedOutUid)))keysToRemove.push(k);
+        }
+        keysToRemove.forEach(k=>localStorage.removeItem(k));
+    }
     clearTimeout(_localNotifTimer);_localNotifTimer=null;
     _releaseWakeLock();
     showAuthScreen();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
-    _flushSaveNow();
     try{await sb.auth.signOut();}catch(e){console.error('signOut error:',e);}
 }
 async function checkMembership(user){
