@@ -622,9 +622,10 @@
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
         </div>
-        <!-- Coach Tee Daily Tip -->
+        <!-- Coach Tee Hourly Tip -->
         <div class="tip-card mx-2">
-            <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee — Today</p>
+            <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee — <span id="daily-tip-hour">Now</span></p>
+            <p id="daily-tip-title" class="text-[11px] font-black text-white uppercase tracking-wide mb-1"></p>
             <p id="daily-tip" class="text-[12px] text-slate-300 leading-relaxed italic"></p>
         </div>
         <!-- Hydration Tracker -->
@@ -1637,23 +1638,24 @@ const WARMUP_TIPS=[
     {icon:'fa-chart-line',        color:'text-yellow-400', label:'Long-Term Returns',     title:'The Warmup IS the Protocol',           body:'Athletes who skip warmup plateau 3–4× faster. Over a 6-month program, consistent warmers see measurably better outcomes in both length and girth. This 10 minutes is not optional.'},
 ];
 
-const COACH_TIPS = [
-    "Consistency beats intensity every time. One solid session a week for 6 months beats aggressive daily training for 2 weeks then quitting.",
-    "Your tunica is collagen. Collagen remodels during REST, not during the session. The work you do today pays off in 48-72 hours.",
-    "3L of water is the minimum. Think of it as lubricating the tissue from the inside out. Dehydrated tissue doesn't expand — it tears.",
-    "EQ is your performance readout. If you can't hit 60% on command, fix your cardiovascular health before worrying about protocol.",
-    "The warmup is where 80% of guys fail. They rush it or skip it. You cannot stretch collagen that hasn't been heated. Period.",
-    "Kegels without reverse kegels create an imbalanced floor. Always train both directions — contraction AND release.",
-    "Recovery days aren't off days. The Big Four and pelvic floor work on rest days is what separates guys who gain from guys who plateau.",
-    "Soreness in the base after length work is normal. Soreness in the glans, or any numbness anywhere, is a stop signal.",
-    "Sleep is the most underrated variable in this protocol. Growth hormone peaks during deep sleep. 7-9 hours is part of the program.",
-    "The mental component is real. Stress and anxiety directly tighten the pelvic floor. Handle your stress or it will limit your gains.",
-    "Don't measure more than once every 2-4 weeks. Tissue changes happen slower than motivation. Measuring too often creates anxiety.",
-    "Lube is not optional on the Jelq. If you're generating friction instead of hydraulic pressure, you're doing it wrong.",
-    "The OK grip should be firm enough to trap blood but not so tight you cut off circulation. You want pressure, not a tourniquet.",
-    "EQ between 60-80% is the jelq sweet spot. Too soft and there's no pressure wave. Too hard and you risk overstress.",
-    "Hip flexibility directly affects pelvic function. The Pigeon Pose and Butterfly aren't yoga — they're part of the protocol.",
-];
+const COACH_TIPS = {
+    7:  { title: 'Morning EQ check.',         body: 'Morning erections are a vascular health report. Strong EQ on wake = arteries dilating properly. Track it every day.' },
+    8:  { title: 'Drink water now.',           body: 'Blood is 90% water. Dehydration thickens it, raises vascular resistance, and tanks EQ directly. 500mL before anything else.' },
+    9:  { title: '3 deep breaths.',            body: 'Shallow breathing keeps your nervous system in fight-or-flight. Deep belly breaths activate the parasympathetic state — the same state required for full erections.' },
+    10: { title: 'Release your pelvic floor.', body: 'A chronically tight floor restricts blood flow to the genitals. If you\'ve been sitting for 2+ hours, consciously relax it now. Release is the skill.' },
+    11: { title: 'Fix your posture.',          body: 'Slouching compresses the iliac arteries that supply blood to the pelvic region. Sit tall — it\'s a direct blood flow intervention.' },
+    12: { title: 'Midday hydration check.',    body: 'You should be at 1L by now. Smooth muscle in your blood vessels needs water to stay flexible. Stiff vessels mean weaker EQ.' },
+    13: { title: '10-minute walk.',            body: 'Walking activates femoral artery flow. That same circuit feeds the pudendal artery — the primary supply line to your erections.' },
+    14: { title: 'Cold shower today?',         body: 'Cold triggers vasoconstriction then vasodilation. That vascular cycling trains your arteries to open on demand — the same mechanism behind strong EQ.' },
+    15: { title: 'Cortisol check.',            body: 'Chronic stress raises cortisol, suppresses testosterone, and tightens blood vessels. Stress management is not optional — it\'s part of the protocol.' },
+    16: { title: 'Hydration window closing.',  body: 'Most guys are 1.5–2L short by 4 PM. 500mL now. You can\'t make it up at night without disrupting sleep — which kills overnight testosterone production.' },
+    17: { title: 'Eat light before training.', body: 'Heavy meals redirect blood to digestion and away from the pelvic region. If you\'re training tonight, eat something light now.' },
+    18: { title: 'Warm tissue moves.',         body: 'Cold collagen tears instead of stretching. A 10-minute warmup before any session is non-negotiable. Start earlier than you think you need to.' },
+    19: { title: 'Session time.',              body: 'The guys with the best results aren\'t the most intense — they\'re the most consistent. One session tonight keeps the adaptation cycle running.' },
+    20: { title: 'Start winding down.',        body: 'Testosterone peaks during deep sleep. Blue light, stress, and late eating all suppress it. Begin dimming the environment now.' },
+    21: { title: 'Screens down.',              body: 'Blue light delays melatonin by 2–3 hours. Melatonin triggers the hormone cascade that peaks in deep sleep. Dim everything and let it work.' },
+    22: { title: 'Last call.',                 body: '7–9 hours of sleep is part of the protocol. Your tissue remodels overnight. Log off, wind down, let recovery do its job.' },
+};
 const ROUTINES={
     length:[
         {title:'Directional Pulls',sets:3,duration:30,isDirectional:true,eq:'3-4 EQ',
@@ -3398,17 +3400,19 @@ function finishSession(){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DAILY TIP
+// HOURLY TIP
 // ═══════════════════════════════════════════════════════════════════════════
 function renderDailyTip(){
-    const today=new Date().toISOString().split('T')[0];
-    if(persisted.lastTipDate!==today){
-        persisted.tipIndex=(persisted.tipIndex+1)%COACH_TIPS.length;
-        persisted.lastTipDate=today;
-        savePersisted();
-    }
-    const el=document.getElementById('daily-tip');
-    if(el) el.innerText=COACH_TIPS[persisted.tipIndex]||COACH_TIPS[0];
+    const hour=new Date().getHours();
+    const clampedHour=Math.min(Math.max(hour,7),22);
+    const tip=COACH_TIPS[clampedHour]||COACH_TIPS[19];
+    const HOUR_LABELS={7:'7 AM',8:'8 AM',9:'9 AM',10:'10 AM',11:'11 AM',12:'Noon',13:'1 PM',14:'2 PM',15:'3 PM',16:'4 PM',17:'5 PM',18:'6 PM',19:'7 PM',20:'8 PM',21:'9 PM',22:'10 PM'};
+    const hourEl=document.getElementById('daily-tip-hour');
+    const titleEl=document.getElementById('daily-tip-title');
+    const bodyEl=document.getElementById('daily-tip');
+    if(hourEl) hourEl.innerText=HOUR_LABELS[clampedHour]||'Now';
+    if(titleEl) titleEl.innerText=tip.title;
+    if(bodyEl) bodyEl.innerText=tip.body;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
