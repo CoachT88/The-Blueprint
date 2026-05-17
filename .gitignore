@@ -1,5 +1,8 @@
 # node_modules/
 
+# Supabase CLI cache
+supabase/.temp/
+
 # wrangler files
 .wrangler
 .dev.vars*
