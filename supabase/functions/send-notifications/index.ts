@@ -56,6 +56,16 @@ const RECOVERY_REMINDERS = [
     { title: 'Rest day. Do the work.', body: 'Hip openers + reverse kegels keep the floor supple.' },
 ];
 
+const HYDRATION_REMINDERS = [
+    { title: 'Log your water.', body: 'Plasma volume = blood flow. Dehydration cuts circulation by up to 20%. Hit 3L today.' },
+    { title: 'Hydration check.', body: 'Blood is 90% water. Log your intake — tissue needs it to respond to training.' },
+    { title: 'Water drives blood flow.', body: 'Thicker blood = less vascular stretch. Stay hydrated, stay responsive.' },
+    { title: 'Log your intake.', body: 'Hydration keeps blood fluid and tissue pliable. Open The Blueprint and track it.' },
+    { title: 'Mid-day water check.', body: 'Every liter you drink keeps blood viscosity low and erectile response high.' },
+    { title: 'Track your hydration.', body: 'Collagen remodeling needs water. No hydration = no recovery. Log it.' },
+    { title: 'Drink water.', body: 'Dehydration stiffens tissue and reduces vascular response. Open the app and log your water.' },
+];
+
 function pickByDayOfWeek<T>(arr: T[], dayIndex: number): T {
     return arr[dayIndex % arr.length];
 }
@@ -152,8 +162,19 @@ Deno.serve(async () => {
 
                 let notification = null;
 
-                // 1. Streak warning at a fixed 8 PM local if they haven't trained
-                if (sub.streak_warn && streak >= 3 && !trainedToday) {
+                // 1. Hydration reminder — fires at noon local time if hydration_remind is enabled.
+                //    Since hydration data lives in localStorage we can't check the logged amount,
+                //    so we send unconditionally and let the user log it after opening the app.
+                if (sub.hydration_remind) {
+                    const hydrationUTCHour = ((12 - offsetHours) + 24) % 24;
+                    if (currentHour === hydrationUTCHour) {
+                        const base = pickByDayOfWeek(HYDRATION_REMINDERS, localDayOfWeek);
+                        notification = { ...base, tag: 'hydration-reminder' };
+                    }
+                }
+
+                // 2. Streak warning at a fixed 8 PM local if they haven't trained
+                if (!notification && sub.streak_warn && streak >= 3 && !trainedToday) {
                     const streakUTCHour = ((20 - offsetHours) + 24) % 24;
                     if (currentHour === streakUTCHour) {
                         notification = {
@@ -165,7 +186,7 @@ Deno.serve(async () => {
                     }
                 }
 
-                // 2. Daily reminder — send regardless of rest/training day;
+                // 3. Daily reminder — send regardless of rest/training day;
                 //    skip only if they already completed any session today.
                 if (!notification && !trainedToday) {
                     if (isRestDay) {

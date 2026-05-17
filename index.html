@@ -459,6 +459,17 @@
                             </div>
                         </label>
                     </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[11px] font-bold text-slate-300">Hydration reminders</p>
+                            <p class="text-[10px] text-slate-600">Noon nudge — hydration drives blood flow</p>
+                        </div>
+                        <label id="hydration-remind-toggle-label" class="flex items-center cursor-pointer">
+                            <div id="hydration-remind-toggle" class="w-9 h-5 rounded-full bg-slate-700 border border-slate-600 relative transition-colors">
+                                <div id="hydration-remind-thumb" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-400 transition-all"></div>
+                            </div>
+                        </label>
+                    </div>
                 </div>
                 <button id="notif-enable-btn" class="btn-primary py-3 text-sm w-full">Enable Notifications</button>
                 <button id="notif-disable-btn" class="hidden w-full py-3 text-[11px] font-black text-red-400 uppercase tracking-widest">Disable Notifications</button>
@@ -800,7 +811,7 @@
         <i class="fas fa-moon text-indigo-400 text-lg flex-shrink-0"></i>
         <div>
             <p class="text-indigo-300 text-[10px] font-black uppercase tracking-widest">Rest Day — Blackout Active</p>
-            <p class="text-slate-400 text-[11px] mt-0.5">Training is locked today. Access Recovery Protocol only — The Big Four and pelvic work.</p>
+            <p class="text-slate-400 text-[11px] mt-0.5">Length &amp; Girth are locked today. Edging Protocol and Recovery remain available.</p>
         </div>
     </div>
     <div class="grid grid-cols-1 gap-4 px-2 w-full">
@@ -2607,12 +2618,13 @@ function goToStep(step){
         // Blackout day enforcement
         const blackout=isBlackoutDay();
         document.getElementById('blackout-banner').classList.toggle('hidden',!blackout);
+        // Edging (stamina) is allowed on rest days — only Length and Girth are locked
         document.getElementById('mission-length-btn').disabled=blackout;
         document.getElementById('mission-girth-btn').disabled=blackout;
-        document.getElementById('mission-stamina-btn').disabled=blackout;
         document.getElementById('mission-length-btn').style.opacity=blackout?'0.35':'';
         document.getElementById('mission-girth-btn').style.opacity=blackout?'0.35':'';
-        document.getElementById('mission-stamina-btn').style.opacity=blackout?'0.35':'';
+        document.getElementById('mission-stamina-btn').disabled=false;
+        document.getElementById('mission-stamina-btn').style.opacity='';
         // Hydration warning
         const hydWarn=getHydrationWarning();
         const hydBanner=document.getElementById('hydration-warning-banner');
@@ -4060,6 +4072,11 @@ function openNotifModal(){
     modal.classList.remove('hidden');
 }
 function closeNotifModal(){document.getElementById('notif-modal').classList.add('hidden');}
+function _setToggleUI(toggleId,thumbId,on){
+    const t=document.getElementById(toggleId),th=document.getElementById(thumbId);
+    if(t){t.style.background=on?'rgb(59, 130, 246)':'';t.style.borderColor=on?'rgb(59, 130, 246)':'';}
+    if(th){th.style.transform=on?'translateX(16px)':'';th.style.background=on?'#fff':'';}
+}
 async function _refreshNotifUI(){
     const perm=Notification.permission;
     const active=perm==='granted';
@@ -4072,6 +4089,8 @@ async function _refreshNotifUI(){
     if(prefs.time) document.getElementById('notif-time').value=prefs.time;
     const streakOn=prefs.streakWarn!==false;
     _setToggleUI('streak-warn-toggle','streak-warn-thumb',streakOn);
+    const hydOn=prefs.hydrationRemind===true;
+    _setToggleUI('hydration-remind-toggle','hydration-remind-thumb',hydOn);
 }
 async function enableNotifications(){
     const btn=document.getElementById('notif-enable-btn');
@@ -4111,6 +4130,7 @@ async function _savePushSubscription(sub){
         auth:j.keys.auth,
         reminder_time:prefs.time||'19:00',
         streak_warn:prefs.streakWarn!==false,
+        hydration_remind:prefs.hydrationRemind===true,
         timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         updated_at:new Date().toISOString(),
     },{onConflict:'user_id'});
@@ -4122,13 +4142,14 @@ async function _deletePushSubscription(sub){
 async function saveNotifPrefs(){
     const time=document.getElementById('notif-time').value;
     const streakWarn=document.getElementById('streak-warn-toggle').style.background==='rgb(59, 130, 246)';
-    const prefs={time,streakWarn};
+    const hydrationRemind=document.getElementById('hydration-remind-toggle').style.background==='rgb(59, 130, 246)';
+    const prefs={time,streakWarn,hydrationRemind};
     localStorage.setItem('bp_notif_prefs',JSON.stringify(prefs));
     _scheduleLocalNotif(); // re-arm with new time
     // Update in Supabase if subscribed
     if(currentUser&&_swRegistration&&'PushManager' in window){
         const sub=await _swRegistration.pushManager.getSubscription().catch(()=>null);
-        if(sub) await sb.from('push_subscriptions').update({reminder_time:time,streak_warn:streakWarn}).eq('user_id',currentUser.id).catch(()=>{});
+        if(sub) await sb.from('push_subscriptions').update({reminder_time:time,streak_warn:streakWarn,hydration_remind:hydrationRemind}).eq('user_id',currentUser.id).catch(()=>{});
     }
 }
 
@@ -4367,6 +4388,11 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     document.getElementById('streak-warn-toggle-label').addEventListener('click',()=>{
         const on=document.getElementById('streak-warn-toggle').style.background!=='rgb(59, 130, 246)';
         _setToggleUI('streak-warn-toggle','streak-warn-thumb',on);
+        saveNotifPrefs();
+    });
+    document.getElementById('hydration-remind-toggle-label').addEventListener('click',()=>{
+        const on=document.getElementById('hydration-remind-toggle').style.background!=='rgb(59, 130, 246)';
+        _setToggleUI('hydration-remind-toggle','hydration-remind-thumb',on);
         saveNotifPrefs();
     });
     initServiceWorker();
