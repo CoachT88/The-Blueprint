@@ -4063,6 +4063,15 @@ async function _deletePushSubscription(sub){
     if(!currentUser)return;
     await sb.from('push_subscriptions').delete().eq('user_id',currentUser.id);
 }
+function _setToggleUI(trackId,thumbId,on){
+    const track=document.getElementById(trackId);
+    const thumb=document.getElementById(thumbId);
+    if(!track||!thumb)return;
+    track.style.background=on?'rgb(59,130,246)':'';
+    track.style.borderColor=on?'rgba(59,130,246,.4)':'';
+    thumb.style.transform=on?'translateX(16px)':'';
+    thumb.style.background=on?'#fff':'';
+}
 async function saveNotifPrefs(){
     const time=document.getElementById('notif-time').value;
     const streakWarn=document.getElementById('streak-warn-toggle').style.background==='rgb(59, 130, 246)';
