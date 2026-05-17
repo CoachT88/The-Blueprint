@@ -16,22 +16,22 @@ webpush.setVapidDetails(
 // Each tip links a daily habit directly to blood flow and EQ.
 
 const HOURLY_TIPS: Record<number, { title: string; body: string }> = {
-    7:  { title: 'Morning EQ check.',          body: 'Morning erections are a vascular health report. Strong EQ on wake = arteries dilating properly. Track it every day.' },
-    8:  { title: 'Drink water now.',            body: 'Blood is 90% water. Dehydration thickens it, raises vascular resistance, and tanks EQ directly. 500mL before anything else.' },
-    9:  { title: '3 deep breaths.',             body: 'Shallow breathing keeps your nervous system in fight-or-flight. Deep belly breaths activate the parasympathetic state — the same state required for full erections.' },
-    10: { title: 'Release your pelvic floor.',  body: 'A chronically tight floor restricts blood flow to the genitals. If you\'ve been sitting for 2+ hours, consciously relax it now. Release is the skill.' },
-    11: { title: 'Fix your posture.',           body: 'Slouching compresses the iliac arteries that supply blood to the pelvic region. Sit tall — it\'s a direct blood flow intervention.' },
-    12: { title: 'Midday hydration check.',     body: 'You should be at 1L by now. Smooth muscle in your blood vessels needs water to stay flexible. Stiff vessels mean weaker EQ.' },
-    13: { title: '10-minute walk.',             body: 'Walking activates femoral artery flow. That same circuit feeds the pudendal artery — the primary supply line to your erections.' },
-    14: { title: 'Cold shower today?',          body: 'Cold triggers vasoconstriction then vasodilation. That vascular cycling trains your arteries to open on demand — the same mechanism behind strong EQ.' },
-    15: { title: 'Cortisol check.',             body: 'Chronic stress raises cortisol, suppresses testosterone, and tightens blood vessels. Stress management is not optional — it\'s part of the protocol.' },
-    16: { title: 'Hydration window closing.',   body: 'Most guys are 1.5–2L short by 4 PM. 500mL now. You can\'t make it up at night without disrupting sleep — which kills overnight testosterone production.' },
-    17: { title: 'Eat light before training.',  body: 'Heavy meals redirect blood to digestion and away from the pelvic region. If you\'re training tonight, eat something light now.' },
-    18: { title: 'Warm tissue moves.',          body: 'Cold collagen tears instead of stretching. A 10-minute warmup before any session is non-negotiable. Start earlier than you think you need to.' },
-    19: { title: 'Session time.',               body: 'The guys with the best results aren\'t the most intense — they\'re the most consistent. One session tonight keeps the adaptation cycle running.' },
-    20: { title: 'Start winding down.',         body: 'Testosterone peaks during deep sleep. Blue light, stress, and late eating all suppress it. Begin dimming the environment now.' },
-    21: { title: 'Screens down.',               body: 'Blue light delays melatonin by 2–3 hours. Melatonin triggers the hormone cascade that peaks in deep sleep. Dim everything and let it work.' },
-    22: { title: 'Last call.',                  body: '7–9 hours of sleep is part of the protocol. Your tissue remodels overnight. Log off, wind down, let recovery do its job.' },
+    7:  { title: 'Coach Tee', body: "Morning. First thing — drink 500mL of water before anything else. Blood is 90% water. Dehydrated blood doesn't move well, and that shows up directly in your EQ." },
+    8:  { title: 'Coach Tee', body: "How's your water intake looking? You should have 500mL in already. Hydration isn't optional — it's the first variable that affects your blood flow and your results." },
+    9:  { title: 'Coach Tee', body: "Take 3 slow deep breaths right now. Belly breathing activates your parasympathetic nervous system — the same state your body needs to achieve full erections. Practice it daily." },
+    10: { title: 'Coach Tee', body: "If you've been sitting for a while, your pelvic floor is probably tight. Release it consciously right now. A tight floor restricts blood flow to the genitals. Release is a skill." },
+    11: { title: 'Coach Tee', body: "Check your posture. Slouching compresses the arteries that feed blood to your pelvic region. Sit tall — it's not just aesthetics, it's a direct blood flow intervention." },
+    12: { title: 'Coach Tee', body: "Midday check. You should be at 1L of water by now. If you're not, drink up. Smooth muscle in your blood vessels needs water to stay flexible. Stiff vessels = weaker EQ." },
+    13: { title: 'Coach Tee', body: "Get a 10-minute walk in this afternoon. Walking activates femoral artery blood flow — the same circuit that feeds the pudendal artery, which is the main supply line to your erections." },
+    14: { title: 'Coach Tee', body: "Cold shower today if you can. Cold triggers vasoconstriction then vasodilation — that cycling trains your arteries to open on demand. Same mechanism as EQ. Do it." },
+    15: { title: 'Coach Tee', body: "What's your stress level right now? Chronic stress raises cortisol, suppresses testosterone, and tightens blood vessels. Managing stress isn't soft — it's part of the protocol." },
+    16: { title: 'Coach Tee', body: "Hydration window is closing. Most guys are 1.5-2L short by 4 PM. Drink 500mL now. You can't make it up at night — late water disrupts sleep, and sleep is when testosterone is produced." },
+    17: { title: 'Coach Tee', body: "If you're training tonight, eat light now. A heavy meal redirects blood to digestion and away from the pelvic region. Let the blood stay where it needs to be." },
+    18: { title: 'Coach Tee', body: "Session coming up. Remember — cold collagen tears instead of stretches. 10-minute warmup before you touch the protocol. Non-negotiable. Start earlier than you think you need to." },
+    19: { title: 'Coach Tee', body: "Time to train. Warmup, protocol, pelvic floor work — all three. The guys who get results aren't the most intense, they're the most consistent. Get it done tonight." },
+    20: { title: 'Coach Tee', body: "Start winding down. Testosterone peaks during deep sleep, but blue light, stress, and late eating all suppress it. Dim the screens, let the body shift into recovery mode." },
+    21: { title: 'Coach Tee', body: "Screens down if you can. Blue light delays melatonin by 2-3 hours. Melatonin kicks off the hormone cascade that peaks in deep sleep — that's when your tissue remodels. Protect it." },
+    22: { title: 'Coach Tee', body: "Last check of the day. Water done? Session done? Pelvic floor work done? 7-9 hours of sleep is part of the protocol. Log off and let the recovery do its job." },
 };
 
 const WAKING_HOURS = Object.keys(HOURLY_TIPS).map(Number);
