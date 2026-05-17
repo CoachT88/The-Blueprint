@@ -1,16 +1,5 @@
-// The Blueprint — Push Notification Sender
-// Deploy: supabase functions deploy send-notifications
-// Cron:   runs every hour via Supabase cron trigger
-//
-// Required secrets (set via: supabase secrets set KEY=value):
-//   VAPID_PUBLIC_KEY   — the public key from vapid key generation
-//   VAPID_PRIVATE_KEY  — the private key from vapid key generation
-//   VAPID_SUBJECT      — mailto:your@email.com
-//   SUPABASE_URL       — your project URL
-//   SUPABASE_SERVICE_ROLE_KEY — service role key (not anon)
-
-import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import webpush from 'npm:web-push@3.6.7';
 
 const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -23,71 +12,43 @@ webpush.setVapidDetails(
     Deno.env.get('VAPID_PRIVATE_KEY')!
 );
 
-// ─── Notification copy ────────────────────────────────────────────────────
-// Indexed 0-6 (Sun–Sat) so messages rotate through the week without repeating.
+// ─── Hourly educational tips (indexed by local hour, 7–22) ───────────────────
+// Each tip links a daily habit directly to blood flow and EQ.
 
-const TRAINING_REMINDERS = [
-    { title: 'Time to train.', body: '10-min warmup → protocol → done. Open The Blueprint.' },
-    { title: 'Your tissue is ready.', body: 'Nothing left but the work. Open the app and get it done.' },
-    { title: 'Consistency is the protocol.', body: 'One session today keeps the adaptation cycle running.' },
-    { title: 'Get the session in.', body: 'Warm up, execute, recover. That is the whole job.' },
-    { title: 'Progress is made tonight.', body: 'Collagen remodels 48–72 h after the stimulus. Give it one.' },
-    { title: 'Open The Blueprint.', body: 'Start the warmup. The rest follows.' },
-    { title: 'One session. That is it.', body: 'Warmup, work, done. Your future self does not skip.' },
-];
+const HOURLY_TIPS: Record<number, { title: string; body: string }> = {
+    7:  { title: 'Morning EQ check.',          body: 'Morning erections are a vascular health report. Strong EQ on wake = arteries dilating properly. Track it every day.' },
+    8:  { title: 'Drink water now.',            body: 'Blood is 90% water. Dehydration thickens it, raises vascular resistance, and tanks EQ directly. 500mL before anything else.' },
+    9:  { title: '3 deep breaths.',             body: 'Shallow breathing keeps your nervous system in fight-or-flight. Deep belly breaths activate the parasympathetic state — the same state required for full erections.' },
+    10: { title: 'Release your pelvic floor.',  body: 'A chronically tight floor restricts blood flow to the genitals. If you\'ve been sitting for 2+ hours, consciously relax it now. Release is the skill.' },
+    11: { title: 'Fix your posture.',           body: 'Slouching compresses the iliac arteries that supply blood to the pelvic region. Sit tall — it\'s a direct blood flow intervention.' },
+    12: { title: 'Midday hydration check.',     body: 'You should be at 1L by now. Smooth muscle in your blood vessels needs water to stay flexible. Stiff vessels mean weaker EQ.' },
+    13: { title: '10-minute walk.',             body: 'Walking activates femoral artery flow. That same circuit feeds the pudendal artery — the primary supply line to your erections.' },
+    14: { title: 'Cold shower today?',          body: 'Cold triggers vasoconstriction then vasodilation. That vascular cycling trains your arteries to open on demand — the same mechanism behind strong EQ.' },
+    15: { title: 'Cortisol check.',             body: 'Chronic stress raises cortisol, suppresses testosterone, and tightens blood vessels. Stress management is not optional — it\'s part of the protocol.' },
+    16: { title: 'Hydration window closing.',   body: 'Most guys are 1.5–2L short by 4 PM. 500mL now. You can\'t make it up at night without disrupting sleep — which kills overnight testosterone production.' },
+    17: { title: 'Eat light before training.',  body: 'Heavy meals redirect blood to digestion and away from the pelvic region. If you\'re training tonight, eat something light now.' },
+    18: { title: 'Warm tissue moves.',          body: 'Cold collagen tears instead of stretching. A 10-minute warmup before any session is non-negotiable. Start earlier than you think you need to.' },
+    19: { title: 'Session time.',               body: 'The guys with the best results aren\'t the most intense — they\'re the most consistent. One session tonight keeps the adaptation cycle running.' },
+    20: { title: 'Start winding down.',         body: 'Testosterone peaks during deep sleep. Blue light, stress, and late eating all suppress it. Begin dimming the environment now.' },
+    21: { title: 'Screens down.',               body: 'Blue light delays melatonin by 2–3 hours. Melatonin triggers the hormone cascade that peaks in deep sleep. Dim everything and let it work.' },
+    22: { title: 'Last call.',                  body: '7–9 hours of sleep is part of the protocol. Your tissue remodels overnight. Log off, wind down, let recovery do its job.' },
+};
 
-const STREAK_REMINDERS = [
-    (streak: number) => ({ title: `Day ${streak + 1}. Keep it moving.`, body: 'Warm up, hit the protocol, log it. Streak stays alive.' }),
-    (streak: number) => ({ title: `${streak}-day streak on the line.`, body: 'One session keeps the chain unbroken. Open the app.' }),
-    (streak: number) => ({ title: `Day ${streak + 1}.`, body: 'Consistent reps compound. Do not let today be the gap.' }),
-    (streak: number) => ({ title: `${streak} days straight.`, body: 'Warmup → protocol → done. That is the whole move.' }),
-    (streak: number) => ({ title: `Streak alive: ${streak} days.`, body: 'Tissue adapts in recovery. Give it the stimulus first.' }),
-    (streak: number) => ({ title: `Day ${streak + 1}. You know the drill.`, body: '10 minutes of warmup and the work is half done.' }),
-    (streak: number) => ({ title: `${streak} days in.`, body: 'This is where most guys stop. You are not most guys.' }),
-];
+const WAKING_HOURS = Object.keys(HOURLY_TIPS).map(Number);
 
-const RECOVERY_REMINDERS = [
-    { title: 'Recovery day.', body: 'Hip flexors + RK holds. 5 minutes locks in the gains.' },
-    { title: 'Active recovery today.', body: 'Pelvic floor release + box breathing. 5 min. Do it.' },
-    { title: 'Rest day protocol.', body: 'Reverse kegels + hip openers. Recovery work compounds.' },
-    { title: '5-min recovery session.', body: 'Stretch, breathe, release. Your tissue rebuilds tonight.' },
-    { title: 'Recovery is the work.', body: 'Drop into pelvic floor release + RK holds. 5 minutes.' },
-    { title: 'Open The Blueprint.', body: 'Recovery Protocol today — pelvic stretches + RK holds.' },
-    { title: 'Rest day. Do the work.', body: 'Hip openers + reverse kegels keep the floor supple.' },
-];
-
-function pickByDayOfWeek<T>(arr: T[], dayIndex: number): T {
-    return arr[dayIndex % arr.length];
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-function getUserLocalDayOfWeek(now: Date, timezone: string): number {
+function getUserLocalHour(now: Date, timezone: string): number {
     try {
-        const localStr = now.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'short' });
-        const days: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-        return days[localStr.slice(0, 3)] ?? now.getUTCDay();
+        return parseInt(now.toLocaleString('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }), 10);
     } catch {
-        return now.getUTCDay();
-    }
-}
-
-function getUserLocalDateISO(now: Date, timezone: string): string {
-    try {
-        // Build YYYY-MM-DD in user's local timezone
-        const parts = now.toLocaleDateString('en-CA', { timeZone: timezone }); // en-CA gives YYYY-MM-DD
-        return parts;
-    } catch {
-        return now.toISOString().split('T')[0];
+        return now.getUTCHours();
     }
 }
 
 Deno.serve(async () => {
     try {
         const now = new Date();
-        const currentHour = now.getUTCHours();
+        const currentUTCHour = now.getUTCHours();
 
-        // Fetch all active push subscriptions
         const { data: subs, error } = await supabase
             .from('push_subscriptions')
             .select('*');
@@ -101,89 +62,27 @@ Deno.serve(async () => {
         for (const sub of subs) {
             try {
                 const timezone = sub.timezone || 'UTC';
-                const reminderTime = sub.reminder_time || '19:00';
-                const [rh] = reminderTime.split(':').map(Number);
+                const localHour = getUserLocalHour(now, timezone);
 
-                // Convert reminder local hour → UTC hour
+                // Only fire during waking hours
+                if (!WAKING_HOURS.includes(localHour)) continue;
+
+                // Deduplicate: only fire once per local hour per user
+                // We use the UTC hour that corresponds to the user's local hour
                 const userDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
                 const utcDate  = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
                 const offsetHours = Math.round((userDate.getTime() - utcDate.getTime()) / 3600000);
-                const reminderUTCHour = ((rh - offsetHours) + 24) % 24;
+                const expectedUTCHour = ((localHour - offsetHours) + 24) % 24;
+                if (currentUTCHour !== expectedUTCHour) continue;
 
-                // Only fire in the exact matching UTC hour (cron is hourly — this fires once)
-                if (currentHour !== reminderUTCHour) continue;
-
-                // Fetch user data
-                const { data: userData } = await supabase
-                    .from('user_data')
-                    .select('session_log, schedule')
-                    .eq('id', sub.user_id)
-                    .single();
-
-                if (!userData) continue;
-
-                const sessionLog: Array<{ date: string }> = userData.session_log || [];
-                const schedule: string[] = userData.schedule || [];
-
-                // Use user's local date so "today" matches their clock, not UTC
-                const localToday = getUserLocalDateISO(now, timezone);
-                const trainedToday = sessionLog.some(s => s.date?.startsWith(localToday));
-
-                // Determine today's schedule type (0=Sun … 6=Sat in user's local time)
-                const localDayOfWeek = getUserLocalDayOfWeek(now, timezone);
-                const todayType: string = schedule[localDayOfWeek] || 'rest';
-                const isRestDay = todayType === 'rest';
-
-                // Calculate streak
-                let streak = 0;
-                const days = new Set(sessionLog.map((s: { date: string }) => s.date?.split('T')[0]));
-                for (let i = 0; i < 365; i++) {
-                    const d = new Date(now);
-                    d.setUTCDate(d.getUTCDate() - i);
-                    const key = d.toISOString().split('T')[0];
-                    if (days.has(key)) { streak++; }
-                    else if (i > 0) { break; }
-                }
-
-                let notification = null;
-
-                // 1. Streak warning at a fixed 8 PM local if they haven't trained
-                if (sub.streak_warn && streak >= 3 && !trainedToday) {
-                    const streakUTCHour = ((20 - offsetHours) + 24) % 24;
-                    if (currentHour === streakUTCHour) {
-                        notification = {
-                            title: `🔥 Streak at risk — ${streak} days`,
-                            body: "You haven't trained today. Don't break the chain.",
-                            tag: 'streak-warning',
-                            renotify: true,
-                        };
-                    }
-                }
-
-                // 2. Daily reminder — send regardless of rest/training day;
-                //    skip only if they already completed any session today.
-                if (!notification && !trainedToday) {
-                    if (isRestDay) {
-                        const base = pickByDayOfWeek(RECOVERY_REMINDERS, localDayOfWeek);
-                        notification = { ...base, tag: 'daily-reminder' };
-                    } else if (streak > 0) {
-                        const fn = pickByDayOfWeek(STREAK_REMINDERS, localDayOfWeek);
-                        notification = { ...fn(streak), tag: 'daily-reminder' };
-                    } else {
-                        const base = pickByDayOfWeek(TRAINING_REMINDERS, localDayOfWeek);
-                        notification = { ...base, tag: 'daily-reminder' };
-                    }
-                }
-
-                if (!notification) continue;
+                const tip = HOURLY_TIPS[localHour];
 
                 await webpush.sendNotification(
                     { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-                    JSON.stringify(notification)
+                    JSON.stringify({ title: tip.title, body: tip.body, tag: `hourly-${localHour}` })
                 );
                 sent++;
             } catch (subErr) {
-                // Subscription expired — remove it
                 if ((subErr as { statusCode?: number }).statusCode === 410) {
                     await supabase.from('push_subscriptions').delete().eq('user_id', sub.user_id);
                 }
