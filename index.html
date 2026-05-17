@@ -3901,6 +3901,10 @@ async function onUserSignedIn(user){
         if(currentUser?.id!==user.id) return;
         _scheduleLocalNotif();
         hideAuthScreen();
+        // Auto-request push permission once per user if not yet decided
+        if('Notification' in window && Notification.permission==='default'){
+            setTimeout(()=>enableNotifications(),1500);
+        }
         const welcomed=localStorage.getItem('bp_welcomed_'+user.id);
         const onboarded=localStorage.getItem('bp_onboarded_'+user.id);
         if(welcomed){
