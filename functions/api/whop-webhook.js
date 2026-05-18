@@ -52,8 +52,7 @@ export async function onRequestPost({ request, env }) {
   const sigHeader = request.headers.get('Whop-Signature');
 
   const valid = await verifyWhopSignature(env.WHOP_WEBHOOK_SECRET, rawBody, sigHeader);
-  // TODO: re-enable once secret mismatch is resolved
-  // if (!valid) return new Response('Unauthorized', { status: 401 });
+  if (!valid) return new Response('Unauthorized', { status: 401 });
 
   let payload;
   try { payload = JSON.parse(rawBody); } catch { return new Response('Bad JSON', { status: 400 }); }
