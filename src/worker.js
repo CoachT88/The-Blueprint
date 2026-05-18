@@ -53,6 +53,9 @@ export default {
     const url = new URL(request.url);
 
     // ── Whop membership webhook ──────────────────────────────────────────
+    if (url.pathname === '/api/whop-webhook' && request.method === 'GET') {
+      return new Response('OK', { status: 200 });
+    }
     if (url.pathname === '/api/whop-webhook' && request.method === 'POST') {
       const rawBody = await request.text();
       const sigHeader = request.headers.get('Whop-Signature');
