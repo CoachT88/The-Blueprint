@@ -75,3 +75,7 @@ export async function onRequestPost({ request, env }) {
 
   return new Response('OK', { status: 200 });
 }
+
+export async function onRequestGet() {
+  return new Response('OK', { status: 200 });
+}
