@@ -71,9 +71,9 @@ export default {
         const sbUrl = env.SUPABASE_URL;
         const sbKey = env.SUPABASE_SERVICE_ROLE_KEY;
         try {
-          if (event === 'membership.went_valid') {
+          if (event === 'membership.went_valid' || event === 'membership_activated') {
             await upsertMember(email, sbUrl, sbKey);
-          } else if (event === 'membership.went_invalid') {
+          } else if (event === 'membership.went_invalid' || event === 'membership_deactivated') {
             await deleteMember(email, sbUrl, sbKey);
           }
         } catch (e) {
