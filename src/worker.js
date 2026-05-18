@@ -4,7 +4,10 @@
 // Algorithm: HMAC-SHA256 with the webhook signing secret
 async function verifyWhopSignature(secret, rawBody, signatureHeader) {
   if (!signatureHeader) return false;
-  const parts = Object.fromEntries(signatureHeader.split(',').map(p => p.split('=')));
+  // Split on first '=' only to handle any values that might contain '='
+  const parts = Object.fromEntries(
+    signatureHeader.split(',').map(p => { const i = p.indexOf('='); return [p.slice(0,i).trim(), p.slice(i+1).trim()]; })
+  );
   const timestamp = parts.t;
   const receivedHex = parts.v0;
   if (!timestamp || !receivedHex) return false;
