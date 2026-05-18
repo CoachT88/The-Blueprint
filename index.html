@@ -3980,14 +3980,14 @@ async function _fireLocalNotif(){
     if(payload){
         const opts={body:payload.body,icon:'/icon-192.png',badge:'/badge-72.png',tag:'daily-reminder',data:{url:'/'},silent:false};
         if(_swRegistration) await _swRegistration.showNotification(payload.title,opts).catch(()=>{});
-        else if(Notification.permission==='granted') new Notification(payload.title,{body:payload.body,icon:'/icon-192.png'});
+        else if(typeof Notification!=='undefined' && Notification.permission==='granted') new Notification(payload.title,{body:payload.body,icon:'/icon-192.png'});
     }
     _scheduleLocalNotif(); // re-arm for tomorrow
 }
 
 function _scheduleLocalNotif(){
     clearTimeout(_localNotifTimer);_localNotifTimer=null;
-    if(Notification.permission!=='granted') return;
+    if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
     const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
     if(!prefs.time) return;
     const [h,m]=prefs.time.split(':').map(Number);
@@ -4008,7 +4008,7 @@ function openNotifModal(){
 }
 function closeNotifModal(){document.getElementById('notif-modal').classList.add('hidden');}
 async function _refreshNotifUI(){
-    const perm=Notification.permission;
+    const perm=typeof Notification!=='undefined'?Notification.permission:'denied';
     const active=perm==='granted';
     document.getElementById('notif-enable-btn').classList.toggle('hidden',active);
     document.getElementById('notif-disable-btn').classList.toggle('hidden',!active);
@@ -4024,7 +4024,7 @@ async function enableNotifications(){
     const btn=document.getElementById('notif-enable-btn');
     btn.innerHTML='<i class="fas fa-spinner fa-spin mr-2"></i>Requesting...';btn.disabled=true;
     try{
-        const perm=await Notification.requestPermission();
+        const perm=typeof Notification!=='undefined'?await Notification.requestPermission():'denied';
         if(perm!=='granted'){document.getElementById('notif-status').innerText='Permission denied.';btn.innerHTML='Enable Notifications';btn.disabled=false;return;}
         // Local scheduler — works immediately, no server needed
         _scheduleLocalNotif();
