@@ -8,7 +8,9 @@
 
 async function verifyWhopSignature(secret, rawBody, signatureHeader) {
   if (!signatureHeader) return false;
-  const parts = Object.fromEntries(signatureHeader.split(',').map(p => p.split('=')));
+  const parts = Object.fromEntries(
+    signatureHeader.split(',').map(p => { const i = p.indexOf('='); return [p.slice(0,i).trim(), p.slice(i+1).trim()]; })
+  );
   const { t: timestamp, v0: receivedHex } = parts;
   if (!timestamp || !receivedHex) return false;
   if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false; // reject replays > 5 min old
