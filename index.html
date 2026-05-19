@@ -1848,21 +1848,21 @@ const ROUTINES={
         {
             title:'Lateral Compression',
             howto:[
-                'Get to 60-70% erection — semi-hard. Do not attempt this fully erect.',
-                'Do not squeeze the middle of your shaft with your palms.',
-                'Instead, position your thumb and two fingers just below the head, around the coronal ridge.',
-                'Apply a gentle squeeze using only your thumb and two fingers. This is a coronal ridge squeeze, not a mid-shaft palm compression.',
-                'Hold the squeeze gently for 10 to 20 seconds. Keep the pressure light — this is not a gripping exercise.',
-                'Release fully, breathe out slowly, and repeat for the set duration. Alternate with full releases between holds.',
+                'Arousal Level: Bring yourself to 60-70% erection (semi-hard). Do not attempt this while fully erect.',
+                'Avoid the Shaft: Keep your hands away from the middle of the shaft. Never squeeze or crush the mid-shaft with your palms.',
+                'Finger Placement: Position the pad of your thumb on the underside notch (frenulum) right below the head, and your index and middle fingers on the opposite side.',
+                'Technique: Apply a gentle, static squeeze using only that one-handed three-finger grip. This is a targeted coronal ridge pinch, not a heavy compression.',
+                'Duration: Hold the gentle squeeze steadily for 10 to 15 seconds. Keep the pressure light — this is a neural reset, not a strength exercise.',
+                'Rest & Reset: Release your grip completely, breathe out slowly, and rest without touching for 30 seconds. Allow your blood flow and arousal to drop completely before attempting another round.',
             ],
-            sets:3, duration:15,
+            sets:3, duration:15, restDur:30,
             eq:'6-7 EQ (60-70%)',
-            feel:'Deep internal pressure, lateral expansion at mid-shaft. Steady and controlled. No throbbing.',
-            dontFeel:'Glans engorgement, head pressure, or any electric/tingling sensation. Release immediately.',
+            feel:'A mild, superficial pinch restricted entirely to the area just below the head. A steady, controlled drop in erection fullness and a noticeable decrease in urge to ejaculate.',
+            dontFeel:'Any sharp pain, throbbing, numbness, coldness at the tip, or a tingling/electric sensation. Release your grip immediately and do not resume the exercise.',
             cues:[
-                {time:15, text:'60-70% EQ. Thumb and two fingers at the coronal ridge — gentle squeeze.'},
-                {time:8,  text:'Hold light pressure. Breathe out slowly.'},
-                {time:3,  text:'Release fully. Rest coming up.'}
+                {time:15, text:'60-70% EQ. Thumb on frenulum, two fingers opposite — gentle static squeeze.'},
+                {time:8,  text:'Hold light pressure only. Feel arousal dropping. This is the neural reset.'},
+                {time:3,  text:'Release fully. 30-second rest coming up — no touching.'}
             ]
         }
     ]
@@ -3132,7 +3132,7 @@ function startRest(){
     const ov=document.getElementById('rest-overlay');ov.classList.remove('hidden');ov.style.opacity='1';
     startBoxBreathing();
     const ex=getCurEx();
-    const restDur=Math.min(90,Math.max(20,Math.round(ex.duration/3)));
+    const restDur=ex.restDur||Math.min(90,Math.max(20,Math.round(ex.duration/3)));
     const arc=document.getElementById('rest-arc');
     const circumference=326.7;
     if(arc){arc.style.strokeDashoffset='0';}
