@@ -2004,13 +2004,13 @@ function savePersisted(){
     _saveDebounce=setTimeout(async()=>{
         if(!currentUser)return;
         try{
-            await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
-            localStorage.removeItem('bp_dirty_'+currentUser.id);
+            const {error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
+            if(error){console.error('savePersisted error:',error.message,error.code);}
+            else{localStorage.removeItem('bp_dirty_'+currentUser.id);}
         }catch(e){console.error('savePersisted:',e)}
     },800);
 }
 function _flushSaveNow(){
-    // Called on visibility hidden — fire Supabase write immediately without debounce
     if(!currentUser)return;
     clearTimeout(_saveDebounce);
     try{
@@ -2018,7 +2018,10 @@ function _flushSaveNow(){
         localStorage.setItem('bp_dirty_'+currentUser.id,'1');
     }catch(e){}
     sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'})
-        .then(()=>{if(currentUser)localStorage.removeItem('bp_dirty_'+currentUser.id);})
+        .then(({error})=>{
+            if(error){console.error('_flushSaveNow error:',error.message,error.code);}
+            else if(currentUser){localStorage.removeItem('bp_dirty_'+currentUser.id);}
+        })
         .catch(()=>{});
 }
 
