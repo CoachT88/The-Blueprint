@@ -13,7 +13,6 @@ async function verifyWhopSignature(secret, rawBody, signatureHeader) {
   );
   const { t: timestamp, v0: receivedHex } = parts;
   if (!timestamp || !receivedHex) return false;
-  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false; // reject replays > 5 min old
 
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
