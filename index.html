@@ -635,11 +635,6 @@
             </div>
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
         </div>
-        <div id="update-banner" class="mx-2" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:.75rem;padding:.75rem 1rem;display:flex;align-items:flex-start;gap:.75rem;">
-            <i class="fas fa-circle-check text-blue-400 text-sm flex-shrink-0 mt-0.5"></i>
-            <p class="text-slate-300 text-[11px] leading-relaxed flex-1"><span class="text-white font-black uppercase tracking-widest text-[10px]">App Update</span><br>A data-saving issue has been fixed. All progress now saves reliably. We apologize that some early progress may have been lost. Starting today everything is permanent.</p>
-            <button onclick="dismissUpdateBanner()" class="text-slate-500 flex-shrink-0 ml-1" style="line-height:1;background:none;border:none;cursor:pointer;padding:0;"><i class="fas fa-xmark text-sm"></i></button>
-        </div>
         <div id="deload-banner" class="deload-banner mx-2 hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
         <div class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
         <p class="text-[9px] font-black text-slate-700 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
@@ -1586,6 +1581,20 @@
 </div>
 
 <!-- DAY MODAL -->
+
+<!-- UPDATE NOTICE MODAL -->
+<div id="update-notice-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[300] hidden flex items-center justify-center p-6">
+    <div class="bg-slate-900/95 border border-blue-500/30 w-full max-w-xs rounded-[2rem] p-8 space-y-5 text-center">
+        <div class="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto">
+            <i class="fas fa-circle-check text-blue-400 text-2xl"></i>
+        </div>
+        <div class="space-y-2">
+            <h3 class="font-black uppercase italic text-white tracking-widest text-base">App Update</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">A data-saving issue has been fixed. All progress now saves reliably. We apologize that some early progress may have been lost. Starting today everything is permanent.</p>
+        </div>
+        <button onclick="dismissUpdateNotice()" class="w-full py-4 rounded-2xl bg-blue-500/20 border border-blue-500/30 text-blue-300 font-black uppercase italic text-sm cursor-pointer">Got It</button>
+    </div>
+</div>
 
 <div id="type-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] hidden flex items-center justify-center p-6">
     <div class="bg-slate-900/90 border border-slate-700 w-full max-w-xs rounded-[2rem] p-8 space-y-4">
@@ -3375,16 +3384,14 @@ function renderHydration(){
     }
 }
 
-function dismissUpdateBanner(){
-    try{if(currentUser)localStorage.setItem('bp_update_banner_dismissed_v1_'+currentUser.id,'1');}catch(e){}
-    const el=document.getElementById('update-banner');
-    if(el)el.style.display='none';
+function dismissUpdateNotice(){
+    try{if(currentUser)localStorage.setItem('bp_update_notice_v1_'+currentUser.id,'1');}catch(e){}
+    document.getElementById('update-notice-modal').classList.add('hidden');
 }
-function renderUpdateBanner(){
+function maybeShowUpdateNotice(){
     if(!currentUser)return;
-    const el=document.getElementById('update-banner');
-    if(!el)return;
-    if(localStorage.getItem('bp_update_banner_dismissed_v1_'+currentUser.id))el.style.display='none';
+    if(localStorage.getItem('bp_update_notice_v1_'+currentUser.id))return;
+    document.getElementById('update-notice-modal').classList.remove('hidden');
 }
 
 function renderDashboard(){
@@ -3398,7 +3405,7 @@ function renderDashboard(){
         });
     });
     renderHydration();
-    renderUpdateBanner();
+    maybeShowUpdateNotice();
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
         const d=document.createElement('div');
