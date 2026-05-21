@@ -22,21 +22,23 @@ export async function onRequestPost({ request, env }) {
   let body;
   try {
     const text = await request.text();
-    console.log('Ko-fi raw body:', text.slice(0, 200));
+    console.log('Ko-fi raw body (200 chars):', text.slice(0, 200));
+
+    // Try URL-encoded first (Ko-fi's documented format), fall back to JSON
     const params = new URLSearchParams(text);
     const dataStr = params.get('data');
-    if (!dataStr) {
-      console.error('Ko-fi: no data field in body');
-      return new Response('Bad Request', { status: 400 });
+    if (dataStr) {
+      body = JSON.parse(dataStr);
+    } else {
+      // Some Ko-fi test requests send raw JSON
+      body = JSON.parse(text);
     }
-    body = JSON.parse(dataStr);
     console.log('Ko-fi parsed — type:', body.type, 'email:', body.email);
   } catch (e) {
-    console.error('Ko-fi parse error:', e);
-    return new Response('Bad JSON', { status: 400 });
+    console.error('Ko-fi parse error:', e.message);
+    return new Response('Bad Request', { status: 400 });
   }
 
-  // Verify token if configured
   if (env.KOFI_VERIFICATION_TOKEN && body.verification_token !== env.KOFI_VERIFICATION_TOKEN) {
     console.error('Ko-fi token mismatch');
     return new Response('Unauthorized', { status: 401 });
@@ -44,7 +46,7 @@ export async function onRequestPost({ request, env }) {
 
   const email = body.email;
   if (!email) {
-    console.error('Ko-fi: no email in payload');
+    console.error('Ko-fi: no email in payload — full body:', JSON.stringify(body));
     return new Response('OK', { status: 200 });
   }
 
