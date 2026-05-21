@@ -1582,6 +1582,20 @@
 
 <!-- DAY MODAL -->
 
+<!-- UPDATE NOTICE MODAL -->
+<div id="update-notice-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[300] hidden flex items-center justify-center p-6">
+    <div class="bg-slate-900/95 border border-blue-500/30 w-full max-w-xs rounded-[2rem] p-8 space-y-5 text-center">
+        <div class="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto">
+            <i class="fas fa-circle-check text-blue-400 text-2xl"></i>
+        </div>
+        <div class="space-y-2">
+            <h3 class="font-black uppercase italic text-white tracking-widest text-base">App Update</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">A data-saving issue has been fixed. All progress now saves reliably. We apologize that some early progress may have been lost. Starting today everything is permanent.</p>
+        </div>
+        <button onclick="dismissUpdateNotice()" class="w-full py-4 rounded-2xl bg-blue-500/20 border border-blue-500/30 text-blue-300 font-black uppercase italic text-sm cursor-pointer">Got It</button>
+    </div>
+</div>
+
 <div id="type-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] hidden flex items-center justify-center p-6">
     <div class="bg-slate-900/90 border border-slate-700 w-full max-w-xs rounded-[2rem] p-8 space-y-4">
         <h3 class="text-center font-black uppercase italic text-slate-400 text-sm tracking-[0.2em] mb-6">Adjust intent</h3>
@@ -1923,6 +1937,8 @@ const DEFAULT_PERSISTED={
     tipIndex:0,
     lastTipDate:'',
     firstSessionDate:'',   // used for tier lock calculation
+    allTimeSessionCount:0, // never truncated — used for safe XP migration check
+    xpMigrated:false,      // one-time flag so XP migration never fires twice
 };
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
@@ -1971,27 +1987,35 @@ async function loadPersisted(){
             }catch(e){}
         } else {
             persisted = {
-                schedule:       data.schedule        || DEFAULT_PERSISTED.schedule,
-                completedDays:  data.completed_days  || DEFAULT_PERSISTED.completedDays,
-                totalXp:        data.total_xp        || 0,
-                sessionLog:     data.session_log     || [],
-                measurements:   data.measurements    || [],
-                seenMilestones: data.seen_milestones || [],
-                difficulty:     data.difficulty      || 'intermediate',
-                diffUnlockedDate: data.diff_unlocked_date || {intermediate:'',advanced:'',elite:''},
-                firstSessionDate: data.first_session_date || '',
-                weekKey:        data.week_key        || '',
-                records:        data.records         || {longestStreak:0,bestWeekXp:0,bestSessionXp:0},
-                tipIndex:       data.tip_index       || 0,
-                lastTipDate:    data.last_tip_date   || '',
+                ...DEFAULT_PERSISTED,
+                schedule:            data.schedule             || DEFAULT_PERSISTED.schedule,
+                completedDays:       data.completed_days       || DEFAULT_PERSISTED.completedDays,
+                totalXp:             data.total_xp             || 0,
+                sessionLog:          data.session_log          || [],
+                measurements:        data.measurements         || [],
+                seenMilestones:      data.seen_milestones      || [],
+                difficulty:          data.difficulty           || 'intermediate',
+                diffUnlockedDate:    data.diff_unlocked_date   || {intermediate:'',advanced:'',elite:''},
+                firstSessionDate:    data.first_session_date   || '',
+                weekKey:             data.week_key             || '',
+                records:             data.records              || {longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+                tipIndex:            data.tip_index            || 0,
+                lastTipDate:         data.last_tip_date        || '',
+                allTimeSessionCount: data.all_time_session_count || 0,
+                xpMigrated:          data.xp_migrated          || false,
             };
         }
-        // XP migration — old per-tick system (5 XP/sec) and the first flat redesign
-        // (75-185/session) both over-inflate totalXp. If stored XP exceeds what the
-        // current system could ever award for the number of sessions logged, recalculate
-        // from session count at 15 XP each (intermediate average).
-        if(persisted.totalXp>(persisted.sessionLog||[]).length*50){
-            persisted.totalXp=(persisted.sessionLog||[]).length*15;
+        // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
+        // Use allTimeSessionCount (never truncated) rather than sessionLog.length (capped at 50)
+        // so long-time users are never wrongly flagged. Only runs once per account.
+        if(!persisted.xpMigrated){
+            const refCount=persisted.allTimeSessionCount || (persisted.sessionLog||[]).length;
+            if(refCount>0 && persisted.totalXp > refCount*50){
+                // Back up before modifying, so data can always be recovered
+                try{localStorage.setItem('bp_xp_backup_'+currentUser.id,JSON.stringify({totalXp:persisted.totalXp,refCount,_at:new Date().toISOString()}));}catch(e){}
+                persisted.totalXp=refCount*15;
+            }
+            persisted.xpMigrated=true;
             savePersisted();
         }
         // Auto-reset completedDays if we're in a new week
@@ -2018,11 +2042,13 @@ function _buildSavePayload(){
         difficulty:     persisted.difficulty,
         diff_unlocked_date: persisted.diffUnlockedDate||{intermediate:'',advanced:'',elite:''},
         first_session_date: persisted.firstSessionDate||'',
-        week_key:       persisted.weekKey||getCurrentWeekKey(),
-        records:        persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
-        tip_index:      persisted.tipIndex||0,
-        last_tip_date:  persisted.lastTipDate||'',
-        updated_at:     new Date().toISOString(),
+        week_key:              persisted.weekKey||getCurrentWeekKey(),
+        records:               persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+        tip_index:             persisted.tipIndex||0,
+        last_tip_date:         persisted.lastTipDate||'',
+        all_time_session_count: persisted.allTimeSessionCount||0,
+        xp_migrated:           !!persisted.xpMigrated,
+        updated_at:            new Date().toISOString(),
     };
 }
 function _upsertPayload(){
@@ -2565,7 +2591,28 @@ async function askCoach(){
     const inp=document.getElementById('coach-input'),btn=document.getElementById('coach-submit-btn'),area=document.getElementById('coach-chat-area');
     const q=inp.value.trim();if(!q)return;
     area.innerHTML+=`<div class="chat-msg user">${esc(q)}</div>`;inp.value='';btn.textContent='...';btn.disabled=true;area.scrollTop=area.scrollHeight;
-    const sys=`You are CoachTee — a real one. You know PE protocols, pelvic health, and male performance inside out. Talk like a knowledgeable friend, not a textbook. Keep it relaxed, direct, and real. No markdown, no bullet points, no fluff. 2-4 sentences unless they really need more. Always start your response with nothing before the answer — just talk. Key facts you know to be true from the PE community: length gains typically come before girth gains — most guys see their first length progress within a few months of consistent work, especially early decompression gains. Girth is the harder goal and takes longer; it requires more advanced work like clamping and Uli and generally responds slower than length. Never say girth comes faster or easier than length — that contradicts community experience.`;
+    const sys=`You are Coach Tee, a men's sexual health and performance specialist with deep expertise in pelvic floor physiology, tissue conditioning, blood flow optimization, hormonal health, and PE protocols. You speak with authority and precision backed by research and clinical understanding. You are direct, confident, and never hedge unnecessarily.
+
+CRITICAL RULES you follow on every single response:
+- NEVER use em dashes (-- or the character) under any circumstances. Use commas, periods, or colons instead.
+- No markdown formatting. No bullet points. No asterisks. No headers.
+- Write in clear prose paragraphs. Plain text only.
+- Never start with a filler phrase like "Great question" or "Sure!"
+- Always give a thorough, complete answer. If a topic has nuance, address the nuance directly. Do not oversimplify.
+
+MEDICAL ACCURACY REQUIREMENTS:
+- Kegel exercises are NOT universally beneficial. Men with a hypertonic (chronically tight or overactive) pelvic floor will often make their symptoms WORSE by doing kegels. The correct intervention for a hypertonic pelvic floor is reverse kegels, myofascial release, hip openers, and diaphragmatic breathing, not additional contraction work. Always ask or assess context before recommending kegels. If a man reports symptoms like urgency, premature ejaculation tied to tension, pelvic pain, or difficulty relaxing, suspect hypertonic floor and recommend release work over contractions.
+- Blood flow to erectile tissue depends on endothelial nitric oxide synthase (eNOS) activity, which is stimulated by physical deconditioning recovery, adequate sleep (testosterone peaks during REM), hydration, and vascular health. Chronic restriction, dehydration, and poor sleep all degrade EQ over time.
+- Length gains in PE typically precede girth gains. Early progress often reflects decompression and connective tissue elongation. Girth requires advanced techniques like clamping and Uli and responds more slowly. Never suggest girth comes faster or easier than length.
+- When discussing stamina and ejaculatory control, distinguish between psychological (performance anxiety, mental arousal spike) and physiological (hypertonic pelvic floor, pudendal nerve hypersensitivity) causes. Treatment differs significantly.
+- Testosterone optimization is downstream of sleep quality, body fat percentage, zinc and magnesium sufficiency, and chronic stress reduction. Supplementation without addressing these is largely ineffective.
+
+RESPONSE STYLE:
+- Be thorough. If a question has layers, address the layers. A 4 to 6 sentence response is often appropriate. Longer if the topic demands it.
+- Be specific. Cite mechanisms, not just conclusions. "Nitric oxide dilates the smooth muscle of the corpus cavernosum" is better than "good blood flow helps erections."
+- Speak like a knowledgeable coach who has studied this deeply and worked with real men, not like a disclaimer-heavy medical chatbot.
+- Never say "consult a doctor" as a cop-out. You can note when something warrants professional evaluation, but still give a substantive answer.
+- The user is an adult who wants real information. Give it to them.`;
     const r=await fetchClaude(q,sys);
     if(r.ok) area.innerHTML+=`<div class="chat-msg ai">CoachTee: ${esc(r.text)}</div>`;
     else area.innerHTML+=`<div class="chat-msg error"><i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}</div>`;
@@ -2576,7 +2623,7 @@ async function analyzeRecovery(){
     const inp=document.getElementById('ai-recovery-input'),box=document.getElementById('ai-recovery-response'),btn=document.getElementById('ai-recovery-btn');
     const log=inp.value.trim();if(!log)return;
     box.className='ai-response-box mt-4';box.style.display='block';box.innerHTML='<i class="fas fa-spinner fa-spin"></i> Analyzing...';btn.disabled=true;
-    const sys=`You are a tissue expansion recovery analyst. The user will describe how their session felt — EQ, pump, fatigue, sensations. Give exactly 2 sentences: one assessing their recovery status, one actionable recommendation for their next session. No markdown. Be direct and specific.`;
+    const sys=`You are a tissue expansion recovery analyst. The user will describe how their session felt, including EQ, pump, fatigue, and sensations. Give exactly 2 sentences: one assessing their recovery status, one actionable recommendation for their next session. No markdown. No em dashes. Be direct and specific.`;
     const r=await fetchClaude(log,sys);
     if(r.ok) box.innerHTML=esc(r.text);
     else{box.className='ai-response-box ai-error mt-4';box.innerHTML=`<i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}`}
@@ -3337,6 +3384,16 @@ function renderHydration(){
     }
 }
 
+function dismissUpdateNotice(){
+    try{if(currentUser)localStorage.setItem('bp_update_notice_v1_'+currentUser.id,'1');}catch(e){}
+    document.getElementById('update-notice-modal').classList.add('hidden');
+}
+function maybeShowUpdateNotice(){
+    if(!currentUser)return;
+    if(localStorage.getItem('bp_update_notice_v1_'+currentUser.id))return;
+    document.getElementById('update-notice-modal').classList.remove('hidden');
+}
+
 function renderDashboard(){
     // Stagger-animate HQ sections on each render
     document.querySelectorAll('#step-0 .hq-anim').forEach((el,i)=>{
@@ -3348,6 +3405,7 @@ function renderDashboard(){
         });
     });
     renderHydration();
+    maybeShowUpdateNotice();
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
         const d=document.createElement('div');
@@ -3423,6 +3481,7 @@ function finishSession(){
     const note=document.getElementById('session-note-input').value.trim();
     const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100);
     persisted.totalXp+=earnedXp;
+    persisted.allTimeSessionCount=(persisted.allTimeSessionCount||0)+1;
     persisted.completedDays[new Date().getDay()]=true;
     persisted.sessionLog.push({
         date:new Date().toISOString(),
