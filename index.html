@@ -3866,7 +3866,7 @@ async function checkMembership(user){
         const {data,error}=await Promise.race([_query,_timeout]);
         if(error||!data){
             // Not in members table — show access denied
-            setAuthError('Access denied. Purchase The Blueprint at your Whop link to get access.');
+            setAuthError('Access denied. Purchase The Blueprint on Whop or Ko-fi to get access.');
             await sb.auth.signOut();
             showAuthScreen();
             return false;
