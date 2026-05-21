@@ -624,7 +624,7 @@
         </div>
         <!-- Coach Tee Hourly Tip -->
         <div class="tip-card mx-2">
-            <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee — <span id="daily-tip-hour">Now</span></p>
+            <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee</p>
             <p id="daily-tip-title" class="text-[11px] font-black text-white uppercase tracking-wide mb-1"></p>
             <p id="daily-tip" class="text-[12px] text-slate-300 leading-relaxed italic"></p>
         </div>
@@ -1638,24 +1638,38 @@ const WARMUP_TIPS=[
     {icon:'fa-chart-line',        color:'text-yellow-400', label:'Long-Term Returns',     title:'The Warmup IS the Protocol',           body:'Athletes who skip warmup plateau 3–4× faster. Over a 6-month program, consistent warmers see measurably better outcomes in both length and girth. This 10 minutes is not optional.'},
 ];
 
-const COACH_TIPS = {
-    7:  { title: 'Morning EQ check.',         body: 'Morning erections are a vascular health report. Strong EQ on wake = arteries dilating properly. Track it every day.' },
-    8:  { title: 'Drink water now.',           body: 'Blood is 90% water. Dehydration thickens it, raises vascular resistance, and tanks EQ directly. 500mL before anything else.' },
-    9:  { title: '3 deep breaths.',            body: 'Shallow breathing keeps your nervous system in fight-or-flight. Deep belly breaths activate the parasympathetic state — the same state required for full erections.' },
-    10: { title: 'Release your pelvic floor.', body: 'A chronically tight floor restricts blood flow to the genitals. If you\'ve been sitting for 2+ hours, consciously relax it now. Release is the skill.' },
-    11: { title: 'Fix your posture.',          body: 'Slouching compresses the iliac arteries that supply blood to the pelvic region. Sit tall — it\'s a direct blood flow intervention.' },
-    12: { title: 'Midday hydration check.',    body: 'You should be at 1L by now. Smooth muscle in your blood vessels needs water to stay flexible. Stiff vessels mean weaker EQ.' },
-    13: { title: '10-minute walk.',            body: 'Walking activates femoral artery flow. That same circuit feeds the pudendal artery — the primary supply line to your erections.' },
-    14: { title: 'Cold shower today?',         body: 'Cold triggers vasoconstriction then vasodilation. That vascular cycling trains your arteries to open on demand — the same mechanism behind strong EQ.' },
-    15: { title: 'Cortisol check.',            body: 'Chronic stress raises cortisol, suppresses testosterone, and tightens blood vessels. Stress management is not optional — it\'s part of the protocol.' },
-    16: { title: 'Hydration window closing.',  body: 'Most guys are 1.5–2L short by 4 PM. 500mL now. You can\'t make it up at night without disrupting sleep — which kills overnight testosterone production.' },
-    17: { title: 'Eat light before training.', body: 'Heavy meals redirect blood to digestion and away from the pelvic region. If you\'re training tonight, eat something light now.' },
-    18: { title: 'Warm tissue moves.',         body: 'Cold collagen tears instead of stretching. A 10-minute warmup before any session is non-negotiable. Start earlier than you think you need to.' },
-    19: { title: 'Session time.',              body: 'The guys with the best results aren\'t the most intense — they\'re the most consistent. One session tonight keeps the adaptation cycle running.' },
-    20: { title: 'Start winding down.',        body: 'Testosterone peaks during deep sleep. Blue light, stress, and late eating all suppress it. Begin dimming the environment now.' },
-    21: { title: 'Screens down.',              body: 'Blue light delays melatonin by 2–3 hours. Melatonin triggers the hormone cascade that peaks in deep sleep. Dim everything and let it work.' },
-    22: { title: 'Last call.',                 body: '7–9 hours of sleep is part of the protocol. Your tissue remodels overnight. Log off, wind down, let recovery do its job.' },
-};
+const COACH_TIPS = [
+    { title: 'Blood flow is the foundation.', body: 'Every gain you make comes down to blood. More blood in = more pressure, more stretch, more adaptation. Train your vascular system like it\'s part of the protocol, because it is.' },
+    { title: 'Your pelvic floor needs to relax.', body: 'Most men have a hypertonic pelvic floor from stress, sitting, and anxiety. A tight floor chokes off blood flow to the genitals. Learning to release it is just as important as strengthening it.' },
+    { title: 'Hydration is vascular training.', body: 'Blood is mostly water. When you\'re dehydrated, it thickens, flow slows, and your EQ tanks. 3L a day isn\'t optional. It\'s maintenance for the system you\'re trying to develop.' },
+    { title: 'Morning EQ is your health report.', body: 'Nocturnal and morning erections are your body\'s vascular self-test. If they\'re strong and consistent, your arteries are healthy and dilating properly. If they\'re weak, something needs attention.' },
+    { title: 'Sitting is the enemy of blood flow.', body: 'Sitting for hours compresses the pudendal artery, the main blood supply to the penis. Get up and walk for 5 minutes every hour. That one habit protects more than most supplements.' },
+    { title: 'Deep breathing activates blood flow.', body: 'The diaphragm acts as a pump for pelvic circulation. Shallow chest breathing restricts it. 10 slow belly breaths before a session opens up blood flow before you even start.' },
+    { title: 'Testosterone is made during sleep.', body: 'The majority of your daily testosterone is produced during deep sleep. Less than 6 hours cuts production by up to 15%. Sleep is part of the protocol.' },
+    { title: 'Stress kills erections.', body: 'Cortisol constricts blood vessels and suppresses testosterone simultaneously. One stressful week can set back weeks of progress. Managing stress is not optional. It\'s recovery.' },
+    { title: 'The pelvic floor connects everything.', body: 'Your pelvic floor controls urinary function, supports erection strength, regulates blood pressure in the genitals, and influences orgasm intensity. Treating it as an afterthought is a mistake.' },
+    { title: 'Cold and heat train your vessels.', body: 'Alternating cold and warm water forces vasoconstriction and vasodilation. That cycling trains your arterial walls to open wider on demand. The mechanism behind stronger EQ.' },
+    { title: 'L-citrulline supports nitric oxide.', body: 'Nitric oxide is what tells blood vessels to relax and open. L-citrulline converts to L-arginine and supports NO production. Watermelon, spinach, and beets contain it naturally.' },
+    { title: 'Stamina is built between sessions.', body: 'You adapt during rest, not during training. The session creates the stimulus. Recovery builds the capacity. Cutting rest short cuts your results short.' },
+    { title: 'Posture affects blood flow directly.', body: 'Slouching compresses the iliac arteries that run through your pelvis. Sitting tall is a direct vascular intervention. Your posture affects genital blood flow every minute of the day.' },
+    { title: 'Sexual stamina is cardiovascular.', body: 'Heart rate, oxygen delivery, and blood pressure management during sex are entirely dependent on your cardiovascular fitness. 20 minutes of cardio 3x per week directly improves performance.' },
+    { title: 'The pelvic floor fatigues like any muscle.', body: 'Overtraining the pelvic floor is just as counterproductive as undertraining it. If you feel tightness, pressure, or aching in the perineum area, rest it. Recovery matters here too.' },
+    { title: 'Zinc protects testosterone.', body: 'Zinc is required for testosterone synthesis. Even mild deficiency lowers T levels. Red meat, pumpkin seeds, and shellfish are dense sources. Most men are chronically low.' },
+    { title: 'Kegels alone are not enough.', body: 'A strong pelvic floor that can\'t release is worse than a weak one. The goal is strength AND flexibility. Contract hard, then relax fully. Both ends of the range matter.' },
+    { title: 'Walking is vascular training.', body: 'A 10-minute walk activates femoral and pudendal artery circulation. That\'s the same arterial network that supplies your erections. Walk daily. It compounds.' },
+    { title: 'EQ and hydration are directly linked.', body: 'Smooth muscle in your blood vessels requires adequate hydration to stay pliable. Dehydrated vessels are stiff, don\'t dilate as wide, and produce weaker engorgement. Drink before you feel thirsty.' },
+    { title: 'Collagen remodels at night.', body: 'Tissue adaptation happens during sleep when growth hormone peaks. Going to bed late, drinking alcohol, or sleeping fewer than 7 hours all reduce collagen synthesis and slow your progress.' },
+    { title: 'Magnesium relaxes smooth muscle.', body: 'Magnesium helps relax the smooth muscle in arterial walls, allowing greater vasodilation. Most men are deficient. Dark leafy greens, nuts, and dark chocolate are good sources.' },
+    { title: 'Sexual confidence follows sexual health.', body: 'EQ anxiety, performance anxiety, and avoidance behaviors are often rooted in poor vascular or pelvic floor health. Fix the physical foundation and the mental side often resolves with it.' },
+    { title: 'Alcohol disrupts erectile function.', body: 'Alcohol is a vasodilator short-term but a vascular depressant long-term. Chronic drinking reduces testosterone, impairs nerve signaling, and causes erectile dysfunction. It works against everything you\'re building.' },
+    { title: 'The reverse kegel is underrated.', body: 'Most men only know how to contract the pelvic floor. The reverse kegel, intentionally pushing and releasing downward, increases blood pooling, improves tissue flexibility, and reduces pelvic tension directly.' },
+    { title: 'Nitric oxide drops with age.', body: 'NO production declines about 10% per decade after 30. Regular exercise, quality sleep, and a diet rich in leafy greens and beets can significantly offset this. Cardiovascular health is sexual health.' },
+    { title: 'Consistency over intensity.', body: 'Two sessions a week done consistently for 6 months will outperform five sessions a week done inconsistently. The tissue responds to regular stimulus, not occasional punishment.' },
+    { title: 'Inflammation slows everything.', body: 'A high-sugar, processed-food diet drives systemic inflammation, which directly impairs vascular function and testosterone production. What you eat affects what you build.' },
+    { title: 'Track your EQ weekly.', body: 'EQ is the most sensitive indicator of your overall vascular and hormonal health. A downward trend tells you something is off before anything else does. Rate it honestly after every session.' },
+    { title: 'Your mindset is part of the protocol.', body: 'Chronic negative self-talk about sexual performance activates the same stress response as a real threat. That stress response constricts blood vessels. Your mental state has a direct physical effect.' },
+    { title: 'Rest days are training days.', body: 'On rest days your body is repairing connective tissue, upregulating hormone receptors, and improving vascular tone. Rest is active recovery. Skipping it doesn\'t make you more dedicated. It makes you slower.' },
+];
 const ROUTINES={
     length:[
         {title:'Directional Pulls',sets:3,duration:30,isDirectional:true,eq:'3-4 EQ',
@@ -3400,14 +3414,15 @@ function finishSession(){
 // HOURLY TIP
 // ═══════════════════════════════════════════════════════════════════════════
 function renderDailyTip(){
-    const hour=new Date().getHours();
-    const clampedHour=Math.min(Math.max(hour,7),22);
-    const tip=COACH_TIPS[clampedHour]||COACH_TIPS[19];
-    const HOUR_LABELS={7:'7 AM',8:'8 AM',9:'9 AM',10:'10 AM',11:'11 AM',12:'Noon',13:'1 PM',14:'2 PM',15:'3 PM',16:'4 PM',17:'5 PM',18:'6 PM',19:'7 PM',20:'8 PM',21:'9 PM',22:'10 PM'};
-    const hourEl=document.getElementById('daily-tip-hour');
+    const today=new Date().toISOString().split('T')[0];
+    if(persisted.lastTipDate!==today){
+        persisted.tipIndex=(persisted.tipIndex+1)%COACH_TIPS.length;
+        persisted.lastTipDate=today;
+        savePersisted();
+    }
+    const tip=COACH_TIPS[persisted.tipIndex]||COACH_TIPS[0];
     const titleEl=document.getElementById('daily-tip-title');
     const bodyEl=document.getElementById('daily-tip');
-    if(hourEl) hourEl.innerText=HOUR_LABELS[clampedHour]||'Now';
     if(titleEl) titleEl.innerText=tip.title;
     if(bodyEl) bodyEl.innerText=tip.body;
 }
