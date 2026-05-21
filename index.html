@@ -635,10 +635,10 @@
             </div>
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
         </div>
-        <div id="update-banner" class="mx-2 hidden" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:.75rem;padding:.75rem 1rem;display:flex;align-items:flex-start;gap:.75rem;">
+        <div id="update-banner" class="mx-2" style="display:none;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:.75rem;padding:.75rem 1rem;align-items:flex-start;gap:.75rem;">
             <i class="fas fa-circle-check text-blue-400 text-sm flex-shrink-0 mt-0.5"></i>
             <p class="text-slate-300 text-[11px] leading-relaxed flex-1"><span class="text-white font-black uppercase tracking-widest text-[10px]">App Update</span><br>A data-saving issue has been fixed. All progress now saves reliably. We apologize that some early progress may have been lost. Starting today everything is permanent.</p>
-            <button onclick="dismissUpdateBanner()" class="text-slate-500 flex-shrink-0 ml-1" style="line-height:1;"><i class="fas fa-xmark text-sm"></i></button>
+            <button onclick="dismissUpdateBanner()" class="text-slate-500 flex-shrink-0 ml-1" style="line-height:1;background:none;border:none;cursor:pointer;padding:0;"><i class="fas fa-xmark text-sm"></i></button>
         </div>
         <div id="deload-banner" class="deload-banner mx-2 hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
         <div class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
