@@ -38,19 +38,25 @@ export async function onRequestPost({ request, env }) {
   try { payload = JSON.parse(rawBody); } catch { return new Response('Bad JSON', { status: 400 }); }
 
   const event = payload.event || payload.action;
+  const status = payload.data?.status;
   const email = payload.data?.user?.email || payload.data?.email;
-  console.log('Whop parsed — event:', event, 'email:', email);
+  console.log('Whop parsed — event:', event, 'status:', status, 'email:', email);
 
   if (email) {
+    const isActive = event === 'membership_activated' || event === 'membership.went_valid'
+      || status === 'active' || status === 'trialing' || status === 'past_due';
+    const isInactive = event === 'membership_deactivated' || event === 'membership.went_invalid'
+      || status === 'expired' || status === 'canceled' || status === 'refunded' || status === 'completing';
+
     try {
-      if (event === 'membership_activated' || event === 'membership.went_valid') {
+      if (isActive) {
         await upsertMember(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
         console.log('Whop: member added —', email);
-      } else if (event === 'membership_deactivated' || event === 'membership.went_invalid') {
+      } else if (isInactive) {
         await deleteMember(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
         console.log('Whop: member removed —', email);
       } else {
-        console.log('Whop: unhandled event —', event);
+        console.log('Whop: unhandled event/status —', event, status);
       }
     } catch (e) {
       console.error('Whop webhook DB error:', e.message);
