@@ -1,26 +1,3 @@
-// ── Whop webhook signature verification ───────────────────────────────────
-// Whop sends:  Whop-Signature: t=<timestamp>,v0=<hex_hmac>
-// Signed string: "<timestamp>.<raw_body>"
-// Algorithm: HMAC-SHA256 with the webhook signing secret
-async function verifyWhopSignature(secret, rawBody, signatureHeader) {
-  if (!signatureHeader) return false;
-  // Split on first '=' only to handle any values that might contain '='
-  const parts = Object.fromEntries(
-    signatureHeader.split(',').map(p => { const i = p.indexOf('='); return [p.slice(0,i).trim(), p.slice(i+1).trim()]; })
-  );
-  const timestamp = parts.t;
-  const receivedHex = parts.v0;
-  if (!timestamp || !receivedHex) return false;
-
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(`${timestamp}.${rawBody}`));
-  const expectedHex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
-  return expectedHex === receivedHex;
-}
-
 // ── Supabase members table helpers ────────────────────────────────────────
 async function upsertMember(email, supabaseUrl, serviceKey) {
   const res = await fetch(`${supabaseUrl}/rest/v1/members`, {
@@ -57,30 +34,52 @@ export default {
       return new Response('OK', { status: 200 });
     }
     if (url.pathname === '/api/whop-webhook' && request.method === 'POST') {
-      const rawBody = await request.text();
-      const sigHeader = request.headers.get('Whop-Signature');
-
-      const valid = await verifyWhopSignature(env.WHOP_WEBHOOK_SECRET, rawBody, sigHeader);
-      if (!valid) return new Response('Unauthorized', { status: 401 });
-
       let payload;
-      try { payload = JSON.parse(rawBody); } catch { return new Response('Bad JSON', { status: 400 }); }
+      try { payload = JSON.parse(await request.text()); } catch { return new Response('Bad JSON', { status: 400 }); }
 
       const event = payload.event || payload.action;
-      // Whop nests user data under payload.data; email can sit directly or under data.user
       const email = payload.data?.user?.email || payload.data?.email;
 
       if (email) {
-        const sbUrl = env.SUPABASE_URL;
-        const sbKey = env.SUPABASE_SERVICE_ROLE_KEY;
         try {
           if (event === 'membership.went_valid' || event === 'membership_activated') {
-            await upsertMember(email, sbUrl, sbKey);
+            await upsertMember(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
           } else if (event === 'membership.went_invalid' || event === 'membership_deactivated') {
-            await deleteMember(email, sbUrl, sbKey);
+            await deleteMember(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
           }
         } catch (e) {
-          console.error('Webhook DB error:', e);
+          console.error('Whop webhook DB error:', e);
+          return new Response('Internal error', { status: 500 });
+        }
+      }
+
+      return new Response('OK', { status: 200 });
+    }
+
+    // ── Ko-fi membership webhook ─────────────────────────────────────────
+    if (url.pathname === '/api/kofi-webhook' && request.method === 'GET') {
+      return new Response('OK', { status: 200 });
+    }
+    if (url.pathname === '/api/kofi-webhook' && request.method === 'POST') {
+      let body;
+      try {
+        const text = await request.text();
+        const params = new URLSearchParams(text);
+        const dataStr = params.get('data');
+        if (!dataStr) return new Response('Bad Request', { status: 400 });
+        body = JSON.parse(dataStr);
+      } catch { return new Response('Bad JSON', { status: 400 }); }
+
+      if (env.KOFI_VERIFICATION_TOKEN && body.verification_token !== env.KOFI_VERIFICATION_TOKEN) {
+        return new Response('Unauthorized', { status: 401 });
+      }
+
+      const email = body.email;
+      if (email) {
+        try {
+          await upsertMember(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+        } catch (e) {
+          console.error('Ko-fi webhook DB error:', e);
           return new Response('Internal error', { status: 500 });
         }
       }
