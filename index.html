@@ -15,14 +15,17 @@
         html,body{font-family:'Inter',sans-serif;background-color:var(--bg-deep);color:#f8fafc;overflow:hidden;margin:0;padding:0;height:100%;width:100%}
         .app-container{height:100%;width:100%;position:relative;overflow:hidden}
         .ambient-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-        .ambient-glow-1{position:absolute;top:-15%;left:-10%;width:60vw;height:60vw;background:radial-gradient(circle,rgba(37,99,235,.15) 0%,rgba(2,6,23,0) 70%);filter:blur(60px)}
-        .ambient-glow-2{position:absolute;bottom:-10%;right:-10%;width:70vw;height:70vw;background:radial-gradient(circle,rgba(16,185,129,.08) 0%,rgba(2,6,23,0) 70%);filter:blur(80px)}
+        .ambient-glow-1{position:absolute;top:-15%;left:-10%;width:60vw;height:60vw;background:radial-gradient(circle,rgba(37,99,235,.15) 0%,rgba(2,6,23,0) 70%);filter:blur(60px);animation:blobDrift1 20s ease-in-out infinite}
+        .ambient-glow-2{position:absolute;bottom:-10%;right:-10%;width:70vw;height:70vw;background:radial-gradient(circle,rgba(16,185,129,.08) 0%,rgba(2,6,23,0) 70%);filter:blur(80px);animation:blobDrift2 26s ease-in-out infinite}
+        @keyframes blobDrift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(4%,3%) scale(1.07)}}
+        @keyframes blobDrift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-3%,-4%) scale(1.09)}}
         .step-content{position:absolute;inset:0;display:block;padding:1.5rem;background-color:transparent;z-index:10;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
         .inner-step-wrapper{display:flex;flex-direction:column;width:100%;max-width:28rem;margin:0 auto;position:relative;z-index:1}
         .scroll-buffer{height:160px;flex-shrink:0}
         .hidden-step{display:none!important}
-        .active-step{display:block!important;animation:slideUp .5s cubic-bezier(.2,.8,.2,1)}
-        @keyframes slideUp{from{opacity:0;transform:translateY(25px)}to{opacity:1;transform:translateY(0)}}
+        .active-step{display:block!important;animation:slideUp .42s cubic-bezier(.2,.8,.2,1)}
+        @keyframes slideUp{from{opacity:0;transform:translateY(22px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes fadeOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-10px)}}
         .progress-bar{height:4px;background:#0f172a;position:fixed;top:0;left:0;width:100%;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.5)}
         .progress-fill{height:100%;background:linear-gradient(90deg,#2563eb,#60a5fa);transition:width .6s cubic-bezier(.4,0,.2,1);box-shadow:0 0 15px rgba(59,130,246,.5)}
         .btn-primary{background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white;padding:1.25rem;border-radius:1.25rem;font-weight:800;text-transform:uppercase;letter-spacing:.15em;transition:all .2s cubic-bezier(.4,0,.2,1);border:1px solid rgba(255,255,255,.15);border-top:1px solid rgba(255,255,255,.3);width:100%;flex-shrink:0;box-shadow:0 10px 30px -5px rgba(37,99,235,.4),inset 0 -2px 10px rgba(0,0,0,.2);cursor:pointer}
@@ -216,6 +219,23 @@
         .auth-error.show{display:block}
         .auth-success{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:.75rem;padding:.75rem 1rem;color:#6ee7b7;font-size:.8rem;display:none}
         .auth-success.show{display:block}
+        /* Timer urgency */
+        @keyframes urgencyPulse{0%,100%{opacity:1;text-shadow:0 0 40px rgba(239,68,68,.5)}50%{opacity:.72;text-shadow:0 0 90px rgba(239,68,68,1),0 0 30px rgba(239,68,68,.7)}}
+        .timer-urgent{color:#fca5a5!important;animation:urgencyPulse .85s ease-in-out infinite!important}
+        /* Button ripple */
+        .btn-primary,.btn-outline{position:relative;overflow:hidden}
+        .ripple-wave{position:absolute;border-radius:50%;background:rgba(255,255,255,.18);transform:scale(0);animation:rippleOut .55s linear;pointer-events:none}
+        @keyframes rippleOut{to{transform:scale(4);opacity:0}}
+        /* Tip card shimmer */
+        .tip-card{position:relative;overflow:hidden}
+        .tip-card::before{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(168,85,247,.12),transparent);animation:tipShimmer 7s ease-in-out infinite;pointer-events:none}
+        @keyframes tipShimmer{0%,100%{left:-60%}45%,55%{left:160%}}
+        /* Modal spring entrance */
+        @keyframes modalSpring{from{opacity:0;transform:translateY(40px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+        #milestone-modal.show .milestone-inner,#session-summary-modal.show>div,#weekly-report-modal.show>div,#chart-modal>div{animation:modalSpring .38s cubic-bezier(.2,.8,.2,1)}
+        /* HQ sections stagger */
+        @keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+        .hq-anim{opacity:0;animation:fadeInUp .4s cubic-bezier(.2,.8,.2,1) forwards}
     </style>
 </head>
 <body>
@@ -608,7 +628,7 @@
                 <button id="logout-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Sign out"><i class="fas fa-right-from-bracket text-xs"></i></button>
             </div>
         </div>
-        <div class="level-badge mx-2">
+        <div class="level-badge mx-2 hq-anim">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i><span id="hq-level-name" class="text-yellow-300 text-xs font-black uppercase tracking-widest">LVL 1 · RECRUIT</span></div>
                 <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">65 XP to next level</span>
@@ -616,20 +636,20 @@
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
         </div>
         <div id="deload-banner" class="deload-banner mx-2 hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
-        <div class="calendar-container px-2"><div class="calendar-grid" id="dashboard-grid"></div></div>
+        <div class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
         <p class="text-[9px] font-black text-slate-700 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
         <div id="last-measure-row" class="flex gap-3 mx-2">
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
         </div>
         <!-- Coach Tee Hourly Tip -->
-        <div class="tip-card mx-2">
+        <div class="tip-card mx-2 hq-anim">
             <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee</p>
             <p id="daily-tip-title" class="text-[11px] font-black text-white uppercase tracking-wide mb-1"></p>
             <p id="daily-tip" class="text-[12px] text-slate-300 leading-relaxed italic"></p>
         </div>
         <!-- Hydration Tracker -->
-        <div class="instruction-card mx-2 border-blue-500/15" style="padding:1rem;">
+        <div class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
             <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-droplet text-blue-400 text-sm"></i>
@@ -658,7 +678,7 @@
         </div>
 
     <!-- Sleep + Soreness quick-log -->
-    <div class="px-2 space-y-2">
+    <div class="px-2 space-y-2 hq-anim">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Daily Check-In</p>
         <div class="instruction-card" style="padding:.85rem 1rem;">
             <div class="space-y-2.5">
@@ -685,7 +705,7 @@
     </div>
 
     <!-- Personal Records -->
-    <div class="px-2 space-y-2">
+    <div class="px-2 space-y-2 hq-anim">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Personal Records</p>
         <div class="flex gap-2">
             <div class="record-chip"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Best Streak</p><p id="record-streak" class="text-lg font-black text-white">0d</p></div>
@@ -694,7 +714,7 @@
         </div>
     </div>
 
-    <div class="px-2 space-y-3">
+    <div class="px-2 space-y-3 hq-anim">
         <div id="resume-banner" class="hidden p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3">
             <i class="fas fa-play-circle text-emerald-400 text-xl flex-shrink-0"></i>
             <div class="flex-1 min-w-0">
@@ -3041,7 +3061,9 @@ function startSet(){
         if(firstCue) updateActiveCue(firstCue.text.replace('{DIR}',DIRECTIONALS[session.directionalIndex]));
     }
     session.timer=createTimer(ex.duration,rem=>{
-        document.getElementById('ex-timer').innerText=fmtDuration(rem);
+        const timerEl=document.getElementById('ex-timer');
+        timerEl.innerText=fmtDuration(rem);
+        timerEl.classList.toggle('timer-urgent',rem>0&&rem<=10);
         document.getElementById('live-xp').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP`;
         // Uli: cue stays static. Wet Jelq: pacer interval owns cue updates.
         if(!isUli&&!isWetJelq){
@@ -3316,6 +3338,15 @@ function renderHydration(){
 }
 
 function renderDashboard(){
+    // Stagger-animate HQ sections on each render
+    document.querySelectorAll('#step-0 .hq-anim').forEach((el,i)=>{
+        el.style.animation='none';
+        el.style.opacity='0';
+        requestAnimationFrame(()=>{
+            el.style.animation='';
+            el.style.animationDelay=`${i*55}ms`;
+        });
+    });
     renderHydration();
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
@@ -4311,6 +4342,19 @@ function init(){
         console.error('Blueprint init error:', err);
     }
 }
+// Button ripple
+document.addEventListener('pointerdown',e=>{
+    const btn=e.target.closest('.btn-primary,.btn-outline');
+    if(!btn||btn.disabled)return;
+    const r=document.createElement('span');
+    r.className='ripple-wave';
+    const rect=btn.getBoundingClientRect();
+    const size=Math.max(rect.width,rect.height);
+    r.style.cssText=`width:${size}px;height:${size}px;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px`;
+    btn.appendChild(r);
+    setTimeout(()=>r.remove(),600);
+});
+
 document.addEventListener('DOMContentLoaded', async ()=>{
     init();
     document.getElementById('tab-login').addEventListener('click',  ()=>switchAuthMode('login'));
