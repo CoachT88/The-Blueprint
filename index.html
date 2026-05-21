@@ -1923,6 +1923,8 @@ const DEFAULT_PERSISTED={
     tipIndex:0,
     lastTipDate:'',
     firstSessionDate:'',   // used for tier lock calculation
+    allTimeSessionCount:0, // never truncated — used for safe XP migration check
+    xpMigrated:false,      // one-time flag so XP migration never fires twice
 };
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
@@ -1971,27 +1973,35 @@ async function loadPersisted(){
             }catch(e){}
         } else {
             persisted = {
-                schedule:       data.schedule        || DEFAULT_PERSISTED.schedule,
-                completedDays:  data.completed_days  || DEFAULT_PERSISTED.completedDays,
-                totalXp:        data.total_xp        || 0,
-                sessionLog:     data.session_log     || [],
-                measurements:   data.measurements    || [],
-                seenMilestones: data.seen_milestones || [],
-                difficulty:     data.difficulty      || 'intermediate',
-                diffUnlockedDate: data.diff_unlocked_date || {intermediate:'',advanced:'',elite:''},
-                firstSessionDate: data.first_session_date || '',
-                weekKey:        data.week_key        || '',
-                records:        data.records         || {longestStreak:0,bestWeekXp:0,bestSessionXp:0},
-                tipIndex:       data.tip_index       || 0,
-                lastTipDate:    data.last_tip_date   || '',
+                ...DEFAULT_PERSISTED,
+                schedule:            data.schedule             || DEFAULT_PERSISTED.schedule,
+                completedDays:       data.completed_days       || DEFAULT_PERSISTED.completedDays,
+                totalXp:             data.total_xp             || 0,
+                sessionLog:          data.session_log          || [],
+                measurements:        data.measurements         || [],
+                seenMilestones:      data.seen_milestones      || [],
+                difficulty:          data.difficulty           || 'intermediate',
+                diffUnlockedDate:    data.diff_unlocked_date   || {intermediate:'',advanced:'',elite:''},
+                firstSessionDate:    data.first_session_date   || '',
+                weekKey:             data.week_key             || '',
+                records:             data.records              || {longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+                tipIndex:            data.tip_index            || 0,
+                lastTipDate:         data.last_tip_date        || '',
+                allTimeSessionCount: data.all_time_session_count || 0,
+                xpMigrated:          data.xp_migrated          || false,
             };
         }
-        // XP migration — old per-tick system (5 XP/sec) and the first flat redesign
-        // (75-185/session) both over-inflate totalXp. If stored XP exceeds what the
-        // current system could ever award for the number of sessions logged, recalculate
-        // from session count at 15 XP each (intermediate average).
-        if(persisted.totalXp>(persisted.sessionLog||[]).length*50){
-            persisted.totalXp=(persisted.sessionLog||[]).length*15;
+        // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
+        // Use allTimeSessionCount (never truncated) rather than sessionLog.length (capped at 50)
+        // so long-time users are never wrongly flagged. Only runs once per account.
+        if(!persisted.xpMigrated){
+            const refCount=persisted.allTimeSessionCount || (persisted.sessionLog||[]).length;
+            if(refCount>0 && persisted.totalXp > refCount*50){
+                // Back up before modifying, so data can always be recovered
+                try{localStorage.setItem('bp_xp_backup_'+currentUser.id,JSON.stringify({totalXp:persisted.totalXp,refCount,_at:new Date().toISOString()}));}catch(e){}
+                persisted.totalXp=refCount*15;
+            }
+            persisted.xpMigrated=true;
             savePersisted();
         }
         // Auto-reset completedDays if we're in a new week
@@ -2018,11 +2028,13 @@ function _buildSavePayload(){
         difficulty:     persisted.difficulty,
         diff_unlocked_date: persisted.diffUnlockedDate||{intermediate:'',advanced:'',elite:''},
         first_session_date: persisted.firstSessionDate||'',
-        week_key:       persisted.weekKey||getCurrentWeekKey(),
-        records:        persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
-        tip_index:      persisted.tipIndex||0,
-        last_tip_date:  persisted.lastTipDate||'',
-        updated_at:     new Date().toISOString(),
+        week_key:              persisted.weekKey||getCurrentWeekKey(),
+        records:               persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+        tip_index:             persisted.tipIndex||0,
+        last_tip_date:         persisted.lastTipDate||'',
+        all_time_session_count: persisted.allTimeSessionCount||0,
+        xp_migrated:           !!persisted.xpMigrated,
+        updated_at:            new Date().toISOString(),
     };
 }
 function _upsertPayload(){
@@ -3444,6 +3456,7 @@ function finishSession(){
     const note=document.getElementById('session-note-input').value.trim();
     const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100);
     persisted.totalXp+=earnedXp;
+    persisted.allTimeSessionCount=(persisted.allTimeSessionCount||0)+1;
     persisted.completedDays[new Date().getDay()]=true;
     persisted.sessionLog.push({
         date:new Date().toISOString(),
