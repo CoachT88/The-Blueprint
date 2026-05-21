@@ -1,13 +1,5 @@
 // Ko-fi purchase webhook
 // Adds buyer's email to Supabase members table on any successful payment.
-//
-// Setup:
-//   1. Go to Ko-fi → Settings → API  and set a Verification Token
-//   2. Set webhook URL to: https://the-blueprint-b50.pages.dev/api/kofi-webhook
-//   3. Add these to Cloudflare Pages → Settings → Variables and Secrets:
-//        KOFI_VERIFICATION_TOKEN  — the token you set in Ko-fi
-//        SUPABASE_URL             — your Supabase project URL
-//        SUPABASE_SERVICE_ROLE_KEY — Supabase → Project Settings → API → service_role
 
 async function upsertMember(email, supabaseUrl, serviceKey) {
   const res = await fetch(`${supabaseUrl}/rest/v1/members`, {
@@ -20,33 +12,47 @@ async function upsertMember(email, supabaseUrl, serviceKey) {
     },
     body: JSON.stringify([{ email }]),
   });
-  if (!res.ok) throw new Error(`Supabase upsert failed: ${res.status}`);
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Supabase upsert failed: ${res.status} — ${errText}`);
+  }
 }
 
 export async function onRequestPost({ request, env }) {
   let body;
   try {
     const text = await request.text();
+    console.log('Ko-fi raw body:', text.slice(0, 200));
     const params = new URLSearchParams(text);
     const dataStr = params.get('data');
-    if (!dataStr) return new Response('Bad Request', { status: 400 });
+    if (!dataStr) {
+      console.error('Ko-fi: no data field in body');
+      return new Response('Bad Request', { status: 400 });
+    }
     body = JSON.parse(dataStr);
-  } catch {
+    console.log('Ko-fi parsed — type:', body.type, 'email:', body.email);
+  } catch (e) {
+    console.error('Ko-fi parse error:', e);
     return new Response('Bad JSON', { status: 400 });
   }
 
   // Verify token if configured
   if (env.KOFI_VERIFICATION_TOKEN && body.verification_token !== env.KOFI_VERIFICATION_TOKEN) {
+    console.error('Ko-fi token mismatch');
     return new Response('Unauthorized', { status: 401 });
   }
 
   const email = body.email;
-  if (!email) return new Response('OK', { status: 200 });
+  if (!email) {
+    console.error('Ko-fi: no email in payload');
+    return new Response('OK', { status: 200 });
+  }
 
   try {
     await upsertMember(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    console.log('Ko-fi: member added —', email);
   } catch (e) {
-    console.error('Ko-fi webhook DB error:', e);
+    console.error('Ko-fi webhook DB error:', e.message);
     return new Response('Internal error', { status: 500 });
   }
 
