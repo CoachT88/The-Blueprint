@@ -12,9 +12,6 @@ async function verifyWhopSignature(secret, rawBody, signatureHeader) {
   const receivedHex = parts.v0;
   if (!timestamp || !receivedHex) return false;
 
-  // Reject replays older than 5 minutes
-  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
-
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
