@@ -1,27 +1,9 @@
 // Whop membership webhook
 // Grants access on purchase, revokes on cancellation/refund.
 //
-// Required secrets (add in Cloudflare Pages → Settings → Variables and Secrets):
-//   WHOP_WEBHOOK_SECRET      — Whop dashboard → Developer → Webhooks → signing secret
+// Required secrets (Cloudflare Pages → Settings → Variables and Secrets):
 //   SUPABASE_URL             — your Supabase project URL
 //   SUPABASE_SERVICE_ROLE_KEY — Supabase → Project Settings → API → service_role
-
-async function verifyWhopSignature(secret, rawBody, signatureHeader) {
-  if (!signatureHeader) return false;
-  const parts = Object.fromEntries(
-    signatureHeader.split(',').map(p => { const i = p.indexOf('='); return [p.slice(0,i).trim(), p.slice(i+1).trim()]; })
-  );
-  const { t: timestamp, v0: receivedHex } = parts;
-  if (!timestamp || !receivedHex) return false;
-
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(`${timestamp}.${rawBody}`));
-  const expectedHex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
-  return expectedHex === receivedHex;
-}
 
 async function upsertMember(email, supabaseUrl, serviceKey) {
   const res = await fetch(`${supabaseUrl}/rest/v1/members`, {
@@ -50,17 +32,6 @@ async function deleteMember(email, supabaseUrl, serviceKey) {
 
 export async function onRequestPost({ request, env }) {
   const rawBody = await request.text();
-  const sigHeader = request.headers.get('Whop-Signature');
-
-  // Verify signature only when a secret is configured and non-empty.
-  // Skipped if WHOP_WEBHOOK_SECRET is missing so the pipeline can be tested independently.
-  if (env.WHOP_WEBHOOK_SECRET) {
-    const valid = await verifyWhopSignature(env.WHOP_WEBHOOK_SECRET, rawBody, sigHeader);
-    if (!valid) {
-      console.error('Whop sig mismatch — header:', sigHeader?.slice(0, 60));
-      return new Response('Unauthorized', { status: 401 });
-    }
-  }
 
   let payload;
   try { payload = JSON.parse(rawBody); } catch { return new Response('Bad JSON', { status: 400 }); }
