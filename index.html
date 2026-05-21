@@ -635,7 +635,7 @@
             </div>
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
         </div>
-        <div id="update-banner" class="mx-2" style="display:none;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:.75rem;padding:.75rem 1rem;align-items:flex-start;gap:.75rem;">
+        <div id="update-banner" class="mx-2" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:.75rem;padding:.75rem 1rem;display:flex;align-items:flex-start;gap:.75rem;">
             <i class="fas fa-circle-check text-blue-400 text-sm flex-shrink-0 mt-0.5"></i>
             <p class="text-slate-300 text-[11px] leading-relaxed flex-1"><span class="text-white font-black uppercase tracking-widest text-[10px]">App Update</span><br>A data-saving issue has been fixed. All progress now saves reliably. We apologize that some early progress may have been lost. Starting today everything is permanent.</p>
             <button onclick="dismissUpdateBanner()" class="text-slate-500 flex-shrink-0 ml-1" style="line-height:1;background:none;border:none;cursor:pointer;padding:0;"><i class="fas fa-xmark text-sm"></i></button>
@@ -3377,14 +3377,14 @@ function renderHydration(){
 
 function dismissUpdateBanner(){
     try{if(currentUser)localStorage.setItem('bp_update_banner_dismissed_v1_'+currentUser.id,'1');}catch(e){}
-    document.getElementById('update-banner').style.display='none';
+    const el=document.getElementById('update-banner');
+    if(el)el.style.display='none';
 }
 function renderUpdateBanner(){
     if(!currentUser)return;
     const el=document.getElementById('update-banner');
     if(!el)return;
-    const dismissed=localStorage.getItem('bp_update_banner_dismissed_v1_'+currentUser.id);
-    el.style.display=dismissed?'none':'flex';
+    if(localStorage.getItem('bp_update_banner_dismissed_v1_'+currentUser.id))el.style.display='none';
 }
 
 function renderDashboard(){
