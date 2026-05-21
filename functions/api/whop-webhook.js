@@ -32,24 +32,32 @@ async function deleteMember(email, supabaseUrl, serviceKey) {
 
 export async function onRequestPost({ request, env }) {
   const rawBody = await request.text();
+  console.log('Whop raw body:', rawBody.slice(0, 300));
 
   let payload;
   try { payload = JSON.parse(rawBody); } catch { return new Response('Bad JSON', { status: 400 }); }
 
   const event = payload.event || payload.action;
   const email = payload.data?.user?.email || payload.data?.email;
+  console.log('Whop parsed — event:', event, 'email:', email);
 
   if (email) {
     try {
       if (event === 'membership_activated' || event === 'membership.went_valid') {
         await upsertMember(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+        console.log('Whop: member added —', email);
       } else if (event === 'membership_deactivated' || event === 'membership.went_invalid') {
         await deleteMember(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+        console.log('Whop: member removed —', email);
+      } else {
+        console.log('Whop: unhandled event —', event);
       }
     } catch (e) {
-      console.error('Webhook DB error:', e);
+      console.error('Whop webhook DB error:', e.message);
       return new Response('Internal error', { status: 500 });
     }
+  } else {
+    console.error('Whop: no email found in payload');
   }
 
   return new Response('OK', { status: 200 });
