@@ -32,18 +32,31 @@ async function deleteMember(email, supabaseUrl, serviceKey) {
 
 export async function onRequestPost({ request, env }) {
   const rawBody = await request.text();
-  console.log('Whop raw body:', rawBody.slice(0, 300));
+  console.log('Whop raw body (full):', rawBody);
 
   let payload;
   try { payload = JSON.parse(rawBody); } catch { return new Response('Bad JSON', { status: 400 }); }
 
   const event = payload.event || payload.action;
   const status = payload.data?.status;
-  const email = payload.data?.user?.email || payload.data?.email;
+
+  // Try every known location Whop puts the email across different event types
+  const email =
+    payload.data?.user?.email ||
+    payload.data?.email ||
+    payload.data?.membership?.user?.email ||
+    payload.data?.checkout?.email ||
+    payload.data?.order?.email ||
+    payload.user?.email ||
+    null;
+
   console.log('Whop parsed — event:', event, 'status:', status, 'email:', email);
+  console.log('Whop payload keys:', Object.keys(payload));
+  console.log('Whop data keys:', payload.data ? Object.keys(payload.data) : 'no data field');
 
   if (email) {
     const isActive = event === 'membership_activated' || event === 'membership.went_valid'
+      || event === 'payment.succeeded' || event === 'checkout.completed'
       || status === 'active' || status === 'trialing' || status === 'past_due';
     const isInactive = event === 'membership_deactivated' || event === 'membership.went_invalid'
       || status === 'expired' || status === 'canceled' || status === 'refunded' || status === 'completing';
@@ -63,7 +76,7 @@ export async function onRequestPost({ request, env }) {
       return new Response('Internal error', { status: 500 });
     }
   } else {
-    console.error('Whop: no email found in payload');
+    console.error('Whop: no email found — full payload:', rawBody);
   }
 
   return new Response('OK', { status: 200 });
