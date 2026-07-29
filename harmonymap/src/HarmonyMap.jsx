@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import {
   cn, pc, cc, chordRN, gcon, extChordLabel, ml,
   exportMIDI,
@@ -22,18 +22,23 @@ const comp=this.ctx.createDynamicsCompressor();
 comp.threshold.value=-18;comp.knee.value=12;comp.ratio.value=3;comp.attack.value=0.008;comp.release.value=0.20;
 const masterLP=this.ctx.createBiquadFilter();
 masterLP.type='highshelf';masterLP.frequency.value=9000;masterLP.gain.value=-4;
-const rvBuf=this._buildReverbBuffer(1.2,4.0);
-const rvConv=this.ctx.createConvolver();rvConv.buffer=rvBuf;
+const rvBufTiny=this._buildReverbBuffer(0.25,4.0);
+const rvConv=this.ctx.createConvolver();rvConv.buffer=rvBufTiny;
 const rvSendLP=this.ctx.createBiquadFilter();
 rvSendLP.type='lowpass';rvSendLP.frequency.value=600;rvSendLP.Q.value=0.5;
 const rvGain=this.ctx.createGain();rvGain.gain.value=0.07;
 rvSendLP.connect(rvConv);rvConv.connect(rvGain);rvGain.connect(masterLP);
-const stBuf=this._buildReverbBuffer(1.8,1.8,0.06);
-const stConv=this.ctx.createConvolver();stConv.buffer=stBuf;
+const stBufTiny=this._buildReverbBuffer(0.25,1.8,0.02);
+const stConv=this.ctx.createConvolver();stConv.buffer=stBufTiny;
 const stSendLP=this.ctx.createBiquadFilter();
 stSendLP.type='lowpass';stSendLP.frequency.value=1400;stSendLP.Q.value=0.5;
 const stGain=this.ctx.createGain();stGain.gain.value=0.11;
 stSendLP.connect(stConv);stConv.connect(stGain);stGain.connect(masterLP);
+// Defer the ~500k-sample real reverb IRs to idle time so first tap
+// stays snappy. Convolver picks up the new buffer transparently.
+const buildFull=()=>{try{rvConv.buffer=this._buildReverbBuffer(1.2,4.0);stConv.buffer=this._buildReverbBuffer(1.8,1.8,0.06);}catch(x){}};
+if(typeof requestIdleCallback==='function')requestIdleCallback(buildFull,{timeout:400});
+else setTimeout(buildFull,120);
 const clip=this.ctx.createWaveShaper();const cv=new Float32Array(256);for(let i=0;i<256;i++){const x=i*2/255-1;cv[i]=Math.tanh(x*2.5)/Math.tanh(2.5);}clip.curve=cv;clip.oversample='4x';
 this.mg.connect(comp);comp.connect(masterLP);masterLP.connect(clip);clip.connect(this.ctx.destination);
 this.rv=rvSendLP;this.rvStadium=stSendLP;
@@ -53,7 +58,7 @@ _playAnalogPad(fr,vel,t,dur){const fl=this.ctx.createBiquadFilter();fl.type='low
 _octaveDown(n){const m=n.match(/^([A-G][#b]?)(\d)$/);if(!m)return n;return m[1]+(parseInt(m[2])-1);}
 _playBass(fr,vel,t,dur){const o=this.ctx.createOscillator();o.type='sine';o.frequency.value=fr;const lp=this.ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=200;lp.Q.value=0.5;const env=this.ctx.createGain();env.gain.setValueAtTime(0,t);env.gain.linearRampToValueAtTime(vel*0.55,t+0.04);env.gain.exponentialRampToValueAtTime(vel*0.30,t+0.15);env.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(lp);lp.connect(env);env.connect(this.mg);o.start(t);o.stop(t+dur+0.1);return env;}
 playNote(n,dur=1.2,vel=0.42,st=null){this.init();if(!this.pianoWave||!this.cinematicWave||!this.padWave)this._buildWaves();const fr=typeof n==='number'?n:this.noteToFreq(n);const t=st||(this.ctx.currentTime+0.15);const inst=this.instrument;const env=inst==='analog-pad'?this._playAnalogPad(fr,vel,t,dur):inst==='cinematic'?this._playCinematic(fr,vel,t,dur):this._playUnderwater(fr,vel,t,dur);env.connect(this.mg);if(inst==='cinematic'||inst==='analog-pad'){env.connect(this.rvStadium);}else{env.connect(this.rv);}return env;}
-playChord(notes,dur=1.5,stg=0.018){this.init();if(!notes||!notes.length)return;const now=this.ctx.currentTime;const dead=this.noteEnvs.slice();dead.forEach(e=>{try{e.gain.cancelScheduledValues(now);e.gain.setTargetAtTime(0,now,0.015);}catch(x){}});dead.forEach(e=>{try{e.disconnect();}catch(x){}});this.noteEnvs=[];const t=now+0.015;const bassNote=this._octaveDown(notes[0]);const be=this._playBass(this.noteToFreq(bassNote),0.42,t,dur*0.80);if(be)this.noteEnvs.push(be);const effStg=this.instrument==='cinematic'?0:this.instrument==='underwater'?Math.min(stg,0.010):stg;notes.forEach((n,i)=>{const vel=0.42*(0.86+Math.random()*0.28);const jit=(Math.random()-0.5)*0.006;const e=this.playNote(n,dur,vel,t+i*effStg+jit);if(e)this.noteEnvs.push(e);});}
+playChord(notes,dur=1.5,stg=0.018){this.init();if(!notes||!notes.length)return;const now=this.ctx.currentTime;const dead=this.noteEnvs.slice();dead.forEach(e=>{try{e.gain.cancelScheduledValues(now);e.gain.setTargetAtTime(0,now,0.015);}catch(x){}});setTimeout(()=>{dead.forEach(e=>{try{e.disconnect();}catch(x){}});},60);this.noteEnvs=[];const t=now+0.015;const bassNote=this._octaveDown(notes[0]);const be=this._playBass(this.noteToFreq(bassNote),0.42,t,dur*0.80);if(be)this.noteEnvs.push(be);const effStg=this.instrument==='cinematic'?0:this.instrument==='underwater'?Math.min(stg,0.010):stg;notes.forEach((n,i)=>{const vel=0.42*(0.86+Math.random()*0.28);const jit=(Math.random()-0.5)*0.006;const e=this.playNote(n,dur,vel,t+i*effStg+jit);if(e)this.noteEnvs.push(e);});}
 playClick(hi,st){this.init();const t=st||(this.ctx.currentTime+0.15);const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sine';o.frequency.value=hi?1400:900;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.002);g.gain.exponentialRampToValueAtTime(0.0001,t+0.08);o.connect(g);g.connect(this.mg);o.start(t);o.stop(t+0.1);}
 playProgression(cl,bpm=72,cb,beats=4,stg=0.018){this.init();this.stop();this.isPlaying=true;let acc=0;cl.forEach((n,i)=>{const d=(60/bpm)*beats;this.tids.push(setTimeout(()=>{if(!this.isPlaying)return;if(n)this.playChord(n,d*0.88,stg);if(cb)cb(i);},acc*1000));acc+=d;});this.tids.push(setTimeout(()=>{this.isPlaying=false;if(cb)cb(-1);},acc*1000));}
 playLoop(cl,bpm=72,cb,beats=4,stg=0.018){this.init();this.stop();this.isPlaying=true;const gen=++this._loopGen;const go=()=>{if(!this.isPlaying||this._loopGen!==gen)return;let acc=0;cl.forEach((n,i)=>{const d=(60/bpm)*beats;this.tids.push(setTimeout(()=>{if(!this.isPlaying||this._loopGen!==gen)return;if(n)this.playChord(n,d*0.88,stg);if(cb)cb(i);},acc*1000));acc+=d;});this.tids.push(setTimeout(()=>{if(this.isPlaying&&this._loopGen===gen)go();},acc*1000));};go();}
@@ -92,6 +97,48 @@ function useDragReorder(setProg){
   const cancelDrag=useCallback(()=>{clearTimeout(longPressTimer.current);setDragging(null);setDragOver(null);},[]);
   return{dragging,dragOver,onLongPressStart,onLongPressEnd,onDragEnter,onDrop,cancelDrag};
 }
+
+// ═══════════════════════════════════════════════════════════════
+// CHORD MAP SVG — memoized so it doesn't re-render on `pi` (playing
+// index) ticks during playback. Only re-renders when the props that
+// actually affect its visuals change.
+// ═══════════════════════════════════════════════════════════════
+const ChordMapSVG=memo(function ChordMapSVG({k,sch,ext,showTheory,swapIdx,sk,onTap}){
+  const svgNodes=useMemo(()=>k?ml(k.ch,200,200,132):[],[k]);
+  const connections=useMemo(()=>k?gcon(k.ch,k.m):[],[k]);
+  const nodeByChord=useMemo(()=>{const m=new Map();svgNodes.forEach(n=>m.set(n.c,n));return m;},[svgNodes]);
+  const bestNext=useMemo(()=>{if(!sch||!k)return new Set();const conns=gcon(k.ch,k.m).filter(c=>c.f===sch);const top=[...conns].sort((a,b)=>a.st==='strong'?-1:b.st==='strong'?1:0).slice(0,3).map(c=>c.t);return new Set(top);},[sch,k]);
+  const homeChord=k?.ch[0];
+  return(
+    <div style={{background:'rgba(0,0,0,0.35)',borderRadius:22,padding:'8px 4px 4px',border:'1px solid rgba(167,139,250,0.12)',marginBottom:14,position:'relative'}}>
+      <svg viewBox="0 0 400 400" style={{width:'100%',height:'auto',display:'block'}} role="group" aria-label={`Chord map in ${sk}`}>
+        {connections.map((c,i)=>{
+          const fn=nodeByChord.get(c.f),tn=nodeByChord.get(c.t);
+          if(!fn||!tn)return null;
+          const active=sch===c.f;
+          return<line key={i} x1={fn.x} y1={fn.y} x2={tn.x} y2={tn.y} stroke={active?(c.st==='strong'?'#A78BFA':'rgba(167,139,250,0.5)'):'rgba(255,255,255,0.05)'} strokeWidth={active?1.5:0.6}/>;
+        })}
+        {svgNodes.map((nd,i)=>{
+          const sel=sch===nd.c;
+          const isHome=nd.c===homeChord;
+          const isNext=bestNext.has(nd.c);
+          const col=cc(nd.c);
+          const displayLbl=ext&&ext!=='triad'?extChordLabel(k,nd.c,ext):nd.c;
+          const rn=showTheory?chordRN(k,nd.c):'';
+          return<g key={i} onClick={()=>onTap(nd.c)} style={{cursor:'pointer'}} role="button" aria-label={`${nd.c}${rn?` (${rn})`:''} — tap to play`}>
+            {isNext&&<circle cx={nd.x} cy={nd.y} r="34" fill="none" stroke="#A78BFA" strokeWidth="1.5" strokeOpacity="0.45" strokeDasharray="4 3"/>}
+            <circle cx={nd.x} cy={nd.y} r={sel?32:28} fill={sel?col:'rgba(0,0,0,0.55)'} stroke={sel?col:col+'80'} strokeWidth={sel?2.5:1.5} style={{filter:sel?`drop-shadow(0 0 12px ${col})`:'none',transition:'all 0.15s'}}/>
+            <text x={nd.x} y={nd.y+2} textAnchor="middle" dominantBaseline="middle" fill={sel?'#fff':col} fontSize={sel?15:13} fontWeight="800" style={{pointerEvents:'none'}}>{displayLbl}</text>
+            {isHome&&!sel&&<text x={nd.x} y={nd.y+46} textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="8" fontWeight="700" style={{pointerEvents:'none'}}>HOME</text>}
+            {rn&&<text x={nd.x} y={nd.y+(sel?52:46)} textAnchor="middle" fill="rgba(167,139,250,0.65)" fontSize="9" fontWeight="600" style={{pointerEvents:'none'}}>{rn}</text>}
+          </g>;
+        })}
+        <text x="200" y="196" textAnchor="middle" fill={swapIdx!==null?'#A78BFA':'rgba(255,255,255,0.32)'} fontSize="12" fontWeight="700">{sk}</text>
+        <text x="200" y="212" textAnchor="middle" fill="rgba(255,255,255,0.22)" fontSize="8">{swapIdx!==null?`Tap map → replace slot ${swapIdx+1}`:'Tap a chord to add'}</text>
+      </svg>
+    </div>
+  );
+});
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -179,16 +226,19 @@ useEffect(()=>{
 // Auto-clear tip
 useEffect(()=>{if(!tip)return;const t=setTimeout(()=>setTip(null),3200);return()=>clearTimeout(t);},[tip]);
 
-// ── Playback controls ──
-const stopAll=useCallback(()=>{audio.absoluteStop();setProgLooping(false);setPi(-1);},[]);
-const loopP=useCallback((useProg=prog,useBpm=bpm)=>{const notes=useProg.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(notes,useBpm,i=>setPi(i),beats,0.018);},[prog,bpm,beats]);
-const playP=useCallback(()=>{const notes=prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(notes,bpm,i=>setPi(i),beats,0.018);},[prog,bpm,beats]);
-const togglePlay=useCallback(()=>{if(progLooping){stopAll();}else{loopP();}},[progLooping,stopAll,loopP]);
+// Latest-value refs — read inside stable callbacks / effects so we
+// don't rebuild them on every prog/bpm/beats change.
+const progRef=useRef(prog),bpmRef=useRef(bpm),beatsRef=useRef(beats),progLoopingRef=useRef(progLooping);
+useEffect(()=>{progRef.current=prog;bpmRef.current=bpm;beatsRef.current=beats;progLoopingRef.current=progLooping;});
 
-// Re-loop when bpm/prog change while looping
-const progRef=useRef(prog),bpmRef=useRef(bpm),progLoopingRef=useRef(progLooping);
-useEffect(()=>{progRef.current=prog;bpmRef.current=bpm;progLoopingRef.current=progLooping;});
-useEffect(()=>{if(progLooping)loopP(progRef.current,bpmRef.current);},[bpm,beats]);// eslint-disable-line
+// ── Playback controls (stable identities — no prog/bpm/beats deps) ──
+const stopAll=useCallback(()=>{audio.absoluteStop();setProgLooping(false);setPi(-1);},[]);
+const loopP=useCallback(()=>{const p=progRef.current;const notes=p.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(notes,bpmRef.current,i=>setPi(i),beatsRef.current,0.018);},[]);
+const playP=useCallback(()=>{const p=progRef.current;const notes=p.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(notes,bpmRef.current,i=>setPi(i),beatsRef.current,0.018);},[]);
+const togglePlay=useCallback(()=>{if(progLoopingRef.current)stopAll();else loopP();},[stopAll,loopP]);
+
+// Re-loop when bpm or prog changes while looping (refs make this safe)
+useEffect(()=>{if(progLoopingRef.current)loopP();},[bpm,beats,loopP]);
 
 // ── Chord map interaction ──
 const playChord=useCallback((s)=>{
@@ -208,10 +258,10 @@ const playChord=useCallback((s)=>{
 const remC=useCallback((i)=>{setProg(p=>p.filter((_,j)=>j!==i));setSwapIdx(cur=>cur===null?null:cur===i?null:cur>i?cur-1:cur);},[]);
 const selectSlot=useCallback((i,c)=>{
   if(swapIdx===i){setSwapIdx(null);return;}
-  if(swapIdx===null)setUndoProg(prog);
+  if(swapIdx===null)setUndoProg(progRef.current);
   setSwapIdx(i);
   if(c&&c!=='REST'){audio.playChord(cn(pc(c).r,pc(c).t,3));}
-},[swapIdx,prog]);
+},[swapIdx]);
 const clearAll=useCallback(()=>{stopAll();setProg([]);setSch(null);setSwapIdx(null);setUndoProg(null);},[stopAll]);
 const undoLast=useCallback(()=>{if(!undoProg)return;setProg(undoProg);setUndoProg(null);setSwapIdx(null);},[undoProg]);
 
@@ -239,14 +289,10 @@ const deleteIdea=useCallback((id)=>{setSaved(p=>p.filter(i=>i.id!==id));},[]);
 // ── Drag reorder ──
 const{dragging,dragOver,onLongPressStart,onLongPressEnd,onDragEnter,onDrop,cancelDrag}=useDragReorder(setProg);
 
-// ── SVG chord map ──
-const svgNodes=useMemo(()=>k?ml(k.ch,200,200,132):[],[k]);
-const connections=useMemo(()=>k?gcon(k.ch,k.m):[],[k]);
-const bestNext=useMemo(()=>{if(!sch||!k)return[];const conns=gcon(k.ch,k.m).filter(c=>c.f===sch);return[...conns].sort((a,b)=>a.st==='strong'?-1:b.st==='strong'?1:0).slice(0,3).map(c=>c.t);},[sch,k]);
+// ── Suggest chord (uses the last chord in the loop, not the map selection) ──
 const lastChord=prog[prog.length-1];
 const suggestions=useMemo(()=>{if(!lastChord||!k)return[];const conns=gcon(k.ch,k.m).filter(c=>c.f===lastChord);return[...conns].sort((a,b)=>a.st==='strong'?-1:b.st==='strong'?1:0).slice(0,3).map(c=>c.t);},[lastChord,k]);
-const suggest=useCallback(()=>{if(!suggestions.length||prog.length>=16)return;const pick=suggestions[0];audio.playChord(cn(pc(pick).r,pc(pick).t,3));setProg(p=>[...p,pick]);setSch(pick);},[suggestions,prog.length]);
-const homeChord=k?.ch[0];
+const suggest=useCallback(()=>{if(!suggestions.length||progRef.current.length>=16)return;const pick=suggestions[0];audio.playChord(cn(pc(pick).r,pc(pick).t,3));setProg(p=>[...p,pick]);setSch(pick);},[suggestions]);
 
 const currentSound=SOUNDS.find(s=>s.id===inst)||SOUNDS[0];
 const isAudioActive=progLooping||pi>=0;
@@ -305,32 +351,8 @@ return(
       </div>
     </div>}
 
-    {/* ── CHORD MAP (the hero) ── */}
-    <div style={{background:'rgba(0,0,0,0.35)',borderRadius:22,padding:'8px 4px 4px',border:'1px solid rgba(167,139,250,0.12)',marginBottom:14,position:'relative'}}>
-      <svg viewBox="0 0 400 400" style={{width:'100%',height:'auto',display:'block'}}>
-        {/* connections */}
-        {connections.map((c,i)=>{const fn=svgNodes.find(n=>n.c===c.f),tn=svgNodes.find(n=>n.c===c.t);if(!fn||!tn)return null;const active=sch===c.f;return<line key={i} x1={fn.x} y1={fn.y} x2={tn.x} y2={tn.y} stroke={active?(c.st==='strong'?'#A78BFA':'rgba(167,139,250,0.5)'):'rgba(255,255,255,0.05)'} strokeWidth={active?1.5:0.6}/>;})}
-        {/* nodes */}
-        {svgNodes.map((nd,i)=>{
-          const sel=sch===nd.c;
-          const isHome=nd.c===homeChord;
-          const isNext=bestNext.includes(nd.c);
-          const col=cc(nd.c);
-          const displayLbl=ext&&ext!=='triad'?extChordLabel(k,nd.c,ext):nd.c;
-          const rn=showTheory?chordRN(k,nd.c):'';
-          return<g key={i} onClick={()=>playChord(nd.c)} style={{cursor:'pointer'}}>
-            {isNext&&<circle cx={nd.x} cy={nd.y} r="34" fill="none" stroke="#A78BFA" strokeWidth="1.5" strokeOpacity="0.45" strokeDasharray="4 3"/>}
-            <circle cx={nd.x} cy={nd.y} r={sel?32:28} fill={sel?col:'rgba(0,0,0,0.55)'} stroke={sel?col:col+'80'} strokeWidth={sel?2.5:1.5} style={{filter:sel?`drop-shadow(0 0 12px ${col})`:'none',transition:'all 0.15s'}}/>
-            <text x={nd.x} y={nd.y+2} textAnchor="middle" dominantBaseline="middle" fill={sel?'#fff':col} fontSize={sel?15:13} fontWeight="800" style={{pointerEvents:'none'}}>{displayLbl}</text>
-            {isHome&&!sel&&<text x={nd.x} y={nd.y+46} textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="8" fontWeight="700" style={{pointerEvents:'none'}}>HOME</text>}
-            {rn&&<text x={nd.x} y={nd.y+(sel?52:46)} textAnchor="middle" fill="rgba(167,139,250,0.65)" fontSize="9" fontWeight="600" style={{pointerEvents:'none'}}>{rn}</text>}
-          </g>;
-        })}
-        {/* center */}
-        <text x="200" y="196" textAnchor="middle" fill={swapIdx!==null?'#A78BFA':'rgba(255,255,255,0.32)'} fontSize="12" fontWeight="700">{sk}</text>
-        <text x="200" y="212" textAnchor="middle" fill="rgba(255,255,255,0.22)" fontSize="8">{swapIdx!==null?`Tap map → replace slot ${swapIdx+1}`:'Tap a chord to add'}</text>
-      </svg>
-    </div>
+    {/* ── CHORD MAP (the hero — memoized subcomponent) ── */}
+    <ChordMapSVG k={k} sch={sch} ext={ext} showTheory={showTheory} swapIdx={swapIdx} sk={sk} onTap={playChord}/>
 
     {/* ── PROGRESSION STRIP ── */}
     <div style={{background:'rgba(0,0,0,0.3)',borderRadius:14,padding:'10px 12px',marginBottom:14,border:'1px solid rgba(255,255,255,0.05)'}}>
