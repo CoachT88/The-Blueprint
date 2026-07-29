@@ -228,13 +228,15 @@ describe('gcon (chord connections)', () => {
   const cMajor = KEYS['C major'].ch; // [C, Dm, Em, F, G, Am, B°]
   const aMinor = KEYS['A minor'].ch; // [Am, B°, C, Dm, Em, F, G]
 
-  it('major mode edge list: I→F, I→G, I→Am, ii→G, IV→I, IV→G, V→I, V→vi, vi→IV', () => {
+  it('major mode edge list includes ii→I and iii→vi (11 edges)', () => {
     const edges = gcon(cMajor, 'major');
     expect(edges).toEqual([
       { f:'C',  t:'F',  st:'normal' },
       { f:'C',  t:'G',  st:'normal' },
       { f:'C',  t:'Am', st:'normal' },
+      { f:'Dm', t:'C',  st:'normal' }, // ii → I (added)
       { f:'Dm', t:'G',  st:'normal' },
+      { f:'Em', t:'Am', st:'normal' }, // iii → vi (added)
       { f:'F',  t:'C',  st:'strong' }, // IV → I
       { f:'F',  t:'G',  st:'normal' },
       { f:'G',  t:'C',  st:'strong' }, // V → I
@@ -243,18 +245,29 @@ describe('gcon (chord connections)', () => {
     ]);
   });
 
-  it('minor mode has one extra edge (10 vs 9)', () => {
+  it('minor mode adds VII→i (11 edges, VII→i strong, v→i normal)', () => {
     const edges = gcon(aMinor, 'minor');
-    expect(edges).toHaveLength(10);
-    // last edge is [5,2] = F → C
-    expect(edges[edges.length - 1]).toEqual({ f:'F', t:'C', st:'normal' });
+    expect(edges).toHaveLength(11);
+    // last edge is [6,0] = G → Am, the Aeolian VII→i cadence
+    expect(edges[edges.length - 1]).toEqual({ f:'G', t:'Am', st:'strong' });
+    // v → i in minor is NOT strong (no leading tone in natural minor)
+    const vToI = edges.find(e => e.f === 'Em' && e.t === 'Am');
+    expect(vToI).toEqual({ f:'Em', t:'Am', st:'normal' });
   });
 
-  it('strong markers only on IV→I and V→I', () => {
+  it('strong markers in major: IV→I and V→I', () => {
     const strong = gcon(cMajor, 'major').filter(e => e.st === 'strong');
     expect(strong).toEqual([
       { f:'F', t:'C', st:'strong' },
       { f:'G', t:'C', st:'strong' },
+    ]);
+  });
+
+  it('strong markers in minor: iv→i and VII→i (NOT v→i)', () => {
+    const strong = gcon(aMinor, 'minor').filter(e => e.st === 'strong');
+    expect(strong).toEqual([
+      { f:'Dm', t:'Am', st:'strong' }, // iv → i
+      { f:'G',  t:'Am', st:'strong' }, // VII → i (Aeolian)
     ]);
   });
 

@@ -64,7 +64,10 @@ export const KEYS = {
   'Db major':{r:'Db',m:'major',ch:['Db','Ebm','Fm','Gb','Ab','Bbm','C°'],sc:['Db','Eb','F','Gb','Ab','Bb','C']},
   'Ab major':{r:'Ab',m:'major',ch:['Ab','Bbm','Cm','Db','Eb','Fm','G°'],sc:['Ab','Bb','C','Db','Eb','F','G']},
   'F# minor':{r:'F#',m:'minor',ch:['F#m','G#°','A','Bm','C#m','D','E'],sc:['F#','G#','A','B','C#','D','E']},
-  'C# minor':{r:'C#',m:'minor',ch:['C#m','D#°','E','F#m','G#m','A','B'],sc:['C#','D#','E','F#','G#','A','B']}
+  'C# minor':{r:'C#',m:'minor',ch:['C#m','D#°','E','F#m','G#m','A','B'],sc:['C#','D#','E','F#','G#','A','B']},
+  'Bb minor':{r:'Bb',m:'minor',ch:['Bbm','C°','Db','Ebm','Fm','Gb','Ab'],sc:['Bb','C','Db','Eb','F','Gb','Ab']},
+  'Eb minor':{r:'Eb',m:'minor',ch:['Ebm','F°','Gb','Abm','Bbm','Cb','Db'],sc:['Eb','F','Gb','Ab','Bb','Cb','Db']},
+  'Ab minor':{r:'Ab',m:'minor',ch:['Abm','Bb°','Cb','Dbm','Ebm','Fb','Gb'],sc:['Ab','Bb','Cb','Db','Eb','Fb','Gb']}
 };
 
 export const MAJOR_COF = ['C major','G major','D major','A major','E major','B major','Gb major','Db major','Ab major','Eb major','Bb major','F major'];
@@ -81,12 +84,15 @@ export function chordRN(k, ch) {
 export function gcon(ch, mode = 'major') {
   if (!ch || ch.length < 7) return [];
   const p = mode === 'minor'
-    ? [[0,3],[0,4],[0,5],[1,4],[3,0],[3,4],[4,0],[4,5],[5,3],[5,2]]
-    : [[0,3],[0,4],[0,5],[1,4],[3,0],[3,4],[4,0],[4,5],[5,3]];
+    ? [[0,3],[0,4],[0,5],[1,4],[3,0],[3,4],[4,0],[4,5],[5,3],[5,2],[6,0]]
+    : [[0,3],[0,4],[0,5],[1,0],[1,4],[2,5],[3,0],[3,4],[4,0],[4,5],[5,3]];
+  const strong = mode === 'minor'
+    ? new Set(['6,0','3,0'])
+    : new Set(['4,0','3,0']);
   return p.map(([a,b]) => ({
     f: ch[a],
     t: ch[b],
-    st: ((a === 4 && b === 0) || (a === 3 && b === 0)) ? 'strong' : 'normal'
+    st: strong.has(`${a},${b}`) ? 'strong' : 'normal'
   }));
 }
 
@@ -183,9 +189,9 @@ export function exportMIDI(prog, bpm = 90, beats = 4) {
 }
 
 export const MOODS = [
-  { id:'chill',   emoji:'😌', label:'Chill',   color:'#5EEAD4', key:'F major', bpm:78,  prog:['F','Am','Bb','C'] },
+  { id:'chill',   emoji:'😌', label:'Chill',   color:'#5EEAD4', key:'F major', bpm:72,  prog:['F','Bb','Am','Dm'] },
   { id:'hopeful', emoji:'🌅', label:'Hopeful', color:'#FBBF24', key:'C major', bpm:100, prog:['C','G','Am','F'] },
-  { id:'dark',    emoji:'🌑', label:'Dark',    color:'#818CF8', key:'A minor', bpm:84,  prog:['Am','Em','F','Dm'] },
+  { id:'dark',    emoji:'🌑', label:'Dark',    color:'#818CF8', key:'A minor', bpm:84,  prog:['Am','F','Dm','G'] },
   { id:'epic',    emoji:'🔥', label:'Epic',    color:'#FB7185', key:'E minor', bpm:128, prog:['Em','C','G','D'] },
-  { id:'dreamy',  emoji:'💭', label:'Dreamy',  color:'#A78BFA', key:'G major', bpm:88,  prog:['G','D','Em','C'] },
+  { id:'dreamy',  emoji:'💭', label:'Dreamy',  color:'#A78BFA', key:'G major', bpm:72,  prog:['Em','C','G','Am'] },
 ];
