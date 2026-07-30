@@ -82,7 +82,7 @@ const EXAMPLE_LOOP={id:'example',k:'C major',prog:['C','G','Am','F'],bpm:100};
 const S={
   card:(bc='rgba(255,255,255,0.10)')=>({background:'rgba(255,255,255,0.04)',borderRadius:14,padding:14,border:`1px solid ${bc}`,marginBottom:12}),
   btn:(bg='rgba(255,255,255,0.08)',c='#fff',bc='rgba(255,255,255,0.14)')=>({background:bg,border:`1px solid ${bc}`,borderRadius:10,padding:'9px 14px',color:c,cursor:'pointer',fontSize:12,fontWeight:600,transition:'all 0.15s',minHeight:44}),
-  lbl:{fontSize:9,color:'rgba(255,255,255,0.4)',fontWeight:700,textTransform:'uppercase',letterSpacing:1.2},
+  lbl:{fontSize:10,color:'rgba(255,255,255,0.62)',fontWeight:700,textTransform:'uppercase',letterSpacing:1.2},
 };
 
 // ─── HOOKS ──────────────────────────────────────────────────
@@ -117,13 +117,20 @@ const ChordMapSVG=memo(function ChordMapSVG({k,sch,ext,showTheory,swapIdx,sk,onT
           if(!fn||!tn)return null;
           const active=sch===c.f;
           const strong=c.st==='strong';
-          // Strong lines are always visible as a subtle amber "highway" through the key.
-          // Normal lines are near-invisible at rest, appear in purple when a chord is selected.
+          // 3-axis hierarchy: warm amber vs cool purple, thick vs thin, always-visible vs on-demand.
+          // Strong lines are always visible as a gold "highway" through the key; on activation they
+          // brighten and get a soft glow. Normal lines only appear when their source is selected.
           const stroke = strong
-            ? (active ? '#FBBF24' : 'rgba(251,191,36,0.35)')
-            : (active ? 'rgba(167,139,250,0.65)' : 'rgba(255,255,255,0.05)');
-          const strokeWidth = strong ? (active ? 1.9 : 1.2) : (active ? 1.4 : 0.6);
-          return<line key={i} x1={fn.x} y1={fn.y} x2={tn.x} y2={tn.y} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round"/>;
+            ? (active ? '#FBBF24' : 'rgba(251,191,36,0.60)')
+            : (active ? 'rgba(167,139,250,0.72)' : 'rgba(167,139,250,0.06)');
+          const strokeWidth = strong ? (active ? 2.4 : 1.8) : (active ? 1.5 : 0.8);
+          const glow = strong
+            ? (active ? 'drop-shadow(0 0 5px rgba(251,191,36,0.7))' : 'drop-shadow(0 0 3px rgba(251,191,36,0.35))')
+            : 'none';
+          return<line key={i} x1={fn.x} y1={fn.y} x2={tn.x} y2={tn.y}
+            stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round"
+            style={{filter:glow,transition:'stroke 0.2s, stroke-width 0.2s'}}
+            className={strong&&active?'hm-strong-flash':''}/>;
         })}
         {svgNodes.map((nd,i)=>{
           const sel=sch===nd.c;
@@ -136,12 +143,12 @@ const ChordMapSVG=memo(function ChordMapSVG({k,sch,ext,showTheory,swapIdx,sk,onT
             {isNext&&<circle cx={nd.x} cy={nd.y} r="34" fill="none" stroke="#A78BFA" strokeWidth="1.5" strokeOpacity="0.45" strokeDasharray="4 3"/>}
             <circle cx={nd.x} cy={nd.y} r={sel?32:28} fill={sel?col:'rgba(0,0,0,0.55)'} stroke={sel?col:col+'80'} strokeWidth={sel?2.5:1.5} style={{filter:sel?`drop-shadow(0 0 12px ${col})`:'none',transition:'all 0.15s'}}/>
             <text x={nd.x} y={nd.y+2} textAnchor="middle" dominantBaseline="middle" fill={sel?'#fff':col} fontSize={sel?15:13} fontWeight="800" style={{pointerEvents:'none'}}>{displayLbl}</text>
-            {isHome&&!sel&&<text x={nd.x} y={nd.y+46} textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="8" fontWeight="700" style={{pointerEvents:'none'}}>HOME</text>}
+            {isHome&&!sel&&<text x={nd.x} y={nd.y+46} textAnchor="middle" fill="rgba(255,255,255,0.62)" fontSize="9" fontWeight="700" style={{pointerEvents:'none'}}>HOME</text>}
             {rn&&<text x={nd.x} y={nd.y+(sel?52:46)} textAnchor="middle" fill="rgba(167,139,250,0.65)" fontSize="9" fontWeight="600" style={{pointerEvents:'none'}}>{rn}</text>}
           </g>;
         })}
-        <text x="200" y="196" textAnchor="middle" fill={swapIdx!==null?'#A78BFA':'rgba(255,255,255,0.32)'} fontSize="12" fontWeight="700">{sk}</text>
-        <text x="200" y="212" textAnchor="middle" fill="rgba(255,255,255,0.22)" fontSize="8">{swapIdx!==null?`Tap map → replace slot ${swapIdx+1}`:'Tap a chord to add'}</text>
+        <text x="200" y="196" textAnchor="middle" fill={swapIdx!==null?'#A78BFA':'rgba(255,255,255,0.72)'} fontSize="13" fontWeight="700">{sk}</text>
+        <text x="200" y="212" textAnchor="middle" fill="rgba(255,255,255,0.62)" fontSize="9">{swapIdx!==null?`Tap map → replace slot ${swapIdx+1}`:'Tap a chord to add'}</text>
       </svg>
     </div>
   );
@@ -312,7 +319,7 @@ const currentSound=SOUNDS.find(s=>s.id===inst)||SOUNDS[0];
 const isAudioActive=progLooping||pi>=0;
 
 return(
-<div style={{minHeight:'100vh',background:'radial-gradient(ellipse at top,#1a0f2e 0%,#0a0518 60%,#000 100%)',color:'#fff',fontFamily:'system-ui,-apple-system,BlinkMacSystemFont,sans-serif',paddingBottom:80}}>
+<div style={{minHeight:'100vh',background:'radial-gradient(ellipse at top,#241540 0%,#12092b 55%,#0a0518 100%)',color:'#fff',fontFamily:'system-ui,-apple-system,BlinkMacSystemFont,sans-serif',paddingBottom:80}}>
 
   {/* ── NAV ── */}
   <nav style={{position:'sticky',top:0,zIndex:100,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:'rgba(10,5,24,0.9)',backdropFilter:'blur(20px)',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
@@ -368,7 +375,7 @@ return(
     {/* ── CHORD MAP (the hero — memoized subcomponent) ── */}
     <div style={{position:'relative'}}>
       <ChordMapSVG k={k} sch={sch} ext={ext} showTheory={showTheory} swapIdx={swapIdx} sk={sk} onTap={playChord}/>
-      <button onClick={()=>setShowMapTip(true)} aria-label="What do the lines mean?" style={{position:'absolute',top:12,right:12,width:32,height:32,borderRadius:'50%',background:'rgba(15,10,28,0.7)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.55)',cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',padding:0,backdropFilter:'blur(6px)'}}>?</button>
+      <button onClick={()=>setShowMapTip(true)} aria-label="What do the lines mean?" style={{position:'absolute',top:12,right:12,width:34,height:34,borderRadius:'50%',background:'rgba(15,10,28,0.85)',border:'1px solid rgba(251,191,36,0.35)',color:'rgba(251,191,36,0.9)',cursor:'pointer',fontSize:15,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',padding:0,backdropFilter:'blur(6px)'}}>?</button>
       {showMapTip&&(
         <div role="dialog" aria-label="Chord map guide" style={{position:'absolute',top:12,left:12,right:12,background:'rgba(15,10,28,0.97)',border:'1px solid rgba(251,191,36,0.4)',borderRadius:14,padding:'14px 16px',boxShadow:'0 8px 32px rgba(0,0,0,0.6)',animation:'fadeIn 0.2s',zIndex:10}}>
           <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
@@ -389,11 +396,11 @@ return(
         <span style={{...S.lbl}}>Loop {prog.length>0&&`· ${prog.length}/16`}</span>
         <div style={{display:'flex',gap:6}}>
           {undoProg&&<button onClick={undoLast} style={{background:'rgba(139,92,246,0.12)',border:'1px solid rgba(139,92,246,0.3)',borderRadius:8,padding:'5px 10px',color:'#8B5CF6',cursor:'pointer',fontSize:10,fontWeight:700,minHeight:32}}>↩ Undo</button>}
-          {prog.length>0&&<button onClick={clearAll} style={{background:'transparent',border:'1px solid rgba(255,255,255,0.12)',borderRadius:8,padding:'5px 10px',color:'rgba(255,255,255,0.5)',cursor:'pointer',fontSize:10,fontWeight:700,minHeight:32}}>Clear</button>}
+          {prog.length>0&&<button onClick={clearAll} style={{background:'transparent',border:'1px solid rgba(255,255,255,0.18)',borderRadius:8,padding:'5px 10px',color:'rgba(255,255,255,0.72)',cursor:'pointer',fontSize:11,fontWeight:700,minHeight:32}}>Clear</button>}
         </div>
       </div>
       {prog.length===0?
-        <div style={{textAlign:'center',padding:'22px 0',color:'rgba(255,255,255,0.28)',fontSize:12}}>Pick a mood above, or tap a chord on the map ↑</div>
+        <div style={{textAlign:'center',padding:'22px 0',color:'rgba(255,255,255,0.62)',fontSize:12}}>Pick a mood above, or tap a chord on the map ↑</div>
         :<div style={{display:'flex',gap:6,overflowX:'auto',padding:'4px 0',scrollbarWidth:'none',WebkitOverflowScrolling:'touch'}}>
           {prog.map((c,i)=>{
             const active=pi===i;
@@ -403,7 +410,7 @@ return(
             return<div key={i} onPointerDown={()=>onLongPressStart(i)} onPointerUp={()=>{onLongPressEnd();if(dragging===null)selectSlot(i,c);else onDrop(i);}} onPointerLeave={()=>{onLongPressEnd();cancelDrag();}} onPointerEnter={()=>onDragEnter(i)} style={{position:'relative',flexShrink:0,minWidth:60}}>
               <div style={{background:inSwap?'rgba(167,139,250,0.18)':col+'20',border:`${active?2.5:1.5}px solid ${inSwap?'#A78BFA':active?col:col+'55'}`,borderRadius:12,padding:'10px 12px',cursor:'pointer',boxShadow:active?`0 0 16px ${col}70`:inSwap?'0 0 12px rgba(167,139,250,0.6)':'none',transform:isDrag?'scale(1.08)':isOver?'scale(1.04)':active?'scale(1.05)':'scale(1)',opacity:isDrag?0.6:1,transition:'all 0.15s',textAlign:'center'}}>
                 <div style={{fontSize:14,fontWeight:800,color:active||inSwap?'#fff':col}}>{c}</div>
-                <div style={{fontSize:8,color:'rgba(255,255,255,0.28)',marginTop:2}}>{i+1}</div>
+                <div style={{fontSize:9,color:'rgba(255,255,255,0.55)',marginTop:2}}>{i+1}</div>
               </div>
               <button onClick={e=>{e.stopPropagation();remC(i);}} style={{position:'absolute',top:-7,right:-7,background:'rgba(255,80,80,0.9)',border:'none',borderRadius:'50%',width:22,height:22,color:'#fff',fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1,padding:0,zIndex:2}}>×</button>
             </div>;
@@ -433,10 +440,10 @@ return(
           <button key={o.v} onClick={()=>setExt(o.v)} style={{background:ext===o.v?'rgba(167,139,250,0.2)':'transparent',border:'none',borderRadius:6,padding:'6px 12px',color:ext===o.v?'#A78BFA':'rgba(255,255,255,0.55)',cursor:'pointer',fontSize:11,fontWeight:700,minHeight:36}}>{o.l}</button>
         ))}
       </div>
-      <button onClick={()=>setShowTheory(v=>!v)} aria-pressed={showTheory} style={{background:showTheory?'rgba(167,139,250,0.16)':'rgba(255,255,255,0.04)',border:`1px solid ${showTheory?'rgba(167,139,250,0.4)':'rgba(255,255,255,0.06)'}`,borderRadius:8,padding:'6px 12px',color:showTheory?'#A78BFA':'rgba(255,255,255,0.55)',cursor:'pointer',fontSize:11,fontWeight:600,minHeight:40}}>
+      <button onClick={()=>setShowTheory(v=>!v)} aria-pressed={showTheory} style={{background:showTheory?'rgba(167,139,250,0.2)':'rgba(255,255,255,0.06)',border:`1px solid ${showTheory?'rgba(167,139,250,0.5)':'rgba(255,255,255,0.12)'}`,borderRadius:8,padding:'6px 12px',color:showTheory?'#A78BFA':'rgba(255,255,255,0.75)',cursor:'pointer',fontSize:11,fontWeight:600,minHeight:40}}>
         {showTheory?'Theory ✓':'Theory'}
       </button>
-      <button onClick={()=>exportMIDI(prog,bpm,beats)} disabled={prog.length===0} style={{background:'transparent',border:'1px solid rgba(255,255,255,0.06)',borderRadius:8,padding:'6px 12px',color:prog.length===0?'rgba(255,255,255,0.2)':'rgba(255,255,255,0.55)',cursor:prog.length===0?'not-allowed':'pointer',fontSize:11,fontWeight:600,minHeight:40}}>⬇ MIDI</button>
+      <button onClick={()=>exportMIDI(prog,bpm,beats)} disabled={prog.length===0} style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:8,padding:'6px 12px',color:prog.length===0?'rgba(255,255,255,0.28)':'rgba(255,255,255,0.75)',cursor:prog.length===0?'not-allowed':'pointer',fontSize:11,fontWeight:600,minHeight:40}}>⬇ MIDI</button>
     </div>
 
   </div>}
@@ -451,7 +458,7 @@ return(
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
             <div>
               <div style={{fontSize:12,fontWeight:700,color:'#A78BFA'}}>{EXAMPLE_LOOP.k}</div>
-              <div style={{fontSize:9,color:'rgba(255,255,255,0.35)',marginTop:2}}>Example · {EXAMPLE_LOOP.bpm} BPM</div>
+              <div style={{fontSize:9,color:'rgba(255,255,255,0.6)',marginTop:2}}>Example · {EXAMPLE_LOOP.bpm} BPM</div>
             </div>
             <span style={{fontSize:9,color:'rgba(167,139,250,0.8)',fontWeight:700,textTransform:'uppercase',letterSpacing:1,background:'rgba(167,139,250,0.12)',padding:'3px 8px',borderRadius:6}}>Try it</span>
           </div>
@@ -462,16 +469,16 @@ return(
           </div>
           <button onClick={()=>loadIdea(EXAMPLE_LOOP)} style={{width:'100%',...S.btn('rgba(167,139,250,0.16)','#A78BFA','rgba(167,139,250,0.4)')}}>▶ Load & Play</button>
         </div>
-        <div style={{fontSize:11,color:'rgba(255,255,255,0.35)',textAlign:'center',lineHeight:1.5}}>Build your own loop on Play, then tap ♡ to save it here.</div>
+        <div style={{fontSize:11,color:'rgba(255,255,255,0.62)',textAlign:'center',lineHeight:1.5}}>Build your own loop on Play, then tap ♡ to save it here.</div>
       </>
       :saved.map(idea=>(
         <div key={idea.id} style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:14,padding:14,marginBottom:10}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
             <div>
               <div style={{fontSize:12,fontWeight:700,color:'#A78BFA'}}>{idea.k}</div>
-              <div style={{fontSize:9,color:'rgba(255,255,255,0.35)',marginTop:2}}>{idea.date} · {idea.bpm||90} BPM</div>
+              <div style={{fontSize:9,color:'rgba(255,255,255,0.6)',marginTop:2}}>{idea.date} · {idea.bpm||90} BPM</div>
             </div>
-            <button onClick={()=>deleteIdea(idea.id)} style={{background:'none',border:'none',color:'rgba(255,255,255,0.3)',cursor:'pointer',fontSize:18,padding:6,minHeight:44,minWidth:32}}>×</button>
+            <button onClick={()=>deleteIdea(idea.id)} aria-label="Delete loop" style={{background:'none',border:'none',color:'rgba(255,255,255,0.55)',cursor:'pointer',fontSize:20,padding:6,minHeight:44,minWidth:32}}>×</button>
           </div>
           <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:10}}>
             {idea.prog.map((c,j)=>(
@@ -492,7 +499,7 @@ return(
   <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:90,background:'rgba(10,5,24,0.96)',backdropFilter:'blur(24px)',borderTop:'1px solid rgba(255,255,255,0.06)',padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
     <div style={{position:'relative'}}>
       <button onClick={()=>{setShowBpm(v=>!v);setShowSound(false);}} aria-expanded={showBpm} style={{background:showBpm?'rgba(167,139,250,0.16)':'rgba(255,255,255,0.05)',border:`1px solid ${showBpm?'rgba(167,139,250,0.4)':'rgba(255,255,255,0.08)'}`,borderRadius:8,padding:'8px 12px',color:'#fff',cursor:'pointer',fontSize:12,fontWeight:700,minHeight:44,display:'flex',alignItems:'center',gap:5}}>
-        {bpm} <span style={{fontSize:9,color:'rgba(255,255,255,0.4)',fontWeight:600,letterSpacing:0.5}}>BPM</span> <span style={{fontSize:9,opacity:0.5}}>▾</span>
+        {bpm} <span style={{fontSize:10,color:'rgba(255,255,255,0.65)',fontWeight:600,letterSpacing:0.5}}>BPM</span> <span style={{fontSize:10,opacity:0.7}}>▾</span>
       </button>
       {showBpm&&<div style={{position:'absolute',bottom:52,left:0,minWidth:200,background:'rgba(15,10,28,0.98)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:12,padding:10,animation:'fadeIn 0.15s'}}>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
@@ -504,7 +511,7 @@ return(
     </div>
     <div style={{position:'relative'}}>
       <button onClick={()=>{setShowSound(v=>!v);setShowBpm(false);}} aria-expanded={showSound} style={{background:showSound?'rgba(167,139,250,0.16)':'rgba(255,255,255,0.05)',border:`1px solid ${showSound?'rgba(167,139,250,0.4)':'rgba(255,255,255,0.08)'}`,borderRadius:8,padding:'8px 12px',color:'#fff',cursor:'pointer',fontSize:12,fontWeight:700,minHeight:44,display:'flex',alignItems:'center',gap:5}}>
-        {currentSound.emoji} {currentSound.label} <span style={{fontSize:9,opacity:0.5}}>▾</span>
+        {currentSound.emoji} {currentSound.label} <span style={{fontSize:10,opacity:0.7}}>▾</span>
       </button>
       {showSound&&<div style={{position:'absolute',bottom:52,left:0,minWidth:160,background:'rgba(15,10,28,0.98)',border:'1px solid rgba(167,139,250,0.3)',borderRadius:12,padding:6,animation:'fadeIn 0.15s'}}>
         {SOUNDS.map(s=>(
@@ -519,6 +526,8 @@ return(
     @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
     @keyframes hmPulse{0%,100%{transform:scale(1);box-shadow:0 4px 20px rgba(167,139,250,0.35)}50%{transform:scale(1.015);box-shadow:0 4px 28px rgba(167,139,250,0.55)}}
     .hm-pulse{animation:hmPulse 1.6s ease-in-out infinite}
+    @keyframes hmStrongFlash{0%{stroke-opacity:0.6}30%{stroke-opacity:1}100%{stroke-opacity:1}}
+    .hm-strong-flash{animation:hmStrongFlash 500ms ease-out 1}
     body{margin:0;padding:0;overscroll-behavior:none;}
     button{-webkit-tap-highlight-color:transparent;font-family:inherit;}
     input{font-family:inherit;}
