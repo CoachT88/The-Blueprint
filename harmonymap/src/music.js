@@ -148,18 +148,25 @@ export function noteToMidi(n) {
   return (M[m[1]] ?? 0) + (parseInt(m[2]) + 1) * 12;
 }
 
-export function exportMIDI(prog, bpm = 90, beats = 4) {
-  const filled = prog.filter(s => s && s !== 'REST');
+export function exportMIDI(prog, bpm = 90, beats = 4, barCounts = null) {
+  // Pair chords with their per-chord bar count BEFORE filtering, so REST
+  // slots drop out with their bars (they don't add MIDI events either way).
+  const filled = prog
+    .map((s, i) => ({ s, bars: (barCounts && barCounts[i]) || 1 }))
+    .filter(x => x.s && x.s !== 'REST');
   if (!filled.length) return;
   const tpqn = 480, beatTicks = tpqn * beats, tempo = Math.round(60000000 / bpm);
   const evts = [];
-  filled.forEach((s, si) => {
+  let cursor = 0;
+  filled.forEach(({ s, bars }) => {
     const ns = cn(pc(s).r, pc(s).t, 4);
-    const st = si * beatTicks, et = (si + 1) * beatTicks;
+    const dur = beatTicks * bars;
+    const st = cursor, et = cursor + dur;
     ns.forEach(n => {
       const m = noteToMidi(n);
       evts.push([st, 0x90, m, 80], [et, 0x80, m, 0]);
     });
+    cursor = et;
   });
   evts.sort((a, b) => a[0] - b[0] || (a[1] === 0x80 ? -1 : 1));
   let prev = 0;

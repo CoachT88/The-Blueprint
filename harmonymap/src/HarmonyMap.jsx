@@ -60,8 +60,8 @@ _playBass(fr,vel,t,dur){const o=this.ctx.createOscillator();o.type='sine';o.freq
 playNote(n,dur=1.2,vel=0.42,st=null){this.init();if(!this.pianoWave||!this.cinematicWave||!this.padWave)this._buildWaves();const fr=typeof n==='number'?n:this.noteToFreq(n);const t=st||(this.ctx.currentTime+0.15);const inst=this.instrument;const env=inst==='analog-pad'?this._playAnalogPad(fr,vel,t,dur):inst==='cinematic'?this._playCinematic(fr,vel,t,dur):this._playUnderwater(fr,vel,t,dur);env.connect(this.mg);if(inst==='cinematic'||inst==='analog-pad'){env.connect(this.rvStadium);}else{env.connect(this.rv);}return env;}
 playChord(notes,dur=1.5,stg=0.018){this.init();if(!notes||!notes.length)return;const now=this.ctx.currentTime;const dead=this.noteEnvs.slice();dead.forEach(e=>{try{e.gain.cancelScheduledValues(now);e.gain.setTargetAtTime(0,now,0.015);}catch(x){}});setTimeout(()=>{dead.forEach(e=>{try{e.disconnect();}catch(x){}});},60);this.noteEnvs=[];const t=now+0.015;const bassNote=this._octaveDown(notes[0]);const be=this._playBass(this.noteToFreq(bassNote),0.42,t,dur*0.80);if(be)this.noteEnvs.push(be);const effStg=this.instrument==='cinematic'?0:this.instrument==='underwater'?Math.min(stg,0.010):stg;notes.forEach((n,i)=>{const vel=0.42*(0.86+Math.random()*0.28);const jit=(Math.random()-0.5)*0.006;const e=this.playNote(n,dur,vel,t+i*effStg+jit);if(e)this.noteEnvs.push(e);});}
 playClick(hi,st){this.init();const t=st||(this.ctx.currentTime+0.15);const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sine';o.frequency.value=hi?1400:900;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.002);g.gain.exponentialRampToValueAtTime(0.0001,t+0.08);o.connect(g);g.connect(this.mg);o.start(t);o.stop(t+0.1);}
-playProgression(cl,bpm=72,cb,beats=4,stg=0.018){this.init();this.stop();this.isPlaying=true;let acc=0;cl.forEach((n,i)=>{const d=(60/bpm)*beats;this.tids.push(setTimeout(()=>{if(!this.isPlaying)return;if(n)this.playChord(n,d*0.88,stg);if(cb)cb(i);},acc*1000));acc+=d;});this.tids.push(setTimeout(()=>{this.isPlaying=false;if(cb)cb(-1);},acc*1000));}
-playLoop(cl,bpm=72,cb,beats=4,stg=0.018){this.init();this.stop();this.isPlaying=true;const gen=++this._loopGen;const go=()=>{if(!this.isPlaying||this._loopGen!==gen)return;let acc=0;cl.forEach((n,i)=>{const d=(60/bpm)*beats;this.tids.push(setTimeout(()=>{if(!this.isPlaying||this._loopGen!==gen)return;if(n)this.playChord(n,d*0.88,stg);if(cb)cb(i);},acc*1000));acc+=d;});this.tids.push(setTimeout(()=>{if(this.isPlaying&&this._loopGen===gen)go();},acc*1000));};go();}
+playProgression(cl,bpm=72,cb,beats=4,stg=0.018,barCounts=null){this.init();this.stop();this.isPlaying=true;let acc=0;cl.forEach((n,i)=>{const bars=(barCounts&&barCounts[i])||1;const d=(60/bpm)*beats*bars;this.tids.push(setTimeout(()=>{if(!this.isPlaying)return;if(n)this.playChord(n,d*0.88,stg);if(cb)cb(i);},acc*1000));acc+=d;});this.tids.push(setTimeout(()=>{this.isPlaying=false;if(cb)cb(-1);},acc*1000));}
+playLoop(cl,bpm=72,cb,beats=4,stg=0.018,barCounts=null){this.init();this.stop();this.isPlaying=true;const gen=++this._loopGen;const go=()=>{if(!this.isPlaying||this._loopGen!==gen)return;let acc=0;cl.forEach((n,i)=>{const bars=(barCounts&&barCounts[i])||1;const d=(60/bpm)*beats*bars;this.tids.push(setTimeout(()=>{if(!this.isPlaying||this._loopGen!==gen)return;if(n)this.playChord(n,d*0.88,stg);if(cb)cb(i);},acc*1000));acc+=d;});this.tids.push(setTimeout(()=>{if(this.isPlaying&&this._loopGen===gen)go();},acc*1000));};go();}
 stop() { this.isPlaying=false; this.tids.forEach(t=>clearTimeout(t)); this.tids=[]; }
 absoluteStop(){this.isPlaying=false;this.tids.forEach(t=>clearTimeout(t));this.tids=[];const now=this.ctx?this.ctx.currentTime:0;this.noteEnvs.forEach(e=>{try{e.gain.cancelScheduledValues(now);e.gain.setTargetAtTime(0,now,0.003);setTimeout(()=>{try{e.disconnect();}catch(x){}},80);}catch(x){}});this.noteEnvs=[];if(this.mg&&this.ctx){try{this.mg.gain.cancelScheduledValues(now);this.mg.gain.setValueAtTime(0,now);this.mg.gain.linearRampToValueAtTime(0.32,now+0.12);}catch(x){}}}
 }
@@ -86,14 +86,14 @@ const S={
 };
 
 // ─── HOOKS ──────────────────────────────────────────────────
-function useDragReorder(setProg){
+function useDragReorder(onReorder){
   const[dragging,setDragging]=useState(null);
   const[dragOver,setDragOver]=useState(null);
   const longPressTimer=useRef(null);
   const onLongPressStart=useCallback((idx)=>{longPressTimer.current=setTimeout(()=>{setDragging(idx);if(navigator.vibrate)navigator.vibrate(40);},450);},[]);
   const onLongPressEnd=useCallback(()=>clearTimeout(longPressTimer.current),[]);
   const onDragEnter=useCallback((idx)=>{if(dragging===null)return;setDragOver(idx);},[dragging]);
-  const onDrop=useCallback((toIdx)=>{if(dragging===null||dragging===toIdx){setDragging(null);setDragOver(null);return;}setProg(prev=>{const n=[...prev];const[it]=n.splice(dragging,1);n.splice(toIdx,0,it);return n;});setDragging(null);setDragOver(null);},[dragging,setProg]);
+  const onDrop=useCallback((toIdx)=>{if(dragging===null||dragging===toIdx){setDragging(null);setDragOver(null);return;}onReorder(dragging,toIdx);setDragging(null);setDragOver(null);},[dragging,onReorder]);
   const cancelDrag=useCallback(()=>{clearTimeout(longPressTimer.current);setDragging(null);setDragOver(null);},[]);
   return{dragging,dragOver,onLongPressStart,onLongPressEnd,onDragEnter,onDrop,cancelDrag};
 }
@@ -231,6 +231,7 @@ export default function HarmonyMap(){
 const[screen,setScreen]=useState('play');
 const[sk,setSk]=useState('C major');
 const[prog,setProg]=useState(['C','G','Am','F']);
+const[progBars,setProgBars]=useState([1,1,1,1]);
 const[pi,setPi]=useState(-1);
 const[saved,setSaved]=useState([]);
 const[bpm,setBpm]=useState(90);
@@ -264,7 +265,12 @@ useEffect(()=>{
       if(o.bpm)setBpm(o.bpm);
       if(o.beats)setBeats(o.beats);
       if(['underwater','cinematic','analog-pad'].includes(o.inst))setInst(o.inst);
-      if(Array.isArray(o.prog)&&o.prog.length)setProg(o.prog);
+      if(Array.isArray(o.prog)&&o.prog.length){
+        setProg(o.prog);
+        // Migrate saved state without progBars: default all slots to 1×
+        const savedBars=Array.isArray(o.progBars)&&o.progBars.length===o.prog.length?o.progBars.map(n=>[1,2,4].includes(n)?n:1):o.prog.map(()=>1);
+        setProgBars(savedBars);
+      }
       if(typeof o.showTheory==='boolean')setShowTheory(o.showTheory);
       if(o.ext)setExt(o.ext);
       if(o.activeMood)setActiveMood(o.activeMood);
@@ -287,10 +293,10 @@ useEffect(()=>{
   if(!loadedRef.current)return;
   if(stateDeb.current)clearTimeout(stateDeb.current);
   stateDeb.current=setTimeout(()=>{
-    try{localStorage.setItem('hm_state',JSON.stringify({sk,bpm,beats,inst,prog,showTheory,ext,activeMood}));}catch(e){}
+    try{localStorage.setItem('hm_state',JSON.stringify({sk,bpm,beats,inst,prog,progBars,showTheory,ext,activeMood}));}catch(e){}
   },400);
   return()=>{if(stateDeb.current)clearTimeout(stateDeb.current);};
-},[sk,bpm,beats,inst,prog,showTheory,ext,activeMood]);
+},[sk,bpm,beats,inst,prog,progBars,showTheory,ext,activeMood]);
 
 // Instrument change
 useEffect(()=>{audio.setInstrument(inst);},[inst]);
@@ -306,7 +312,7 @@ useEffect(()=>{
     if(progRef.current.length&&!progLoopingRef.current){
       const notes=progRef.current.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));
       setProgLooping(true);
-      audio.playLoop(notes,bpmRef.current,i=>setPi(i),4,0.018);
+      audio.playLoop(notes,bpmRef.current,i=>setPi(i),4,0.018,progBarsRef.current);
     }
   };
   const evts=['touchstart','mousedown','keydown'];
@@ -319,13 +325,13 @@ useEffect(()=>{if(!tip)return;const t=setTimeout(()=>setTip(null),3200);return()
 
 // Latest-value refs — read inside stable callbacks / effects so we
 // don't rebuild them on every prog/bpm/beats change.
-const progRef=useRef(prog),bpmRef=useRef(bpm),beatsRef=useRef(beats),progLoopingRef=useRef(progLooping);
-useEffect(()=>{progRef.current=prog;bpmRef.current=bpm;beatsRef.current=beats;progLoopingRef.current=progLooping;});
+const progRef=useRef(prog),progBarsRef=useRef(progBars),bpmRef=useRef(bpm),beatsRef=useRef(beats),progLoopingRef=useRef(progLooping);
+useEffect(()=>{progRef.current=prog;progBarsRef.current=progBars;bpmRef.current=bpm;beatsRef.current=beats;progLoopingRef.current=progLooping;});
 
 // ── Playback controls (stable identities — no prog/bpm/beats deps) ──
 const stopAll=useCallback(()=>{audio.absoluteStop();setProgLooping(false);setPi(-1);},[]);
-const loopP=useCallback(()=>{const p=progRef.current;const notes=p.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(notes,bpmRef.current,i=>setPi(i),beatsRef.current,0.018);},[]);
-const playP=useCallback(()=>{const p=progRef.current;const notes=p.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(notes,bpmRef.current,i=>setPi(i),beatsRef.current,0.018);},[]);
+const loopP=useCallback(()=>{const p=progRef.current;const notes=p.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(notes,bpmRef.current,i=>setPi(i),beatsRef.current,0.018,progBarsRef.current);},[]);
+const playP=useCallback(()=>{const p=progRef.current;const notes=p.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));audio.playProgression(notes,bpmRef.current,i=>setPi(i),beatsRef.current,0.018,progBarsRef.current);},[]);
 const togglePlay=useCallback(()=>{if(progLoopingRef.current)stopAll();else loopP();},[stopAll,loopP]);
 
 // Re-loop when bpm or prog changes while looping (refs make this safe)
@@ -339,22 +345,25 @@ const playChord=useCallback((s)=>{
   setSch(s);
   if(swapIdx!==null){
     setProg(p=>{const n=[...p];n[swapIdx]=lbl;return n;});
+    // Swapping a chord keeps the slot's existing bar count — user's rhythm intent survives
     setSwapIdx(null);
   }else{
     setProg(p=>p.length>=16?p:[...p,lbl]);
+    setProgBars(b=>b.length>=16?b:[...b,1]);
   }
 },[k,ext,swapIdx]);
 
 // ── Progression strip ──
-const remC=useCallback((i)=>{setProg(p=>p.filter((_,j)=>j!==i));setSwapIdx(cur=>cur===null?null:cur===i?null:cur>i?cur-1:cur);},[]);
+const remC=useCallback((i)=>{setProg(p=>p.filter((_,j)=>j!==i));setProgBars(b=>b.filter((_,j)=>j!==i));setSwapIdx(cur=>cur===null?null:cur===i?null:cur>i?cur-1:cur);},[]);
+const cycleBar=useCallback((i,e)=>{e.stopPropagation();setProgBars(b=>b.map((v,j)=>j===i?(v===1?2:v===2?4:1):v));},[]);
 const selectSlot=useCallback((i,c)=>{
   if(swapIdx===i){setSwapIdx(null);return;}
-  if(swapIdx===null)setUndoProg(progRef.current);
+  if(swapIdx===null)setUndoProg({prog:progRef.current,bars:progBarsRef.current});
   setSwapIdx(i);
   if(c&&c!=='REST'){audio.playChord(cn(pc(c).r,pc(c).t,3));}
 },[swapIdx]);
-const clearAll=useCallback(()=>{stopAll();setProg([]);setSch(null);setSwapIdx(null);setUndoProg(null);},[stopAll]);
-const undoLast=useCallback(()=>{if(!undoProg)return;setProg(undoProg);setUndoProg(null);setSwapIdx(null);},[undoProg]);
+const clearAll=useCallback(()=>{stopAll();setProg([]);setProgBars([]);setSch(null);setSwapIdx(null);setUndoProg(null);},[stopAll]);
+const undoLast=useCallback(()=>{if(!undoProg)return;setProg(undoProg.prog);setProgBars(undoProg.bars);setUndoProg(null);setSwapIdx(null);},[undoProg]);
 
 // ── Mood chip ──
 const loadMood=useCallback((m)=>{
@@ -363,6 +372,8 @@ const loadMood=useCallback((m)=>{
   setSk(m.key);
   setBpm(m.bpm);
   setProg(m.prog);
+  const freshBars=m.prog.map(()=>1);
+  setProgBars(freshBars);
   setSwapIdx(null);setUndoProg(null);
   // Auto-select first chord so the mini-piano lights up immediately
   setSch(m.prog[0]||null);
@@ -370,22 +381,26 @@ const loadMood=useCallback((m)=>{
   setTimeout(()=>{
     const notes=m.prog.map(s=>cn(pc(s).r,pc(s).t,3));
     setProgLooping(true);
-    audio.playLoop(notes,m.bpm,i=>setPi(i),4,0.018);
+    audio.playLoop(notes,m.bpm,i=>setPi(i),4,0.018,freshBars);
   },140);
 },[stopAll]);
 
 // ── Save/Load/Export ──
-const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[{id:Date.now(),k:sk,prog:[...prog],bpm,date:new Date().toLocaleDateString()},...p]);setTip('Saved to Library');},[prog,sk,bpm]);
-const loadIdea=useCallback((idea)=>{stopAll();setSk(idea.k||'C major');setBpm(idea.bpm||90);setProg(idea.prog);setScreen('play');setTimeout(()=>{const notes=idea.prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(notes,idea.bpm||90,i=>setPi(i),4,0.018);},140);},[stopAll]);
+const saveI=useCallback(()=>{if(!prog.length)return;setSaved(p=>[{id:Date.now(),k:sk,prog:[...prog],progBars:[...progBars],bpm,date:new Date().toLocaleDateString()},...p]);setTip('Saved to Library');},[prog,progBars,sk,bpm]);
+const loadIdea=useCallback((idea)=>{stopAll();setSk(idea.k||'C major');setBpm(idea.bpm||90);setProg(idea.prog);const bars=Array.isArray(idea.progBars)&&idea.progBars.length===idea.prog.length?idea.progBars.map(n=>[1,2,4].includes(n)?n:1):idea.prog.map(()=>1);setProgBars(bars);setScreen('play');setTimeout(()=>{const notes=idea.prog.map(s=>s==='REST'?null:cn(pc(s).r,pc(s).t,3));setProgLooping(true);audio.playLoop(notes,idea.bpm||90,i=>setPi(i),4,0.018,bars);},140);},[stopAll]);
 const deleteIdea=useCallback((id)=>{setSaved(p=>p.filter(i=>i.id!==id));},[]);
 
-// ── Drag reorder ──
-const{dragging,dragOver,onLongPressStart,onLongPressEnd,onDragEnter,onDrop,cancelDrag}=useDragReorder(setProg);
+// ── Drag reorder (reorders prog AND progBars in lockstep) ──
+const reorderProg=useCallback((from,to)=>{
+  setProg(p=>{const n=[...p];const[it]=n.splice(from,1);n.splice(to,0,it);return n;});
+  setProgBars(b=>{const n=[...b];const[it]=n.splice(from,1);n.splice(to,0,it);return n;});
+},[]);
+const{dragging,dragOver,onLongPressStart,onLongPressEnd,onDragEnter,onDrop,cancelDrag}=useDragReorder(reorderProg);
 
 // ── Suggest chord (uses the last chord in the loop, not the map selection) ──
 const lastChord=prog[prog.length-1];
 const suggestions=useMemo(()=>{if(!lastChord||!k)return[];const conns=gcon(k.ch,k.m).filter(c=>c.f===lastChord);return[...conns].sort((a,b)=>a.st==='strong'?-1:b.st==='strong'?1:0).slice(0,3).map(c=>c.t);},[lastChord,k]);
-const suggest=useCallback(()=>{if(!suggestions.length||progRef.current.length>=16)return;const pick=suggestions[0];audio.playChord(cn(pc(pick).r,pc(pick).t,3));setProg(p=>[...p,pick]);setSch(pick);},[suggestions]);
+const suggest=useCallback(()=>{if(!suggestions.length||progRef.current.length>=16)return;const pick=suggestions[0];audio.playChord(cn(pc(pick).r,pc(pick).t,3));setProg(p=>[...p,pick]);setProgBars(b=>[...b,1]);setSch(pick);},[suggestions]);
 
 // ── Mini-piano derivation: which chord highlights right now? ──
 // During playback: the currently-sounding chord (prog[pi]).
@@ -503,12 +518,17 @@ return(
             const inSwap=swapIdx===i;
             const isDrag=dragging===i,isOver=dragOver===i;
             const col=cc(c);
-            return<div key={i} onPointerDown={()=>onLongPressStart(i)} onPointerUp={()=>{onLongPressEnd();if(dragging===null)selectSlot(i,c);else onDrop(i);}} onPointerLeave={()=>{onLongPressEnd();cancelDrag();}} onPointerEnter={()=>onDragEnter(i)} style={{position:'relative',flexShrink:0,minWidth:60}}>
-              <div style={{background:inSwap?'rgba(167,139,250,0.18)':col+'20',border:`${active?2.5:1.5}px solid ${inSwap?'#A78BFA':active?col:col+'55'}`,borderRadius:12,padding:'10px 12px',cursor:'pointer',boxShadow:active?`0 0 16px ${col}70`:inSwap?'0 0 12px rgba(167,139,250,0.6)':'none',transform:isDrag?'scale(1.08)':isOver?'scale(1.04)':active?'scale(1.05)':'scale(1)',opacity:isDrag?0.6:1,transition:'all 0.15s',textAlign:'center'}}>
+            const bars=progBars[i]||1;
+            // Slot width scales with bar count so long chords look long (piano-roll feel)
+            const slotW=bars===1?60:bars===2?92:132;
+            return<div key={i} onPointerDown={()=>onLongPressStart(i)} onPointerUp={()=>{onLongPressEnd();if(dragging===null)selectSlot(i,c);else onDrop(i);}} onPointerLeave={()=>{onLongPressEnd();cancelDrag();}} onPointerEnter={()=>onDragEnter(i)} style={{position:'relative',flexShrink:0,minWidth:slotW,transition:'min-width 0.2s'}}>
+              <div style={{background:inSwap?'rgba(167,139,250,0.18)':col+'20',border:`${active?2.5:1.5}px solid ${inSwap?'#A78BFA':active?col:col+'55'}`,borderRadius:12,padding:'10px 12px',cursor:'pointer',boxShadow:active?`0 0 16px ${col}70`:inSwap?'0 0 12px rgba(167,139,250,0.6)':'none',transform:isDrag?'scale(1.08)':isOver?'scale(1.04)':active?'scale(1.05)':'scale(1)',opacity:isDrag?0.6:1,transition:'transform 0.15s, opacity 0.15s, box-shadow 0.15s',textAlign:'center'}}>
                 <div style={{fontSize:14,fontWeight:800,color:active||inSwap?'#fff':col}}>{c}</div>
                 <div style={{fontSize:9,color:'rgba(255,255,255,0.55)',marginTop:2}}>{i+1}</div>
               </div>
-              <button onClick={e=>{e.stopPropagation();remC(i);}} style={{position:'absolute',top:-7,right:-7,background:'rgba(255,80,80,0.9)',border:'none',borderRadius:'50%',width:22,height:22,color:'#fff',fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1,padding:0,zIndex:2}}>×</button>
+              {/* Bar-length badge — tap to cycle 1× → 2× → 4× */}
+              <button onClick={e=>cycleBar(i,e)} aria-label={`Chord ${i+1} plays for ${bars} bar${bars>1?'s':''} — tap to change`} style={{position:'absolute',top:-8,left:-8,background:bars>1?'rgba(251,191,36,0.95)':'rgba(15,10,28,0.9)',border:`1px solid ${bars>1?'#FBBF24':'rgba(255,255,255,0.25)'}`,borderRadius:6,minWidth:28,height:22,color:bars>1?'#1a0f2e':'rgba(255,255,255,0.75)',fontSize:10,fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 5px',lineHeight:1,zIndex:2,boxShadow:bars>1?'0 0 8px rgba(251,191,36,0.5)':'none'}}>{bars}×</button>
+              <button onClick={e=>{e.stopPropagation();remC(i);}} aria-label={`Remove chord ${i+1}`} style={{position:'absolute',top:-7,right:-7,background:'rgba(255,80,80,0.9)',border:'none',borderRadius:'50%',width:22,height:22,color:'#fff',fontSize:11,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1,padding:0,zIndex:2}}>×</button>
             </div>;
           })}
         </div>}
@@ -539,7 +559,7 @@ return(
       <button onClick={()=>setShowTheory(v=>!v)} aria-pressed={showTheory} style={{background:showTheory?'rgba(167,139,250,0.2)':'rgba(255,255,255,0.06)',border:`1px solid ${showTheory?'rgba(167,139,250,0.5)':'rgba(255,255,255,0.12)'}`,borderRadius:8,padding:'6px 12px',color:showTheory?'#A78BFA':'rgba(255,255,255,0.75)',cursor:'pointer',fontSize:11,fontWeight:600,minHeight:40}}>
         {showTheory?'Theory ✓':'Theory'}
       </button>
-      <button onClick={()=>exportMIDI(prog,bpm,beats)} disabled={prog.length===0} style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:8,padding:'6px 12px',color:prog.length===0?'rgba(255,255,255,0.28)':'rgba(255,255,255,0.75)',cursor:prog.length===0?'not-allowed':'pointer',fontSize:11,fontWeight:600,minHeight:40}}>⬇ MIDI</button>
+      <button onClick={()=>exportMIDI(prog,bpm,beats,progBars)} disabled={prog.length===0} style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:8,padding:'6px 12px',color:prog.length===0?'rgba(255,255,255,0.28)':'rgba(255,255,255,0.75)',cursor:prog.length===0?'not-allowed':'pointer',fontSize:11,fontWeight:600,minHeight:40}}>⬇ MIDI</button>
     </div>
 
   </div>}
@@ -583,7 +603,7 @@ return(
           </div>
           <div style={{display:'flex',gap:6}}>
             <button onClick={()=>loadIdea(idea)} style={{flex:2,...S.btn('rgba(167,139,250,0.16)','#A78BFA','rgba(167,139,250,0.4)')}}>▶ Load & Play</button>
-            <button onClick={()=>exportMIDI(idea.prog,idea.bpm||90,4)} style={{flex:1,...S.btn()}}>⬇ MIDI</button>
+            <button onClick={()=>exportMIDI(idea.prog,idea.bpm||90,4,idea.progBars)} style={{flex:1,...S.btn()}}>⬇ MIDI</button>
             <button onClick={()=>{const txt=`🎵 ${idea.k}\n${idea.prog.join(' → ')}\n${idea.date}`;try{navigator.clipboard.writeText(txt);setTip('Copied!');}catch(e){setTip('Copy failed');}}} style={{flex:1,...S.btn()}}>📋</button>
           </div>
         </div>
