@@ -116,7 +116,14 @@ const ChordMapSVG=memo(function ChordMapSVG({k,sch,ext,showTheory,swapIdx,sk,onT
           const fn=nodeByChord.get(c.f),tn=nodeByChord.get(c.t);
           if(!fn||!tn)return null;
           const active=sch===c.f;
-          return<line key={i} x1={fn.x} y1={fn.y} x2={tn.x} y2={tn.y} stroke={active?(c.st==='strong'?'#A78BFA':'rgba(167,139,250,0.5)'):'rgba(255,255,255,0.05)'} strokeWidth={active?1.5:0.6}/>;
+          const strong=c.st==='strong';
+          // Strong lines are always visible as a subtle amber "highway" through the key.
+          // Normal lines are near-invisible at rest, appear in purple when a chord is selected.
+          const stroke = strong
+            ? (active ? '#FBBF24' : 'rgba(251,191,36,0.35)')
+            : (active ? 'rgba(167,139,250,0.65)' : 'rgba(255,255,255,0.05)');
+          const strokeWidth = strong ? (active ? 1.9 : 1.2) : (active ? 1.4 : 0.6);
+          return<line key={i} x1={fn.x} y1={fn.y} x2={tn.x} y2={tn.y} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round"/>;
         })}
         {svgNodes.map((nd,i)=>{
           const sel=sch===nd.c;
@@ -163,6 +170,7 @@ const[showSound,setShowSound]=useState(false);
 const[showBpm,setShowBpm]=useState(false);
 const[activeMood,setActiveMood]=useState('hopeful');
 const[tip,setTip]=useState(null);
+const[showMapTip,setShowMapTip]=useState(false);
 const stateDeb=useRef(null);
 const loadedRef=useRef(false);
 
@@ -187,6 +195,12 @@ useEffect(()=>{
   }catch(e){}
   loadedRef.current=true;
 },[]);
+
+// First-visit chord map tip
+useEffect(()=>{
+  try{if(!localStorage.getItem('hm_tips_v1'))setShowMapTip(true);}catch(e){}
+},[]);
+const dismissMapTip=useCallback(()=>{setShowMapTip(false);try{localStorage.setItem('hm_tips_v1','1');}catch(e){}},[]);
 
 // Persist saved ideas
 useEffect(()=>{try{localStorage.setItem('hm_saved',JSON.stringify(saved));}catch(e){}},[saved]);
@@ -352,7 +366,22 @@ return(
     </div>}
 
     {/* ── CHORD MAP (the hero — memoized subcomponent) ── */}
-    <ChordMapSVG k={k} sch={sch} ext={ext} showTheory={showTheory} swapIdx={swapIdx} sk={sk} onTap={playChord}/>
+    <div style={{position:'relative'}}>
+      <ChordMapSVG k={k} sch={sch} ext={ext} showTheory={showTheory} swapIdx={swapIdx} sk={sk} onTap={playChord}/>
+      <button onClick={()=>setShowMapTip(true)} aria-label="What do the lines mean?" style={{position:'absolute',top:12,right:12,width:32,height:32,borderRadius:'50%',background:'rgba(15,10,28,0.7)',border:'1px solid rgba(255,255,255,0.12)',color:'rgba(255,255,255,0.55)',cursor:'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',padding:0,backdropFilter:'blur(6px)'}}>?</button>
+      {showMapTip&&(
+        <div role="dialog" aria-label="Chord map guide" style={{position:'absolute',top:12,left:12,right:12,background:'rgba(15,10,28,0.97)',border:'1px solid rgba(251,191,36,0.4)',borderRadius:14,padding:'14px 16px',boxShadow:'0 8px 32px rgba(0,0,0,0.6)',animation:'fadeIn 0.2s',zIndex:10}}>
+          <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+            <div style={{fontSize:20,lineHeight:1,marginTop:1}}>🎵</div>
+            <div style={{flex:1,fontSize:12,color:'rgba(255,255,255,0.85)',lineHeight:1.5}}>
+              <div style={{fontWeight:800,marginBottom:4,color:'#FBBF24'}}>Reading the chord map</div>
+              The <span style={{color:'#FBBF24',fontWeight:700}}>gold lines</span> show the strongest chord movements — the ones that sound like they resolve, like V→I. Tap any chord to hear it and see where it wants to go next.
+            </div>
+          </div>
+          <button onClick={dismissMapTip} style={{marginTop:12,width:'100%',background:'rgba(251,191,36,0.15)',border:'1px solid rgba(251,191,36,0.4)',borderRadius:8,padding:'8px',color:'#FBBF24',cursor:'pointer',fontSize:11,fontWeight:700,minHeight:36}}>Got it</button>
+        </div>
+      )}
+    </div>
 
     {/* ── PROGRESSION STRIP ── */}
     <div style={{background:'rgba(0,0,0,0.3)',borderRadius:14,padding:'10px 12px',marginBottom:14,border:'1px solid rgba(255,255,255,0.05)'}}>
