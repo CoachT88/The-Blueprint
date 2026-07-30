@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import {
-  cn, pc, cc, chordRN, gcon, extChordLabel, ml,
+  cn, pc, cc, chordRN, gcon, extChordLabel, ml, notePC,
   exportMIDI,
   KEYS, MAJOR_COF, MINOR_COF, MOODS
 } from "./music.js";
@@ -155,6 +155,76 @@ const ChordMapSVG=memo(function ChordMapSVG({k,sch,ext,showTheory,swapIdx,sk,onT
 });
 
 // ═══════════════════════════════════════════════════════════════
+// MINI PIANO — a one-octave keyboard that highlights the notes of the
+// currently-selected or currently-playing chord. Teaches beginners
+// what notes make each chord without asking them to read music theory.
+// ═══════════════════════════════════════════════════════════════
+// White key pitch classes (C, D, E, F, G, A, B) and black key positions
+const WHITE_PC = [0, 2, 4, 5, 7, 9, 11];
+const BLACK_PC = [1, 3, 6, 8, 10]; // C#, D#, F#, G#, A#
+// Black-key horizontal offset relative to which white key it sits after.
+// Index into WHITE_PC of the white key BEFORE this black key.
+const BLACK_AFTER = [0, 1, 3, 4, 5]; // after C, after D, after F, after G, after A
+
+const MiniPiano = memo(function MiniPiano({ notes, rootPc, activeLabel }) {
+  // notes: Set<number 0-11> of pitch classes to highlight
+  // rootPc: number 0-11 of the chord root (brightest highlight); may be null
+  // activeLabel: display string like "F major" or "G7"; may be empty
+  const W = 320;         // viewBox width
+  const WK = W / 7;       // white key width
+  const H = 60;           // total height
+  const BH = H * 0.62;   // black key height
+  const BW = WK * 0.62;  // black key width
+  const WHITE_BASE = '#f2eee2';
+  const WHITE_DIM = 'rgba(242,238,226,0.85)';
+  const BLACK_BASE = '#0b0619';
+  const HL_BG = 'rgba(251,191,36,0.75)';
+  const HL_ROOT = '#FBBF24';
+  const isHl = (pc) => notes && notes.has(pc);
+  const isRoot = (pc) => rootPc === pc;
+
+  return (
+    <div style={{ marginBottom: 14, position: 'relative' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6, padding: '0 2px' }}>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.62)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2 }}>Notes</span>
+        <span style={{ fontSize: 11, color: activeLabel ? '#FBBF24' : 'rgba(255,255,255,0.4)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+          {activeLabel || 'Tap a chord to see its notes'}
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 10, background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(167,139,250,0.12)' }} role="img" aria-label={activeLabel ? `${activeLabel} notes on piano` : 'Piano keyboard'}>
+        {/* White keys */}
+        {WHITE_PC.map((pc, i) => {
+          const hl = isHl(pc), root = isRoot(pc);
+          const fill = root ? HL_ROOT : hl ? HL_BG : (i === 0 || i === 3 ? WHITE_BASE : WHITE_DIM);
+          return (
+            <g key={`w${i}`}>
+              <rect x={i * WK + 0.5} y={0.5} width={WK - 1} height={H - 1} rx={2} fill={fill} stroke="rgba(0,0,0,0.25)" strokeWidth="0.5" style={{ transition: 'fill 0.15s' }} />
+              {(hl || root) && (
+                <text x={i * WK + WK / 2} y={H - 8} textAnchor="middle" fontSize="9" fontWeight="800" fill="rgba(15,10,28,0.85)" style={{ pointerEvents: 'none' }}>
+                  {['C','D','E','F','G','A','B'][i]}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        {/* Black keys — rendered after so they sit on top */}
+        {BLACK_PC.map((pc, i) => {
+          const afterIdx = BLACK_AFTER[i];
+          const x = (afterIdx + 1) * WK - BW / 2;
+          const hl = isHl(pc), root = isRoot(pc);
+          const fill = root ? HL_ROOT : hl ? HL_BG : BLACK_BASE;
+          return (
+            <g key={`b${i}`}>
+              <rect x={x} y={0} width={BW} height={BH} rx={2} fill={fill} stroke="rgba(0,0,0,0.6)" strokeWidth="0.6" style={{ transition: 'fill 0.15s' }} />
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
 export default function HarmonyMap(){
@@ -293,7 +363,9 @@ const loadMood=useCallback((m)=>{
   setSk(m.key);
   setBpm(m.bpm);
   setProg(m.prog);
-  setSwapIdx(null);setUndoProg(null);setSch(null);
+  setSwapIdx(null);setUndoProg(null);
+  // Auto-select first chord so the mini-piano lights up immediately
+  setSch(m.prog[0]||null);
   setTip(`${m.emoji} ${m.label} preset loaded`);
   setTimeout(()=>{
     const notes=m.prog.map(s=>cn(pc(s).r,pc(s).t,3));
@@ -314,6 +386,27 @@ const{dragging,dragOver,onLongPressStart,onLongPressEnd,onDragEnter,onDrop,cance
 const lastChord=prog[prog.length-1];
 const suggestions=useMemo(()=>{if(!lastChord||!k)return[];const conns=gcon(k.ch,k.m).filter(c=>c.f===lastChord);return[...conns].sort((a,b)=>a.st==='strong'?-1:b.st==='strong'?1:0).slice(0,3).map(c=>c.t);},[lastChord,k]);
 const suggest=useCallback(()=>{if(!suggestions.length||progRef.current.length>=16)return;const pick=suggestions[0];audio.playChord(cn(pc(pick).r,pc(pick).t,3));setProg(p=>[...p,pick]);setSch(pick);},[suggestions]);
+
+// ── Mini-piano derivation: which chord highlights right now? ──
+// During playback: the currently-sounding chord (prog[pi]).
+// Otherwise: the last chord tapped on the map (sch). Applies chord flavor.
+const pianoChord=useMemo(()=>{
+  const src=(pi>=0&&prog[pi])?prog[pi]:(sch||null);
+  if(!src||src==='REST'||!k)return null;
+  const withExt=extChordLabel(k,src,ext);
+  return withExt;
+},[pi,prog,sch,k,ext]);
+const pianoData=useMemo(()=>{
+  if(!pianoChord)return{notes:new Set(),rootPc:null,label:''};
+  const parsed=pc(pianoChord);
+  const noteList=cn(parsed.r,parsed.t,4).map(n=>n.replace(/\d/,''));
+  const noteSet=new Set(noteList.map(notePC).filter(x=>x>=0));
+  const rootPc=notePC(parsed.r);
+  const qLabels={major:'major',minor:'minor',dim:'diminished',aug:'augmented',dom7:'7',maj7:'major 7',min7:'minor 7','m7b5':'half-diminished',sus2:'sus2',sus4:'sus4',power:'5'};
+  const qLabel=qLabels[parsed.t]||'';
+  const label=`${parsed.r}${qLabel?' '+qLabel:''} · ${noteList.join(' – ')}`;
+  return{notes:noteSet,rootPc,label};
+},[pianoChord]);
 
 const currentSound=SOUNDS.find(s=>s.id===inst)||SOUNDS[0];
 const isAudioActive=progLooping||pi>=0;
@@ -389,6 +482,9 @@ return(
         </div>
       )}
     </div>
+
+    {/* ── MINI PIANO — shows the notes of the selected/playing chord ── */}
+    <MiniPiano notes={pianoData.notes} rootPc={pianoData.rootPc} activeLabel={pianoData.label}/>
 
     {/* ── PROGRESSION STRIP ── */}
     <div style={{background:'rgba(0,0,0,0.3)',borderRadius:14,padding:'10px 12px',marginBottom:14,border:'1px solid rgba(255,255,255,0.05)'}}>
