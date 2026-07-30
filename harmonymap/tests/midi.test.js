@@ -217,4 +217,45 @@ describe('exportMIDI', () => {
     expect(clickCount).toBe(1);
     expect(anchorCreated.download).toBe('harmonymap.mid');
   });
+
+  // Helper: convert walkTrack's delta-time events to absolute-time events (skips meta events)
+  const toAbs = (evts) => {
+    let t = 0;
+    return evts.map(e => {
+      t += e.delta;
+      return { ...e, absTime: t };
+    });
+  };
+
+  it('barCounts stretches per-chord duration (C×2 bars, C×2 bars, F×4 bars)', () => {
+    // beats=4, tpqn=480 → 1 bar = 4×480 = 1920 ticks
+    // Onsets: C at 0, C at 2×1920=3840, F at 4×1920=7680, F ends at 8×1920=15360
+    exportMIDI(['C', 'C', 'F'], 120, 4, [2, 2, 4]);
+    const tl = (capturedBytes[18] << 24) | (capturedBytes[19] << 16) | (capturedBytes[20] << 8) | capturedBytes[21];
+    const abs = toAbs(walkTrack(capturedBytes, 22, tl));
+    const noteOnTimes = abs.filter(e => e.status === 0x90).map(e => e.absTime);
+    const noteOffTimes = abs.filter(e => e.status === 0x80).map(e => e.absTime);
+    const uniqueOns = [...new Set(noteOnTimes)].sort((a, b) => a - b);
+    expect(uniqueOns).toEqual([0, 3840, 7680]);
+    expect(Math.max(...noteOffTimes)).toBe(15360);
+  });
+
+  it('barCounts respects REST slots (skipped along with their bars)', () => {
+    exportMIDI(['C', 'REST', 'G'], 120, 4, [1, 4, 1]);
+    const tl = (capturedBytes[18] << 24) | (capturedBytes[19] << 16) | (capturedBytes[20] << 8) | capturedBytes[21];
+    const abs = toAbs(walkTrack(capturedBytes, 22, tl));
+    const noteOns = abs.filter(e => e.status === 0x90);
+    expect(noteOns).toHaveLength(6); // C: 3 notes + G: 3 notes
+    const uniqueOns = [...new Set(noteOns.map(e => e.absTime))].sort((a, b) => a - b);
+    // C at tick 0, G at tick 1920 (REST's 4 bars dropped with the slot)
+    expect(uniqueOns).toEqual([0, 1920]);
+  });
+
+  it('missing barCounts defaults to 1× per chord (backward compat)', () => {
+    exportMIDI(['C', 'G'], 120, 4);
+    const tl = (capturedBytes[18] << 24) | (capturedBytes[19] << 16) | (capturedBytes[20] << 8) | capturedBytes[21];
+    const abs = toAbs(walkTrack(capturedBytes, 22, tl));
+    const uniqueOns = [...new Set(abs.filter(e => e.status === 0x90).map(e => e.absTime))].sort((a, b) => a - b);
+    expect(uniqueOns).toEqual([0, 1920]);
+  });
 });
