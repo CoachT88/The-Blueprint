@@ -248,7 +248,7 @@ const[showSound,setShowSound]=useState(false);
 const[showBpm,setShowBpm]=useState(false);
 const[activeMood,setActiveMood]=useState('hopeful');
 const[tip,setTip]=useState(null);
-const[showMapTip,setShowMapTip]=useState(false);
+const[tourStep,setTourStep]=useState(-1); // -1 = closed, 0-3 = active step
 const stateDeb=useRef(null);
 const loadedRef=useRef(false);
 
@@ -279,11 +279,18 @@ useEffect(()=>{
   loadedRef.current=true;
 },[]);
 
-// First-visit chord map tip
+// First-visit tour — 4 sequential coach cards teaching the app flow
 useEffect(()=>{
-  try{if(!localStorage.getItem('hm_tips_v1'))setShowMapTip(true);}catch(e){}
+  try{if(!localStorage.getItem('hm_tour_v1'))setTourStep(0);}catch(e){}
 },[]);
-const dismissMapTip=useCallback(()=>{setShowMapTip(false);try{localStorage.setItem('hm_tips_v1','1');}catch(e){}},[]);
+const nextTourStep=useCallback(()=>{
+  setTourStep(s=>{
+    if(s>=3){try{localStorage.setItem('hm_tour_v1','1');}catch(e){}return -1;}
+    return s+1;
+  });
+},[]);
+const dismissTour=useCallback(()=>{setTourStep(-1);try{localStorage.setItem('hm_tour_v1','1');}catch(e){}},[]);
+const openTour=useCallback(()=>setTourStep(0),[]);
 
 // Persist saved ideas
 useEffect(()=>{try{localStorage.setItem('hm_saved',JSON.stringify(saved));}catch(e){}},[saved]);
@@ -445,6 +452,45 @@ return(
       :<div style={{width:52}}/>}
   </nav>
 
+  {/* ═══ ONBOARDING TOUR — first-visit coach cards ═══ */}
+  {tourStep>=0&&(()=>{
+    const steps=[
+      {emoji:'🎵',title:'Pick a mood',body:'Tap any mood chip up top — the app loads a chord loop and starts playing instantly. Try Hopeful, Dark, Epic — each feels different.'},
+      {emoji:'🎹',title:'Tap chords to explore',body:'The wheel is a map of chords in your key. Tap any one to hear it and add it to your loop. The gold lines show the strongest next moves — like V→I.'},
+      {emoji:'✨',title:'Watch the piano — hold a chord longer',body:'The keyboard lights up the notes you’re hearing in real time. In your loop below, tap the "1×" badge on any chord to make it hold for 2 or 4 bars.'},
+      {emoji:'♡',title:'Save what you love',body:'Tap the heart to save a loop to your Library. Long-press a slot to drag it. Everything you build stays even if you close the app.'},
+    ];
+    const s=steps[tourStep];
+    const isLast=tourStep>=steps.length-1;
+    return(
+      <>
+        <div onClick={dismissTour} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',backdropFilter:'blur(2px)',zIndex:200,animation:'fadeIn 0.2s'}} aria-hidden="true"/>
+        <div role="dialog" aria-modal="true" aria-label={`Tour step ${tourStep+1} of ${steps.length}: ${s.title}`} style={{position:'fixed',top:'20%',left:'50%',transform:'translateX(-50%)',width:'min(340px, calc(100vw - 32px))',background:'linear-gradient(180deg, rgba(30,20,58,0.98), rgba(15,10,28,0.98))',border:'1.5px solid rgba(251,191,36,0.5)',borderRadius:16,padding:'18px 18px 14px',boxShadow:'0 12px 40px rgba(0,0,0,0.7)',zIndex:201,animation:'fadeIn 0.25s'}}>
+          <div style={{display:'flex',alignItems:'flex-start',gap:12,marginBottom:12}}>
+            <div style={{fontSize:28,lineHeight:1,marginTop:2}}>{s.emoji}</div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:800,fontSize:15,color:'#FBBF24',marginBottom:6}}>{s.title}</div>
+              <div style={{fontSize:13,color:'rgba(255,255,255,0.85)',lineHeight:1.5}}>{s.body}</div>
+            </div>
+          </div>
+          {/* Progress dots */}
+          <div style={{display:'flex',justifyContent:'center',gap:6,margin:'10px 0 14px'}}>
+            {steps.map((_,i)=>(
+              <div key={i} style={{width:i===tourStep?18:6,height:6,borderRadius:3,background:i===tourStep?'#FBBF24':i<tourStep?'rgba(251,191,36,0.5)':'rgba(255,255,255,0.15)',transition:'all 0.2s'}}/>
+            ))}
+          </div>
+          {/* Buttons */}
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={dismissTour} style={{flex:1,background:'transparent',border:'1px solid rgba(255,255,255,0.18)',borderRadius:10,padding:'10px',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:12,fontWeight:700,minHeight:44}}>Skip</button>
+            <button onClick={nextTourStep} style={{flex:2,background:'#FBBF24',border:'none',borderRadius:10,padding:'10px',color:'#1a0f2e',cursor:'pointer',fontSize:13,fontWeight:800,minHeight:44,boxShadow:'0 2px 12px rgba(251,191,36,0.35)'}}>
+              {isLast?'Got it!':`Next  →`}
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  })()}
+
   {/* ═══ PLAY SCREEN ═══ */}
   {screen==='play'&&<div style={{padding:'14px 14px 24px',maxWidth:560,margin:'0 auto'}}>
 
@@ -483,19 +529,7 @@ return(
     {/* ── CHORD MAP (the hero — memoized subcomponent) ── */}
     <div style={{position:'relative'}}>
       <ChordMapSVG k={k} sch={sch} ext={ext} showTheory={showTheory} swapIdx={swapIdx} sk={sk} onTap={playChord}/>
-      <button onClick={()=>setShowMapTip(true)} aria-label="What do the lines mean?" style={{position:'absolute',top:12,right:12,width:34,height:34,borderRadius:'50%',background:'rgba(15,10,28,0.85)',border:'1px solid rgba(251,191,36,0.35)',color:'rgba(251,191,36,0.9)',cursor:'pointer',fontSize:15,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',padding:0,backdropFilter:'blur(6px)'}}>?</button>
-      {showMapTip&&(
-        <div role="dialog" aria-label="Chord map guide" style={{position:'absolute',top:12,left:12,right:12,background:'rgba(15,10,28,0.97)',border:'1px solid rgba(251,191,36,0.4)',borderRadius:14,padding:'14px 16px',boxShadow:'0 8px 32px rgba(0,0,0,0.6)',animation:'fadeIn 0.2s',zIndex:10}}>
-          <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
-            <div style={{fontSize:20,lineHeight:1,marginTop:1}}>🎵</div>
-            <div style={{flex:1,fontSize:12,color:'rgba(255,255,255,0.85)',lineHeight:1.5}}>
-              <div style={{fontWeight:800,marginBottom:4,color:'#FBBF24'}}>Reading the chord map</div>
-              The <span style={{color:'#FBBF24',fontWeight:700}}>gold lines</span> show the strongest chord movements — the ones that sound like they resolve, like V→I. Tap any chord to hear it and see where it wants to go next.
-            </div>
-          </div>
-          <button onClick={dismissMapTip} style={{marginTop:12,width:'100%',background:'rgba(251,191,36,0.15)',border:'1px solid rgba(251,191,36,0.4)',borderRadius:8,padding:'8px',color:'#FBBF24',cursor:'pointer',fontSize:11,fontWeight:700,minHeight:36}}>Got it</button>
-        </div>
-      )}
+      <button onClick={openTour} aria-label="Show quick tour" title="Show tour" style={{position:'absolute',top:12,right:12,width:34,height:34,borderRadius:'50%',background:'rgba(15,10,28,0.85)',border:'1px solid rgba(251,191,36,0.35)',color:'rgba(251,191,36,0.9)',cursor:'pointer',fontSize:15,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',padding:0,backdropFilter:'blur(6px)'}}>?</button>
     </div>
 
     {/* ── MINI PIANO — shows the notes of the selected/playing chord ── */}
