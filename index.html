@@ -782,6 +782,13 @@
             </div>
             <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
         </div>
+        <div id="hq-storage-full-banner" class="hidden p-3 rounded-2xl bg-orange-500/10 border border-orange-500/40 flex items-center gap-3">
+            <i class="fas fa-hard-drive text-orange-400 text-lg flex-shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-black text-orange-300 uppercase tracking-widest">Device Storage Full</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Your progress is still saving to the cloud, but this device cannot keep an offline copy. Free up some space when you get a chance.</p>
+            </div>
+        </div>
         <div id="hq-load-failed-banner" class="hidden p-3 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-center gap-3">
             <i class="fas fa-triangle-exclamation text-red-400 text-lg flex-shrink-0"></i>
             <div class="flex-1 min-w-0">
@@ -1126,7 +1133,7 @@
     <!-- Session note -->
     <div class="instruction-card border-slate-700/30 mx-2 text-left">
         <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-pen-to-square"></i> Session Note <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
-        <textarea id="session-note-input" class="glass-input h-20" placeholder="EQ was strong, good pump on girth work..."></textarea>
+        <textarea id="session-note-input" class="glass-input h-20" maxlength="500" placeholder="EQ was strong, good pump on girth work..."></textarea>
     </div>
 
     <!-- AI Recovery -->
@@ -1563,11 +1570,11 @@
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1">Weekly Report</p>
-                        <p>Tap the Week button on the HQ for your 7-day summary: total XP, sessions completed, average EQ with trend, average RPE with coaching insight, active days, and your latest measurements. The report also shows your 5 most recent sessions with type, EQ, and RPE. Tap View Full History for every session ever logged.</p>
+                        <p>Tap the Week button on the HQ for your 7-day summary: total XP, sessions completed, average EQ with trend, average RPE with coaching insight, active days, and your latest measurements. The report also shows your 5 most recent sessions with type, EQ, and RPE. Tap View Full History for your complete session history, loaded in pages of 50.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1">Export & Import</p>
-                        <p>All your data can be exported as a JSON file from the Data Management section at the bottom of the HQ. Keep this as a backup. You can import it back at any time if you ever need to restore your progress.</p>
+                        <p>Your full history can be exported as a JSON file from the Data Management section at the bottom of the HQ. Keep this as a backup. You can import it back at any time if you ever need to restore your progress.</p>
                     </div>
                 </div>
             </div>
@@ -1783,6 +1790,31 @@ function isSizeLed(){ const k=getGoalKey(); return k==='size'||k==='all'; }
 function getScheduledType(){ return (persisted.schedule||[])[new Date().getDay()]||'rest'; }
 const DIRECTIONALS=['OUT','UP','DOWN','LEFT','RIGHT'];
 const SESSION_XP={beginner:10,intermediate:15,advanced:20,elite:25,recovery:5};
+
+// ── History retention ──────────────────────────────────────────────────────
+// The session log used to be capped at 50 entries, which silently deleted the
+// history of the members who had been here longest. It is now bounded by size
+// rather than count, because a count is not a size: the note field is free text
+// and one entry can be arbitrarily large.
+//
+// The whole log is re-serialised and re-uploaded on every save, so the budget is
+// really a bound on that payload. At a typical ~150 byte entry this holds
+// thousands of sessions, which is years of training.
+const SESSION_LOG_BUDGET_BYTES = 300_000;
+const MEASUREMENTS_BUDGET_BYTES = 60_000;
+const NOTE_MAX_CHARS = 500;
+// Drop oldest-first until the serialised array fits. Always keeps the newest
+// entry even if it alone exceeds the budget, so a session is never lost outright.
+function trimToByteBudget(arr, budget){
+    if(!Array.isArray(arr) || arr.length < 2) return arr;
+    let out = arr;
+    while(out.length > 1 && JSON.stringify(out).length > budget) {
+        // Halve the overshoot in big steps first so a huge import does not spin.
+        const drop = out.length > 200 ? Math.ceil(out.length * 0.1) : 1;
+        out = out.slice(drop);
+    }
+    return out;
+}
 const RANK_NAMES=['Recruit','Operator','Specialist','Veteran','Elite','Legend'];
 // Gap between level n and n+1 = (50 + 15*n) XP — linear ramp so early levels
 // take ~5 sessions and high levels take 30-50+ sessions each.
@@ -2270,13 +2302,67 @@ async function _upsertWithSchemaFallback(){
     }
     return error;
 }
+// The local backup used to be written inside an empty catch, so when the quota
+// filled the backup silently stopped updating AND the dirty flag silently failed
+// to set. The recovery path then compared against stale data with nothing to
+// indicate anything was wrong. Same shape as the original data-loss bug.
+let _quotaWarned=false;
+function _isQuotaError(e){
+    return e && (e.name==='QuotaExceededError' || e.name==='NS_ERROR_DOM_QUOTA_REACHED' || e.code===22 || e.code===1014);
+}
+function _writeLocalBackup(){
+    if(!currentUser) return false;
+    const key='bp_data_'+currentUser.id;
+    const payload=JSON.stringify({...persisted,_savedAt:new Date().toISOString()});
+    try{
+        localStorage.setItem(key,payload);
+        localStorage.setItem('bp_dirty_'+currentUser.id,'1'); // cleared only after Supabase confirms
+        return true;
+    }catch(e){
+        if(!_isQuotaError(e)){ console.error('local backup failed:',e); return false; }
+        // Reclaim the space that actually accumulates, then try once more.
+        pruneOldDailyKeys(0);
+        try{
+            localStorage.setItem(key,payload);
+            localStorage.setItem('bp_dirty_'+currentUser.id,'1');
+            return true;
+        }catch(e2){
+            // Out of room for real. Say so rather than pretending the save worked;
+            // Supabase is still the source of truth and the upsert continues.
+            console.error('local backup skipped: storage is full');
+            if(!_quotaWarned){ _quotaWarned=true; _showStorageFullBanner(); }
+            try{ localStorage.removeItem('bp_dirty_'+currentUser.id); }catch(e3){}
+            return false;
+        }
+    }
+}
+function _showStorageFullBanner(){
+    const el=document.getElementById('hq-storage-full-banner');
+    if(el) el.classList.remove('hidden');
+}
+// bp_hydration_/bp_sleep_/bp_soreness_ write one key per day per user and were
+// never cleaned up, so a long-tenured member accumulates thousands of dead keys.
+// That, not the session log, is what eventually exhausts the quota.
+function pruneOldDailyKeys(keepDays){
+    const keep=keepDays===undefined?60:keepDays;
+    const cutoff=new Date(Date.now()-keep*864e5).toISOString().split('T')[0];
+    const prefixes=['bp_hydration_','bp_sleep_','bp_soreness_'];
+    let removed=0;
+    try{
+        for(let i=localStorage.length-1;i>=0;i--){
+            const k=localStorage.key(i);
+            if(!k || !prefixes.some(pfx=>k.startsWith(pfx))) continue;
+            const m=k.match(/_(\d{4}-\d{2}-\d{2})$/);   // only the date-keyed ones
+            if(m && m[1]<cutoff){ localStorage.removeItem(k); removed++; }
+        }
+    }catch(e){}
+    return removed;
+}
+
 function savePersisted(){
     // Refuse to persist defaults over an account we were never able to read.
     if(!_persistedLoaded){console.warn('savePersisted skipped: user data was never loaded');return;}
-    if(currentUser) try{
-        localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
-        localStorage.setItem('bp_dirty_'+currentUser.id,'1'); // cleared only after Supabase confirms
-    }catch(e){}
+    _writeLocalBackup();
     clearTimeout(_saveDebounce);
     _saveDebounce=setTimeout(async()=>{
         if(!currentUser)return;
@@ -2291,10 +2377,7 @@ function _flushSaveNow(){
     if(!currentUser)return;
     if(!_persistedLoaded){console.warn('_flushSaveNow skipped: user data was never loaded');return;}
     clearTimeout(_saveDebounce);
-    try{
-        localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
-        localStorage.setItem('bp_dirty_'+currentUser.id,'1');
-    }catch(e){}
+    _writeLocalBackup();
     _upsertWithSchemaFallback()
         .then(error=>{
             if(error){console.error('_flushSaveNow error:',error.message,error.code);}
@@ -2859,7 +2942,8 @@ function renderProgressChart(){
 // EQ aggregation was inlined in several places. One helper, used by the HQ row,
 // Coach Tee and the weekly report. Tier-unlock maths is deliberately left alone.
 function getEqSummary(n){
-    const eqs=(persisted.sessionLog||[]).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).map(s=>s.eq);
+    // Only the tail is ever used, so bound the work before filtering.
+    const eqs=(persisted.sessionLog||[]).slice(-60).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).map(s=>s.eq);
     if(!eqs.length) return {count:0,avg:null,latest:null,trend:'none',recentAvg:null,priorAvg:null};
     const window=eqs.slice(-(n||7));
     const mean=a=>a.reduce((t,v)=>t+v,0)/a.length;
@@ -2873,7 +2957,7 @@ function getEqSummary(n){
     return {count:eqs.length,avg:mean(window),latest:eqs[eqs.length-1],trend,recentAvg,priorAvg};
 }
 function renderEqChart(){
-    const pts=(persisted.sessionLog||[]).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).slice(-30);
+    const pts=(persisted.sessionLog||[]).slice(-120).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).slice(-30);
     if(pts.length<1){drawEmpty('eq-chart');return;}
     drawLine('eq-chart',pts.map(s=>s.eq),pts.map(s=>s.date),'#a855f7','',1);
 }
@@ -3975,7 +4059,7 @@ function renderLog(){
 function finishSession(){
     const bpel=parseFloat(document.getElementById('input-bpel').value);
     const mseg=parseFloat(document.getElementById('input-mseg').value);
-    const note=document.getElementById('session-note-input').value.trim();
+    const note=document.getElementById('session-note-input').value.trim().slice(0,NOTE_MAX_CHARS);
     const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100);
     persisted.totalXp+=earnedXp;
     persisted.allTimeSessionCount=(persisted.allTimeSessionCount||0)+1;
@@ -3989,8 +4073,8 @@ function finishSession(){
         rpe:selectedRPE,
         duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):null,
     });
-    if(persisted.sessionLog.length>50)persisted.sessionLog=persisted.sessionLog.slice(-50);
-    if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);if(persisted.measurements.length>100)persisted.measurements=persisted.measurements.slice(-100)}
+    persisted.sessionLog=trimToByteBudget(persisted.sessionLog,SESSION_LOG_BUDGET_BYTES);
+    if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
     updateRecords(earnedXp);
     _passEarnedThisSession=maybeEarnStreakPass();
     savePersisted();
@@ -4325,14 +4409,46 @@ function toggleManualSection(id){
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION HISTORY
 // ═══════════════════════════════════════════════════════════════════════════
+// Rendering the entire log into one innerHTML string was fine at 50 entries and
+// would freeze a phone at several thousand. Render a page at a time instead.
+const HISTORY_PAGE_SIZE=50;
+let _historyShown=0;
 function showSessionHistory(){
-    const modal=document.getElementById('history-modal');
+    _historyShown=0;
+    renderHistoryPage(true);
+    document.getElementById('history-modal').style.display='flex';
+    closeWeeklyReport();
+}
+function renderHistoryPage(reset){
     const list=document.getElementById('history-list');
-    const logs=(persisted.sessionLog||[]).slice().reverse();
-    if(!logs.length){
+    const all=(persisted.sessionLog||[]);
+    const total=all.length;
+    if(reset) list.innerHTML='';
+    if(!total){
         list.innerHTML='<p class="text-slate-600 text-sm italic text-center py-8">No sessions logged yet.</p>';
-    } else {
-        list.innerHTML=logs.map(s=>{
+        return;
+    }
+    // Newest first, without reversing the whole array on every page.
+    const start=Math.max(0,total-_historyShown-HISTORY_PAGE_SIZE);
+    const end=total-_historyShown;
+    const page=all.slice(start,end).reverse();
+    _historyShown+=page.length;
+
+    const more=document.getElementById('history-load-more');
+    if(more) more.remove();
+    list.insertAdjacentHTML('beforeend',page.map(historyRow).join(''));
+
+    if(_historyShown<total){
+        list.insertAdjacentHTML('beforeend',
+            `<button id="history-load-more" class="btn-outline w-full py-3 text-[11px] mt-2">Load ${Math.min(HISTORY_PAGE_SIZE,total-_historyShown)} more · ${_historyShown} of ${total}</button>`);
+        document.getElementById('history-load-more').addEventListener('click',()=>renderHistoryPage(false));
+    } else if(total>HISTORY_PAGE_SIZE){
+        list.insertAdjacentHTML('beforeend',
+            `<p class="text-[10px] text-slate-600 italic text-center py-3">All ${total} sessions shown.</p>`);
+    }
+}
+function historyRow(s){
+    return (s=>{
             const d=new Date(s.date);
             const dateStr=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
             const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
@@ -4348,14 +4464,11 @@ function showSessionHistory(){
                         </div>
                         <p class="text-[10px] text-slate-500 mt-0.5">${dateStr} · ${timeStr}</p>
                         ${s.eq||s.rpe?`<div class="flex gap-3 mt-1.5">${s.eq?`<span class="text-[10px] text-slate-400">EQ <span class="text-white font-bold">${s.eq}</span></span>`:''}${s.rpe?`<span class="text-[10px] text-slate-400">RPE <span class="text-white font-bold">${s.rpe}</span></span>`:''}</div>`:''}
-                        ${s.note?`<p class="text-[10px] text-slate-500 italic mt-1 truncate">${s.note}</p>`:''}
+                        ${s.note?`<p class="text-[10px] text-slate-500 italic mt-1 truncate">${esc(s.note)}</p>`:''}
                     </div>
                 </div>
             </div>`;
-        }).join('');
-    }
-    modal.style.display='flex';
-    closeWeeklyReport();
+    })(s);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4564,13 +4677,30 @@ function exportData(){
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);
     a.download=`blueprint-backup-${new Date().toISOString().split('T')[0]}.json`;a.click();URL.revokeObjectURL(a.href);
 }
+const IMPORT_MAX_BYTES=2_000_000;
 function importData(file){
     if(!file)return;
+    // An import lands straight in localStorage and the Supabase row, so it needs
+    // a bound. Previously any file with a sessionLog or schedule key was accepted
+    // at any size and with any contents.
+    if(file.size>IMPORT_MAX_BYTES){alert('Import failed — that file is too large to be a Blueprint backup.');return;}
     const r=new FileReader();
     r.onload=e=>{
-        try{const p=JSON.parse(e.target.result);if(!p.sessionLog&&!p.schedule)throw new Error('invalid');
+        try{
+            const p=JSON.parse(e.target.result);
+            if(!p.sessionLog&&!p.schedule)throw new Error('invalid');
+            if(p.sessionLog!==undefined&&!Array.isArray(p.sessionLog))throw new Error('invalid');
+            if(p.measurements!==undefined&&!Array.isArray(p.measurements))throw new Error('invalid');
+            if(p.schedule!==undefined&&!Array.isArray(p.schedule))throw new Error('invalid');
             if(!confirm('This will overwrite all current data. Continue?'))return;
-            persisted={...DEFAULT_PERSISTED,...p};savePersisted();renderDashboard();alert('Data restored.');}
+            persisted={...DEFAULT_PERSISTED,...p};
+            // Same bounds a normal session would be held to, so an oversized or
+            // hand-edited backup cannot leave the app in a state it cannot save.
+            persisted.sessionLog=trimToByteBudget(persisted.sessionLog||[],SESSION_LOG_BUDGET_BYTES);
+            persisted.measurements=trimToByteBudget(persisted.measurements||[],MEASUREMENTS_BUDGET_BYTES);
+            normaliseSchedule();
+            savePersisted();renderDashboard();alert('Data restored.');
+        }
         catch(err){alert('Import failed — invalid file.')}
     };r.readAsText(file);
 }
@@ -4774,6 +4904,7 @@ async function onUserSignedIn(user){
         await loadPersisted();
         // Bail if logout happened while we were awaiting
         if(currentUser?.id!==user.id) return;
+        pruneOldDailyKeys();   // reclaim date-keyed entries that were never cleaned up
         loadHydrationUnit();
         _scheduleLocalNotif();
         hideAuthScreen();
@@ -5229,7 +5360,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if(_savedEmail){document.getElementById('auth-email').value=_savedEmail;document.getElementById('auth-password').focus();}
     document.getElementById('remember-me-row').addEventListener('click',()=>{_rememberMe=!_rememberMe;_setRememberUI(_rememberMe);if(!_rememberMe)localStorage.removeItem('bp_remember_email');});
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
-    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')_flushSaveNow();});
     // Notifications
     document.getElementById('notif-btn').addEventListener('click',openNotifModal);
     document.getElementById('notif-modal-close').addEventListener('click',closeNotifModal);
