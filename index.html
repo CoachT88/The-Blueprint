@@ -580,6 +580,20 @@
             <h1 class="text-[3.5rem] leading-none font-black italic uppercase tracking-tighter bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent drop-shadow-sm">The Blueprint</h1>
         </div>
 
+    <!-- What the member actually gets. Shown before the liability gate so the
+         first thing they read is the program, not the risk disclosure. -->
+    <div class="px-4 w-full space-y-2 text-left">
+        <div class="instruction-card" style="padding:.8rem 1rem;">
+            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-stopwatch text-blue-400 mr-2"></i><span class="font-black text-white">Guided sessions.</span> Every set timed, with technique cues and safety checks as you go.</p>
+        </div>
+        <div class="instruction-card" style="padding:.8rem 1rem;">
+            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-layer-group text-emerald-400 mr-2"></i><span class="font-black text-white">Four tiers.</span> You start at Beginner. Each one unlocks as your tissue adapts, so you never jump ahead.</p>
+        </div>
+        <div class="instruction-card" style="padding:.8rem 1rem;">
+            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-comment-dots text-purple-400 mr-2"></i><span class="font-black text-white">Coach Tee, plus tracking.</span> A 24/7 advisor, with measurements, photos and streaks all logged for you.</p>
+        </div>
+    </div>
+
     <!-- Liability gate -->
     <div class="px-4 w-full space-y-3 text-left">
         <div class="bg-red-950/30 border border-red-500/20 rounded-2xl p-4 mb-1">
@@ -635,8 +649,8 @@
         <div id="hq-calendar-card" class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
         <p class="text-[9px] font-black text-slate-700 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
         <div id="last-measure-row" class="flex gap-3 mx-2">
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
         </div>
         <!-- Coach Tee Hourly Tip -->
         <div id="hq-tip-card" class="tip-card mx-2 hq-anim">
@@ -718,6 +732,13 @@
                 <p id="resume-banner-label" class="text-[10px] text-slate-400 mt-0.5"></p>
             </div>
             <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
+        </div>
+        <div id="hq-rest-banner" class="hidden p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-3">
+            <i class="fas fa-bed text-indigo-400 text-lg flex-shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-black text-indigo-300 uppercase tracking-widest">Rest Day</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Training is locked today. This takes you to the Recovery Protocol, which is how you actually grow.</p>
+            </div>
         </div>
         <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
         <div id="hq-tools-row" class="grid grid-cols-3 gap-2">
@@ -820,9 +841,10 @@
     </div>
     <div class="grid grid-cols-1 gap-4 px-2 w-full">
         <div class="grid grid-cols-2 gap-4">
-            <button id="mission-length-btn" class="instruction-card hover:border-blue-500/50 transition-all flex flex-col items-center gap-3 py-8"><i class="fas fa-up-right-and-down-left-from-center text-2xl text-blue-400"></i><span class="text-xl font-black uppercase italic">Length</span></button>
-            <button id="mission-girth-btn"  class="instruction-card hover:border-emerald-500/50 transition-all flex flex-col items-center gap-3 py-8"><i class="fas fa-expand text-2xl text-emerald-400"></i><span class="text-xl font-black uppercase italic">Girth</span></button>
+            <button id="mission-length-btn" class="instruction-card hover:border-blue-500/50 transition-all flex flex-col items-center gap-2 py-6 px-3"><i class="fas fa-up-right-and-down-left-from-center text-2xl text-blue-400"></i><span class="text-xl font-black uppercase italic">Length</span><span class="text-[9px] text-slate-500 font-semibold leading-snug text-center">Stretching protocol: ligament and tunica elongation</span></button>
+            <button id="mission-girth-btn"  class="instruction-card hover:border-emerald-500/50 transition-all flex flex-col items-center gap-2 py-6 px-3"><i class="fas fa-expand text-2xl text-emerald-400"></i><span class="text-xl font-black uppercase italic">Girth</span><span class="text-[9px] text-slate-500 font-semibold leading-snug text-center">Jelq and Uli work: expansion under pressure</span></button>
         </div>
+        <p id="beginner-rec-note" class="hidden text-[10px] text-blue-300/80 text-center px-2 leading-relaxed"><i class="fas fa-circle-info mr-1"></i>New here? Start with <span class="font-black">Length</span>. It is the more forgiving of the two and builds the base girth work depends on.</p>
         <button id="mission-stamina-btn" class="instruction-card hover:border-purple-500/50 transition-all flex items-center gap-5 px-6 py-5" style="border-color:rgba(168,85,247,0.15);">
             <i class="fas fa-fire-flame-curved text-2xl text-purple-400 flex-shrink-0"></i>
             <div class="text-left">
@@ -904,7 +926,7 @@
         </div>
         <div class="flex items-center gap-2">
             <div class="bg-slate-900/80 border border-yellow-500/30 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5"><i class="fas fa-bolt text-yellow-400 text-xs"></i><span id="live-xp" class="text-xs font-black text-yellow-400">0 XP</span></div>
-            <div class="text-right"><p class="text-[8px] font-black text-slate-500 uppercase">EQ</p><p id="ex-eq-req" class="text-sm font-black text-blue-400 italic leading-none">--</p></div>
+            <div class="text-right"><p class="text-[8px] font-black text-slate-500 uppercase" title="Erection Quality target for this exercise">Target EQ</p><p id="ex-eq-req" class="text-sm font-black text-blue-400 italic leading-none">--</p></div>
         </div>
     </div>
 
@@ -970,7 +992,8 @@
 
     <!-- EQ check-in -->
     <div class="instruction-card border-blue-500/20 mx-2 text-left">
-        <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-gauge-high"></i> EQ During Session</p>
+        <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-gauge-high"></i> EQ During Session</p>
+        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Erection Quality: how firm were you? 1 = flaccid, 10 = maximum.</p>
         <div class="grid grid-cols-5 gap-1.5" id="eq-checkin-btns">
             <button class="eq-btn" data-eq="1">1<br><span class="text-[9px] font-normal opacity-60">Flaccid</span></button>
             <button class="eq-btn" data-eq="2">2</button>
@@ -987,7 +1010,8 @@
 
     <!-- RPE -->
     <div class="instruction-card border-emerald-500/20 mx-2 text-left">
-        <p class="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-dumbbell"></i> Session Effort (RPE)</p>
+        <p class="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-dumbbell"></i> Session Effort (RPE)</p>
+        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Rate of Perceived Exertion: how hard the session felt overall.</p>
         <div class="grid grid-cols-5 gap-1.5" id="rpe-btns">
             <button class="rpe-btn" data-rpe="1">1<br><span class="text-[9px] font-normal opacity-60">Easy</span></button>
             <button class="rpe-btn" data-rpe="2">2</button>
@@ -2686,6 +2710,10 @@ function goToStep(step){
         document.getElementById('mission-length-btn').style.opacity=blackout?'0.35':'';
         document.getElementById('mission-girth-btn').style.opacity=blackout?'0.35':'';
         document.getElementById('mission-stamina-btn').style.opacity=blackout?'0.35':'';
+        // Length vs Girth is an unexplained fork for a first-timer. Point them at
+        // the safer starting point until they have a few sessions logged.
+        const _newish=getDiff().id==='beginner' && (persisted.allTimeSessionCount||0)<5;
+        document.getElementById('beginner-rec-note').classList.toggle('hidden',!(_newish&&!blackout));
         // Hydration warning
         const hydWarn=getHydrationWarning();
         const hydBanner=document.getElementById('hydration-warning-banner');
@@ -3420,6 +3448,13 @@ function renderDashboard(){
     });
     renderHydration();
     maybeShowUpdateNotice();
+    // Warn about a rest day here, before the member commits to pre-flight and a
+    // 10-minute warmup only to hit the lock at Mission Select.
+    const _rest=isBlackoutDay();
+    const _restBanner=document.getElementById('hq-rest-banner');
+    if(_restBanner) _restBanner.classList.toggle('hidden',!_rest);
+    const _launch=document.getElementById('launch-btn');
+    if(_launch) _launch.textContent=_rest?'BEGIN RECOVERY SESSION':'BEGIN SESSION';
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
         const d=document.createElement('div');
