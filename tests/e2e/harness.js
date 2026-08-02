@@ -142,7 +142,10 @@ export async function openApp(opts = {}) {
     }
     await page.addInitScript(installSupabaseStub, { row, hangRead, rejectColumns, files, pngDataUri: PNG_1PX });
 
-    await page.goto(`${srv.origin}/index.html`, { waitUntil: 'domcontentloaded' });
+    // Generous timeout: e2e files run serially but each describe block opens its
+    // own browser, so a loaded machine can push a cold navigation past the 30s
+    // default. A flaky suite is worse than a slow one.
+    await page.goto(`${srv.origin}/index.html`, { waitUntil: 'domcontentloaded', timeout: 90_000 });
     await page.addStyleTag({ path: SHIM_CSS });
     await page.waitForTimeout(900); // let the inline script finish wiring
 

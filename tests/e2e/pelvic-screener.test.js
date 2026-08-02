@@ -168,6 +168,125 @@ describe('a standard result leaves the protocol intact', () => {
     });
 });
 
+describe('the answer buttons actually look selected', () => {
+    let app;
+    beforeAll(async () => {
+        app = await openApp();
+        await signIn(app.page, { id: 'pfv' });
+        await app.page.evaluate(() => { persisted.pelvicProfile = ''; openPelvicScreen(); });
+        await app.page.waitForTimeout(300);
+    }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    // The original bug: the screener toggled `.selected`, but .quick-tap only
+    // styles `.active`. The answer was stored and the submit button enabled
+    // while nothing changed on screen, so the check looked broken. Asserting
+    // the class name would NOT have caught it — assert the computed style.
+    //
+    // .quick-tap carries `transition: all .2s`, so the computed value has to be
+    // read after the transition settles, not on the same tick as the click.
+    const bgOf = (sel) => app.page.evaluate(
+        s => getComputedStyle(document.querySelector(s)).backgroundColor, sel);
+
+    test('tapping Yes visibly changes the button', async () => {
+        const sel = '#pelvic-screen-questions [data-screen-q] [data-screen-a="yes"]';
+        const before = await bgOf(sel);
+        await app.page.evaluate(s => document.querySelector(s).click(), sel);
+        await app.page.waitForTimeout(400);          // let the .2s transition finish
+        const after = await bgOf(sel);
+        expect(after).not.toBe(before);
+    }, 30_000);
+
+    test('choosing the other option moves the highlight rather than lighting both', async () => {
+        const row = '#pelvic-screen-questions [data-screen-q]';
+        await app.page.evaluate(r => document.querySelector(`${r} [data-screen-a="no"]`).click(), row);
+        await app.page.waitForTimeout(400);
+        const r = await app.page.evaluate(rw => {
+            const el = document.querySelector(rw);
+            return {
+                yesBg: getComputedStyle(el.querySelector('[data-screen-a="yes"]')).backgroundColor,
+                noBg: getComputedStyle(el.querySelector('[data-screen-a="no"]')).backgroundColor,
+                stored: _pelvicAnswers[el.dataset.screenQ],
+            };
+        }, row);
+        expect(r.noBg).not.toBe(r.yesBg);
+        expect(r.stored).toBe(false);   // the later tap wins
+    }, 30_000);
+
+    test('the goal picker has real styling behind its selected state too', async () => {
+        // Same class of bug, other tappable surface.
+        const sel = '.goal-opt[data-goal="size"]';
+        await app.page.evaluate(() => {
+            closePelvicScreen();
+            persisted.primaryGoal = '';
+            showOnboarding(); goToObSlide(3);
+        });
+        await app.page.waitForTimeout(400);
+        const before = await bgOf(sel);
+        await app.page.evaluate(s => document.querySelector(s).click(), sel);
+        await app.page.waitForTimeout(400);
+        const after = await bgOf(sel);
+        expect(after).not.toBe(before);
+        await app.page.evaluate(() => hideOnboarding());
+    }, 30_000);
+});
+
+describe('the check is offered on the HQ, not only in the Manual', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'pfh' }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('an unscreened member sees the prompt, above the calendar', async () => {
+        const r = await app.page.evaluate(() => {
+            persisted.pelvicProfile = '';
+            goToStep(0);
+            const prompt = document.getElementById('hq-pelvic-prompt');
+            const cal = document.getElementById('hq-calendar-card');
+            return {
+                shown: !prompt.classList.contains('hidden'),
+                // compareDocumentPosition: 4 means prompt precedes calendar
+                aboveCalendar: !!(prompt.compareDocumentPosition(cal) & Node.DOCUMENT_POSITION_FOLLOWING),
+            };
+        });
+        expect(r.shown).toBe(true);
+        expect(r.aboveCalendar).toBe(true);
+    }, 30_000);
+
+    test('it opens the check', async () => {
+        const shown = await app.page.evaluate(() => {
+            document.getElementById('hq-pelvic-start').click();
+            return !document.getElementById('pelvic-screen-modal').classList.contains('hidden');
+        });
+        expect(shown).toBe(true);
+    }, 30_000);
+
+    test.each([['tight'], ['standard']])('it disappears once screened (%s)', async (profile) => {
+        const hidden = await app.page.evaluate(p => {
+            closePelvicScreen();
+            persisted.pelvicProfile = p;
+            goToStep(0);
+            return document.getElementById('hq-pelvic-prompt').classList.contains('hidden');
+        }, profile);
+        expect(hidden).toBe(true);
+    }, 30_000);
+
+    test('the Why link opens the Manual at the recovery chapter, expanded', async () => {
+        const r = await app.page.evaluate(async () => {
+            persisted.pelvicProfile = '';
+            goToStep(0);
+            document.getElementById('hq-pelvic-learn').click();
+            await new Promise(res => setTimeout(res, 500));
+            return {
+                manualOpen: document.getElementById('manual-modal').classList.contains('show'),
+                sectionOpen: document.getElementById('m-recovery').classList.contains('open'),
+            };
+        });
+        expect(r.manualOpen).toBe(true);
+        expect(r.sectionOpen).toBe(true);
+        expect(app.errors).toEqual([]);
+    }, 30_000);
+});
+
 describe('unscreened members', () => {
     let app;
     beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'pf4' }); }, 60_000);
