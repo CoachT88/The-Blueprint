@@ -48,6 +48,16 @@
         .type-length{border-bottom:4px solid var(--accent-blue);color:#93c5fd}
         .type-girth{border-bottom:4px solid var(--accent-emerald);color:#6ee7b7}
         .type-rest{border-bottom:4px solid #475569;color:#94a3b8}
+        .type-stamina{border-bottom:4px solid #a855f7;color:#d8b4fe}
+        .type-unknown{border-bottom:4px solid #334155;color:#64748b}
+        .calendar-day.scheduled-focus{box-shadow:0 0 0 2px rgba(59,130,246,.55)}
+        .mission-focus{box-shadow:0 0 0 2px rgba(59,130,246,.55)!important}
+        .goal-opt{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.9rem .5rem;border-radius:1rem;
+            background:rgba(30,41,59,.5);border:1px solid rgba(148,163,184,.15);cursor:pointer;transition:all .2s;text-align:center}
+        .goal-opt i{font-size:1.15rem}
+        .goal-opt span{font-size:.7rem;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.02em;line-height:1.15}
+        .goal-opt em{font-size:.58rem;font-style:normal;color:#64748b;line-height:1.2}
+        .goal-opt.selected{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.6)}
         .level-badge{background:linear-gradient(135deg,rgba(250,204,21,.1) 0%,rgba(245,158,11,.05) 100%);border:1px solid rgba(250,204,21,.2);border-radius:.75rem;padding:.75rem 1rem}
         .level-bar-track{height:3px;background:#1e293b;border-radius:999px;width:100%;margin-top:.4rem}
         .level-bar-fill{height:100%;background:linear-gradient(90deg,#facc15,#f59e0b);border-radius:999px;transition:width .8s cubic-bezier(.4,0,.2,1)}
@@ -92,8 +102,6 @@
         #box-phase-label{font-size:1.1rem;font-weight:900;text-transform:uppercase;letter-spacing:.2em;font-style:italic}
         #box-phase-count{font-family:'JetBrains Mono',monospace;font-size:3rem;font-weight:900;line-height:1;text-shadow:0 0 30px rgba(16,185,129,.6)}
         /* API Key modal */
-        #apikey-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:999999;backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:2rem}
-        #apikey-modal.show{display:flex}
         /* Difficulty selector */
         .diff-btn{flex:1;padding:.55rem .25rem;border-radius:.75rem;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);color:#475569}
         .diff-btn.active-diff{color:#f8fafc;transform:translateY(-1px)}
@@ -135,6 +143,24 @@
         .ob-slide.exit{opacity:0;transform:translateX(-40px);}
         .ob-dot{width:6px;height:6px;border-radius:50%;background:#1e293b;transition:all .3s;}
         .ob-dot.active{background:#3b82f6;transform:scale(1.4);}
+        /* Guided tour (coach marks). Scrim sits above every app modal but below
+           the loading screen. The "hole" is one box whose huge spread shadow
+           darkens everything outside it, so no 4-panel geometry is needed. */
+        #tour-layer{position:fixed;inset:0;z-index:100000;display:none;}
+        #tour-layer.show{display:block;}
+        #tour-hole{position:fixed;border-radius:16px;box-shadow:0 0 0 9999px rgba(2,6,23,.88);
+            border:2px solid rgba(59,130,246,.9);pointer-events:none;
+            transition:top .32s cubic-bezier(.2,.8,.2,1),left .32s cubic-bezier(.2,.8,.2,1),width .32s cubic-bezier(.2,.8,.2,1),height .32s cubic-bezier(.2,.8,.2,1);}
+        #tour-card{position:fixed;z-index:100001;width:min(20rem,calc(100vw - 2rem));
+            background:linear-gradient(145deg,rgba(30,41,59,.98) 0%,rgba(15,23,42,.99) 100%);
+            border:1px solid rgba(59,130,246,.35);border-radius:1.25rem;padding:1.1rem 1.15rem;
+            animation:modalSpring .32s cubic-bezier(.2,.8,.2,1);}
+        #tour-card h4{font-size:.95rem;font-weight:900;color:#fff;text-transform:uppercase;font-style:italic;letter-spacing:-.01em;margin-bottom:.35rem;}
+        #tour-card p{font-size:.78rem;line-height:1.55;color:#94a3b8;}
+        .tour-foot{display:flex;align-items:center;justify-content:space-between;margin-top:.9rem;gap:.75rem;}
+        .tour-dots{display:flex;gap:5px;}
+        #tour-next{background:#2563eb;color:#fff;font-weight:900;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;padding:.6rem 1.1rem;border-radius:.75rem;border:none;cursor:pointer;flex-shrink:0;}
+        #tour-skip{background:none;border:none;color:#475569;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;padding:.4rem 0;}
         /* Manual */
         #manual-modal{position:fixed;inset:0;background:rgba(2,6,23,.98);z-index:99992;backdrop-filter:blur(20px);display:none;flex-direction:column;overflow:hidden;}
         #manual-modal.show{display:flex}
@@ -282,7 +308,6 @@
             <p class="text-slate-500 text-[11px] mt-1 font-semibold uppercase tracking-widest">Members Only</p>
         </div>
 
-```
     <!-- Tabs -->
     <div class="flex gap-1 bg-slate-900/60 p-1 rounded-xl mb-5">
         <button class="auth-tab active" id="tab-login">Sign In</button>
@@ -384,7 +409,6 @@
     <path id="box-active-seg" d=""/>
     <svg id="box-svg"></svg>
 </div>
-```
 
 </div>
 
@@ -404,22 +428,6 @@
     </div>
 </div>
 
-<!-- API KEY MODAL -->
-
-<div id="apikey-modal">
-    <div style="background:linear-gradient(145deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);border:1px solid rgba(168,85,247,.3);border-top:1px solid rgba(168,85,247,.5);border-radius:2rem;padding:2rem;max-width:20rem;width:100%;text-align:center;">
-        <i class="fas fa-brain text-purple-400 text-4xl mb-4"></i>
-        <h3 class="text-xl font-black uppercase italic text-white mb-2">Connect Coach Tee</h3>
-        <p class="text-slate-400 text-xs leading-relaxed mb-5">Enter your Anthropic API key to enable AI coaching. Get one free at <span class="text-purple-400 font-bold">console.anthropic.com</span>. Stored only on this device.</p>
-        <input id="apikey-input" type="password" placeholder="sk-ant-..." class="glass-input mb-4" style="font-family:'JetBrains Mono',monospace;font-size:.8rem;letter-spacing:.05em;">
-        <div class="flex gap-3">
-            <button id="apikey-cancel-btn" class="btn-outline py-3 text-xs">Cancel</button>
-            <button id="apikey-save-btn" class="btn-primary btn-ai py-3 text-xs" style="flex:2">Save & Connect</button>
-        </div>
-        <p id="apikey-error" class="text-red-400 text-[11px] mt-3 hidden"></p>
-    </div>
-</div>
-
 <!-- CHART MODAL -->
 
 <div id="chart-modal" class="hidden">
@@ -435,6 +443,11 @@
         <div class="px-2 space-y-3">
             <div class="flex items-center gap-2"><div class="chart-legend-dot bg-emerald-500"></div><span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">MSEG — Mid-Shaft Erect Girth</span></div>
             <div class="chart-svg-wrap"><svg id="mseg-chart" width="100%" viewBox="0 0 340 160"></svg></div>
+        </div>
+        <div class="px-2 space-y-3">
+            <div class="flex items-center gap-2"><div class="chart-legend-dot" style="background:#a855f7"></div><span class="text-[10px] font-black uppercase tracking-widest" style="color:#a855f7">EQ — Erection Quality Per Session</span></div>
+            <div class="chart-svg-wrap"><svg id="eq-chart" width="100%" viewBox="0 0 340 160"></svg></div>
+            <p class="text-[9px] text-slate-600 text-center italic">EQ responds in weeks. It moves long before the tape does.</p>
         </div>
         <div id="chart-stats" class="grid grid-cols-2 gap-3 px-2"></div>
         <p class="text-center text-slate-600 text-[10px] italic px-2">Measurements logged at session end.</p>
@@ -546,6 +559,29 @@
             </div>
             <p class="text-[9px] text-slate-700 italic mt-2 text-center">Stored privately — only you can see this.</p>
         </div>
+        <div class="px-2">
+            <button id="photo-compare-btn" class="btn-outline w-full py-3 text-[11px] flex items-center justify-center gap-2" style="border-color:rgba(16,185,129,.3);color:#6ee7b7;">
+                <i class="fas fa-code-compare text-xs" style="color:#10b981"></i> Compare Before &amp; After
+            </button>
+            <p id="photo-compare-hint" class="hidden text-[10px] text-slate-500 italic mt-2 text-center"></p>
+        </div>
+        <!-- Before / after -->
+        <div id="photo-compare" class="hidden px-2 space-y-3">
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-slate-500 text-center mb-1">Before</p>
+                    <img id="photo-compare-before" class="w-full aspect-square object-cover rounded-xl bg-slate-800">
+                    <p id="photo-compare-before-date" class="text-[10px] text-slate-400 text-center mt-1 font-semibold"></p>
+                </div>
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-emerald-400 text-center mb-1">After</p>
+                    <img id="photo-compare-after" class="w-full aspect-square object-cover rounded-xl bg-slate-800">
+                    <p id="photo-compare-after-date" class="text-[10px] text-emerald-300 text-center mt-1 font-semibold"></p>
+                </div>
+            </div>
+            <p id="photo-compare-gap" class="text-center text-[11px] font-black uppercase tracking-widest text-slate-300"></p>
+            <p class="text-center text-[10px] text-slate-600 italic">Tap any photo below to use it as the After shot.</p>
+        </div>
         <div id="photo-log-gallery" class="grid grid-cols-3 gap-2 px-2"></div>
         <div class="scroll-buffer"></div>
     </div>
@@ -582,7 +618,20 @@
             <h1 class="text-[3.5rem] leading-none font-black italic uppercase tracking-tighter bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent drop-shadow-sm">The Blueprint</h1>
         </div>
 
-```
+    <!-- What the member actually gets. Shown before the liability gate so the
+         first thing they read is the program, not the risk disclosure. -->
+    <div class="px-4 w-full space-y-2 text-left">
+        <div class="instruction-card" style="padding:.8rem 1rem;">
+            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-stopwatch text-blue-400 mr-2"></i><span class="font-black text-white">Guided sessions.</span> Every set timed, with technique cues and safety checks as you go.</p>
+        </div>
+        <div class="instruction-card" style="padding:.8rem 1rem;">
+            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-layer-group text-emerald-400 mr-2"></i><span class="font-black text-white">Four tiers.</span> You start at Beginner. Each one unlocks as your tissue adapts, so you never jump ahead.</p>
+        </div>
+        <div class="instruction-card" style="padding:.8rem 1rem;">
+            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-comment-dots text-purple-400 mr-2"></i><span class="font-black text-white">Coach Tee, plus tracking.</span> A 24/7 advisor, with measurements, photos and streaks all logged for you.</p>
+        </div>
+    </div>
+
     <!-- Liability gate -->
     <div class="px-4 w-full space-y-3 text-left">
         <div class="bg-red-950/30 border border-red-500/20 rounded-2xl p-4 mb-1">
@@ -605,7 +654,6 @@
     </div>
     <div class="scroll-buffer"></div>
 </div>
-```
 
 </div>
 
@@ -617,7 +665,7 @@
             <div>
                 <h1 class="text-4xl font-black tracking-tighter uppercase italic leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">The HQ</h1>
                 <p id="hq-user-email" class="hidden"></p>
-                <div class="flex items-center gap-3 mt-3">
+                <div id="hq-stat-chips" class="flex items-center gap-3 mt-3">
                     <div class="bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-fire text-orange-500 text-[10px]"></i><span id="hq-streak" class="text-[10px] font-bold text-orange-100">0 Day Streak</span></div>
                     <div class="bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-bolt text-yellow-400 text-[10px]"></i><span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span></div>
                 </div>
@@ -628,7 +676,7 @@
                 <button id="logout-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Sign out"><i class="fas fa-right-from-bracket text-xs"></i></button>
             </div>
         </div>
-        <div class="level-badge mx-2 hq-anim">
+        <div id="hq-level-badge" class="level-badge mx-2 hq-anim">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i><span id="hq-level-name" class="text-yellow-300 text-xs font-black uppercase tracking-widest">LVL 1 · RECRUIT</span></div>
                 <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">65 XP to next level</span>
@@ -636,26 +684,33 @@
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
         </div>
         <div id="deload-banner" class="deload-banner mx-2 hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
-        <div class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
+        <div id="hq-calendar-card" class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
         <p class="text-[9px] font-black text-slate-700 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
         <div id="last-measure-row" class="flex gap-3 mx-2">
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+        </div>
+        <div id="eq-summary-row" class="hidden flex gap-3 mx-2">
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Avg EQ</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">last 7 sessions</p><p id="eq-avg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
         </div>
         <!-- Coach Tee Hourly Tip -->
-        <div class="tip-card mx-2 hq-anim">
+        <div id="hq-tip-card" class="tip-card mx-2 hq-anim">
             <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee</p>
             <p id="daily-tip-title" class="text-[11px] font-black text-white uppercase tracking-wide mb-1"></p>
             <p id="daily-tip" class="text-[12px] text-slate-300 leading-relaxed italic"></p>
         </div>
         <!-- Hydration Tracker -->
-        <div class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
+        <div id="hq-hydration-card" class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
             <div class="flex justify-between items-center mb-3">
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-droplet text-blue-400 text-sm"></i>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Daily Hydration</span>
+                <div class="flex items-center gap-2 min-w-0">
+                    <i class="fas fa-droplet text-blue-400 text-sm flex-shrink-0"></i>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-blue-400 truncate">Daily Hydration</span>
                 </div>
-                <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace">0 / 3L</span>
+                <div class="flex items-center gap-2 flex-shrink-0 min-w-0">
+                    <span id="hydration-over" class="hidden text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" style="background:rgba(16,185,129,.15);color:#6ee7b7;white-space:nowrap;"></span>
+                    <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace;white-space:nowrap;">0 / 3L</span>
+                </div>
             </div>
             <!-- Liter milestone bubbles -->
             <div class="flex gap-2 mb-3" id="hydration-liters">
@@ -674,11 +729,15 @@
                 <button id="hydration-custom-btn" class="water-btn" style="flex-shrink:0;width:52px;"><i class="fas fa-plus"></i></button>
                 <button id="hydration-reset-btn" class="water-btn" style="flex-shrink:0;width:40px;border-color:rgba(100,116,139,.2);background:rgba(100,116,139,.05);color:#475569;"><i class="fas fa-rotate-left"></i></button>
             </div>
+            <p id="hydration-entry-note" class="hidden text-[10px] text-center mb-1"></p>
+            <div class="flex justify-center mb-1">
+                <button id="hydration-undo-btn" class="hidden text-[9px] font-black uppercase tracking-widest text-slate-500 px-2 py-1"><i class="fas fa-rotate-left mr-1"></i>Undo last</button>
+            </div>
             <p id="hydration-msg" class="text-[10px] text-slate-500 italic mt-1 text-center">Sip throughout the day — don't chug.</p>
         </div>
 
     <!-- Sleep + Soreness quick-log -->
-    <div class="px-2 space-y-2 hq-anim">
+    <div id="hq-checkin-card" class="px-2 space-y-2 hq-anim">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Daily Check-In</p>
         <div class="instruction-card" style="padding:.85rem 1rem;">
             <div class="space-y-2.5">
@@ -705,7 +764,7 @@
     </div>
 
     <!-- Personal Records -->
-    <div class="px-2 space-y-2 hq-anim">
+    <div id="hq-records-card" class="px-2 space-y-2 hq-anim">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Personal Records</p>
         <div class="flex gap-2">
             <div class="record-chip"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Best Streak</p><p id="record-streak" class="text-lg font-black text-white">0d</p></div>
@@ -723,13 +782,35 @@
             </div>
             <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
         </div>
+        <div id="hq-load-failed-banner" class="hidden p-3 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-center gap-3">
+            <i class="fas fa-triangle-exclamation text-red-400 text-lg flex-shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-black text-red-300 uppercase tracking-widest">Could Not Load Your Data</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Your progress is safe on the server, we just could not reach it. Nothing will be saved until it loads. Do not start a session yet.</p>
+            </div>
+            <button id="hq-load-retry-btn" class="text-[10px] font-black text-red-300 uppercase tracking-widest bg-red-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Retry</button>
+        </div>
+        <div id="hq-pass-used-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
+            <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Your streak is still alive. Get back in today.</p>
+            </div>
+        </div>
+        <div id="hq-rest-banner" class="hidden p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-3">
+            <i class="fas fa-bed text-indigo-400 text-lg flex-shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-black text-indigo-300 uppercase tracking-widest">Rest Day</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Training is locked today. This takes you to the Recovery Protocol, which is how you actually grow.</p>
+            </div>
+        </div>
         <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
-        <div class="grid grid-cols-3 gap-2">
+        <div id="hq-tools-row" class="grid grid-cols-3 gap-2">
             <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
             <button id="weekly-report-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-calendar-week text-emerald-400 text-xs"></i> Week</button>
             <button id="photos-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-images text-xs" style="color:#a855f7"></i> Photos</button>
         </div>
-        <div class="grid grid-cols-2 gap-2">
+        <div id="hq-coach-row" class="grid grid-cols-2 gap-2">
             <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Ask Coach Tee</button>
             <button id="manual-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-book-open text-xs" style="color:#a855f7"></i> Manual</button>
         </div>
@@ -749,7 +830,6 @@
     </div>
     <div class="scroll-buffer"></div>
 </div>
-```
 
 </div>
 
@@ -783,7 +863,8 @@
         </div>
         <div class="flex flex-col gap-4 px-2">
             <div class="grid grid-cols-2 gap-4"><button id="warmup-btn" class="btn-primary py-4">Start</button><button id="warmup-reset-btn" class="btn-outline">Reset</button></div>
-            <button id="warmup-skip-btn" class="text-slate-500 font-black text-[10px] tracking-widest py-3">Skip to Mission Select</button>
+            <button id="warmup-skip-btn" class="text-slate-500 font-black text-[10px] tracking-widest py-3">Skip Warmup, Start Session</button>
+            <button id="warmup-back-btn" class="btn-outline py-3 text-[11px]">Back to Mission Select</button>
         </div>
         <div class="scroll-buffer"></div>
     </div>
@@ -796,7 +877,6 @@
         <h2 class="text-4xl font-black italic uppercase text-slate-50">Select Mission</h2>
         <div id="deload-mission-note" class="hidden mx-2 deload-banner text-left"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><p class="text-orange-300 text-[11px]">Deload active — reduced volume loaded automatically.</p></div>
 
-```
     <!-- Difficulty selector -->
     <div class="px-2 space-y-2">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Difficulty</p>
@@ -826,9 +906,10 @@
     </div>
     <div class="grid grid-cols-1 gap-4 px-2 w-full">
         <div class="grid grid-cols-2 gap-4">
-            <button id="mission-length-btn" class="instruction-card hover:border-blue-500/50 transition-all flex flex-col items-center gap-3 py-8"><i class="fas fa-up-right-and-down-left-from-center text-2xl text-blue-400"></i><span class="text-xl font-black uppercase italic">Length</span></button>
-            <button id="mission-girth-btn"  class="instruction-card hover:border-emerald-500/50 transition-all flex flex-col items-center gap-3 py-8"><i class="fas fa-expand text-2xl text-emerald-400"></i><span class="text-xl font-black uppercase italic">Girth</span></button>
+            <button id="mission-length-btn" class="instruction-card hover:border-blue-500/50 transition-all flex flex-col items-center gap-2 py-6 px-3"><i class="fas fa-up-right-and-down-left-from-center text-2xl text-blue-400"></i><span class="text-xl font-black uppercase italic">Length</span><span class="text-[9px] text-slate-500 font-semibold leading-snug text-center">Stretching protocol: ligament and tunica elongation</span></button>
+            <button id="mission-girth-btn"  class="instruction-card hover:border-emerald-500/50 transition-all flex flex-col items-center gap-2 py-6 px-3"><i class="fas fa-expand text-2xl text-emerald-400"></i><span class="text-xl font-black uppercase italic">Girth</span><span class="text-[9px] text-slate-500 font-semibold leading-snug text-center">Jelq and Uli work: expansion under pressure</span></button>
         </div>
+        <p id="beginner-rec-note" class="hidden text-[10px] text-blue-300/80 text-center px-2 leading-relaxed"><i class="fas fa-circle-info mr-1"></i>New here? Start with <span class="font-black">Length</span>. It is the more forgiving of the two and builds the base girth work depends on.</p>
         <button id="mission-stamina-btn" class="instruction-card hover:border-purple-500/50 transition-all flex items-center gap-5 px-6 py-5" style="border-color:rgba(168,85,247,0.15);">
             <i class="fas fa-fire-flame-curved text-2xl text-purple-400 flex-shrink-0"></i>
             <div class="text-left">
@@ -864,7 +945,6 @@
             </div>
         </div>
 
-```
     <!-- Coach Tee recommendation -->
     <div class="coach-rec-banner mx-2">
         <i class="fas fa-comment-dots text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
@@ -891,7 +971,6 @@
     </div>
     <div class="scroll-buffer"></div>
 </div>
-```
 
 </div>
 
@@ -912,7 +991,7 @@
         </div>
         <div class="flex items-center gap-2">
             <div class="bg-slate-900/80 border border-yellow-500/30 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5"><i class="fas fa-bolt text-yellow-400 text-xs"></i><span id="live-xp" class="text-xs font-black text-yellow-400">0 XP</span></div>
-            <div class="text-right"><p class="text-[8px] font-black text-slate-500 uppercase">EQ</p><p id="ex-eq-req" class="text-sm font-black text-blue-400 italic leading-none">--</p></div>
+            <div class="text-right"><p class="text-[8px] font-black text-slate-500 uppercase" title="Erection Quality target for this exercise">Target EQ</p><p id="ex-eq-req" class="text-sm font-black text-blue-400 italic leading-none">--</p></div>
         </div>
     </div>
 
@@ -965,7 +1044,6 @@
         </button>
     </div>
 </div>
-```
 
 </div>
 
@@ -977,10 +1055,10 @@
         <h2 class="text-4xl font-black italic uppercase text-slate-50">Mission Success</h2>
         <p id="success-xp-text" class="text-yellow-400 font-bold text-sm">+0 XP EARNED</p>
 
-```
     <!-- EQ check-in -->
     <div class="instruction-card border-blue-500/20 mx-2 text-left">
-        <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-gauge-high"></i> EQ During Session</p>
+        <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-gauge-high"></i> EQ During Session</p>
+        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Erection Quality: how firm were you? 1 = flaccid, 10 = maximum.</p>
         <div class="grid grid-cols-5 gap-1.5" id="eq-checkin-btns">
             <button class="eq-btn" data-eq="1">1<br><span class="text-[9px] font-normal opacity-60">Flaccid</span></button>
             <button class="eq-btn" data-eq="2">2</button>
@@ -997,7 +1075,8 @@
 
     <!-- RPE -->
     <div class="instruction-card border-emerald-500/20 mx-2 text-left">
-        <p class="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-dumbbell"></i> Session Effort (RPE)</p>
+        <p class="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-dumbbell"></i> Session Effort (RPE)</p>
+        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Rate of Perceived Exertion: how hard the session felt overall.</p>
         <div class="grid grid-cols-5 gap-1.5" id="rpe-btns">
             <button class="rpe-btn" data-rpe="1">1<br><span class="text-[9px] font-normal opacity-60">Easy</span></button>
             <button class="rpe-btn" data-rpe="2">2</button>
@@ -1061,7 +1140,6 @@
     <div class="px-2 w-full pt-2"><button id="finish-session-btn" class="btn-primary py-5 text-lg" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">CONFIRM HQ SYNC</button></div>
     <div class="scroll-buffer"></div>
 </div>
-```
 
 </div>
 
@@ -1112,7 +1190,7 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">Your Weekly Schedule</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The HQ shows your 7-day training plan. Each day is assigned Length, Girth, or Rest. Tap any day to change it. Rest days are mandatory — your tissue adapts during recovery, not during training.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The HQ shows your 7-day training plan. Each day is assigned Length, Girth, Stamina or Rest. Tap any day to change it. Rest days are mandatory — your tissue adapts during recovery, not during training.</p>
         <div class="mt-6 flex gap-3 justify-center">
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 w-16"><i class="fas fa-up-right-and-down-left-from-center text-blue-400 text-lg"></i><span class="text-[9px] font-black text-blue-300 uppercase">Length</span></div>
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 w-16"><i class="fas fa-expand text-emerald-400 text-lg"></i><span class="text-[9px] font-black text-emerald-300 uppercase">Girth</span></div>
@@ -1144,17 +1222,36 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">Start at Beginner</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The app has 4 tiers: Beginner → Intermediate → Advanced → Elite. Everyone starts at Beginner. Each tier requires 4 weeks of consistent training before the next unlocks — this lets your tissue adapt safely. On rest days, always do the Recovery Protocol.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The app has 4 tiers: Beginner → Intermediate → Advanced → Elite. New pilots start at Beginner. Each tier requires 4 weeks of consistent training before the next unlocks — this lets your tissue adapt safely. On rest days, always do the Recovery Protocol.</p>
         <div class="mt-6 p-4 rounded-2xl bg-amber-500/08 border border-amber-500/20 text-left max-w-xs w-full">
             <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">CoachTee Says</p>
             <p class="text-slate-400 text-xs leading-relaxed">The guys who try to skip to Advanced in week one are the same guys who quit in week three. Trust the process.</p>
         </div>
     </div>
 
+    <div class="ob-slide" id="ob-slide-3">
+        <div class="relative mb-6">
+            <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
+            <div class="relative p-6 bg-blue-500/08 rounded-full border border-blue-500/20 w-fit mx-auto">
+                <i class="fas fa-bullseye text-4xl text-blue-400"></i>
+            </div>
+        </div>
+        <h2 class="text-3xl font-black italic uppercase text-white mb-2">What are you here for?</h2>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">This sets your weekly schedule and what I focus on. You can change it any time from the Manual.</p>
+        <div class="grid grid-cols-2 gap-2.5 w-full max-w-xs" id="goal-options">
+            <button class="goal-opt" data-goal="size"><i class="fas fa-up-right-and-down-left-from-center text-blue-400"></i><span>Size</span><em>Length and girth work</em></button>
+            <button class="goal-opt" data-goal="stamina"><i class="fas fa-fire-flame-curved text-purple-400"></i><span>Lasting longer</span><em>Control and endurance</em></button>
+            <button class="goal-opt" data-goal="eq"><i class="fas fa-heart-pulse text-emerald-400"></i><span>Erection quality</span><em>Firmness and blood flow</em></button>
+            <button class="goal-opt" data-goal="all"><i class="fas fa-layer-group text-amber-400"></i><span>All of it</span><em>The complete protocol</em></button>
+        </div>
+        <p id="goal-confirm" class="hidden text-[10px] text-emerald-400 font-bold mt-4"></p>
+    </div>
+
 <!-- Nav -->
 <div class="absolute bottom-0 left-0 right-0 p-8 flex flex-col items-center gap-4">
     <div class="flex gap-2" id="ob-dots">
         <div class="ob-dot active"></div>
+        <div class="ob-dot"></div>
         <div class="ob-dot"></div>
         <div class="ob-dot"></div>
     </div>
@@ -1164,12 +1261,25 @@
 
 </div>
 
+<!-- GUIDED TOUR (coach marks) -->
+<div id="tour-layer">
+    <div id="tour-hole"></div>
+    <div id="tour-card">
+        <h4 id="tour-title"></h4>
+        <p id="tour-body"></p>
+        <div class="tour-foot">
+            <button id="tour-skip">Skip tour</button>
+            <div class="tour-dots" id="tour-dots"></div>
+            <button id="tour-next">Next</button>
+        </div>
+    </div>
+</div>
+
 <!-- MANUAL MODAL -->
 
 <div id="manual-modal">
     <div style="display:flex;flex-direction:column;height:100%;max-height:100vh;">
 
-```
     <!-- Header -->
     <div style="padding:3rem 1.25rem 1rem;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);">
         <div class="flex justify-between items-start">
@@ -1180,6 +1290,11 @@
             </div>
             <button id="manual-close-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 flex-shrink-0 mt-1"><i class="fas fa-xmark text-lg"></i></button>
         </div>
+        <div class="flex gap-2 mt-4">
+            <button id="replay-intro-btn" class="btn-outline flex-1 py-2.5 text-[10px] flex items-center justify-center gap-1.5"><i class="fas fa-rotate-left text-[10px]"></i> Replay Intro</button>
+            <button id="replay-tour-btn" class="btn-outline flex-1 py-2.5 text-[10px] flex items-center justify-center gap-1.5" style="border-color:rgba(59,130,246,.3);color:#93c5fd;"><i class="fas fa-location-crosshairs text-[10px]"></i> Replay Tour</button>
+        </div>
+        <button id="change-goal-btn" class="btn-outline w-full py-2.5 text-[10px] flex items-center justify-center gap-1.5 mt-2" style="border-color:rgba(16,185,129,.3);color:#6ee7b7;"><i class="fas fa-bullseye text-[10px]"></i> Change My Goal</button>
     </div>
 
     <!-- Scrollable content -->
@@ -1209,7 +1324,7 @@
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-calendar-week text-slate-300 mr-1.5"></i>Weekly Calendar</p>
-                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, grey for Rest. Tap any day to change its assignment or mark it complete. Today is highlighted with a border.</p>
+                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, purple for Stamina, grey for Rest. Tap any day to change its assignment or mark it complete. Today is highlighted with a border, and today's training focus gets a ring.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-moon text-slate-300 mr-1.5"></i>Daily Check-In</p>
@@ -1239,7 +1354,7 @@
         </div>
         <div id="m-training" class="manual-section">
             <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
-                <p>Tap <strong class="text-white">Begin Session</strong> to start. You will pass through a warmup phase, then arrive at Mission Select.</p>
+                <p>Tap <strong class="text-white">Begin Session</strong> to start. After the pre-flight check you pick your mission. Length and Girth then run the warmup phase first, because cold tissue does not stretch. Stamina and Recovery start straight away.</p>
                 <div class="space-y-3">
                     <div class="p-3 rounded-xl bg-blue-500/05 border border-blue-500/20">
                         <p class="text-blue-300 font-bold text-xs mb-1"><i class="fas fa-up-right-and-down-left-from-center mr-1.5"></i>Length Protocol</p>
@@ -1506,7 +1621,7 @@
             <div class="space-y-3 text-[12px] text-slate-400 leading-relaxed">
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Never skip the warmup</p>
-                    <p>The 10-minute warmup phase is not optional. Collagen does not stretch when cold. Guys who skip warmup plateau 3–4 times faster than consistent warmers. Use a warm towel, warm shower, or the warmup timer in the app.</p>
+                    <p>The 10-minute warmup phase is not optional before Length or Girth work. Collagen does not stretch when cold. Guys who skip warmup plateau 3–4 times faster than consistent warmers. Use a warm towel, warm shower, or the warmup timer in the app. Stamina and Recovery sessions do not need it.</p>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Hydration is structural</p>
@@ -1537,7 +1652,6 @@
 
     </div>
 </div>
-```
 
 </div>
 
@@ -1602,6 +1716,7 @@
         <div class="space-y-4">
             <button id="modal-length-btn" class="w-full py-5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 font-black uppercase italic cursor-pointer">Length</button>
             <button id="modal-girth-btn"  class="w-full py-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-black uppercase italic cursor-pointer">Girth</button>
+            <button id="modal-stamina-btn" class="w-full py-5 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-300 font-black uppercase italic cursor-pointer">Stamina</button>
             <button id="modal-rest-btn"   class="w-full py-5 rounded-2xl bg-slate-800 border border-slate-700 text-slate-300 font-black uppercase italic cursor-pointer">Rest</button>
         </div>
         <div class="h-px w-full bg-slate-800 my-6"></div>
@@ -1628,6 +1743,44 @@
 // DATA
 // ═══════════════════════════════════════════════════════════════════════════
 const DAY_NAMES=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+// ── Training day types ─────────────────────────────────────────────────────
+// The schedule system is type-agnostic (assignDay takes any string, and
+// isBlackoutDay only tests for 'rest'), so these drive presentation.
+const DAY_TYPES={
+    length:  {label:'Length',   icon:'fa-up-right-and-down-left-from-center'},
+    girth:   {label:'Girth',    icon:'fa-expand'},
+    stamina: {label:'Stamina',  icon:'fa-fire-flame-curved'},
+    rest:    {label:'Rest',     icon:'fa-bed'},
+};
+// A stale cached shell can receive a type it does not know about. Show it as
+// unknown rather than falling through to the rest icon, which would read as a
+// rest day while the app still treats it as a training day.
+const UNKNOWN_DAY_ICON='fa-circle-question';
+function dayTypeIcon(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].icon)||UNKNOWN_DAY_ICON; }
+function dayTypeLabel(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].label)||'Unset'; }
+
+// ── Primary goal ───────────────────────────────────────────────────────────
+// '' means never answered and behaves exactly as 'all', so skipping the
+// question leaves the app working the way it always has.
+const GOALS={
+    size:    {label:'Size',            blurb:'Length and girth work',        icon:'fa-up-right-and-down-left-from-center', color:'blue',
+              schedule:['length','girth','rest','length','girth','rest','rest'],
+              mission:'length', coach:'Their focus is size. Lead with length and girth work, tissue adaptation and measurement progress.'},
+    stamina: {label:'Lasting longer',  blurb:'Control and endurance',        icon:'fa-fire-flame-curved', color:'purple',
+              schedule:['stamina','rest','stamina','rest','stamina','rest','rest'],
+              mission:'stamina', coach:'Their focus is lasting longer. Lead with ejaculatory control, pelvic floor state (assess hypertonic vs weak before recommending anything), arousal management and stamina work. Do not push size training unless they ask.'},
+    eq:      {label:'Erection quality',blurb:'Firmness and blood flow',      icon:'fa-heart-pulse', color:'emerald',
+              schedule:['stamina','rest','length','rest','stamina','rest','rest'],
+              mission:'stamina', coach:'Their focus is erection quality. Lead with vascular health, nitric oxide and endothelial function, sleep, and pelvic floor blood flow. Do not push size training unless they ask.'},
+    all:     {label:'All of it',       blurb:'The complete protocol',        icon:'fa-layer-group', color:'amber',
+              schedule:['length','girth','rest','stamina','length','rest','rest'],
+              mission:'length', coach:'They want the complete protocol. Balance size, stamina and erection quality rather than favouring one.'},
+};
+function getGoal(){ return GOALS[persisted.primaryGoal]||GOALS.all; }
+function getGoalKey(){ return GOALS[persisted.primaryGoal]?persisted.primaryGoal:'all'; }
+function isSizeLed(){ const k=getGoalKey(); return k==='size'||k==='all'; }
+function getScheduledType(){ return (persisted.schedule||[])[new Date().getDay()]||'rest'; }
 const DIRECTIONALS=['OUT','UP','DOWN','LEFT','RIGHT'];
 const SESSION_XP={beginner:10,intermediate:15,advanced:20,elite:25,recovery:5};
 const RANK_NAMES=['Recruit','Operator','Specialist','Veteran','Elite','Legend'];
@@ -1939,10 +2092,19 @@ const DEFAULT_PERSISTED={
     firstSessionDate:'',   // used for tier lock calculation
     allTimeSessionCount:0, // never truncated — used for safe XP migration check
     xpMigrated:false,      // one-time flag so XP migration never fires twice
+    streakPasses:0,        // banked Recovery Passes (max 2)
+    passProtectedDates:[], // ISO dates a spent pass is covering
+    lastPassEarnedDate:'', // guards against earning twice in one day
+    primaryGoal:'',        // '' | size | stamina | eq | all  ('' behaves as all)
 };
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
 let _saveDebounce = null;
+// True only once we know the server's state for this user: their row was read,
+// their local backup was restored, or we confirmed they are genuinely new.
+// While false, `persisted` is still just defaults and MUST NOT be written
+// anywhere, or a slow connection would overwrite a real account with zeros.
+let _persistedLoaded=false;
 
 function getISOWeek(){
     const d=new Date(); d.setHours(0,0,0,0);
@@ -1956,21 +2118,38 @@ function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
 
 async function loadPersisted(){
     if(!currentUser)return;
+    _persistedLoaded=false;
     // Read localStorage backup first so we can compare timestamps
     let localData=null;
     try{const raw=localStorage.getItem('bp_data_'+currentUser.id);if(raw)localData=JSON.parse(raw);}catch(e){}
     try{
         const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
         const _query=sb.from('user_data').select('*').eq('id',currentUser.id).single();
+        let _queryFailed=false;
         const {data,error}=await Promise.race([_query,_timeout]).catch(e=>{
             // Timeout or network error — fall back to localStorage
-            if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e2){}
+            _queryFailed=true;
+            if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};_persistedLoaded=true;}catch(e2){}
             return {};
         });
         if(!data){
-            if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e){}
+            if(localData){
+                try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};_persistedLoaded=true;}catch(e){}
+            }
+            // Brand-new account starts at Beginner, matching what the intro promises.
+            // Only when the query genuinely SUCCEEDED and found no row (PGRST116) and
+            // there is no local backup — a timeout or error must never downgrade a
+            // returning member who simply could not be read this time.
+            else if(!_queryFailed && (!error || error.code==='PGRST116')){
+                persisted={...DEFAULT_PERSISTED, difficulty:'beginner'};
+                _persistedLoaded=true;
+            }
+            // Otherwise the read failed and we have no backup: stay unloaded so
+            // nothing overwrites the row we could not see.
+            else { _showLoadFailedBanner(); }
             return;
         }
+        _persistedLoaded=true;
         // If the local backup is newer than Supabase, or if a previous write
         // was locally committed but never confirmed by Supabase (dirty flag),
         // treat local as the source of truth and re-sync.
@@ -1982,8 +2161,9 @@ async function loadPersisted(){
             persisted={...DEFAULT_PERSISTED,...rest};
             // Re-sync Supabase with the newer local data
             try{
-                await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
-                localStorage.removeItem('bp_dirty_'+currentUser.id);
+                _persistedLoaded=true; // local backup is a known-good state
+                const _err=await _upsertWithSchemaFallback();
+                if(!_err) localStorage.removeItem('bp_dirty_'+currentUser.id);
             }catch(e){}
         } else {
             persisted = {
@@ -2003,6 +2183,10 @@ async function loadPersisted(){
                 lastTipDate:         data.last_tip_date        || '',
                 allTimeSessionCount: data.all_time_session_count || 0,
                 xpMigrated:          data.xp_migrated          || false,
+                streakPasses:        data.streak_passes        || 0,
+                passProtectedDates:  data.pass_protected_dates || [],
+                lastPassEarnedDate:  data.last_pass_earned_date|| '',
+                primaryGoal:         data.primary_goal        || '',
             };
         }
         // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
@@ -2018,6 +2202,7 @@ async function loadPersisted(){
             persisted.xpMigrated=true;
             savePersisted();
         }
+        normaliseSchedule();
         // Auto-reset completedDays if we're in a new week
         const currentWeek = getCurrentWeekKey();
         if(persisted.weekKey !== currentWeek){
@@ -2027,7 +2212,9 @@ async function loadPersisted(){
         }
     }catch(e){
         console.error('loadPersisted:',e);
-        if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e2){}
+        if(localData){
+            try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};_persistedLoaded=true;}catch(e2){}
+        } else { _showLoadFailedBanner(); }
     }
 }
 
@@ -2048,14 +2235,44 @@ function _buildSavePayload(){
         last_tip_date:         persisted.lastTipDate||'',
         all_time_session_count: persisted.allTimeSessionCount||0,
         xp_migrated:           !!persisted.xpMigrated,
+        streak_passes:         persisted.streakPasses||0,
+        pass_protected_dates:  persisted.passProtectedDates||[],
+        last_pass_earned_date: persisted.lastPassEarnedDate||'',
+        primary_goal:          persisted.primaryGoal||'',
         updated_at:            new Date().toISOString(),
     };
 }
+// Columns added after the original schema. If the deploy lands before the
+// matching ALTER TABLE has been run, Supabase rejects the whole upsert and the
+// member silently stops syncing. We detect that once and fall back to writing
+// the columns that do exist, so progress is never lost over a migration gap.
+const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date','primary_goal'];
+let _schemaMissingNewCols=false;
+function _isUnknownColumnError(err){
+    if(!err) return false;
+    const code=err.code||'';
+    const msg=(err.message||'').toLowerCase();
+    // PGRST204: column not in schema cache. 42703: undefined_column.
+    return code==='PGRST204'||code==='42703'||(msg.includes('column')&&(msg.includes('does not exist')||msg.includes('schema cache')));
+}
 function _upsertPayload(){
     // upsert ensures the row is created if it doesn't exist (cross-device safe)
-    return{id:currentUser.id,..._buildSavePayload()};
+    const payload={id:currentUser.id,..._buildSavePayload()};
+    if(_schemaMissingNewCols) _NEWER_COLUMNS.forEach(c=>delete payload[c]);
+    return payload;
+}
+async function _upsertWithSchemaFallback(){
+    let {error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
+    if(error&&!_schemaMissingNewCols&&_isUnknownColumnError(error)){
+        console.warn('user_data is missing newer columns; saving without them. Run the pending ALTER TABLE.');
+        _schemaMissingNewCols=true;
+        ({error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'}));
+    }
+    return error;
 }
 function savePersisted(){
+    // Refuse to persist defaults over an account we were never able to read.
+    if(!_persistedLoaded){console.warn('savePersisted skipped: user data was never loaded');return;}
     if(currentUser) try{
         localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
         localStorage.setItem('bp_dirty_'+currentUser.id,'1'); // cleared only after Supabase confirms
@@ -2064,7 +2281,7 @@ function savePersisted(){
     _saveDebounce=setTimeout(async()=>{
         if(!currentUser)return;
         try{
-            const {error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
+            const error=await _upsertWithSchemaFallback();
             if(error){console.error('savePersisted error:',error.message,error.code);}
             else{localStorage.removeItem('bp_dirty_'+currentUser.id);}
         }catch(e){console.error('savePersisted:',e)}
@@ -2072,13 +2289,14 @@ function savePersisted(){
 }
 function _flushSaveNow(){
     if(!currentUser)return;
+    if(!_persistedLoaded){console.warn('_flushSaveNow skipped: user data was never loaded');return;}
     clearTimeout(_saveDebounce);
     try{
         localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
         localStorage.setItem('bp_dirty_'+currentUser.id,'1');
     }catch(e){}
-    sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'})
-        .then(({error})=>{
+    _upsertWithSchemaFallback()
+        .then(error=>{
             if(error){console.error('_flushSaveNow error:',error.message,error.code);}
             else if(currentUser){localStorage.removeItem('bp_dirty_'+currentUser.id);}
         })
@@ -2095,7 +2313,11 @@ function resetSession(){
     stopCarousel();
     session.exerciseIndex=0;session.setIndex=1;session.directionalIndex=0;session.xp=0;
     session.recoveryQueue=null;session.recoveryQueuePos=0;
-    session.girthRound=1;session.girthTotalRounds=3;
+    // Derive from the tier. Hardcoding 3 here silently overrode the round count
+    // the mission handler had just set, so Intermediate ran 3 rounds instead of 4
+    // and Advanced/Elite 3 instead of 5.
+    const _gcfg=(typeof GIRTH_CIRCUIT!=='undefined'&&GIRTH_CIRCUIT[getDiff().id])||{rounds:3};
+    session.girthRound=1;session.girthTotalRounds=_gcfg.rounds||3;
     _releaseWakeLock();
 }
 
@@ -2216,7 +2438,7 @@ function getHydrationWarning(){
     // Afternoon/evening — stricter
     if(diff.id==='advanced'||diff.id==='elite'){
         if(ml<2000) return `Only ${liters}L logged today. ${diff.label} sessions put serious demand on your tissue. Hit 3L before training.`;
-        if(ml<3000) return `Almost at 3L — top off before an ${diff.label} session.`;
+        if(ml<HYDRATION_GOAL_ML) return `Almost at 3L — top off before an ${diff.label} session.`;
     } else if(diff.id==='intermediate'){
         if(ml<1500) return `Only ${liters}L today. Aim for at least 2L before training — hydrated tissue expands, dry tissue tears.`;
     } else {
@@ -2226,6 +2448,50 @@ function getHydrationWarning(){
 }
 
 // ── Blackout Day (Rest Day) Enforcement ───────────────────────────────────
+// Nothing has ever validated the stored schedule, so a truncated array or an
+// unrecognised type would render as a broken or misleading cell. Repair in place
+// rather than replacing the whole week, so a member only loses the bad slots.
+// Today's scheduled day and the member's stated goal both point at a mission.
+// Surface that instead of leaving Mission Select as four equal choices.
+const _MISSION_BTN={length:'mission-length-btn',girth:'mission-girth-btn',stamina:'mission-stamina-btn'};
+function renderMissionGuidance(blackout){
+    const note=document.getElementById('beginner-rec-note');
+    Object.values(_MISSION_BTN).forEach(id=>{
+        const b=document.getElementById(id);
+        if(b) b.classList.remove('mission-focus');
+    });
+    if(!note) return;
+    if(blackout){ note.classList.add('hidden'); return; }
+
+    const scheduled=getScheduledType();
+    const goalKey=getGoalKey();
+    const newish=getDiff().id==='beginner' && (persisted.allTimeSessionCount||0)<5;
+
+    // Prefer what today's calendar says; fall back to the goal's default mission.
+    const target=_MISSION_BTN[scheduled]?scheduled:(newish?getGoal().mission:null);
+    if(target){
+        const btn=document.getElementById(_MISSION_BTN[target]);
+        if(btn) btn.classList.add('mission-focus');
+    }
+
+    let msg='';
+    if(_MISSION_BTN[scheduled]){
+        msg=`Today is a <span class="font-black">${dayTypeLabel(scheduled)}</span> day on your schedule.`;
+        if(newish) msg+=' New here? Following the plan is the whole plan.';
+    } else if(newish){
+        msg=goalKey==='size'||goalKey==='all'
+            ? 'New here? Start with <span class="font-black">Length</span>. It is the more forgiving of the two and builds the base girth work depends on.'
+            : `New here? <span class="font-black">${GOALS[goalKey].label}</span> is your focus, so start with <span class="font-black">Stamina and Blood Flow</span>.`;
+    }
+    note.innerHTML=msg?`<i class="fas fa-circle-info mr-1"></i>${msg}`:'';
+    note.classList.toggle('hidden',!msg);
+}
+function normaliseSchedule(){
+    const def=DEFAULT_PERSISTED.schedule;
+    const cur=Array.isArray(persisted.schedule)?persisted.schedule:[];
+    const fixed=def.map((d,i)=>DAY_TYPES[cur[i]]?cur[i]:d);
+    if(JSON.stringify(fixed)!==JSON.stringify(cur)) persisted.schedule=fixed;
+}
 function isBlackoutDay(){
     const todayType=persisted.schedule[new Date().getDay()];
     return todayType==='rest';
@@ -2460,7 +2726,63 @@ async function openPhotoLog(){
     document.getElementById('photo-log-modal').classList.remove('hidden');
     await renderGalleryInto('photo-log-gallery');
 }
-function closePhotoLog(){document.getElementById('photo-log-modal').classList.add('hidden');}
+function closePhotoLog(){_hidePhotoCompare();document.getElementById('photo-log-modal').classList.add('hidden');}
+// ── Before / after comparison ──────────────────────────────────────────────
+let _galleryItems=[], _compareMode=false, _compareAfterIdx=0;
+function _refreshCompareAvailability(){
+    const btn=document.getElementById('photo-compare-btn');
+    const hint=document.getElementById('photo-compare-hint');
+    if(!btn) return;
+    const enough=_galleryItems.length>=2;
+    btn.disabled=!enough;
+    btn.style.opacity=enough?'':'0.4';
+    if(hint){
+        hint.classList.toggle('hidden',enough);
+        if(!enough) hint.textContent=_galleryItems.length===1
+            ? 'Add one more photo to unlock the before and after view.'
+            : 'Add two photos to unlock the before and after view.';
+    }
+    if(!enough) _hidePhotoCompare();
+}
+function togglePhotoCompare(){
+    if(_galleryItems.length<2) return;
+    if(_compareMode){_hidePhotoCompare();return;}
+    _compareMode=true;
+    _compareAfterIdx=0; // newest first, so index 0 is the latest shot
+    document.getElementById('photo-compare').classList.remove('hidden');
+    document.getElementById('photo-compare-btn').innerHTML='<i class="fas fa-xmark text-xs"></i> Close Comparison';
+    _renderPhotoCompare();
+}
+function _hidePhotoCompare(){
+    _compareMode=false;
+    const box=document.getElementById('photo-compare');
+    if(box) box.classList.add('hidden');
+    const btn=document.getElementById('photo-compare-btn');
+    if(btn) btn.innerHTML='<i class="fas fa-code-compare text-xs" style="color:#10b981"></i> Compare Before &amp; After';
+}
+function _renderPhotoCompare(){
+    const before=_galleryItems[_galleryItems.length-1]; // oldest
+    const after=_galleryItems[_compareAfterIdx];
+    if(!before||!after) return;
+    document.getElementById('photo-compare-before').src=before.url;
+    document.getElementById('photo-compare-after').src=after.url;
+    document.getElementById('photo-compare-before-date').textContent=before.date;
+    document.getElementById('photo-compare-after-date').textContent=after.date;
+    const gapEl=document.getElementById('photo-compare-gap');
+    if(before.ts&&after.ts&&after.ts!==before.ts){
+        const days=Math.round(Math.abs(after.ts-before.ts)/864e5);
+        const weeks=Math.floor(days/7);
+        gapEl.textContent=days<14?`${days} days apart`:`${days} days apart · about ${weeks} weeks`;
+    } else {
+        gapEl.textContent=after.ts===before.ts?'Same photo — pick a different one below':'';
+    }
+}
+// While comparing, a tap picks the After shot instead of opening the viewer.
+function onGalleryTap(i,url,date,path){
+    if(_compareMode){_compareAfterIdx=i;_renderPhotoCompare();return;}
+    openPhotoViewer(url,date,path);
+}
+
 async function renderGalleryInto(elId){
     const el=document.getElementById(elId);
     if(!el||!currentUser)return;
@@ -2473,9 +2795,12 @@ async function renderGalleryInto(elId){
         const urls=(signed||[]).map((s,i)=>{
             const ts=parseInt(data[i].name);
             const date=isNaN(ts)?data[i].name:new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
-            return{url:s.signedUrl||'',date,path:paths[i]};
+            return{url:s.signedUrl||'',date,path:paths[i],ts:isNaN(ts)?null:ts};
         });
-        el.innerHTML=urls.map(p=>`<div class="cursor-pointer" onclick="openPhotoViewer('${p.url}','${p.date}','${p.path}')"><img src="${p.url}" loading="lazy" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] text-slate-500 text-center mt-1 truncate">${p.date}</p></div>`).join('');
+        // Keep the newest-first list around so compare mode can use it without refetching.
+        _galleryItems=urls;
+        el.innerHTML=urls.map((p,i)=>`<div class="cursor-pointer" onclick="onGalleryTap(${i},'${p.url}','${p.date}','${p.path}')"><img src="${p.url}" loading="lazy" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] text-slate-500 text-center mt-1 truncate">${p.date}</p></div>`).join('');
+        _refreshCompareAvailability();
     }catch(e){el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4">Could not load photos.</p>';}
 }
 async function handlePhotoLogUpload(file){
@@ -2507,10 +2832,14 @@ async function handlePhotoLogUpload(file){
 function openProgressChart(){document.getElementById('chart-modal').classList.remove('hidden');renderProgressChart();renderPhotoGallery();}
 function closeProgressChart(){document.getElementById('chart-modal').classList.add('hidden')}
 function renderProgressChart(){
+    renderEqChart(); // independent of measurements, so draw it before any early return
     const meas=(persisted.measurements||[]).slice(-30);
     const statsEl=document.getElementById('chart-stats');
     if(meas.length<2){
-        statsEl.innerHTML=`<div class="col-span-2 text-center py-6 text-slate-600 text-sm italic">Log measurements after sessions to see trends here.</div>`;
+        // An EQ-led member can have plenty charted above this; do not tell them
+        // they have no data.
+        const _hasEq=getEqSummary().count>0;
+        statsEl.innerHTML=`<div class="col-span-2 text-center py-6 text-slate-600 text-sm italic">${_hasEq?'Your EQ trend is above. Log BPEL and MSEG after a session to add size tracking.':'Log measurements after sessions to see trends here.'}</div>`;
         drawEmpty('bpel-chart');drawEmpty('mseg-chart');return;
     }
     const first=meas[0],last=meas[meas.length-1];
@@ -2525,10 +2854,33 @@ function renderProgressChart(){
     drawLine('bpel-chart',meas.map(m=>m.bpel).filter(v=>!isNaN(parseFloat(v))).map(Number),meas.map(m=>m.date),'#3b82f6');
     drawLine('mseg-chart',meas.map(m=>m.mseg).filter(v=>!isNaN(parseFloat(v))).map(Number),meas.map(m=>m.date),'#10b981');
 }
+// EQ is logged every session but was only ever surfaced as a weekly average.
+// Plotting it gives members visible movement in weeks rather than months.
+// EQ aggregation was inlined in several places. One helper, used by the HQ row,
+// Coach Tee and the weekly report. Tier-unlock maths is deliberately left alone.
+function getEqSummary(n){
+    const eqs=(persisted.sessionLog||[]).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).map(s=>s.eq);
+    if(!eqs.length) return {count:0,avg:null,latest:null,trend:'none',recentAvg:null,priorAvg:null};
+    const window=eqs.slice(-(n||7));
+    const mean=a=>a.reduce((t,v)=>t+v,0)/a.length;
+    let trend='stable',recentAvg=null,priorAvg=null;
+    if(eqs.length>=4){
+        recentAvg=mean(eqs.slice(-3));
+        priorAvg=mean(eqs.slice(-6,-3));
+        const d=recentAvg-priorAvg;
+        trend=d>0.3?'improving':d<-0.3?'declining':'stable';
+    } else { trend='building'; }
+    return {count:eqs.length,avg:mean(window),latest:eqs[eqs.length-1],trend,recentAvg,priorAvg};
+}
+function renderEqChart(){
+    const pts=(persisted.sessionLog||[]).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).slice(-30);
+    if(pts.length<1){drawEmpty('eq-chart');return;}
+    drawLine('eq-chart',pts.map(s=>s.eq),pts.map(s=>s.date),'#a855f7','',1);
+}
 function drawEmpty(id){
     document.getElementById(id).innerHTML=`<text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="Inter,sans-serif" font-size="11" fill="#475569">No data yet</text>`;
 }
-function drawLine(id,vals,dates,color){
+function drawLine(id,vals,dates,color,unit='"',dec=2){
     const svg=document.getElementById(id);
     if(!vals.length){drawEmpty(id);return}
     const W=340,H=160,T=16,R=16,B=30,L=42,cW=W-L-R,cH=H-T-B;
@@ -2536,7 +2888,7 @@ function drawLine(id,vals,dates,color){
     if(vals.length===1){
         svg.innerHTML=`
             <circle cx="${W/2}" cy="${H/2}" r="5" fill="${color}" stroke="#020617" stroke-width="2" filter="drop-shadow(0 0 8px ${color})"/>
-            <text x="${W/2}" y="${H/2-14}" text-anchor="middle" font-size="10" font-weight="bold" fill="${color}" font-family="'JetBrains Mono',monospace">${vals[0].toFixed(2)}"</text>
+            <text x="${W/2}" y="${H/2-14}" text-anchor="middle" font-size="10" font-weight="bold" fill="${color}" font-family="'JetBrains Mono',monospace">${vals[0].toFixed(dec)}${unit}</text>
             <text x="${W/2}" y="${H-6}" text-anchor="middle" font-size="8" fill="#475569" font-family="Inter,sans-serif">${dates[0]?new Date(dates[0]).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</text>
             <text x="${W/2}" y="${H/2+22}" text-anchor="middle" font-size="8" fill="#475569" font-family="Inter,sans-serif">Log more sessions to see your trend</text>`;
         return;
@@ -2553,17 +2905,18 @@ function drawLine(id,vals,dates,color){
     const gid=`g_${id}`;
     // % gain from first to last
     const gainPct=((vals[vals.length-1]-vals[0])/vals[0]*100);
-    const gainStr=gainPct>=0?`+${gainPct.toFixed(2)}%`:`${gainPct.toFixed(2)}%`;
+    // A percent change is only meaningful for a measured unit, not the 1-10 EQ scale.
+    const gainStr=unit===''?'':(gainPct>=0?`+${gainPct.toFixed(2)}%`:`${gainPct.toFixed(2)}%`);
     const gainColor=gainPct>=0?'#10b981':'#ef4444';
     svg.innerHTML=`
         <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".3"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
-        ${[0,.5,1].map(t=>{const y=T+t*cH,v=(maxV-t*range).toFixed(2);return`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#1e293b" stroke-width="1"/><text x="${L-4}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="7" fill="#475569" font-family="'JetBrains Mono',monospace">${v}"</text>`}).join('')}
+        ${[0,.5,1].map(t=>{const y=T+t*cH,v=(maxV-t*range).toFixed(dec);return`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#1e293b" stroke-width="1"/><text x="${L-4}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="7" fill="#475569" font-family="'JetBrains Mono',monospace">${v}${unit}</text>`}).join('')}
         <path d="${area}" fill="url(#${gid})"/>
         <path d="${pth}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 8px ${color}66)"/>
         ${vals.map((v,i)=>`<circle cx="${xS(i)}" cy="${yS(v)}" r="${i===vals.length-1?4.5:3}" fill="${i===vals.length-1?color:'#020617'}" stroke="${color}" stroke-width="${i===vals.length-1?1.5:1.5}"/>`).join('')}
         <text x="${xS(vals.length-1)+6}" y="${yS(vals[vals.length-1])}" dominant-baseline="middle" font-size="9" font-weight="bold" fill="${gainColor}" font-family="'JetBrains Mono',monospace">${gainStr}</text>
         <text x="${xS(0)}" y="${H-6}" text-anchor="middle" font-size="7.5" fill="#475569" font-family="Inter,sans-serif">${lbl0}</text>
-        <text x="${xS(vals.length-1)}" y="${H-6}" text-anchor="middle" font-size="7.5" fill="${color}" font-family="Inter,sans-serif" font-weight="bold">${vals[vals.length-1].toFixed(2)}"</text>`;
+        <text x="${xS(vals.length-1)}" y="${H-6}" text-anchor="middle" font-size="7.5" fill="${color}" font-family="Inter,sans-serif" font-weight="bold">${vals[vals.length-1].toFixed(dec)}${unit}</text>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2585,6 +2938,45 @@ async function fetchClaude(userMsg, systemPrompt){
         const text=data.content?.map(b=>b.type==='text'?b.text:'').join('')||'';
         return{ok:true,text};
     }catch(e){return{ok:false,error:'[fetch failed] '+e.message}}
+}
+
+// Builds a compact snapshot of the member's real data so Coach Tee answers as
+// someone who knows them rather than a generic chatbot. Everything here is
+// already on the client; nothing extra is fetched.
+function _coachContext(){
+    const log=persisted.sessionLog||[];
+    if(!log.length){
+        return `LIVE USER DATA\nThis member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nToday's scheduled focus: ${dayTypeLabel(getScheduledType())}.`;
+    }
+    const lines=[];
+    lines.push(`Stated goal: ${getGoal().label}. ${getGoal().coach}`);
+    lines.push(`Today's scheduled focus: ${dayTypeLabel(getScheduledType())}.`);
+    lines.push(`Streak: ${getCurrentStreak()} day(s).`);
+    try{ lines.push(`Level: ${getLevelInfo(persisted.totalXp||0).displayName}, ${persisted.totalXp||0} XP total.`); }catch(e){}
+    try{ lines.push(`Difficulty tier: ${getDiff().label||getDiff().id}.`); }catch(e){}
+    lines.push(`Sessions logged all time: ${persisted.allTimeSessionCount||log.length}.`);
+
+    const recent=log.slice(-5).map(s=>{
+        const d=(s.date||'').split('T')[0];
+        return `${d} ${s.routineType||'?'}${s.eq?` EQ ${s.eq}`:''}${s.rpe?` RPE ${s.rpe}`:''}`;
+    });
+    if(recent.length) lines.push(`Last ${recent.length} sessions: ${recent.join('; ')}.`);
+
+    const _eq=getEqSummary(7);
+    if(_eq.count>=4 && _eq.priorAvg){
+        lines.push(`EQ trend: ${_eq.trend} (recent avg ${_eq.recentAvg.toFixed(1)} vs prior ${_eq.priorAvg.toFixed(1)}).`);
+    } else if(_eq.count){
+        lines.push(`Average EQ so far: ${_eq.avg.toFixed(1)} across ${_eq.count} logged session(s).`);
+    }
+    const m=(persisted.measurements||[]).slice(-1)[0];
+    if(m) lines.push(`Latest measurements: ${m.bpel?`BPEL ${m.bpel}in`:''}${m.bpel&&m.mseg?', ':''}${m.mseg?`MSEG ${m.mseg}in`:''} on ${(m.date||'').split('T')[0]}.`);
+    try{ lines.push(`Water logged today: ${getHydrationLitres().toFixed(1)}L of ${(HYDRATION_GOAL_ML/1000)}L.`); }catch(e){}
+    try{
+        const sleep=localStorage.getItem(getTodaySleepKey())||'', sore=localStorage.getItem(getTodaySorenessKey())||'';
+        if(sleep||sore) lines.push(`Today's check-in: ${sleep?`sleep ${sleep}`:''}${sleep&&sore?', ':''}${sore?`soreness ${sore}`:''}.`);
+    }catch(e){}
+
+    return `LIVE USER DATA (this is the member you are talking to. Reference it naturally where it is relevant, never dump it back verbatim, and never state a number that is not listed here)\n${lines.join('\n')}`;
 }
 
 async function askCoach(){
@@ -2612,7 +3004,9 @@ RESPONSE STYLE:
 - Be specific. Cite mechanisms, not just conclusions. "Nitric oxide dilates the smooth muscle of the corpus cavernosum" is better than "good blood flow helps erections."
 - Speak like a knowledgeable coach who has studied this deeply and worked with real men, not like a disclaimer-heavy medical chatbot.
 - Never say "consult a doctor" as a cop-out. You can note when something warrants professional evaluation, but still give a substantive answer.
-- The user is an adult who wants real information. Give it to them.`;
+- The user is an adult who wants real information. Give it to them.
+
+${_coachContext()}`;
     const r=await fetchClaude(q,sys);
     if(r.ok) area.innerHTML+=`<div class="chat-msg ai">CoachTee: ${esc(r.text)}</div>`;
     else area.innerHTML+=`<div class="chat-msg error"><i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}</div>`;
@@ -2672,6 +3066,7 @@ function goToStep(step){
         document.getElementById('mission-length-btn').style.opacity=blackout?'0.35':'';
         document.getElementById('mission-girth-btn').style.opacity=blackout?'0.35':'';
         document.getElementById('mission-stamina-btn').style.opacity=blackout?'0.35':'';
+        renderMissionGuidance(blackout);
         // Hydration warning
         const hydWarn=getHydrationWarning();
         const hydBanner=document.getElementById('hydration-warning-banner');
@@ -2683,7 +3078,9 @@ function goToStep(step){
     if(step===4){if(!session._resuming){resetSession();_sessionStartTime=Date.now();}updateExUI()}
     if(step===5){if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'});document.getElementById('photo-preview').classList.add('hidden');document.getElementById('photo-error').classList.add('hidden');document.getElementById('photo-capture-btn').innerText='Take / Upload Photo';document.getElementById('photo-capture-btn').disabled=false;}
 }
-function nextStep(){if(session.step===2)goToStep(3);else goToStep(session.step+1)}
+// Warmup (step 2) now runs AFTER mission select (step 3), so finishing or
+// skipping it goes straight to the engine.
+function nextStep(){if(session.step===2)goToStep(4);else goToStep(session.step+1)}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WARMUP
@@ -3309,12 +3706,20 @@ function startGirthRoundRest(){
 // ═══════════════════════════════════════════════════════════════════════════
 // HYDRATION TRACKER
 // ═══════════════════════════════════════════════════════════════════════════
+const HYDRATION_GOAL_ML=3000;      // daily target, single source of truth
+const ML_PER_OZ=29.5735;
+const MAX_SINGLE_ENTRY_ML=5000;    // anything above this is a typo, not a drink
+
 function getTodayKey(){ return 'bp_hydration_'+(currentUser?.id||'')+'_'+new Date().toISOString().split('T')[0]; }
 function getHydration(){ return parseFloat(localStorage.getItem(getTodayKey())||'0'); }
+function getHydrationLitres(){ return getHydration()/1000; }
+function _hydrationUnitKey(){ return 'bp_hydration_unit_'+(currentUser?.id||''); }
 let _hydrationUnit='L'; // 'L' or 'oz'
+let _lastHydrationDelta=0; // supports one-tap undo
 
-function setHydrationUnit(unit){
+function setHydrationUnit(unit,skipRender){
     _hydrationUnit=unit;
+    try{localStorage.setItem(_hydrationUnitKey(),unit);}catch(e){}
     const ozBtn=document.getElementById('unit-oz-btn');
     const lBtn=document.getElementById('unit-l-btn');
     if(ozBtn&&lBtn){
@@ -3323,38 +3728,84 @@ function setHydrationUnit(unit){
     }
     const inp=document.getElementById('hydration-custom-input');
     if(inp) inp.placeholder=unit==='oz'?'e.g. 24':'e.g. 0.5';
+    // The amount and message are unit-dependent, so they must redraw immediately.
+    if(!skipRender) renderHydration();
+}
+function loadHydrationUnit(){
+    let u=null;
+    try{u=localStorage.getItem(_hydrationUnitKey());}catch(e){}
+    setHydrationUnit(u==='oz'?'oz':'L',true);
+}
+
+function _hydrationNote(text,isError){
+    const el=document.getElementById('hydration-entry-note');
+    if(!el) return;
+    el.textContent=text||'';
+    el.classList.toggle('hidden',!text);
+    el.style.color=isError?'#f87171':'#64748b';
+    if(text) setTimeout(()=>{if(el.textContent===text)el.classList.add('hidden');},6000);
 }
 
 function setHydration(amount){
-    // amount is in current unit — convert to ml for storage
-    const ml=_hydrationUnit==='oz'?(amount*29.5735):(amount*1000);
+    // amount is in the current unit — convert to ml for storage
+    const raw=_hydrationUnit==='oz'?(amount*ML_PER_OZ):(amount*1000);
+    // Round to whole ml so repeated oz entries can still reach the goal exactly;
+    // three 33.8oz logs used to land on 2999.75 and never register as complete.
+    const ml=Math.round(raw);
+    if(ml>MAX_SINGLE_ENTRY_ML){
+        const cap=_hydrationUnit==='oz'?Math.round(MAX_SINGLE_ENTRY_ML/ML_PER_OZ)+'oz':(MAX_SINGLE_ENTRY_ML/1000)+'L';
+        _hydrationNote(`That looks like a typo. Single entries are capped at ${cap}.`,true);
+        return;
+    }
     const current=getHydration();
     localStorage.setItem(getTodayKey(), current+ml);
+    _lastHydrationDelta=ml;
     renderHydration();
+}
+function undoHydration(){
+    if(_lastHydrationDelta<=0) return;
+    const next=Math.max(0,getHydration()-_lastHydrationDelta);
+    localStorage.setItem(getTodayKey(), next);
+    _lastHydrationDelta=0;
+    renderHydration();
+    _hydrationNote('Last entry removed.');
 }
 function setHydrationToLiter(l){
     // Tap a liter bubble — set to AT LEAST that liter milestone
     const current=getHydration();
     const target=l*1000;
-    if(current<target) localStorage.setItem(getTodayKey(), target);
+    if(current<target){
+        localStorage.setItem(getTodayKey(), target);
+        _lastHydrationDelta=target-current;
+    }
     renderHydration();
 }
 function resetHydration(){
+    // Destructive and easy to hit by accident, so make it deliberate.
+    if(getHydration()>0 && !confirm("Clear today's water log? This cannot be undone.")) return;
     localStorage.setItem(getTodayKey(),'0');
+    _lastHydrationDelta=0;
     renderHydration();
 }
 function renderHydration(){
     const ml=getHydration();
-    const pct=Math.min(100,(ml/3000)*100);
-    const complete=ml>=3000;
+    const pct=Math.min(100,(ml/HYDRATION_GOAL_ML)*100);
+    const complete=ml>=HYDRATION_GOAL_ML;
+    const over=Math.max(0,ml-HYDRATION_GOAL_ML);
 
     // Display in current unit
     const isOz=_hydrationUnit==='oz';
-    const displayed=isOz?(ml/29.5735):(ml/1000);
-    const goal=isOz?101.4:3; // 3L in oz = ~101.4oz
+    const fmt=v=>isOz?(v/ML_PER_OZ).toFixed(0):(v/1000).toFixed(1);
     const unit=isOz?'oz':'L';
-    const decimals=isOz?0:1;
-    document.getElementById('hydration-amount').innerText=displayed.toFixed(decimals)+unit+' / '+goal.toFixed(isOz?0:0)+unit;
+    const goalStr=isOz?Math.round(HYDRATION_GOAL_ML/ML_PER_OZ):(HYDRATION_GOAL_ML/1000);
+    document.getElementById('hydration-amount').innerText=fmt(ml)+unit+' / '+goalStr+unit;
+
+    // Surplus past the goal is an achievement, not an error state.
+    const overEl=document.getElementById('hydration-over');
+    if(overEl){
+        overEl.classList.toggle('hidden',over<=0);
+        if(over>0) overEl.textContent='+'+fmt(over)+unit+' over';
+    }
 
     // Bar
     const bar=document.getElementById('hydration-bar');
@@ -3368,12 +3819,23 @@ function renderHydration(){
         if(ml>=l*1000) el.classList.add(complete&&l===3?'complete':'hit');
     });
 
+    const undoBtn=document.getElementById('hydration-undo-btn');
+    if(undoBtn) undoBtn.classList.toggle('hidden',_lastHydrationDelta<=0);
+
     // Message
     const msg=document.getElementById('hydration-msg');
     if(complete){
-        msg.innerHTML='<span class="text-emerald-400 font-bold">✓ Goal hit. Tissue is primed.</span>';
+        // Keep coaching past the goal instead of going silent at 3L.
+        const overMsgs=[
+            'Goal hit. Anything past this is a bonus, keep sipping.',
+            'Past target and still going. This is what good EQ is built on.',
+            'Over the line. Extra water is never wasted on vascular tissue.',
+        ];
+        msg.innerHTML=over>0
+            ? '<span class="text-emerald-400 font-bold">✓ '+overMsgs[Math.floor(over/500)%overMsgs.length]+'</span>'
+            : '<span class="text-emerald-400 font-bold">✓ Goal hit. Tissue is primed.</span>';
     } else {
-        const remaining=isOz?((3000-ml)/29.5735).toFixed(0)+'oz':(((3000-ml)/1000).toFixed(1)+'L');
+        const remaining=fmt(HYDRATION_GOAL_ML-ml)+unit;
         const sipMessages=[
             'Sip throughout the day — don\'t chug.',
             'Small sips every 20-30 min. Not a race.',
@@ -3404,18 +3866,34 @@ function renderDashboard(){
             el.style.animationDelay=`${i*55}ms`;
         });
     });
+    if(maybeConsumeStreakPass()) _showPassUsedBanner();
     renderHydration();
     maybeShowUpdateNotice();
+    // Flag a rest day up front so the member knows before entering the funnel.
+    // Mission Select also enforces it, now ahead of any warmup.
+    const _rest=isBlackoutDay();
+    const _restBanner=document.getElementById('hq-rest-banner');
+    if(_restBanner) _restBanner.classList.toggle('hidden',!_rest);
+    const _launch=document.getElementById('launch-btn');
+    // Name today's focus so the calendar is not just decoration.
+    if(_launch){
+        const _t=getScheduledType();
+        _launch.textContent=_rest?'BEGIN RECOVERY SESSION'
+            :DAY_TYPES[_t]?`BEGIN ${DAY_TYPES[_t].label.toUpperCase()} SESSION`:'BEGIN SESSION';
+    }
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
         const d=document.createElement('div');
-        d.className=`calendar-day type-${type} ${i===new Date().getDay()?'active':''} ${persisted.completedDays[i]?'completed':''}`;
-        d.innerHTML=`<span>${DAY_NAMES[i]}</span><i class="fas ${type==='length'?'fa-up-right-and-down-left-from-center':type==='girth'?'fa-expand':'fa-bed'}"></i>`;
+        const _known=!!DAY_TYPES[type];
+        const _isToday=i===new Date().getDay();
+        d.className=`calendar-day type-${_known?type:'unknown'} ${_isToday?'active':''} ${persisted.completedDays[i]?'completed':''} ${_isToday&&type!=='rest'?'scheduled-focus':''}`;
+        d.innerHTML=`<span>${DAY_NAMES[i]}</span><i class="fas ${dayTypeIcon(type)}"></i>`;
         d.addEventListener('click',()=>{session.selectedDayIdx=i;document.getElementById('type-modal').classList.remove('hidden')});
         g.appendChild(d);
     });
     document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
-    document.getElementById('hq-streak').innerText=`${getCurrentStreak()} Day Streak`;
+    const _passes=persisted.streakPasses||0;
+    document.getElementById('hq-streak').innerText=`${getCurrentStreak()} Day Streak`+(_passes?` · 🛡️×${_passes}`:'');
     document.getElementById('hq-xp').innerText=`${persisted.totalXp} XP`;
     const lvl=getLevelInfo(persisted.totalXp);
     document.getElementById('hq-level-name').innerText=lvl.displayName;
@@ -3426,6 +3904,25 @@ function renderDashboard(){
     const last=meas.length?meas[meas.length-1]:null;
     document.getElementById('last-bpel').innerText=last?.bpel?`${last.bpel}"`:'—';
     document.getElementById('last-mseg').innerText=last?.mseg?`${last.mseg}"`:'—';
+    // Lead with the number that matches what the member said they came for.
+    const _sizeLed=isSizeLed();
+    const _measRow=document.getElementById('last-measure-row');
+    const _eqRow=document.getElementById('eq-summary-row');
+    if(_measRow) _measRow.classList.toggle('hidden',!_sizeLed);
+    if(_eqRow){
+        _eqRow.classList.toggle('hidden',_sizeLed);
+        if(!_sizeLed){
+            const eq=getEqSummary(7);
+            const avgEl=document.getElementById('eq-avg');
+            const trEl=document.getElementById('eq-trend');
+            if(avgEl) avgEl.innerText=eq.count?eq.avg.toFixed(1):'—';
+            if(trEl){
+                const map={improving:'↑ Up',declining:'↓ Down',stable:'→ Steady',building:'Building',none:'—'};
+                trEl.innerText=map[eq.trend]||'—';
+                trEl.style.color=eq.trend==='improving'?'#34d399':eq.trend==='declining'?'#f87171':'#fff';
+            }
+        }
+    }
     renderLog();
     renderRecords();
     renderDailyTip();
@@ -3495,9 +3992,23 @@ function finishSession(){
     if(persisted.sessionLog.length>50)persisted.sessionLog=persisted.sessionLog.slice(-50);
     if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);if(persisted.measurements.length>100)persisted.measurements=persisted.measurements.slice(-100)}
     updateRecords(earnedXp);
+    _passEarnedThisSession=maybeEarnStreakPass();
     savePersisted();
     checkMilestones();
     showSessionSummary(earnedXp);
+}
+let _passEarnedThisSession=false;
+// One pass per full week of consistency, capped at two so it stays a safety net
+// rather than a way to coast.
+function maybeEarnStreakPass(){
+    const today=_dayKey(0);
+    if(persisted.lastPassEarnedDate===today) return false;
+    if((persisted.streakPasses||0)>=2) return false;
+    const streak=getCurrentStreak();
+    if(streak<1||streak%7!==0) return false;
+    persisted.streakPasses=(persisted.streakPasses||0)+1;
+    persisted.lastPassEarnedDate=today;
+    return true;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3595,15 +4106,60 @@ function getCurrentStreak(log){
     const sessions=log||(persisted.sessionLog||[]);
     if(!sessions.length) return 0;
     const days=new Set(sessions.map(s=>s.date.split('T')[0]));
+    const protectedDays=new Set(persisted.passProtectedDates||[]);
     const today=new Date();
     let streak=0;
     for(let i=0;i<365;i++){
         const d=new Date(today);d.setDate(d.getDate()-i);
         const key=d.toISOString().split('T')[0];
-        if(days.has(key)){streak++;}
+        // A day counts if it was trained, or if a Recovery Pass is covering it.
+        if(days.has(key)||protectedDays.has(key)){streak++;}
         else if(i>0){break;} // allow today to not yet have a session without snapping streak
     }
     return streak;
+}
+function _showLoadFailedBanner(){
+    const el=document.getElementById('hq-load-failed-banner');
+    if(el) el.classList.remove('hidden');
+}
+async function retryLoadPersisted(){
+    const btn=document.getElementById('hq-load-retry-btn');
+    if(btn){btn.disabled=true;btn.textContent='...';}
+    await loadPersisted();
+    if(_persistedLoaded){
+        document.getElementById('hq-load-failed-banner').classList.add('hidden');
+        renderDashboard();
+    }
+    if(btn){btn.disabled=false;btn.textContent='Retry';}
+}
+function _showPassUsedBanner(){
+    const el=document.getElementById('hq-pass-used-banner');
+    if(!el) return;
+    el.classList.remove('hidden');
+    setTimeout(()=>el.classList.add('hidden'),12000);
+}
+function _dayKey(offset){
+    const d=new Date(); d.setDate(d.getDate()-(offset||0));
+    return d.toISOString().split('T')[0];
+}
+// Spend a banked pass to cover yesterday, so one missed day does not wipe out a
+// long streak (and with it, most of the reason people keep opening the app).
+function maybeConsumeStreakPass(){
+    if(!currentUser) return false;
+    const sessions=persisted.sessionLog||[];
+    if(!sessions.length) return false;
+    if((persisted.streakPasses||0)<1) return false;
+    const days=new Set(sessions.map(s=>s.date.split('T')[0]));
+    const protectedDays=new Set(persisted.passProtectedDates||[]);
+    const yest=_dayKey(1);
+    if(days.has(yest)||protectedDays.has(yest)) return false; // nothing to cover
+    // Only meaningful if a streak was actually running into yesterday.
+    const before=_dayKey(2);
+    if(!days.has(before)&&!protectedDays.has(before)) return false;
+    persisted.streakPasses=(persisted.streakPasses||0)-1;
+    persisted.passProtectedDates=[...(persisted.passProtectedDates||[]),yest].slice(-30);
+    savePersisted();
+    return true;
 }
 
 function updateRecords(sessionXp){
@@ -3650,6 +4206,7 @@ function showSessionSummary(xp){
     const records=[];
     if(streak>=r.longestStreak&&streak>0) records.push('🏆 New streak record: '+streak+' days');
     if(xp>=r.bestSessionXp&&xp>0) records.push('⚡ New session XP record: '+xp+' XP');
+    if(_passEarnedThisSession) records.push('🛡️ Recovery Pass earned — one missed day will not break your streak');
     const recordsEl=document.getElementById('summary-records');
     recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
     modal.classList.add('show');
@@ -3658,6 +4215,17 @@ function showSessionSummary(xp){
 function closeSessionSummary(){
     document.getElementById('session-summary-modal').classList.remove('show');
     goToStep(0);
+    maybePromptPush();
+}
+// Ask about notifications once, after the member has actually finished a session
+// and knows what the app does. Uses the app's own explainer modal rather than
+// firing the raw OS prompt cold.
+function maybePromptPush(){
+    if(!currentUser) return;
+    if(typeof Notification==='undefined' || Notification.permission!=='default') return;
+    if(localStorage.getItem('bp_push_prompted_'+currentUser.id)) return;
+    try{localStorage.setItem('bp_push_prompted_'+currentUser.id,'1');}catch(e){}
+    setTimeout(openNotifModal,700);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3794,9 +4362,13 @@ function showSessionHistory(){
 // ONBOARDING
 // ═══════════════════════════════════════════════════════════════════════════
 let _obSlide=0;
-function showOnboarding(){
+// Derived rather than hardcoded, so adding a slide cannot silently strand the
+// Get Started button on the wrong screen.
+function _obLastIdx(){ return Math.max(0,document.querySelectorAll('.ob-slide').length-1); }
+function showOnboarding(startIdx){
     document.getElementById('onboarding-overlay').classList.add('show');
-    goToObSlide(0);
+    renderGoalOptions();
+    goToObSlide(startIdx||0);
 }
 function hideOnboarding(){
     document.getElementById('onboarding-overlay').classList.remove('show');
@@ -3813,11 +4385,175 @@ function goToObSlide(idx){
     });
     _obSlide=idx;
     const btn=document.getElementById('ob-next-btn');
-    if(btn) btn.innerText=idx>=2?'Get Started':'Next';
+    if(btn) btn.innerText=idx>=_obLastIdx()?'Get Started':'Next';
 }
 function obNext(){
-    if(_obSlide>=2) hideOnboarding();
+    if(_obSlide>=_obLastIdx()) finishOnboarding();
     else goToObSlide(_obSlide+1);
+}
+
+// ── Primary goal picker ────────────────────────────────────────────────────
+function renderGoalOptions(){
+    const cur=persisted.primaryGoal||'';
+    document.querySelectorAll('#goal-options .goal-opt').forEach(b=>{
+        b.classList.toggle('selected',b.dataset.goal===cur);
+    });
+    const note=document.getElementById('goal-confirm');
+    if(note) note.classList.add('hidden');
+}
+function selectGoal(key){
+    if(!GOALS[key]) return;
+    persisted.primaryGoal=key;
+    renderGoalOptions();
+    const applied=maybeApplyGoalSchedule(key);
+    savePersisted();
+    const note=document.getElementById('goal-confirm');
+    if(note){
+        note.textContent=applied?`Weekly schedule set for ${GOALS[key].label.toLowerCase()}.`:`Focus set to ${GOALS[key].label.toLowerCase()}.`;
+        note.classList.remove('hidden');
+    }
+    renderDashboard();
+}
+// A member's calendar is theirs. Only write it automatically when the account is
+// genuinely untouched; otherwise ask, and leave it alone if they decline.
+function maybeApplyGoalSchedule(key){
+    const preset=GOALS[key].schedule;
+    if(!preset) return false;
+    const cur=persisted.schedule||[];
+    if(JSON.stringify(cur)===JSON.stringify(preset)) return false; // already matches
+    const untouched=(persisted.allTimeSessionCount||0)===0
+        && JSON.stringify(cur)===JSON.stringify(DEFAULT_PERSISTED.schedule);
+    if(untouched){
+        persisted.schedule=preset.slice();
+        return true;
+    }
+    const days=preset.map(t=>dayTypeLabel(t)).join(', ');
+    if(confirm(`Update your weekly schedule to match this focus?\n\nNew week: ${days}\n\nYour current schedule will be replaced.`)){
+        persisted.schedule=preset.slice();
+        return true;
+    }
+    return false;
+}
+function openGoalPicker(){
+    closeManual();
+    setTimeout(()=>showOnboarding(_obLastIdx()),320);
+}
+// Completing the intro flows into the guided tour. Skipping it does not, but the
+// tour stays available from the Manual.
+function finishOnboarding(){
+    hideOnboarding();
+    setTimeout(()=>maybeStartTour(),450);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GUIDED TOUR (coach marks)
+// ═══════════════════════════════════════════════════════════════════════════
+// #step-0 is the scrolling element (html/body are overflow:hidden), so
+// getBoundingClientRect() already returns viewport coordinates and the fixed
+// positioned hole/card need no scroll offset math.
+const TOUR_STOPS=[
+    {sel:'#hq-stat-chips',    title:'Your progress',    body:'Every session you finish adds XP and extends your streak. This is the quickest read on how consistent you have been.'},
+    {sel:'#hq-calendar-card', title:'Your training week',body:'Tap any day to change what it is: Length, Girth, Stamina or Rest. Rest days are part of the plan, not a gap in it.'},
+    {sel:'#hq-tip-card',      title:'Coach Tee tip',    body:'A new coaching tip lands here every day. Short, practical, and worth ten seconds of your time.'},
+    {sel:'#hq-hydration-card',title:'Log your water',   body:'Tap the amount as you drink. Hit 3L. Blood flow is the whole game and dehydrated tissue does not respond.'},
+    {sel:'#hq-checkin-card',  title:'Daily check-in',   body:'Log last night’s sleep and how sore you are. It takes two taps and it is what tells you when to back off.'},
+    {sel:'#launch-btn',       title:'Start training',   body:'This runs your session start to finish: warmup, timed sets, and coaching cues at every step. Just follow it.'},
+    {sel:'#hq-coach-row',     title:'Ask Coach Tee',    body:'Your advisor, any hour. Ask about soreness, technique, or why something works and get a straight answer.'},
+    {sel:'#hq-tools-row',     title:'Track your gains', body:'Progress holds your measurement charts, Week is your summary, and Photos is your before and after. The Manual explains everything in depth.'},
+];
+let _tourStops=[], _tourIdx=0, _tourIsTip=false;
+
+function maybeStartTour(){
+    if(!currentUser) return;
+    if(localStorage.getItem('bp_tour_done_'+currentUser.id)) return;
+    startTour();
+}
+function startTour(){
+    const step0=document.getElementById('step-0');
+    // Only meaningful on the HQ, and only once its cards have been rendered.
+    if(!step0 || step0.classList.contains('hidden-step')) return;
+    // Drop any stop whose element is missing or collapsed (e.g. an empty list).
+    _tourStops=TOUR_STOPS.filter(s=>{
+        const el=document.querySelector(s.sel);
+        return el && el.offsetParent!==null && el.getBoundingClientRect().height>4;
+    });
+    if(!_tourStops.length) return;
+    _tourIdx=0; _tourIsTip=false;
+    step0.scrollTop=0; // goToStep() never resets scroll, so start from the top
+    const dots=document.getElementById('tour-dots');
+    dots.innerHTML=_tourStops.map(()=>'<div class="ob-dot"></div>').join('');
+    document.getElementById('tour-layer').classList.add('show');
+    // Let the scroll reset and the hq-anim stagger settle before measuring.
+    setTimeout(()=>renderTourStop(0),260);
+}
+function renderTourStop(i){
+    _tourIdx=i;
+    const stop=_tourStops[i];
+    const el=document.querySelector(stop.sel);
+    if(!el){ return endTour(); }
+    el.scrollIntoView({block:'center',behavior:'smooth'});
+    // No resolvable signal for smooth scrolling, so settle then measure.
+    setTimeout(()=>{
+        const r=el.getBoundingClientRect();
+        const pad=8;
+        const hole=document.getElementById('tour-hole');
+        hole.style.top=(r.top-pad)+'px';
+        hole.style.left=(r.left-pad)+'px';
+        hole.style.width=(r.width+pad*2)+'px';
+        hole.style.height=(r.height+pad*2)+'px';
+
+        document.getElementById('tour-title').textContent=stop.title;
+        document.getElementById('tour-body').textContent=stop.body;
+        document.getElementById('tour-next').textContent=(i>=_tourStops.length-1)?'Done':'Next';
+        document.querySelectorAll('#tour-dots .ob-dot').forEach((d,di)=>d.classList.toggle('active',di===i));
+
+        // Place the card in whichever gap is bigger, above or below the target.
+        const card=document.getElementById('tour-card');
+        card.style.animation='none'; void card.offsetWidth; card.style.animation='';
+        const ch=card.offsetHeight||190, gap=14;
+        const below=window.innerHeight-r.bottom, above=r.top;
+        let top = (below>=ch+gap+10) ? r.bottom+gap
+                : (above>=ch+gap+10) ? r.top-ch-gap
+                : Math.max(gap, (window.innerHeight-ch)/2);
+        card.style.top=Math.round(top)+'px';
+        const cw=card.offsetWidth;
+        card.style.left=Math.round(Math.min(Math.max(gap,(window.innerWidth-cw)/2),window.innerWidth-cw-gap))+'px';
+    },380);
+}
+function tourNext(){
+    if(_tourIdx>=_tourStops.length-1) endTour();
+    else renderTourStop(_tourIdx+1);
+}
+function endTour(){
+    document.getElementById('tour-layer').classList.remove('show');
+    // A single contextual tip must not mark the whole HQ tour as seen.
+    if(!_tourIsTip && currentUser) try{localStorage.setItem('bp_tour_done_'+currentUser.id,'1');}catch(e){}
+    _tourIsTip=false;
+}
+// Reusable one-shot coach mark for moments the HQ tour cannot cover, e.g. the
+// first time a member opens Progress or Photos. Shows once per user per key.
+function oneTimeTip(key,sel,title,body){
+    if(!currentUser) return;
+    const k='bp_tip_'+key+'_'+currentUser.id;
+    if(localStorage.getItem(k)) return;
+    const el=document.querySelector(sel);
+    if(!el || el.offsetParent===null) return;
+    try{localStorage.setItem(k,'1');}catch(e){}
+    _tourStops=[{sel,title,body}]; _tourIdx=0; _tourIsTip=true;
+    document.getElementById('tour-dots').innerHTML='';
+    document.getElementById('tour-layer').classList.add('show');
+    setTimeout(()=>renderTourStop(0),120);
+}
+function closeManual(){document.getElementById('manual-modal').classList.remove('show');}
+// Replay entry points (Manual). Force a fresh run regardless of the done flag.
+function replayTour(){
+    closeManual();
+    if(currentUser) try{localStorage.removeItem('bp_tour_done_'+currentUser.id);}catch(e){}
+    setTimeout(startTour,320);
+}
+function replayIntro(){
+    closeManual();
+    setTimeout(showOnboarding,320);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3893,6 +4629,21 @@ function _clearLoadingDeadline(){clearTimeout(_loadingDeadline);_loadingDeadline
 function showAuthScreen(){_clearLoadingDeadline();document.getElementById('loading-screen').classList.add('hidden');document.getElementById('auth-screen').classList.remove('hidden');}
 function hideAuthScreen(){_clearLoadingDeadline();document.getElementById('auth-screen').classList.add('hidden');document.getElementById('loading-screen').classList.add('hidden');}
 function setAuthError(msg){const el=document.getElementById('auth-error');el.textContent=msg;el.classList.toggle('show',!!msg);document.getElementById('auth-success').classList.remove('show')}
+// Same element, but allows the few static trusted strings that need links.
+// Never call this with user-supplied or server-supplied text.
+function setAuthErrorHTML(html){const el=document.getElementById('auth-error');el.innerHTML=html;el.classList.toggle('show',!!html);document.getElementById('auth-success').classList.remove('show')}
+// Supabase surfaces developer-grade strings. Map the common ones to plain English.
+function _friendlyAuthError(err){
+    const raw=((err&&(err.message||err))+'').toLowerCase();
+    if(raw.includes('invalid login credentials')) return 'That email or password is not right. If you just purchased, create an account using the same email you bought with.';
+    if(raw.includes('email not confirmed')) return 'Check your inbox and confirm your email, then sign in.';
+    if(raw.includes('user already registered')||raw.includes('already been registered')) return 'You already have an account with this email. Switch to Sign In.';
+    if(raw.includes('password should be')||raw.includes('at least 6')) return 'Your password needs to be at least 6 characters.';
+    if(raw.includes('unable to validate email')||raw.includes('invalid email')) return 'That does not look like a valid email address.';
+    if(raw.includes('rate limit')||raw.includes('too many')) return 'Too many attempts. Wait about a minute and try again.';
+    if(raw.includes('timeout')||raw.includes('network')||raw.includes('fetch')) return 'Connection problem. Check your signal and try again.';
+    return 'Something went wrong signing you in. Try again in a moment.';
+}
 function setAuthSuccess(msg){const el=document.getElementById('auth-success');el.textContent=msg;el.classList.toggle('show',!!msg);document.getElementById('auth-error').classList.remove('show')}
 let authMode='login';
 function switchAuthMode(mode){
@@ -3931,7 +4682,7 @@ async function handleAuthSubmit(){
             }
         }
         if(result.error){
-            setAuthError('Error: '+result.error.message+' ('+result.error.status+')');
+            setAuthError(_friendlyAuthError(result.error));
             btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
             btn.disabled=false;return;
         }
@@ -3940,7 +4691,7 @@ async function handleAuthSubmit(){
         btn.disabled=false;
         if(result.data?.user) await onUserSignedIn(result.data.user);
     }catch(e){
-        setAuthError('Caught: '+(e.message||JSON.stringify(e)));
+        setAuthError(_friendlyAuthError(e));
         btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
         btn.disabled=false;
     }
@@ -3963,23 +4714,45 @@ async function handleLogout(){
     _flushSaveNow();
     try{await sb.auth.signOut();}catch(e){console.error('signOut error:',e);}
 }
+// ── Purchase link shown when a signed-in email is not on the members list ──
+// Ko-fi is the current storefront. Members who originally bought through Whop
+// keep their access: they are already rows in the members table, and the Whop
+// webhook stays live to handle any remaining cancellations.
+const KOFI_URL='https://ko-fi.com/s/75a70cb698';
+function _purchaseLinksHTML(){
+    const k=KOFI_URL?`<a href="${KOFI_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">get access here</a>`:'purchase The Blueprint';
+    return `No membership found for this email. If you have not joined yet, ${k}, then sign in with the same email you purchased with.<br><span style="opacity:.75">Just bought? Give it about a minute, then tap SIGN IN again.</span>`;
+}
 async function checkMembership(user){
-    // Check members table in Supabase — you add rows manually or via Whop webhook later
+    // Verifies the signed-in email against the members table (populated by the
+    // Ko-fi webhook, and historically the Whop one).
     try{
         const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
         const _query=sb.from('members').select('email').eq('email',user.email).single();
         const {data,error}=await Promise.race([_query,_timeout]);
         if(error||!data){
-            // Not in members table — show access denied
-            setAuthError('Access denied. Purchase The Blueprint on Whop or Ko-fi to get access.');
+            // Definitively not a member. Drop any cached pass so a refunded or
+            // removed member cannot keep riding an old device.
+            try{localStorage.removeItem('bp_member_ok_'+user.id);}catch(e){}
+            setAuthErrorHTML(_purchaseLinksHTML());
             await sb.auth.signOut();
             showAuthScreen();
             return false;
         }
+        // Remember that this device has verified this user at least once.
+        try{localStorage.setItem('bp_member_ok_'+user.id,new Date().toISOString());}catch(e){}
         return true;
     }catch(e){
-        // Network timeout or members table doesn't exist yet — allow access
-        return true;
+        // Could not reach Supabase. Previously this returned true, meaning any
+        // network failure granted access to anyone. Now we only extend trust to a
+        // device that has already verified this user successfully before.
+        let seen=null;
+        try{seen=localStorage.getItem('bp_member_ok_'+user.id);}catch(e2){}
+        if(seen) return true;
+        setAuthError("Couldn't verify your membership. Check your connection and tap SIGN IN again.");
+        try{await sb.auth.signOut();}catch(e2){}
+        showAuthScreen();
+        return false;
     }
 }
 
@@ -4001,12 +4774,13 @@ async function onUserSignedIn(user){
         await loadPersisted();
         // Bail if logout happened while we were awaiting
         if(currentUser?.id!==user.id) return;
+        loadHydrationUnit();
         _scheduleLocalNotif();
         hideAuthScreen();
-        // Auto-request push permission once per user if not yet decided
-        if('Notification' in window && Notification.permission==='default'){
-            setTimeout(()=>enableNotifications(),1500);
-        }
+        // Push permission is NOT requested here. Firing a native OS dialog 1.5s after
+        // landing interrupts a member who has not seen the app yet and burns the one
+        // chance to ask. It is now offered after their first completed session
+        // (see maybePromptPush, called from closeSessionSummary).
         const welcomed=localStorage.getItem('bp_welcomed_'+user.id);
         const onboarded=localStorage.getItem('bp_onboarded_'+user.id);
         if(welcomed){
@@ -4220,6 +4994,10 @@ function init(){
         if(!checkLiab.checked || !checkPain.checked) return;
         if(currentUser) localStorage.setItem('bp_welcomed_'+currentUser.id, '1');
         goToStep(0);
+        // First-ever entry: run the intro here. The sign-in path (onUserSignedIn)
+        // only reaches its showOnboarding call for users who were already welcomed,
+        // so without this a brand-new member never sees the intro on day one.
+        if(currentUser && !localStorage.getItem('bp_onboarded_'+currentUser.id)) setTimeout(showOnboarding,600);
     });
 
     try {
@@ -4266,6 +5044,7 @@ function init(){
         }
     });
     document.getElementById('hydration-reset-btn').addEventListener('click',resetHydration);
+    document.getElementById('hydration-undo-btn').addEventListener('click',undoHydration);
     document.getElementById('export-btn').addEventListener('click',exportData);
     document.getElementById('import-btn').addEventListener('click',()=>document.getElementById('import-file-input').click());
     document.getElementById('import-file-input').addEventListener('change',e=>{importData(e.target.files[0]);e.target.value=''});
@@ -4278,21 +5057,25 @@ function init(){
         });
     });
     // Pre-Flight
-    document.getElementById('primed-btn').addEventListener('click',nextStep);
+    document.getElementById('primed-btn').addEventListener('click',()=>goToStep(3));
     document.getElementById('preflight-back-btn').addEventListener('click',()=>goToStep(0));
     // Warmup
     document.getElementById('warmup-btn').addEventListener('click',toggleWarmup);
     document.getElementById('warmup-reset-btn').addEventListener('click',stopWarmup);
     document.getElementById('warmup-skip-btn').addEventListener('click',nextStep);
+    document.getElementById('warmup-back-btn').addEventListener('click',()=>goToStep(3));
     // Mission Select
-    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';goToStep(4)});
+    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';goToStep(2)});
     document.getElementById('mission-girth-btn').addEventListener('click',()=>{
         session.routineType='girth';
+        // resetSession() derives the round count from the tier when the engine
+        // opens, so this is just so the warmup screen has it available first.
         const diffKey=getDiff().id;
         const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
         session.girthRound=1;session.girthTotalRounds=cfg.rounds;
-        goToStep(4);
+        goToStep(2);
     });
+    // Stamina and Recovery do not get the warmup.
     document.getElementById('mission-stamina-btn').addEventListener('click',()=>{session.routineType='stamina';goToStep(4)});
     // Update diff-detail subtext when hovering mission cards (so text updates before tap)
     ['mission-length-btn','mission-girth-btn','mission-stamina-btn'].forEach(id=>{
@@ -4368,6 +5151,7 @@ function init(){
     // Day modal
     document.getElementById('modal-length-btn').addEventListener('click',()=>assignDay('length'));
     document.getElementById('modal-girth-btn').addEventListener('click',()=>assignDay('girth'));
+    document.getElementById('modal-stamina-btn').addEventListener('click',()=>assignDay('stamina'));
     document.getElementById('modal-rest-btn').addEventListener('click',()=>assignDay('rest'));
     document.getElementById('modal-toggle-btn').addEventListener('click',toggleDayCompletion);
     document.getElementById('modal-dismiss-btn').addEventListener('click',closeModal);
@@ -4380,15 +5164,27 @@ function init(){
     document.getElementById('photos-btn').addEventListener('click',openPhotoLog);
     document.getElementById('measure-howto-btn').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.remove('hidden'));
     document.getElementById('measure-howto-close').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.add('hidden'));
+    document.getElementById('hq-load-retry-btn').addEventListener('click',retryLoadPersisted);
     document.getElementById('photo-log-close').addEventListener('click',closePhotoLog);
+    document.getElementById('photo-compare-btn').addEventListener('click',togglePhotoCompare);
     document.getElementById('photo-log-howto-btn').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.remove('hidden'));
     document.getElementById('photo-log-add-btn').addEventListener('click',()=>document.getElementById('photo-log-file-input').click());
     document.getElementById('photo-log-file-input').addEventListener('change',e=>{if(e.target.files[0])handlePhotoLogUpload(e.target.files[0]);e.target.value='';});
     document.getElementById('manual-btn').addEventListener('click',()=>document.getElementById('manual-modal').classList.add('show'));
-    document.getElementById('manual-close-btn').addEventListener('click',()=>document.getElementById('manual-modal').classList.remove('show'));
+    document.getElementById('manual-close-btn').addEventListener('click',closeManual);
+    document.getElementById('replay-intro-btn').addEventListener('click',replayIntro);
+    document.getElementById('replay-tour-btn').addEventListener('click',replayTour);
     document.getElementById('history-close-btn').addEventListener('click',()=>document.getElementById('history-modal').style.display='none');
     document.getElementById('ob-next-btn').addEventListener('click',obNext);
+    document.querySelectorAll('#goal-options .goal-opt').forEach(btn=>{
+        btn.addEventListener('click',()=>selectGoal(btn.dataset.goal));
+    });
+    document.getElementById('change-goal-btn').addEventListener('click',openGoalPicker);
     document.getElementById('ob-skip-btn').addEventListener('click',hideOnboarding);
+    document.getElementById('tour-next').addEventListener('click',tourNext);
+    document.getElementById('tour-skip').addEventListener('click',endTour);
+    // Tapping the dimmed area advances, matching how these tours usually behave.
+    document.getElementById('tour-layer').addEventListener('click',e=>{if(e.target.id==='tour-layer')tourNext();});
     document.getElementById('tier-lock-close-btn').addEventListener('click',()=>document.getElementById('tier-lock-modal').classList.add('hidden'));
     document.getElementById('soreness-dismiss-btn').addEventListener('click',()=>document.getElementById('soreness-warning-modal').classList.remove('show'));
     document.getElementById('soreness-go-recovery-btn').addEventListener('click',()=>{
@@ -4453,7 +5249,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     },12000);
     sb.auth.onAuthStateChange(async(event,session)=>{
         if(event==='SIGNED_OUT'){
-            currentUser=null;persisted={...DEFAULT_PERSISTED};
+            currentUser=null;persisted={...DEFAULT_PERSISTED};_persistedLoaded=false;
             showAuthScreen();return;
         }
         try{
