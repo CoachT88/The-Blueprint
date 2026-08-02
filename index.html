@@ -761,6 +761,14 @@
             </div>
             <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
         </div>
+        <div id="hq-load-failed-banner" class="hidden p-3 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-center gap-3">
+            <i class="fas fa-triangle-exclamation text-red-400 text-lg flex-shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-black text-red-300 uppercase tracking-widest">Could Not Load Your Data</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Your progress is safe on the server, we just could not reach it. Nothing will be saved until it loads. Do not start a session yet.</p>
+            </div>
+            <button id="hq-load-retry-btn" class="text-[10px] font-black text-red-300 uppercase tracking-widest bg-red-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Retry</button>
+        </div>
         <div id="hq-pass-used-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
             <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
             <div class="flex-1 min-w-0">
@@ -2010,6 +2018,11 @@ const DEFAULT_PERSISTED={
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
 let _saveDebounce = null;
+// True only once we know the server's state for this user: their row was read,
+// their local backup was restored, or we confirmed they are genuinely new.
+// While false, `persisted` is still just defaults and MUST NOT be written
+// anywhere, or a slow connection would overwrite a real account with zeros.
+let _persistedLoaded=false;
 
 function getISOWeek(){
     const d=new Date(); d.setHours(0,0,0,0);
@@ -2023,6 +2036,7 @@ function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
 
 async function loadPersisted(){
     if(!currentUser)return;
+    _persistedLoaded=false;
     // Read localStorage backup first so we can compare timestamps
     let localData=null;
     try{const raw=localStorage.getItem('bp_data_'+currentUser.id);if(raw)localData=JSON.parse(raw);}catch(e){}
@@ -2033,20 +2047,27 @@ async function loadPersisted(){
         const {data,error}=await Promise.race([_query,_timeout]).catch(e=>{
             // Timeout or network error — fall back to localStorage
             _queryFailed=true;
-            if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e2){}
+            if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};_persistedLoaded=true;}catch(e2){}
             return {};
         });
         if(!data){
-            if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e){}
+            if(localData){
+                try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};_persistedLoaded=true;}catch(e){}
+            }
             // Brand-new account starts at Beginner, matching what the intro promises.
             // Only when the query genuinely SUCCEEDED and found no row (PGRST116) and
             // there is no local backup — a timeout or error must never downgrade a
             // returning member who simply could not be read this time.
             else if(!_queryFailed && (!error || error.code==='PGRST116')){
                 persisted={...DEFAULT_PERSISTED, difficulty:'beginner'};
+                _persistedLoaded=true;
             }
+            // Otherwise the read failed and we have no backup: stay unloaded so
+            // nothing overwrites the row we could not see.
+            else { _showLoadFailedBanner(); }
             return;
         }
+        _persistedLoaded=true;
         // If the local backup is newer than Supabase, or if a previous write
         // was locally committed but never confirmed by Supabase (dirty flag),
         // treat local as the source of truth and re-sync.
@@ -2058,8 +2079,9 @@ async function loadPersisted(){
             persisted={...DEFAULT_PERSISTED,...rest};
             // Re-sync Supabase with the newer local data
             try{
-                await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
-                localStorage.removeItem('bp_dirty_'+currentUser.id);
+                _persistedLoaded=true; // local backup is a known-good state
+                const _err=await _upsertWithSchemaFallback();
+                if(!_err) localStorage.removeItem('bp_dirty_'+currentUser.id);
             }catch(e){}
         } else {
             persisted = {
@@ -2106,7 +2128,9 @@ async function loadPersisted(){
         }
     }catch(e){
         console.error('loadPersisted:',e);
-        if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e2){}
+        if(localData){
+            try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};_persistedLoaded=true;}catch(e2){}
+        } else { _showLoadFailedBanner(); }
     }
 }
 
@@ -2162,6 +2186,8 @@ async function _upsertWithSchemaFallback(){
     return error;
 }
 function savePersisted(){
+    // Refuse to persist defaults over an account we were never able to read.
+    if(!_persistedLoaded){console.warn('savePersisted skipped: user data was never loaded');return;}
     if(currentUser) try{
         localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
         localStorage.setItem('bp_dirty_'+currentUser.id,'1'); // cleared only after Supabase confirms
@@ -2178,6 +2204,7 @@ function savePersisted(){
 }
 function _flushSaveNow(){
     if(!currentUser)return;
+    if(!_persistedLoaded){console.warn('_flushSaveNow skipped: user data was never loaded');return;}
     clearTimeout(_saveDebounce);
     try{
         localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
@@ -3851,6 +3878,20 @@ function getCurrentStreak(log){
     }
     return streak;
 }
+function _showLoadFailedBanner(){
+    const el=document.getElementById('hq-load-failed-banner');
+    if(el) el.classList.remove('hidden');
+}
+async function retryLoadPersisted(){
+    const btn=document.getElementById('hq-load-retry-btn');
+    if(btn){btn.disabled=true;btn.textContent='...';}
+    await loadPersisted();
+    if(_persistedLoaded){
+        document.getElementById('hq-load-failed-banner').classList.add('hidden');
+        renderDashboard();
+    }
+    if(btn){btn.disabled=false;btn.textContent='Retry';}
+}
 function _showPassUsedBanner(){
     const el=document.getElementById('hq-pass-used-banner');
     if(!el) return;
@@ -4826,6 +4867,7 @@ function init(){
     document.getElementById('photos-btn').addEventListener('click',openPhotoLog);
     document.getElementById('measure-howto-btn').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.remove('hidden'));
     document.getElementById('measure-howto-close').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.add('hidden'));
+    document.getElementById('hq-load-retry-btn').addEventListener('click',retryLoadPersisted);
     document.getElementById('photo-log-close').addEventListener('click',closePhotoLog);
     document.getElementById('photo-compare-btn').addEventListener('click',togglePhotoCompare);
     document.getElementById('photo-log-howto-btn').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.remove('hidden'));
@@ -4906,7 +4948,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     },12000);
     sb.auth.onAuthStateChange(async(event,session)=>{
         if(event==='SIGNED_OUT'){
-            currentUser=null;persisted={...DEFAULT_PERSISTED};
+            currentUser=null;persisted={...DEFAULT_PERSISTED};_persistedLoaded=false;
             showAuthScreen();return;
         }
         try{
