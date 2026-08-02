@@ -738,6 +738,13 @@
             </div>
             <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
         </div>
+        <div id="hq-pass-used-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
+            <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Your streak is still alive. Get back in today.</p>
+            </div>
+        </div>
         <div id="hq-rest-banner" class="hidden p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-3">
             <i class="fas fa-bed text-indigo-400 text-lg flex-shrink-0"></i>
             <div class="flex-1 min-w-0">
@@ -1973,6 +1980,9 @@ const DEFAULT_PERSISTED={
     firstSessionDate:'',   // used for tier lock calculation
     allTimeSessionCount:0, // never truncated — used for safe XP migration check
     xpMigrated:false,      // one-time flag so XP migration never fires twice
+    streakPasses:0,        // banked Recovery Passes (max 2)
+    passProtectedDates:[], // ISO dates a spent pass is covering
+    lastPassEarnedDate:'', // guards against earning twice in one day
 };
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
@@ -2046,6 +2056,9 @@ async function loadPersisted(){
                 lastTipDate:         data.last_tip_date        || '',
                 allTimeSessionCount: data.all_time_session_count || 0,
                 xpMigrated:          data.xp_migrated          || false,
+                streakPasses:        data.streak_passes        || 0,
+                passProtectedDates:  data.pass_protected_dates || [],
+                lastPassEarnedDate:  data.last_pass_earned_date|| '',
             };
         }
         // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
@@ -2091,12 +2104,39 @@ function _buildSavePayload(){
         last_tip_date:         persisted.lastTipDate||'',
         all_time_session_count: persisted.allTimeSessionCount||0,
         xp_migrated:           !!persisted.xpMigrated,
+        streak_passes:         persisted.streakPasses||0,
+        pass_protected_dates:  persisted.passProtectedDates||[],
+        last_pass_earned_date: persisted.lastPassEarnedDate||'',
         updated_at:            new Date().toISOString(),
     };
 }
+// Columns added after the original schema. If the deploy lands before the
+// matching ALTER TABLE has been run, Supabase rejects the whole upsert and the
+// member silently stops syncing. We detect that once and fall back to writing
+// the columns that do exist, so progress is never lost over a migration gap.
+const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date'];
+let _schemaMissingNewCols=false;
+function _isUnknownColumnError(err){
+    if(!err) return false;
+    const code=err.code||'';
+    const msg=(err.message||'').toLowerCase();
+    // PGRST204: column not in schema cache. 42703: undefined_column.
+    return code==='PGRST204'||code==='42703'||(msg.includes('column')&&(msg.includes('does not exist')||msg.includes('schema cache')));
+}
 function _upsertPayload(){
     // upsert ensures the row is created if it doesn't exist (cross-device safe)
-    return{id:currentUser.id,..._buildSavePayload()};
+    const payload={id:currentUser.id,..._buildSavePayload()};
+    if(_schemaMissingNewCols) _NEWER_COLUMNS.forEach(c=>delete payload[c]);
+    return payload;
+}
+async function _upsertWithSchemaFallback(){
+    let {error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
+    if(error&&!_schemaMissingNewCols&&_isUnknownColumnError(error)){
+        console.warn('user_data is missing newer columns; saving without them. Run the pending ALTER TABLE.');
+        _schemaMissingNewCols=true;
+        ({error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'}));
+    }
+    return error;
 }
 function savePersisted(){
     if(currentUser) try{
@@ -2107,7 +2147,7 @@ function savePersisted(){
     _saveDebounce=setTimeout(async()=>{
         if(!currentUser)return;
         try{
-            const {error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
+            const error=await _upsertWithSchemaFallback();
             if(error){console.error('savePersisted error:',error.message,error.code);}
             else{localStorage.removeItem('bp_dirty_'+currentUser.id);}
         }catch(e){console.error('savePersisted:',e)}
@@ -2120,8 +2160,8 @@ function _flushSaveNow(){
         localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
         localStorage.setItem('bp_dirty_'+currentUser.id,'1');
     }catch(e){}
-    sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'})
-        .then(({error})=>{
+    _upsertWithSchemaFallback()
+        .then(error=>{
             if(error){console.error('_flushSaveNow error:',error.message,error.code);}
             else if(currentUser){localStorage.removeItem('bp_dirty_'+currentUser.id);}
         })
@@ -3503,6 +3543,7 @@ function renderDashboard(){
             el.style.animationDelay=`${i*55}ms`;
         });
     });
+    if(maybeConsumeStreakPass()) _showPassUsedBanner();
     renderHydration();
     maybeShowUpdateNotice();
     // Warn about a rest day here, before the member commits to pre-flight and a
@@ -3521,7 +3562,8 @@ function renderDashboard(){
         g.appendChild(d);
     });
     document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
-    document.getElementById('hq-streak').innerText=`${getCurrentStreak()} Day Streak`;
+    const _passes=persisted.streakPasses||0;
+    document.getElementById('hq-streak').innerText=`${getCurrentStreak()} Day Streak`+(_passes?` · 🛡️×${_passes}`:'');
     document.getElementById('hq-xp').innerText=`${persisted.totalXp} XP`;
     const lvl=getLevelInfo(persisted.totalXp);
     document.getElementById('hq-level-name').innerText=lvl.displayName;
@@ -3601,9 +3643,23 @@ function finishSession(){
     if(persisted.sessionLog.length>50)persisted.sessionLog=persisted.sessionLog.slice(-50);
     if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);if(persisted.measurements.length>100)persisted.measurements=persisted.measurements.slice(-100)}
     updateRecords(earnedXp);
+    _passEarnedThisSession=maybeEarnStreakPass();
     savePersisted();
     checkMilestones();
     showSessionSummary(earnedXp);
+}
+let _passEarnedThisSession=false;
+// One pass per full week of consistency, capped at two so it stays a safety net
+// rather than a way to coast.
+function maybeEarnStreakPass(){
+    const today=_dayKey(0);
+    if(persisted.lastPassEarnedDate===today) return false;
+    if((persisted.streakPasses||0)>=2) return false;
+    const streak=getCurrentStreak();
+    if(streak<1||streak%7!==0) return false;
+    persisted.streakPasses=(persisted.streakPasses||0)+1;
+    persisted.lastPassEarnedDate=today;
+    return true;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3701,15 +3757,46 @@ function getCurrentStreak(log){
     const sessions=log||(persisted.sessionLog||[]);
     if(!sessions.length) return 0;
     const days=new Set(sessions.map(s=>s.date.split('T')[0]));
+    const protectedDays=new Set(persisted.passProtectedDates||[]);
     const today=new Date();
     let streak=0;
     for(let i=0;i<365;i++){
         const d=new Date(today);d.setDate(d.getDate()-i);
         const key=d.toISOString().split('T')[0];
-        if(days.has(key)){streak++;}
+        // A day counts if it was trained, or if a Recovery Pass is covering it.
+        if(days.has(key)||protectedDays.has(key)){streak++;}
         else if(i>0){break;} // allow today to not yet have a session without snapping streak
     }
     return streak;
+}
+function _showPassUsedBanner(){
+    const el=document.getElementById('hq-pass-used-banner');
+    if(!el) return;
+    el.classList.remove('hidden');
+    setTimeout(()=>el.classList.add('hidden'),12000);
+}
+function _dayKey(offset){
+    const d=new Date(); d.setDate(d.getDate()-(offset||0));
+    return d.toISOString().split('T')[0];
+}
+// Spend a banked pass to cover yesterday, so one missed day does not wipe out a
+// long streak (and with it, most of the reason people keep opening the app).
+function maybeConsumeStreakPass(){
+    if(!currentUser) return false;
+    const sessions=persisted.sessionLog||[];
+    if(!sessions.length) return false;
+    if((persisted.streakPasses||0)<1) return false;
+    const days=new Set(sessions.map(s=>s.date.split('T')[0]));
+    const protectedDays=new Set(persisted.passProtectedDates||[]);
+    const yest=_dayKey(1);
+    if(days.has(yest)||protectedDays.has(yest)) return false; // nothing to cover
+    // Only meaningful if a streak was actually running into yesterday.
+    const before=_dayKey(2);
+    if(!days.has(before)&&!protectedDays.has(before)) return false;
+    persisted.streakPasses=(persisted.streakPasses||0)-1;
+    persisted.passProtectedDates=[...(persisted.passProtectedDates||[]),yest].slice(-30);
+    savePersisted();
+    return true;
 }
 
 function updateRecords(sessionXp){
@@ -3756,6 +3843,7 @@ function showSessionSummary(xp){
     const records=[];
     if(streak>=r.longestStreak&&streak>0) records.push('🏆 New streak record: '+streak+' days');
     if(xp>=r.bestSessionXp&&xp>0) records.push('⚡ New session XP record: '+xp+' XP');
+    if(_passEarnedThisSession) records.push('🛡️ Recovery Pass earned — one missed day will not break your streak');
     const recordsEl=document.getElementById('summary-records');
     recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
     modal.classList.add('show');
