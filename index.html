@@ -689,11 +689,14 @@
         <!-- Hydration Tracker -->
         <div id="hq-hydration-card" class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
             <div class="flex justify-between items-center mb-3">
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-droplet text-blue-400 text-sm"></i>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Daily Hydration</span>
+                <div class="flex items-center gap-2 min-w-0">
+                    <i class="fas fa-droplet text-blue-400 text-sm flex-shrink-0"></i>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-blue-400 truncate">Daily Hydration</span>
                 </div>
-                <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace">0 / 3L</span>
+                <div class="flex items-center gap-2 flex-shrink-0 min-w-0">
+                    <span id="hydration-over" class="hidden text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" style="background:rgba(16,185,129,.15);color:#6ee7b7;white-space:nowrap;"></span>
+                    <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace;white-space:nowrap;">0 / 3L</span>
+                </div>
             </div>
             <!-- Liter milestone bubbles -->
             <div class="flex gap-2 mb-3" id="hydration-liters">
@@ -711,6 +714,10 @@
                 <input id="hydration-custom-input" type="number" min="0" step="any" placeholder="e.g. 0.5" class="auth-input text-center" style="font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:.5rem .75rem;flex:1;">
                 <button id="hydration-custom-btn" class="water-btn" style="flex-shrink:0;width:52px;"><i class="fas fa-plus"></i></button>
                 <button id="hydration-reset-btn" class="water-btn" style="flex-shrink:0;width:40px;border-color:rgba(100,116,139,.2);background:rgba(100,116,139,.05);color:#475569;"><i class="fas fa-rotate-left"></i></button>
+            </div>
+            <p id="hydration-entry-note" class="hidden text-[10px] text-center mb-1"></p>
+            <div class="flex justify-center mb-1">
+                <button id="hydration-undo-btn" class="hidden text-[9px] font-black uppercase tracking-widest text-slate-500 px-2 py-1"><i class="fas fa-rotate-left mr-1"></i>Undo last</button>
             </div>
             <p id="hydration-msg" class="text-[10px] text-slate-500 italic mt-1 text-center">Sip throughout the day — don't chug.</p>
         </div>
@@ -2354,7 +2361,7 @@ function getHydrationWarning(){
     // Afternoon/evening — stricter
     if(diff.id==='advanced'||diff.id==='elite'){
         if(ml<2000) return `Only ${liters}L logged today. ${diff.label} sessions put serious demand on your tissue. Hit 3L before training.`;
-        if(ml<3000) return `Almost at 3L — top off before an ${diff.label} session.`;
+        if(ml<HYDRATION_GOAL_ML) return `Almost at 3L — top off before an ${diff.label} session.`;
     } else if(diff.id==='intermediate'){
         if(ml<1500) return `Only ${liters}L today. Aim for at least 2L before training — hydrated tissue expands, dry tissue tears.`;
     } else {
@@ -2825,7 +2832,7 @@ function _coachContext(){
     }
     const m=(persisted.measurements||[]).slice(-1)[0];
     if(m) lines.push(`Latest measurements: ${m.bpel?`BPEL ${m.bpel}in`:''}${m.bpel&&m.mseg?', ':''}${m.mseg?`MSEG ${m.mseg}in`:''} on ${(m.date||'').split('T')[0]}.`);
-    try{ lines.push(`Water logged today: ${getHydration().toFixed(1)}L of 3L.`); }catch(e){}
+    try{ lines.push(`Water logged today: ${getHydrationLitres().toFixed(1)}L of ${(HYDRATION_GOAL_ML/1000)}L.`); }catch(e){}
     try{
         const sleep=localStorage.getItem(getTodaySleepKey())||'', sore=localStorage.getItem(getTodaySorenessKey())||'';
         if(sleep||sore) lines.push(`Today's check-in: ${sleep?`sleep ${sleep}`:''}${sleep&&sore?', ':''}${sore?`soreness ${sore}`:''}.`);
@@ -3564,12 +3571,20 @@ function startGirthRoundRest(){
 // ═══════════════════════════════════════════════════════════════════════════
 // HYDRATION TRACKER
 // ═══════════════════════════════════════════════════════════════════════════
+const HYDRATION_GOAL_ML=3000;      // daily target, single source of truth
+const ML_PER_OZ=29.5735;
+const MAX_SINGLE_ENTRY_ML=5000;    // anything above this is a typo, not a drink
+
 function getTodayKey(){ return 'bp_hydration_'+(currentUser?.id||'')+'_'+new Date().toISOString().split('T')[0]; }
 function getHydration(){ return parseFloat(localStorage.getItem(getTodayKey())||'0'); }
+function getHydrationLitres(){ return getHydration()/1000; }
+function _hydrationUnitKey(){ return 'bp_hydration_unit_'+(currentUser?.id||''); }
 let _hydrationUnit='L'; // 'L' or 'oz'
+let _lastHydrationDelta=0; // supports one-tap undo
 
-function setHydrationUnit(unit){
+function setHydrationUnit(unit,skipRender){
     _hydrationUnit=unit;
+    try{localStorage.setItem(_hydrationUnitKey(),unit);}catch(e){}
     const ozBtn=document.getElementById('unit-oz-btn');
     const lBtn=document.getElementById('unit-l-btn');
     if(ozBtn&&lBtn){
@@ -3578,38 +3593,84 @@ function setHydrationUnit(unit){
     }
     const inp=document.getElementById('hydration-custom-input');
     if(inp) inp.placeholder=unit==='oz'?'e.g. 24':'e.g. 0.5';
+    // The amount and message are unit-dependent, so they must redraw immediately.
+    if(!skipRender) renderHydration();
+}
+function loadHydrationUnit(){
+    let u=null;
+    try{u=localStorage.getItem(_hydrationUnitKey());}catch(e){}
+    setHydrationUnit(u==='oz'?'oz':'L',true);
+}
+
+function _hydrationNote(text,isError){
+    const el=document.getElementById('hydration-entry-note');
+    if(!el) return;
+    el.textContent=text||'';
+    el.classList.toggle('hidden',!text);
+    el.style.color=isError?'#f87171':'#64748b';
+    if(text) setTimeout(()=>{if(el.textContent===text)el.classList.add('hidden');},6000);
 }
 
 function setHydration(amount){
-    // amount is in current unit — convert to ml for storage
-    const ml=_hydrationUnit==='oz'?(amount*29.5735):(amount*1000);
+    // amount is in the current unit — convert to ml for storage
+    const raw=_hydrationUnit==='oz'?(amount*ML_PER_OZ):(amount*1000);
+    // Round to whole ml so repeated oz entries can still reach the goal exactly;
+    // three 33.8oz logs used to land on 2999.75 and never register as complete.
+    const ml=Math.round(raw);
+    if(ml>MAX_SINGLE_ENTRY_ML){
+        const cap=_hydrationUnit==='oz'?Math.round(MAX_SINGLE_ENTRY_ML/ML_PER_OZ)+'oz':(MAX_SINGLE_ENTRY_ML/1000)+'L';
+        _hydrationNote(`That looks like a typo. Single entries are capped at ${cap}.`,true);
+        return;
+    }
     const current=getHydration();
     localStorage.setItem(getTodayKey(), current+ml);
+    _lastHydrationDelta=ml;
     renderHydration();
+}
+function undoHydration(){
+    if(_lastHydrationDelta<=0) return;
+    const next=Math.max(0,getHydration()-_lastHydrationDelta);
+    localStorage.setItem(getTodayKey(), next);
+    _lastHydrationDelta=0;
+    renderHydration();
+    _hydrationNote('Last entry removed.');
 }
 function setHydrationToLiter(l){
     // Tap a liter bubble — set to AT LEAST that liter milestone
     const current=getHydration();
     const target=l*1000;
-    if(current<target) localStorage.setItem(getTodayKey(), target);
+    if(current<target){
+        localStorage.setItem(getTodayKey(), target);
+        _lastHydrationDelta=target-current;
+    }
     renderHydration();
 }
 function resetHydration(){
+    // Destructive and easy to hit by accident, so make it deliberate.
+    if(getHydration()>0 && !confirm("Clear today's water log? This cannot be undone.")) return;
     localStorage.setItem(getTodayKey(),'0');
+    _lastHydrationDelta=0;
     renderHydration();
 }
 function renderHydration(){
     const ml=getHydration();
-    const pct=Math.min(100,(ml/3000)*100);
-    const complete=ml>=3000;
+    const pct=Math.min(100,(ml/HYDRATION_GOAL_ML)*100);
+    const complete=ml>=HYDRATION_GOAL_ML;
+    const over=Math.max(0,ml-HYDRATION_GOAL_ML);
 
     // Display in current unit
     const isOz=_hydrationUnit==='oz';
-    const displayed=isOz?(ml/29.5735):(ml/1000);
-    const goal=isOz?101.4:3; // 3L in oz = ~101.4oz
+    const fmt=v=>isOz?(v/ML_PER_OZ).toFixed(0):(v/1000).toFixed(1);
     const unit=isOz?'oz':'L';
-    const decimals=isOz?0:1;
-    document.getElementById('hydration-amount').innerText=displayed.toFixed(decimals)+unit+' / '+goal.toFixed(isOz?0:0)+unit;
+    const goalStr=isOz?Math.round(HYDRATION_GOAL_ML/ML_PER_OZ):(HYDRATION_GOAL_ML/1000);
+    document.getElementById('hydration-amount').innerText=fmt(ml)+unit+' / '+goalStr+unit;
+
+    // Surplus past the goal is an achievement, not an error state.
+    const overEl=document.getElementById('hydration-over');
+    if(overEl){
+        overEl.classList.toggle('hidden',over<=0);
+        if(over>0) overEl.textContent='+'+fmt(over)+unit+' over';
+    }
 
     // Bar
     const bar=document.getElementById('hydration-bar');
@@ -3623,12 +3684,23 @@ function renderHydration(){
         if(ml>=l*1000) el.classList.add(complete&&l===3?'complete':'hit');
     });
 
+    const undoBtn=document.getElementById('hydration-undo-btn');
+    if(undoBtn) undoBtn.classList.toggle('hidden',_lastHydrationDelta<=0);
+
     // Message
     const msg=document.getElementById('hydration-msg');
     if(complete){
-        msg.innerHTML='<span class="text-emerald-400 font-bold">✓ Goal hit. Tissue is primed.</span>';
+        // Keep coaching past the goal instead of going silent at 3L.
+        const overMsgs=[
+            'Goal hit. Anything past this is a bonus, keep sipping.',
+            'Past target and still going. This is what good EQ is built on.',
+            'Over the line. Extra water is never wasted on vascular tissue.',
+        ];
+        msg.innerHTML=over>0
+            ? '<span class="text-emerald-400 font-bold">✓ '+overMsgs[Math.floor(over/500)%overMsgs.length]+'</span>'
+            : '<span class="text-emerald-400 font-bold">✓ Goal hit. Tissue is primed.</span>';
     } else {
-        const remaining=isOz?((3000-ml)/29.5735).toFixed(0)+'oz':(((3000-ml)/1000).toFixed(1)+'L');
+        const remaining=fmt(HYDRATION_GOAL_ML-ml)+unit;
         const sipMessages=[
             'Sip throughout the day — don\'t chug.',
             'Small sips every 20-30 min. Not a race.',
@@ -4490,6 +4562,7 @@ async function onUserSignedIn(user){
         await loadPersisted();
         // Bail if logout happened while we were awaiting
         if(currentUser?.id!==user.id) return;
+        loadHydrationUnit();
         _scheduleLocalNotif();
         hideAuthScreen();
         // Push permission is NOT requested here. Firing a native OS dialog 1.5s after
@@ -4759,6 +4832,7 @@ function init(){
         }
     });
     document.getElementById('hydration-reset-btn').addEventListener('click',resetHydration);
+    document.getElementById('hydration-undo-btn').addEventListener('click',undoHydration);
     document.getElementById('export-btn').addEventListener('click',exportData);
     document.getElementById('import-btn').addEventListener('click',()=>document.getElementById('import-file-input').click());
     document.getElementById('import-file-input').addEventListener('change',e=>{importData(e.target.files[0]);e.target.value=''});
