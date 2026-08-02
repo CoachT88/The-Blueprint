@@ -58,6 +58,8 @@
         .goal-opt span{font-size:.7rem;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.02em;line-height:1.15}
         .goal-opt em{font-size:.58rem;font-style:normal;color:#64748b;line-height:1.2}
         .goal-opt.selected{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.6)}
+        .ex-pick-card.pick-locked{opacity:.5;cursor:not-allowed;border-style:dashed}
+        .ex-pick-card.pick-locked .ex-pick-benefit{color:#f59e0b}
         .level-badge{background:linear-gradient(135deg,rgba(250,204,21,.1) 0%,rgba(245,158,11,.05) 100%);border:1px solid rgba(250,204,21,.2);border-radius:.75rem;padding:.75rem 1rem}
         .level-bar-track{height:3px;background:#1e293b;border-radius:999px;width:100%;margin-top:.4rem}
         .level-bar-fill{height:100%;background:linear-gradient(90deg,#facc15,#f59e0b);border-radius:999px;transition:width .8s cubic-bezier(.4,0,.2,1)}
@@ -782,6 +784,13 @@
             </div>
             <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
         </div>
+        <div id="hq-storage-full-banner" class="hidden p-3 rounded-2xl bg-orange-500/10 border border-orange-500/40 flex items-center gap-3">
+            <i class="fas fa-hard-drive text-orange-400 text-lg flex-shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-black text-orange-300 uppercase tracking-widest">Device Storage Full</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Your progress is still saving to the cloud, but this device cannot keep an offline copy. Free up some space when you get a chance.</p>
+            </div>
+        </div>
         <div id="hq-load-failed-banner" class="hidden p-3 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-center gap-3">
             <i class="fas fa-triangle-exclamation text-red-400 text-lg flex-shrink-0"></i>
             <div class="flex-1 min-w-0">
@@ -950,7 +959,7 @@
         <i class="fas fa-comment-dots text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
         <div>
             <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">CoachTee Recommends</p>
-            <p class="text-slate-400 text-[11px] leading-relaxed">All 8 are designed to work together — the kegels and RK build and release the floor, the pelvic exercises decompress it, and The Big Four open the hips and pelvis. Each session has a recommended set based on time of day.</p>
+            <p class="text-slate-400 text-[11px] leading-relaxed">These are designed to work together — the kegels and RK build and release the floor, the pelvic exercises decompress it, and The Big Four open the hips and pelvis. Each session has a recommended set based on time of day.</p>
             <div class="flex gap-2 mt-2 flex-wrap">
                 <button id="recovery-select-all-btn" class="text-amber-400 text-[10px] font-black uppercase tracking-widest border border-amber-500/30 px-3 py-1 rounded-full" style="background:rgba(245,158,11,.05)">Select All 8</button>
                 <button id="recovery-select-daily-btn" class="text-amber-300 text-[10px] font-black uppercase tracking-widest border border-amber-400/50 px-3 py-1 rounded-full" style="background:rgba(245,158,11,.12)"><i class="fas fa-star mr-1"></i>Today's Pick</button>
@@ -1126,7 +1135,7 @@
     <!-- Session note -->
     <div class="instruction-card border-slate-700/30 mx-2 text-left">
         <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-pen-to-square"></i> Session Note <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
-        <textarea id="session-note-input" class="glass-input h-20" placeholder="EQ was strong, good pump on girth work..."></textarea>
+        <textarea id="session-note-input" class="glass-input h-20" maxlength="500" placeholder="EQ was strong, good pump on girth work..."></textarea>
     </div>
 
     <!-- AI Recovery -->
@@ -1295,6 +1304,7 @@
             <button id="replay-tour-btn" class="btn-outline flex-1 py-2.5 text-[10px] flex items-center justify-center gap-1.5" style="border-color:rgba(59,130,246,.3);color:#93c5fd;"><i class="fas fa-location-crosshairs text-[10px]"></i> Replay Tour</button>
         </div>
         <button id="change-goal-btn" class="btn-outline w-full py-2.5 text-[10px] flex items-center justify-center gap-1.5 mt-2" style="border-color:rgba(16,185,129,.3);color:#6ee7b7;"><i class="fas fa-bullseye text-[10px]"></i> Change My Goal</button>
+        <button id="pelvic-screen-btn" class="btn-outline w-full py-2.5 text-[10px] flex items-center justify-center gap-1.5 mt-2" style="border-color:rgba(245,158,11,.3);color:#fcd34d;"><i class="fas fa-stethoscope text-[10px]"></i> Pelvic Floor Check</button>
     </div>
 
     <!-- Scrollable content -->
@@ -1482,7 +1492,7 @@
                 <div class="space-y-3">
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-2">Pelvic Floor Work (4 exercises)</p>
-                        <p class="mb-2"><strong class="text-slate-300">Kegel Contractions</strong> — Trains voluntary contraction. Stronger contractions mean better blood flow and better EQ during training. 3 sets × 60s. 3 seconds on, 3 seconds full release.</p>
+                        <p class="mb-2"><strong class="text-slate-300">Kegel Contractions</strong> — Trains voluntary contraction, which means better blood flow and better EQ — but only if your floor is not already too tight. A hypertonic floor gets worse with kegels, not better. Take the Pelvic Floor Check in this Manual first; if it flags you, the app removes these from your protocol automatically. 3 sets × 60s. 3 seconds on, 3 seconds full release.</p>
                         <p class="mb-2"><strong class="text-slate-300">Reverse Kegel Stretch</strong> — The antagonist to the kegel. Trains the floor to fully release. A floor that cannot release cannot expand. 3 sets × 45s. Inhale deep, gently bear down.</p>
                         <p class="mb-2"><strong class="text-slate-300">Pelvic Floor Release</strong> — Deep passive decompression using breath and gravity. No active movement. 3 sets × 45s.</p>
                         <p><strong class="text-slate-300">Pelvic Floor Endurance Hold</strong> — 40% contraction sustained for the full set. Builds motor control and stamina, not peak strength. 3 sets × 60s.</p>
@@ -1563,11 +1573,11 @@
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1">Weekly Report</p>
-                        <p>Tap the Week button on the HQ for your 7-day summary: total XP, sessions completed, average EQ with trend, average RPE with coaching insight, active days, and your latest measurements. The report also shows your 5 most recent sessions with type, EQ, and RPE. Tap View Full History for every session ever logged.</p>
+                        <p>Tap the Week button on the HQ for your 7-day summary: total XP, sessions completed, average EQ with trend, average RPE with coaching insight, active days, and your latest measurements. The report also shows your 5 most recent sessions with type, EQ, and RPE. Tap View Full History for your complete session history, loaded in pages of 50.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1">Export & Import</p>
-                        <p>All your data can be exported as a JSON file from the Data Management section at the bottom of the HQ. Keep this as a backup. You can import it back at any time if you ever need to restore your progress.</p>
+                        <p>Your full history can be exported as a JSON file from the Data Management section at the bottom of the HQ. Keep this as a backup. You can import it back at any time if you ever need to restore your progress.</p>
                     </div>
                 </div>
             </div>
@@ -1598,7 +1608,7 @@
                 </div>
                 <div class="p-3 rounded-xl bg-orange-950/30 border border-orange-500/20">
                     <p class="text-orange-300 font-bold text-xs mb-1">Normal sensations vs warning signs</p>
-                    <p>A mild dull ache at the base after length work is normal and usually means the ligament was loaded. Skin-level soreness from jelqing without enough lube is a technique error, not an injury, but stop and reapply. Fatigue in the pelvic floor after kegel work is expected. Any sharp, electric, or stinging sensation is a hard stop — no exceptions.</p>
+                    <p>A mild dull ache at the base after length work is normal and usually means the ligament was loaded. Skin-level soreness from jelqing without enough lube is a technique error, not an injury, but stop and reapply. Mild fatigue in the pelvic floor after kegel work can be normal. Aching, pressure, or a heavy feeling in the perineum is not — that is a sign to stop contracting and switch to release work, and to take the Pelvic Floor Check in this Manual. Any sharp, electric, or stinging sensation is a hard stop — no exceptions.</p>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">The soreness check-in</p>
@@ -1646,6 +1656,37 @@
             </div>
         </div>
 
+        <!-- CHAPTER 10: PRIVACY -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-privacy')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-lock text-slate-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">Your Privacy</p><p class="text-[10px] text-slate-500">What is stored, and what is never stored</p></div>
+                </div>
+                <i id="m-privacy-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-privacy" class="manual-section">
+            <div class="space-y-3 text-[12px] text-slate-400 leading-relaxed">
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Where your data lives</p>
+                    <p>Everything is stored in this app's own private database and nothing is sold, shared, or sent to any advertising or analytics company. There are no third-party trackers in this app.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Your progress</p>
+                    <p>Your sessions, measurements, notes, and photos are yours. They are tied to your account and only you can read them. Photos are stored privately and are only ever shown back to you. You can export everything, or delete a photo, at any time.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">How the app is improved</p>
+                    <p>The app records which features get used, so problems can be found and fixed. That means things like: a session was started, a mission was chosen, a session was finished with its length and your EQ and RPE numbers, the intro was skipped, or Coach Tee was asked a question.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">What is never recorded</p>
+                    <p>Your session notes, your measurements, your photos, your email address, and the questions you ask Coach Tee are never included in that usage record. It knows a question was asked, never what you asked. Usage is linked to an anonymous account ID, not to your email.</p>
+                </div>
+            </div>
+        </div>
+
         <div class="px-5 py-6 text-center">
             <p class="text-slate-600 text-[10px] italic">The Blueprint — built by CoachTee</p>
         </div>
@@ -1669,6 +1710,37 @@
 </div>
 
 <!-- SORENESS WARNING MODAL -->
+
+<!-- PELVIC FLOOR SCREENER -->
+<div id="pelvic-screen-modal" class="hidden fixed inset-0 z-[99994] overflow-y-auto" style="background:rgba(2,6,23,.98)">
+    <div class="inner-step-wrapper py-12 space-y-5">
+        <div class="px-2 text-center">
+            <div class="relative mb-5 inline-block">
+                <div class="absolute inset-0 bg-amber-500/20 blur-[40px] rounded-full"></div>
+                <div class="relative p-5 bg-amber-500/08 rounded-full border border-amber-500/20 w-fit mx-auto"><i class="fas fa-stethoscope text-3xl text-amber-400"></i></div>
+            </div>
+            <h2 class="text-2xl font-black italic uppercase text-white mb-2">Quick Pelvic Floor Check</h2>
+            <p class="text-slate-400 text-[12px] leading-relaxed">Six questions, about thirty seconds. A pelvic floor can be too tight as easily as too weak, and the training is opposite for each. Getting this wrong makes symptoms worse, so it is worth answering honestly.</p>
+        </div>
+        <div id="pelvic-screen-questions" class="px-2 space-y-2"></div>
+        <div class="px-2 space-y-2">
+            <button id="pelvic-screen-submit" class="btn-primary py-4 text-sm" disabled>See My Result</button>
+            <button id="pelvic-screen-later" class="btn-outline w-full py-3 text-[11px]">Not now</button>
+            <p class="text-[9px] text-slate-700 italic text-center px-4">This is a guide to steer your training, not a medical diagnosis. Ongoing pelvic pain is worth seeing a pelvic health physiotherapist about.</p>
+        </div>
+        <div class="scroll-buffer"></div>
+    </div>
+</div>
+
+<!-- PELVIC SCREENER RESULT -->
+<div id="pelvic-result-modal" class="hidden fixed inset-0 z-[99995] flex items-center justify-center p-6" style="background:rgba(2,6,23,.97)">
+    <div style="background:linear-gradient(145deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);border:1px solid rgba(245,158,11,.3);border-top:1px solid rgba(245,158,11,.5);border-radius:2rem;padding:2rem;max-width:22rem;width:100%;text-align:center;">
+        <i id="pelvic-result-icon" class="fas fa-circle-info text-amber-400 text-4xl mb-4"></i>
+        <h3 id="pelvic-result-title" class="text-xl font-black uppercase italic text-white mb-3"></h3>
+        <p id="pelvic-result-msg" class="text-slate-400 text-[13px] leading-relaxed mb-5 text-left"></p>
+        <button id="pelvic-result-ok" class="btn-primary py-4 text-sm">Got It</button>
+    </div>
+</div>
 
 <div id="soreness-warning-modal">
     <div style="background:linear-gradient(145deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);border:1px solid rgba(239,68,68,.3);border-top:1px solid rgba(239,68,68,.5);border-radius:2rem;padding:2rem;max-width:20rem;width:100%;text-align:center;">
@@ -1777,12 +1849,140 @@ const GOALS={
               schedule:['length','girth','rest','stamina','length','rest','rest'],
               mission:'length', coach:'They want the complete protocol. Balance size, stamina and erection quality rather than favouring one.'},
 };
+// ── Pelvic floor screener ──────────────────────────────────────────────────
+// A hypertonic (chronically tight) pelvic floor is made worse by kegels, not
+// better. The problem is that almost no man knows whether his floor is tight —
+// it is not something you can feel directly — and the men most likely to have
+// one are exactly the men this app attracts: premature ejaculation, weakening
+// erections, pelvic ache. Many arrive having already kegelled for months
+// because the internet told them to, which is often what caused it.
+//
+// So the app does not ask "is your pelvic floor tight?", which nobody can
+// answer. It asks about symptoms they live with, and works it out for them.
+const PELVIC_SCREEN_QUESTIONS=[
+    {id:'urgency',  q:'Do you often need to urinate again soon after you have just been?'},
+    {id:'ache',     q:'Do you get aching or pressure in the perineum, tailbone or testicles, especially after sitting a while?'},
+    {id:'tension',  q:'Do you finish sooner than you want, and does it feel more like tension than excitement?'},
+    {id:'postejac', q:'Do you get an ache or discomfort after ejaculating?'},
+    {id:'kegeling', q:'Have you been doing kegels regularly for more than a month?'},
+    {id:'relax',    q:'When you try to fully relax down there, is it hard to let go?'},
+];
+const PELVIC_TIGHT_THRESHOLD=3;   // three or more is a meaningful signal, not a coin flip
+function scorePelvicScreen(answers){
+    const yes=PELVIC_SCREEN_QUESTIONS.filter(q=>answers[q.id]===true).length;
+    return {yes, profile: yes>=PELVIC_TIGHT_THRESHOLD ? 'tight' : 'standard'};
+}
+function isFloorTight(){ return persisted.pelvicProfile==='tight'; }
+
+let _pelvicAnswers={};
+function openPelvicScreen(){
+    _pelvicAnswers={};
+    const box=document.getElementById('pelvic-screen-questions');
+    box.innerHTML=PELVIC_SCREEN_QUESTIONS.map((q,i)=>`
+        <div class="instruction-card" style="padding:.85rem 1rem;">
+            <p class="text-[12px] text-slate-300 leading-relaxed mb-2.5">${i+1}. ${q.q}</p>
+            <div class="flex gap-2" data-screen-q="${q.id}">
+                <button class="quick-tap flex-1" data-screen-a="yes">Yes</button>
+                <button class="quick-tap flex-1" data-screen-a="no">No</button>
+            </div>
+        </div>`).join('');
+    box.querySelectorAll('[data-screen-q]').forEach(row=>{
+        row.querySelectorAll('[data-screen-a]').forEach(btn=>{
+            btn.addEventListener('click',()=>{
+                _pelvicAnswers[row.dataset.screenQ]=btn.dataset.screenA==='yes';
+                row.querySelectorAll('[data-screen-a]').forEach(b=>b.classList.remove('selected'));
+                btn.classList.add('selected');
+                document.getElementById('pelvic-screen-submit').disabled=
+                    Object.keys(_pelvicAnswers).length<PELVIC_SCREEN_QUESTIONS.length;
+            });
+        });
+    });
+    document.getElementById('pelvic-screen-submit').disabled=true;
+    document.getElementById('pelvic-screen-modal').classList.remove('hidden');
+    track('pelvic_screen_opened');
+}
+function closePelvicScreen(){ document.getElementById('pelvic-screen-modal').classList.add('hidden'); }
+function submitPelvicScreen(){
+    const {yes,profile}=scorePelvicScreen(_pelvicAnswers);
+    persisted.pelvicProfile=profile;
+    persisted.pelvicScreenDate=new Date().toISOString().split('T')[0];
+    savePersisted();
+    track('pelvic_screen_completed',{profile,score:yes});
+    closePelvicScreen();
+    showPelvicResult(profile,yes);
+    renderDashboard();
+}
+function showPelvicResult(profile,yes){
+    const tight=profile==='tight';
+    document.getElementById('pelvic-result-icon').className=
+        tight?'fas fa-hand text-amber-400 text-4xl mb-4':'fas fa-circle-check text-emerald-400 text-4xl mb-4';
+    document.getElementById('pelvic-result-title').textContent=
+        tight?'Skip The Squeezing':'You Are Clear To Train Both';
+    document.getElementById('pelvic-result-msg').innerHTML= tight
+        ? `You answered yes to ${yes} of 6. That pattern points to a pelvic floor that is already holding too much tension rather than one that is weak.<br><br>
+           <span class="text-white font-bold">Kegels would make that worse.</span> A tight floor squeezed harder gets tighter, and tightness is what drives the urgency, the aching and the finishing early in the first place.<br><br>
+           So the app has taken contraction work out of your Recovery Protocol. You will get release work instead: reverse kegels, breathing, and hip openers. That is the actual treatment for this, and it is what Coach Tee will steer you toward from now on.<br><br>
+           <span class="text-slate-500">You can retake this any time from the Manual. If things ease off, the contraction work comes back.</span>`
+        : `You answered yes to ${yes} of 6, which does not suggest a tight pelvic floor. Your full Recovery Protocol stays available, contraction and release work both.<br><br>
+           <span class="text-white font-bold">Keep an eye on it anyway.</span> If you start getting urgency, aching in the perineum after sitting, or discomfort after ejaculating, stop the kegels and retake this from the Manual. Those are the signs the floor has tipped from strong into tight.`;
+    document.getElementById('pelvic-result-modal').classList.remove('hidden');
+}
+function closePelvicResult(){ document.getElementById('pelvic-result-modal').classList.add('hidden'); }
+// Existing members never see the onboarding, so the screener is offered the
+// first time they open the Recovery picker instead. Contraction work is not
+// served to anyone unscreened until they have answered.
+function maybeOfferPelvicScreen(){
+    if(!currentUser||hasPelvicScreen()) return false;
+    openPelvicScreen();
+    return true;
+}
+function hasPelvicScreen(){ return persisted.pelvicProfile==='tight'||persisted.pelvicProfile==='standard'; }
+
+// Recovery exercises that ask for a contraction. These are the ones withheld
+// from a member who screens tight. Indices are into ROUTINES.recovery.
+//   0 Kegel Contractions        — obvious
+//   3 Pelvic Floor Endurance Hold — a 40% sustained isometric. Easy to miss
+//     because the title says "Endurance", and for a tight floor a tonic hold is
+//     arguably worse than the kegels.
+const CONTRACTION_RECOVERY_IDX=[0,3];
+function isContractionExercise(i){ return CONTRACTION_RECOVERY_IDX.includes(i); }
+// Contraction work is withheld from anyone who screened tight AND from anyone
+// who has not been screened at all. Everything else stays open, so a member who
+// only wants hip openers is never made to answer six questions first.
+function isExerciseBlocked(i){ return isContractionExercise(i) && (isFloorTight() || !hasPelvicScreen()); }
+function allowedRecoveryIndices(list){ return (list||[]).filter(i=>!isExerciseBlocked(i)); }
+
 function getGoal(){ return GOALS[persisted.primaryGoal]||GOALS.all; }
 function getGoalKey(){ return GOALS[persisted.primaryGoal]?persisted.primaryGoal:'all'; }
 function isSizeLed(){ const k=getGoalKey(); return k==='size'||k==='all'; }
 function getScheduledType(){ return (persisted.schedule||[])[new Date().getDay()]||'rest'; }
 const DIRECTIONALS=['OUT','UP','DOWN','LEFT','RIGHT'];
 const SESSION_XP={beginner:10,intermediate:15,advanced:20,elite:25,recovery:5};
+
+// ── History retention ──────────────────────────────────────────────────────
+// The session log used to be capped at 50 entries, which silently deleted the
+// history of the members who had been here longest. It is now bounded by size
+// rather than count, because a count is not a size: the note field is free text
+// and one entry can be arbitrarily large.
+//
+// The whole log is re-serialised and re-uploaded on every save, so the budget is
+// really a bound on that payload. At a typical ~150 byte entry this holds
+// thousands of sessions, which is years of training.
+const SESSION_LOG_BUDGET_BYTES = 300_000;
+const MEASUREMENTS_BUDGET_BYTES = 60_000;
+const NOTE_MAX_CHARS = 500;
+// Drop oldest-first until the serialised array fits. Always keeps the newest
+// entry even if it alone exceeds the budget, so a session is never lost outright.
+function trimToByteBudget(arr, budget){
+    if(!Array.isArray(arr) || arr.length < 2) return arr;
+    let out = arr;
+    while(out.length > 1 && JSON.stringify(out).length > budget) {
+        // Halve the overshoot in big steps first so a huge import does not spin.
+        const drop = out.length > 200 ? Math.ceil(out.length * 0.1) : 1;
+        out = out.slice(drop);
+    }
+    return out;
+}
 const RANK_NAMES=['Recruit','Operator','Specialist','Veteran','Elite','Legend'];
 // Gap between level n and n+1 = (50 + 15*n) XP — linear ramp so early levels
 // take ~5 sessions and high levels take 30-50+ sessions each.
@@ -2096,6 +2296,8 @@ const DEFAULT_PERSISTED={
     passProtectedDates:[], // ISO dates a spent pass is covering
     lastPassEarnedDate:'', // guards against earning twice in one day
     primaryGoal:'',        // '' | size | stamina | eq | all  ('' behaves as all)
+    pelvicProfile:'',      // '' | tight | standard  — result of the pelvic floor screener
+    pelvicScreenDate:'',   // when they last took it, so it can be re-offered
 };
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
@@ -2187,6 +2389,8 @@ async function loadPersisted(){
                 passProtectedDates:  data.pass_protected_dates || [],
                 lastPassEarnedDate:  data.last_pass_earned_date|| '',
                 primaryGoal:         data.primary_goal        || '',
+                pelvicProfile:       data.pelvic_profile      || '',
+                pelvicScreenDate:    data.pelvic_screen_date  || '',
             };
         }
         // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
@@ -2239,6 +2443,8 @@ function _buildSavePayload(){
         pass_protected_dates:  persisted.passProtectedDates||[],
         last_pass_earned_date: persisted.lastPassEarnedDate||'',
         primary_goal:          persisted.primaryGoal||'',
+        pelvic_profile:        persisted.pelvicProfile||'',
+        pelvic_screen_date:    persisted.pelvicScreenDate||'',
         updated_at:            new Date().toISOString(),
     };
 }
@@ -2246,7 +2452,7 @@ function _buildSavePayload(){
 // matching ALTER TABLE has been run, Supabase rejects the whole upsert and the
 // member silently stops syncing. We detect that once and fall back to writing
 // the columns that do exist, so progress is never lost over a migration gap.
-const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date','primary_goal'];
+const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date','primary_goal','pelvic_profile','pelvic_screen_date'];
 let _schemaMissingNewCols=false;
 function _isUnknownColumnError(err){
     if(!err) return false;
@@ -2270,13 +2476,146 @@ async function _upsertWithSchemaFallback(){
     }
     return error;
 }
+// The local backup used to be written inside an empty catch, so when the quota
+// filled the backup silently stopped updating AND the dirty flag silently failed
+// to set. The recovery path then compared against stale data with nothing to
+// indicate anything was wrong. Same shape as the original data-loss bug.
+let _quotaWarned=false;
+function _isQuotaError(e){
+    return e && (e.name==='QuotaExceededError' || e.name==='NS_ERROR_DOM_QUOTA_REACHED' || e.code===22 || e.code===1014);
+}
+function _writeLocalBackup(){
+    if(!currentUser) return false;
+    const key='bp_data_'+currentUser.id;
+    const payload=JSON.stringify({...persisted,_savedAt:new Date().toISOString()});
+    try{
+        localStorage.setItem(key,payload);
+        localStorage.setItem('bp_dirty_'+currentUser.id,'1'); // cleared only after Supabase confirms
+        return true;
+    }catch(e){
+        if(!_isQuotaError(e)){ console.error('local backup failed:',e); return false; }
+        // Reclaim the space that actually accumulates, then try once more.
+        pruneOldDailyKeys(0);
+        try{
+            localStorage.setItem(key,payload);
+            localStorage.setItem('bp_dirty_'+currentUser.id,'1');
+            return true;
+        }catch(e2){
+            // Out of room for real. Say so rather than pretending the save worked;
+            // Supabase is still the source of truth and the upsert continues.
+            console.error('local backup skipped: storage is full');
+            if(!_quotaWarned){ _quotaWarned=true; _showStorageFullBanner(); }
+            try{ localStorage.removeItem('bp_dirty_'+currentUser.id); }catch(e3){}
+            return false;
+        }
+    }
+}
+function _showStorageFullBanner(){
+    const el=document.getElementById('hq-storage-full-banner');
+    if(el) el.classList.remove('hidden');
+}
+// bp_hydration_/bp_sleep_/bp_soreness_ write one key per day per user and were
+// never cleaned up, so a long-tenured member accumulates thousands of dead keys.
+// That, not the session log, is what eventually exhausts the quota.
+function pruneOldDailyKeys(keepDays){
+    const keep=keepDays===undefined?60:keepDays;
+    const cutoff=new Date(Date.now()-keep*864e5).toISOString().split('T')[0];
+    const prefixes=['bp_hydration_','bp_sleep_','bp_soreness_'];
+    let removed=0;
+    try{
+        for(let i=localStorage.length-1;i>=0;i--){
+            const k=localStorage.key(i);
+            if(!k || !prefixes.some(pfx=>k.startsWith(pfx))) continue;
+            const m=k.match(/_(\d{4}-\d{2}-\d{2})$/);   // only the date-keyed ones
+            if(m && m[1]<cutoff){ localStorage.removeItem(k); removed++; }
+        }
+    }catch(e){}
+    return removed;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRODUCT ANALYTICS
+// ═══════════════════════════════════════════════════════════════════════════
+// First-party only: rows go into this project's own analytics_events table and
+// nowhere else. Keyed on the auth UUID, never the email, matching the rest of
+// the schema. RLS lets a member append their own rows and read nothing.
+//
+// Nothing a member types is ever recorded. No notes, no measurements, no photos,
+// no free text. Event names plus numeric or enumerated properties only. If you
+// add an event, keep it that way.
+const ANALYTICS_BUFFER_KEY='bp_events';
+const ANALYTICS_MAX_BUFFER=200;
+let _analyticsBuffer=[];
+let _analyticsDebounce=null;
+let _analyticsFlushing=false;
+
+function _analyticsKey(){ return ANALYTICS_BUFFER_KEY+'_'+(currentUser?.id||''); }
+function _loadAnalyticsBuffer(){
+    try{ _analyticsBuffer=JSON.parse(localStorage.getItem(_analyticsKey())||'[]')||[]; }
+    catch(e){ _analyticsBuffer=[]; }
+}
+function _persistAnalyticsBuffer(){
+    // Best effort. If the device is out of room, dropping telemetry is always
+    // preferable to interfering with the member's actual data.
+    try{ localStorage.setItem(_analyticsKey(),JSON.stringify(_analyticsBuffer)); }catch(e){}
+}
+// Only primitives survive, so a caller cannot accidentally pass a note or an
+// object containing one.
+function _cleanProps(props){
+    const out={};
+    if(!props||typeof props!=='object') return out;
+    for(const [k,v] of Object.entries(props)){
+        if(v===null||v===undefined) continue;
+        if(typeof v==='number'&&isFinite(v)) out[k]=v;
+        else if(typeof v==='boolean') out[k]=v;
+        else if(typeof v==='string'&&v.length<=40) out[k]=v;   // enums, not prose
+    }
+    return out;
+}
+function track(event,props){
+    if(!currentUser||!event) return;
+    _analyticsBuffer.push({
+        user_id: currentUser.id,
+        event: String(event).slice(0,60),
+        props: _cleanProps(props),
+        created_at: new Date().toISOString(),
+    });
+    if(_analyticsBuffer.length>ANALYTICS_MAX_BUFFER) _analyticsBuffer=_analyticsBuffer.slice(-ANALYTICS_MAX_BUFFER);
+    _persistAnalyticsBuffer();
+    clearTimeout(_analyticsDebounce);
+    _analyticsDebounce=setTimeout(flushAnalytics,800);
+}
+// Fires at most once per member for a given key, reusing the app's existing
+// one-shot idiom so a returning member does not re-emit funnel milestones.
+function trackOnce(key,event,props){
+    if(!currentUser) return;
+    const k='bp_ev_'+key+'_'+currentUser.id;
+    try{ if(localStorage.getItem(k)) return; localStorage.setItem(k,'1'); }catch(e){}
+    track(event,props);
+}
+async function flushAnalytics(){
+    if(_analyticsFlushing||!currentUser||!_analyticsBuffer.length) return;
+    _analyticsFlushing=true;
+    const batch=_analyticsBuffer.slice();
+    try{
+        const {error}=await sb.from('analytics_events').insert(batch);
+        if(error){
+            // Keep them buffered for the next attempt, exactly as savePersisted
+            // keeps the dirty flag. Analytics must never surface an error to the
+            // member or interrupt anything.
+            console.warn('analytics flush deferred:',error.message);
+        } else {
+            _analyticsBuffer=_analyticsBuffer.slice(batch.length);
+            _persistAnalyticsBuffer();
+        }
+    }catch(e){ /* offline; retry on the next flush */ }
+    finally{ _analyticsFlushing=false; }
+}
+
 function savePersisted(){
     // Refuse to persist defaults over an account we were never able to read.
     if(!_persistedLoaded){console.warn('savePersisted skipped: user data was never loaded');return;}
-    if(currentUser) try{
-        localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
-        localStorage.setItem('bp_dirty_'+currentUser.id,'1'); // cleared only after Supabase confirms
-    }catch(e){}
+    _writeLocalBackup();
     clearTimeout(_saveDebounce);
     _saveDebounce=setTimeout(async()=>{
         if(!currentUser)return;
@@ -2291,10 +2630,7 @@ function _flushSaveNow(){
     if(!currentUser)return;
     if(!_persistedLoaded){console.warn('_flushSaveNow skipped: user data was never loaded');return;}
     clearTimeout(_saveDebounce);
-    try{
-        localStorage.setItem('bp_data_'+currentUser.id,JSON.stringify({...persisted,_savedAt:new Date().toISOString()}));
-        localStorage.setItem('bp_dirty_'+currentUser.id,'1');
-    }catch(e){}
+    _writeLocalBackup();
     _upsertWithSchemaFallback()
         .then(error=>{
             if(error){console.error('_flushSaveNow error:',error.message,error.code);}
@@ -2859,7 +3195,8 @@ function renderProgressChart(){
 // EQ aggregation was inlined in several places. One helper, used by the HQ row,
 // Coach Tee and the weekly report. Tier-unlock maths is deliberately left alone.
 function getEqSummary(n){
-    const eqs=(persisted.sessionLog||[]).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).map(s=>s.eq);
+    // Only the tail is ever used, so bound the work before filtering.
+    const eqs=(persisted.sessionLog||[]).slice(-60).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).map(s=>s.eq);
     if(!eqs.length) return {count:0,avg:null,latest:null,trend:'none',recentAvg:null,priorAvg:null};
     const window=eqs.slice(-(n||7));
     const mean=a=>a.reduce((t,v)=>t+v,0)/a.length;
@@ -2873,7 +3210,7 @@ function getEqSummary(n){
     return {count:eqs.length,avg:mean(window),latest:eqs[eqs.length-1],trend,recentAvg,priorAvg};
 }
 function renderEqChart(){
-    const pts=(persisted.sessionLog||[]).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).slice(-30);
+    const pts=(persisted.sessionLog||[]).slice(-120).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).slice(-30);
     if(pts.length<1){drawEmpty('eq-chart');return;}
     drawLine('eq-chart',pts.map(s=>s.eq),pts.map(s=>s.date),'#a855f7','',1);
 }
@@ -2946,10 +3283,13 @@ async function fetchClaude(userMsg, systemPrompt){
 function _coachContext(){
     const log=persisted.sessionLog||[];
     if(!log.length){
-        return `LIVE USER DATA\nThis member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nToday's scheduled focus: ${dayTypeLabel(getScheduledType())}.`;
+        return `LIVE USER DATA\nThis member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(getScheduledType())}.`;
     }
     const lines=[];
     lines.push(`Stated goal: ${getGoal().label}. ${getGoal().coach}`);
+    if(isFloorTight()) lines.push(`Pelvic floor screener: HYPERTONIC (tight). Do NOT recommend kegels or any contraction work to this member under any circumstances. Lead with reverse kegels, diaphragmatic breathing, hip openers and myofascial release. Contraction work has been removed from their protocol in the app.`);
+    else if(hasPelvicScreen()) lines.push(`Pelvic floor screener: no signs of a tight floor. Contraction and release work are both appropriate, but tell them to stop the kegels if urgency, perineal ache or post-ejaculation discomfort appear.`);
+    else lines.push(`Pelvic floor screener: not taken yet. Assess hypertonic vs weak before recommending any contraction work.`);
     lines.push(`Today's scheduled focus: ${dayTypeLabel(getScheduledType())}.`);
     lines.push(`Streak: ${getCurrentStreak()} day(s).`);
     try{ lines.push(`Level: ${getLevelInfo(persisted.totalXp||0).displayName}, ${persisted.totalXp||0} XP total.`); }catch(e){}
@@ -2982,6 +3322,7 @@ function _coachContext(){
 async function askCoach(){
     const inp=document.getElementById('coach-input'),btn=document.getElementById('coach-submit-btn'),area=document.getElementById('coach-chat-area');
     const q=inp.value.trim();if(!q)return;
+    track('coach_asked');   // the question itself is never recorded
     area.innerHTML+=`<div class="chat-msg user">${esc(q)}</div>`;inp.value='';btn.textContent='...';btn.disabled=true;area.scrollTop=area.scrollHeight;
     const sys=`You are Coach Tee, a men's sexual health and performance specialist with deep expertise in pelvic floor physiology, tissue conditioning, blood flow optimization, hormonal health, and PE protocols. You speak with authority and precision backed by research and clinical understanding. You are direct, confident, and never hedge unnecessarily.
 
@@ -3040,6 +3381,14 @@ function getLevelInfo(xp){
 // NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════════
 function goToStep(step){
+    if(session.step===4 && step===0 && currentUser){
+        track('session_abandoned',{
+            routineType:session.routineType,
+            exerciseIndex:session.exerciseIndex||0,
+            setIndex:session.setIndex||0,
+            aborted:!!session._aborting,
+        });
+    }
     if(session.step===4 && step===0 && !session._aborting && currentUser){
         const draft={exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,sessionStartTime:_sessionStartTime,savedAt:Date.now()};
         localStorage.setItem('bp_session_draft_'+currentUser.id,JSON.stringify(draft));
@@ -3158,10 +3507,12 @@ function getDailyRecommended(){
     if(hour < 11) tod = 'morning';
     else if(hour < 17) tod = 'afternoon';
     else tod = 'night';
-    return ROUTINES.recovery.map((_,i)=>i).filter(i => {
+    // Withhold contraction work from anyone who screens tight. The night set in
+    // particular used to include both kegel exercises.
+    return allowedRecoveryIndices(ROUTINES.recovery.map((_,i)=>i).filter(i => {
         const meta = RECOVERY_META[i];
         return meta && meta.tod.includes(tod);
-    });
+    }));
 }
 
 function buildRecoveryPicker(){
@@ -3187,12 +3538,15 @@ function buildRecoveryPicker(){
         const eqDisplay = ex.eq === 'N/A' ? 'No EQ needed' : ex.eq;
         const todBadges = (meta.tod||[]).map(t=>`<span class="ex-pick-tod ${t}">${t}</span>`).join('');
 
+        const blocked = isExerciseBlocked(i);
         const card = document.createElement('div');
-        card.className = 'ex-pick-card' + (selected?' selected':'') + (isRec?' ring-1 ring-amber-500/30':'');
+        // Locked rather than hidden: a member who screened tight should be able
+        // to see that the app made a decision for them, and why.
+        card.className = 'ex-pick-card' + (blocked?' pick-locked':(selected?' selected':'')) + (isRec&&!blocked?' ring-1 ring-amber-500/30':'');
         card.dataset.idx = i;
         card.innerHTML = `
             <div class="ex-pick-top">
-                <div class="ex-pick-check">${selected?'<i class="fas fa-check text-white text-[10px]"></i>':''}</div>
+                <div class="ex-pick-check">${blocked?'<i class="fas fa-lock text-slate-600 text-[10px]"></i>':(selected?'<i class="fas fa-check text-white text-[10px]"></i>':'')}</div>
                 <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:rgba(255,255,255,.04)">
                     <i class="fas ${meta.icon||'fa-circle'} ${meta.color||'text-slate-400'} text-xs"></i>
                 </div>
@@ -3209,7 +3563,11 @@ function buildRecoveryPicker(){
                     </div>
                 </div>
             </div>
-            <p class="ex-pick-benefit">${meta.benefit||ex.detail||''}</p>
+            <p class="ex-pick-benefit">${blocked
+                ? (isFloorTight()
+                    ? 'Not for you right now. Your check points to a floor that is already tight, and squeezing it would add to that. Retake it from the Manual if things ease off.'
+                    : 'Tap to take the 30-second pelvic floor check. Contracting a floor that is already tight makes things worse, so this stays locked until we know.')
+                : (meta.benefit||ex.detail||'')}</p>
         `;
         card.addEventListener('click', () => toggleRecoveryEx(i));
         list.appendChild(card);
@@ -3218,6 +3576,11 @@ function buildRecoveryPicker(){
 }
 
 function toggleRecoveryEx(idx){
+    if(isExerciseBlocked(idx)){
+        // Unscreened: the lock is the prompt. Tight: the card already explains.
+        if(!hasPelvicScreen()) openPelvicScreen();
+        return;
+    }
     const i = selectedRecoveryIndices.indexOf(idx);
     if(i >= 0) selectedRecoveryIndices.splice(i, 1);
     else selectedRecoveryIndices.push(idx);
@@ -3226,12 +3589,13 @@ function toggleRecoveryEx(idx){
 }
 
 function selectAllRecovery(){
-    selectedRecoveryIndices = ROUTINES.recovery.map((_,i)=>i);
+    selectedRecoveryIndices = allowedRecoveryIndices(ROUTINES.recovery.map((_,i)=>i));
     buildRecoveryPicker();
 }
 function selectDailyRecommended(){
     selectedRecoveryIndices = getDailyRecommended();
-    if(!selectedRecoveryIndices.length) selectedRecoveryIndices = ROUTINES.recovery.map((_,i)=>i);
+    // The fallback has to respect the screener too, or it hands back everything.
+    if(!selectedRecoveryIndices.length) selectedRecoveryIndices = allowedRecoveryIndices(ROUTINES.recovery.map((_,i)=>i));
     buildRecoveryPicker();
 }
 
@@ -3246,7 +3610,7 @@ function updateRecoveryStartBtn(){
 function goToRecoveryPicker(){
     // Default to daily recommended selection
     const rec = getDailyRecommended();
-    selectedRecoveryIndices = rec.length ? rec : ROUTINES.recovery.map((_,i)=>i);
+    selectedRecoveryIndices = rec.length ? rec : allowedRecoveryIndices(ROUTINES.recovery.map((_,i)=>i));
     buildRecoveryPicker();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     const t = document.getElementById('step-3b');
@@ -3254,6 +3618,9 @@ function goToRecoveryPicker(){
 }
 
 function startRecoverySession(){
+    // Final gate: nothing contraindicated reaches the engine regardless of how
+    // the selection was arrived at.
+    selectedRecoveryIndices = allowedRecoveryIndices(selectedRecoveryIndices);
     if(!selectedRecoveryIndices.length) return;
     session.routineType = 'recovery';
     resetSession(); // resets recoveryQueue to null — set it AFTER
@@ -3975,7 +4342,7 @@ function renderLog(){
 function finishSession(){
     const bpel=parseFloat(document.getElementById('input-bpel').value);
     const mseg=parseFloat(document.getElementById('input-mseg').value);
-    const note=document.getElementById('session-note-input').value.trim();
+    const note=document.getElementById('session-note-input').value.trim().slice(0,NOTE_MAX_CHARS);
     const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100);
     persisted.totalXp+=earnedXp;
     persisted.allTimeSessionCount=(persisted.allTimeSessionCount||0)+1;
@@ -3989,9 +4356,16 @@ function finishSession(){
         rpe:selectedRPE,
         duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):null,
     });
-    if(persisted.sessionLog.length>50)persisted.sessionLog=persisted.sessionLog.slice(-50);
-    if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);if(persisted.measurements.length>100)persisted.measurements=persisted.measurements.slice(-100)}
+    persisted.sessionLog=trimToByteBudget(persisted.sessionLog,SESSION_LOG_BUDGET_BYTES);
+    if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
     updateRecords(earnedXp);
+    track('session_completed',{
+        mission:session.routineType, xp:earnedXp,
+        duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0,
+        eq:selectedEQ||0, rpe:selectedRPE||0,
+        sessionNumber:persisted.allTimeSessionCount||0,
+    });
+    trackOnce('first_session','first_session_completed');
     _passEarnedThisSession=maybeEarnStreakPass();
     savePersisted();
     checkMilestones();
@@ -4225,6 +4599,7 @@ function maybePromptPush(){
     if(typeof Notification==='undefined' || Notification.permission!=='default') return;
     if(localStorage.getItem('bp_push_prompted_'+currentUser.id)) return;
     try{localStorage.setItem('bp_push_prompted_'+currentUser.id,'1');}catch(e){}
+    track('push_prompted');
     setTimeout(openNotifModal,700);
 }
 
@@ -4325,14 +4700,46 @@ function toggleManualSection(id){
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION HISTORY
 // ═══════════════════════════════════════════════════════════════════════════
+// Rendering the entire log into one innerHTML string was fine at 50 entries and
+// would freeze a phone at several thousand. Render a page at a time instead.
+const HISTORY_PAGE_SIZE=50;
+let _historyShown=0;
 function showSessionHistory(){
-    const modal=document.getElementById('history-modal');
+    _historyShown=0;
+    renderHistoryPage(true);
+    document.getElementById('history-modal').style.display='flex';
+    closeWeeklyReport();
+}
+function renderHistoryPage(reset){
     const list=document.getElementById('history-list');
-    const logs=(persisted.sessionLog||[]).slice().reverse();
-    if(!logs.length){
+    const all=(persisted.sessionLog||[]);
+    const total=all.length;
+    if(reset) list.innerHTML='';
+    if(!total){
         list.innerHTML='<p class="text-slate-600 text-sm italic text-center py-8">No sessions logged yet.</p>';
-    } else {
-        list.innerHTML=logs.map(s=>{
+        return;
+    }
+    // Newest first, without reversing the whole array on every page.
+    const start=Math.max(0,total-_historyShown-HISTORY_PAGE_SIZE);
+    const end=total-_historyShown;
+    const page=all.slice(start,end).reverse();
+    _historyShown+=page.length;
+
+    const more=document.getElementById('history-load-more');
+    if(more) more.remove();
+    list.insertAdjacentHTML('beforeend',page.map(historyRow).join(''));
+
+    if(_historyShown<total){
+        list.insertAdjacentHTML('beforeend',
+            `<button id="history-load-more" class="btn-outline w-full py-3 text-[11px] mt-2">Load ${Math.min(HISTORY_PAGE_SIZE,total-_historyShown)} more · ${_historyShown} of ${total}</button>`);
+        document.getElementById('history-load-more').addEventListener('click',()=>renderHistoryPage(false));
+    } else if(total>HISTORY_PAGE_SIZE){
+        list.insertAdjacentHTML('beforeend',
+            `<p class="text-[10px] text-slate-600 italic text-center py-3">All ${total} sessions shown.</p>`);
+    }
+}
+function historyRow(s){
+    return (s=>{
             const d=new Date(s.date);
             const dateStr=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
             const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
@@ -4348,14 +4755,11 @@ function showSessionHistory(){
                         </div>
                         <p class="text-[10px] text-slate-500 mt-0.5">${dateStr} · ${timeStr}</p>
                         ${s.eq||s.rpe?`<div class="flex gap-3 mt-1.5">${s.eq?`<span class="text-[10px] text-slate-400">EQ <span class="text-white font-bold">${s.eq}</span></span>`:''}${s.rpe?`<span class="text-[10px] text-slate-400">RPE <span class="text-white font-bold">${s.rpe}</span></span>`:''}</div>`:''}
-                        ${s.note?`<p class="text-[10px] text-slate-500 italic mt-1 truncate">${s.note}</p>`:''}
+                        ${s.note?`<p class="text-[10px] text-slate-500 italic mt-1 truncate">${esc(s.note)}</p>`:''}
                     </div>
                 </div>
             </div>`;
-        }).join('');
-    }
-    modal.style.display='flex';
-    closeWeeklyReport();
+    })(s);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4406,6 +4810,7 @@ function selectGoal(key){
     persisted.primaryGoal=key;
     renderGoalOptions();
     const applied=maybeApplyGoalSchedule(key);
+    track('goal_selected',{goal:key,schedule_applied:!!applied});
     savePersisted();
     const note=document.getElementById('goal-confirm');
     if(note){
@@ -4441,6 +4846,7 @@ function openGoalPicker(){
 // Completing the intro flows into the guided tour. Skipping it does not, but the
 // tour stays available from the Manual.
 function finishOnboarding(){
+    trackOnce('intro_done','intro_completed');
     hideOnboarding();
     setTimeout(()=>maybeStartTour(),450);
 }
@@ -4479,6 +4885,7 @@ function startTour(){
     });
     if(!_tourStops.length) return;
     _tourIdx=0; _tourIsTip=false;
+    track('tour_started');
     step0.scrollTop=0; // goToStep() never resets scroll, so start from the top
     const dots=document.getElementById('tour-dots');
     dots.innerHTML=_tourStops.map(()=>'<div class="ob-dot"></div>').join('');
@@ -4521,7 +4928,7 @@ function renderTourStop(i){
     },380);
 }
 function tourNext(){
-    if(_tourIdx>=_tourStops.length-1) endTour();
+    if(_tourIdx>=_tourStops.length-1){ if(!_tourIsTip) trackOnce('tour_done','tour_completed'); endTour(); }
     else renderTourStop(_tourIdx+1);
 }
 function endTour(){
@@ -4564,13 +4971,30 @@ function exportData(){
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);
     a.download=`blueprint-backup-${new Date().toISOString().split('T')[0]}.json`;a.click();URL.revokeObjectURL(a.href);
 }
+const IMPORT_MAX_BYTES=2_000_000;
 function importData(file){
     if(!file)return;
+    // An import lands straight in localStorage and the Supabase row, so it needs
+    // a bound. Previously any file with a sessionLog or schedule key was accepted
+    // at any size and with any contents.
+    if(file.size>IMPORT_MAX_BYTES){alert('Import failed — that file is too large to be a Blueprint backup.');return;}
     const r=new FileReader();
     r.onload=e=>{
-        try{const p=JSON.parse(e.target.result);if(!p.sessionLog&&!p.schedule)throw new Error('invalid');
+        try{
+            const p=JSON.parse(e.target.result);
+            if(!p.sessionLog&&!p.schedule)throw new Error('invalid');
+            if(p.sessionLog!==undefined&&!Array.isArray(p.sessionLog))throw new Error('invalid');
+            if(p.measurements!==undefined&&!Array.isArray(p.measurements))throw new Error('invalid');
+            if(p.schedule!==undefined&&!Array.isArray(p.schedule))throw new Error('invalid');
             if(!confirm('This will overwrite all current data. Continue?'))return;
-            persisted={...DEFAULT_PERSISTED,...p};savePersisted();renderDashboard();alert('Data restored.');}
+            persisted={...DEFAULT_PERSISTED,...p};
+            // Same bounds a normal session would be held to, so an oversized or
+            // hand-edited backup cannot leave the app in a state it cannot save.
+            persisted.sessionLog=trimToByteBudget(persisted.sessionLog||[],SESSION_LOG_BUDGET_BYTES);
+            persisted.measurements=trimToByteBudget(persisted.measurements||[],MEASUREMENTS_BUDGET_BYTES);
+            normaliseSchedule();
+            savePersisted();renderDashboard();alert('Data restored.');
+        }
         catch(err){alert('Import failed — invalid file.')}
     };r.readAsText(file);
 }
@@ -4712,6 +5136,7 @@ async function handleLogout(){
     showAuthScreen();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     _flushSaveNow();
+    flushAnalytics();
     try{await sb.auth.signOut();}catch(e){console.error('signOut error:',e);}
 }
 // ── Purchase link shown when a signed-in email is not on the members list ──
@@ -4723,17 +5148,32 @@ function _purchaseLinksHTML(){
     const k=KOFI_URL?`<a href="${KOFI_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">get access here</a>`:'purchase The Blueprint';
     return `No membership found for this email. If you have not joined yet, ${k}, then sign in with the same email you purchased with.<br><span style="opacity:.75">Just bought? Give it about a minute, then tap SIGN IN again.</span>`;
 }
+async function _membersLookup(email,ms){
+    const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));
+    const _query=sb.from('members').select('email').eq('email',email).single();
+    return Promise.race([_query,_timeout]);
+}
 async function checkMembership(user){
     // Verifies the signed-in email against the members table (populated by the
     // Ko-fi webhook, and historically the Whop one).
     try{
-        const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
-        const _query=sb.from('members').select('email').eq('email',user.email).single();
-        const {data,error}=await Promise.race([_query,_timeout]);
+        let res;
+        try{
+            res=await _membersLookup(user.email,8000);
+        }catch(firstErr){
+            // One retry before turning a paying member away. A first sign-in on
+            // a new device has no cached pass to fall back on, so a single slow
+            // request would otherwise send them back to the sign-in screen.
+            console.warn('membership lookup retrying after:',firstErr.message);
+            res=await _membersLookup(user.email,8000);
+        }
+        const {data,error}=res;
         if(error||!data){
             // Definitively not a member. Drop any cached pass so a refunded or
             // removed member cannot keep riding an old device.
             try{localStorage.removeItem('bp_member_ok_'+user.id);}catch(e){}
+            // Emitted before signOut: after it the JWT is gone and RLS rejects the insert.
+            currentUser=currentUser||user; track('membership_denied',{reason:'no_row'}); await flushAnalytics();
             setAuthErrorHTML(_purchaseLinksHTML());
             await sb.auth.signOut();
             showAuthScreen();
@@ -4749,6 +5189,7 @@ async function checkMembership(user){
         let seen=null;
         try{seen=localStorage.getItem('bp_member_ok_'+user.id);}catch(e2){}
         if(seen) return true;
+        currentUser=currentUser||user; track('membership_denied',{reason:'unverified_device'}); await flushAnalytics();
         setAuthError("Couldn't verify your membership. Check your connection and tap SIGN IN again.");
         try{await sb.auth.signOut();}catch(e2){}
         showAuthScreen();
@@ -4771,9 +5212,22 @@ async function onUserSignedIn(user){
         if(currentUser?.id!==user.id) return;
         if(!isMember){currentUser=null;return;}
         document.getElementById('hq-user-email').textContent=user.email;
+        _loadAnalyticsBuffer();
         await loadPersisted();
         // Bail if logout happened while we were awaiting
         if(currentUser?.id!==user.id) return;
+        // Signup is counted only when the account genuinely looks new. Without
+        // this gate every existing member would register as a fresh signup on
+        // their first login after analytics shipped, which would poison the
+        // funnel and every retention cohort from day one.
+        const _looksNew=(persisted.allTimeSessionCount||0)===0
+            && !persisted.firstSessionDate
+            && !(persisted.sessionLog||[]).length;
+        if(_looksNew) trackOnce('signup','signup');
+        else { try{ localStorage.setItem('bp_ev_signup_'+user.id,'1'); }catch(e){} } // never count them later
+        track('signin');
+        flushAnalytics();
+        pruneOldDailyKeys();   // reclaim date-keyed entries that were never cleaned up
         loadHydrationUnit();
         _scheduleLocalNotif();
         hideAuthScreen();
@@ -4785,7 +5239,7 @@ async function onUserSignedIn(user){
         const onboarded=localStorage.getItem('bp_onboarded_'+user.id);
         if(welcomed){
             goToStep(0);
-            if(!onboarded) setTimeout(showOnboarding,600);
+            if(!onboarded){ track('intro_shown'); setTimeout(showOnboarding,600); }
         } else {
             document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
             const w=document.getElementById('step-welcome');
@@ -4993,16 +5447,17 @@ function init(){
     initBtn.addEventListener('click', () => {
         if(!checkLiab.checked || !checkPain.checked) return;
         if(currentUser) localStorage.setItem('bp_welcomed_'+currentUser.id, '1');
+        track('welcome_accepted');
         goToStep(0);
         // First-ever entry: run the intro here. The sign-in path (onUserSignedIn)
         // only reaches its showOnboarding call for users who were already welcomed,
         // so without this a brand-new member never sees the intro on day one.
-        if(currentUser && !localStorage.getItem('bp_onboarded_'+currentUser.id)) setTimeout(showOnboarding,600);
+        if(currentUser && !localStorage.getItem('bp_onboarded_'+currentUser.id)){ track('intro_shown'); setTimeout(showOnboarding,600); }
     });
 
     try {
     // HQ
-    document.getElementById('launch-btn').addEventListener('click',()=>goToStep(1));
+    document.getElementById('launch-btn').addEventListener('click',()=>{track('session_started',{scheduled:getScheduledType()});goToStep(1);});
     document.getElementById('resume-btn').addEventListener('click',resumeSession);
     document.getElementById('weekly-report-btn').addEventListener('click',showWeeklyReport);
     document.getElementById('weekly-report-close-btn').addEventListener('click',closeWeeklyReport);
@@ -5062,10 +5517,10 @@ function init(){
     // Warmup
     document.getElementById('warmup-btn').addEventListener('click',toggleWarmup);
     document.getElementById('warmup-reset-btn').addEventListener('click',stopWarmup);
-    document.getElementById('warmup-skip-btn').addEventListener('click',nextStep);
+    document.getElementById('warmup-skip-btn').addEventListener('click',()=>{track('warmup_skipped',{mission:session.routineType});nextStep();});
     document.getElementById('warmup-back-btn').addEventListener('click',()=>goToStep(3));
     // Mission Select
-    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';goToStep(2)});
+    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';track('mission_selected',{mission:'length'});goToStep(2)});
     document.getElementById('mission-girth-btn').addEventListener('click',()=>{
         session.routineType='girth';
         // resetSession() derives the round count from the tier when the engine
@@ -5073,10 +5528,11 @@ function init(){
         const diffKey=getDiff().id;
         const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
         session.girthRound=1;session.girthTotalRounds=cfg.rounds;
+        track('mission_selected',{mission:'girth'});
         goToStep(2);
     });
     // Stamina and Recovery do not get the warmup.
-    document.getElementById('mission-stamina-btn').addEventListener('click',()=>{session.routineType='stamina';goToStep(4)});
+    document.getElementById('mission-stamina-btn').addEventListener('click',()=>{session.routineType='stamina';track('mission_selected',{mission:'stamina'});goToStep(4)});
     // Update diff-detail subtext when hovering mission cards (so text updates before tap)
     ['mission-length-btn','mission-girth-btn','mission-stamina-btn'].forEach(id=>{
         const btn=document.getElementById(id);
@@ -5084,7 +5540,7 @@ function init(){
         btn.addEventListener('pointerenter',()=>{const prev=session.routineType;session.routineType=type;renderDifficultySelector();session.routineType=prev;});
         btn.addEventListener('pointerleave',()=>renderDifficultySelector());
     });
-    document.getElementById('mission-recovery-btn').addEventListener('click',()=>{session.routineType='recovery';goToRecoveryPicker()});
+    document.getElementById('mission-recovery-btn').addEventListener('click',()=>{session.routineType='recovery';track('mission_selected',{mission:'recovery'});goToRecoveryPicker()});
     document.getElementById('recovery-back-btn').addEventListener('click',()=>goToStep(3));
     document.getElementById('recovery-select-all-btn').addEventListener('click',selectAllRecovery);
     document.getElementById('recovery-select-daily-btn').addEventListener('click',selectDailyRecommended);
@@ -5180,9 +5636,13 @@ function init(){
         btn.addEventListener('click',()=>selectGoal(btn.dataset.goal));
     });
     document.getElementById('change-goal-btn').addEventListener('click',openGoalPicker);
-    document.getElementById('ob-skip-btn').addEventListener('click',hideOnboarding);
+    document.getElementById('pelvic-screen-btn').addEventListener('click',()=>{closeManual();setTimeout(openPelvicScreen,320);});
+    document.getElementById('pelvic-screen-submit').addEventListener('click',submitPelvicScreen);
+    document.getElementById('pelvic-screen-later').addEventListener('click',closePelvicScreen);
+    document.getElementById('pelvic-result-ok').addEventListener('click',closePelvicResult);
+    document.getElementById('ob-skip-btn').addEventListener('click',()=>{track('intro_skipped',{slide:_obSlide});hideOnboarding();});
     document.getElementById('tour-next').addEventListener('click',tourNext);
-    document.getElementById('tour-skip').addEventListener('click',endTour);
+    document.getElementById('tour-skip').addEventListener('click',()=>{if(!_tourIsTip)track('tour_skipped',{stop:_tourIdx});endTour();});
     // Tapping the dimmed area advances, matching how these tours usually behave.
     document.getElementById('tour-layer').addEventListener('click',e=>{if(e.target.id==='tour-layer')tourNext();});
     document.getElementById('tier-lock-close-btn').addEventListener('click',()=>document.getElementById('tier-lock-modal').classList.add('hidden'));
@@ -5229,7 +5689,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     if(_savedEmail){document.getElementById('auth-email').value=_savedEmail;document.getElementById('auth-password').focus();}
     document.getElementById('remember-me-row').addEventListener('click',()=>{_rememberMe=!_rememberMe;_setRememberUI(_rememberMe);if(!_rememberMe)localStorage.removeItem('bp_remember_email');});
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
-    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')_flushSaveNow();});
     // Notifications
     document.getElementById('notif-btn').addEventListener('click',openNotifModal);
     document.getElementById('notif-modal-close').addEventListener('click',closeNotifModal);
@@ -5247,18 +5706,32 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     _loadingDeadline=setTimeout(()=>{
         if(!document.getElementById('loading-screen').classList.contains('hidden'))showAuthScreen();
     },12000);
-    sb.auth.onAuthStateChange(async(event,session)=>{
+    // Deliberately NOT an async callback, and nothing is awaited inside it.
+    //
+    // supabase-js holds an internal lock while an auth-state callback runs. Any
+    // Supabase query issued from inside the callback waits on that same lock, so
+    // it cannot resolve until the callback returns — which it never does if the
+    // callback is awaiting the query. The queries then hung until our own 8s
+    // timeouts fired, checkMembership failed with no cached pass on a fresh
+    // device, and the member was bounced straight back to the sign-in screen.
+    // Force-quitting and reopening was the only way in, because the restored
+    // session takes a different path.
+    //
+    // Deferring the work to a task lets the callback return immediately and
+    // release the lock before any query runs.
+    sb.auth.onAuthStateChange((event,session)=>{
         if(event==='SIGNED_OUT'){
             currentUser=null;persisted={...DEFAULT_PERSISTED};_persistedLoaded=false;
             showAuthScreen();return;
         }
-        try{
-            if(session?.user) await onUserSignedIn(session.user);
-            else showAuthScreen();
-        }catch(e){
-            console.error('onAuthStateChange handler error:',e);
-            showAuthScreen();
-        }
+        setTimeout(()=>{
+            if(session?.user){
+                onUserSignedIn(session.user).catch(e=>{
+                    console.error('onAuthStateChange handler error:',e);
+                    showAuthScreen();
+                });
+            } else showAuthScreen();
+        },0);
     });
     // Check for password reset link first; fall back to session check.
     // Loading screen stays up until onUserSignedIn resolves or we confirm no session.
@@ -5271,7 +5744,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     // Save on tab hide; re-acquire wake lock when screen comes back on mid-timer
     document.addEventListener('visibilitychange',()=>{
-        if(document.visibilityState==='hidden') _flushSaveNow();
+        if(document.visibilityState==='hidden'){ _flushSaveNow(); flushAnalytics(); }
         else _syncWakeLock(); // wake lock is auto-released on hide; reclaim it if a timer is still running
     });
 });
