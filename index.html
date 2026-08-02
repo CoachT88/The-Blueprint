@@ -133,6 +133,24 @@
         .ob-slide.exit{opacity:0;transform:translateX(-40px);}
         .ob-dot{width:6px;height:6px;border-radius:50%;background:#1e293b;transition:all .3s;}
         .ob-dot.active{background:#3b82f6;transform:scale(1.4);}
+        /* Guided tour (coach marks). Scrim sits above every app modal but below
+           the loading screen. The "hole" is one box whose huge spread shadow
+           darkens everything outside it, so no 4-panel geometry is needed. */
+        #tour-layer{position:fixed;inset:0;z-index:100000;display:none;}
+        #tour-layer.show{display:block;}
+        #tour-hole{position:fixed;border-radius:16px;box-shadow:0 0 0 9999px rgba(2,6,23,.88);
+            border:2px solid rgba(59,130,246,.9);pointer-events:none;
+            transition:top .32s cubic-bezier(.2,.8,.2,1),left .32s cubic-bezier(.2,.8,.2,1),width .32s cubic-bezier(.2,.8,.2,1),height .32s cubic-bezier(.2,.8,.2,1);}
+        #tour-card{position:fixed;z-index:100001;width:min(20rem,calc(100vw - 2rem));
+            background:linear-gradient(145deg,rgba(30,41,59,.98) 0%,rgba(15,23,42,.99) 100%);
+            border:1px solid rgba(59,130,246,.35);border-radius:1.25rem;padding:1.1rem 1.15rem;
+            animation:modalSpring .32s cubic-bezier(.2,.8,.2,1);}
+        #tour-card h4{font-size:.95rem;font-weight:900;color:#fff;text-transform:uppercase;font-style:italic;letter-spacing:-.01em;margin-bottom:.35rem;}
+        #tour-card p{font-size:.78rem;line-height:1.55;color:#94a3b8;}
+        .tour-foot{display:flex;align-items:center;justify-content:space-between;margin-top:.9rem;gap:.75rem;}
+        .tour-dots{display:flex;gap:5px;}
+        #tour-next{background:#2563eb;color:#fff;font-weight:900;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;padding:.6rem 1.1rem;border-radius:.75rem;border:none;cursor:pointer;flex-shrink:0;}
+        #tour-skip{background:none;border:none;color:#475569;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;padding:.4rem 0;}
         /* Manual */
         #manual-modal{position:fixed;inset:0;background:rgba(2,6,23,.98);z-index:99992;backdrop-filter:blur(20px);display:none;flex-direction:column;overflow:hidden;}
         #manual-modal.show{display:flex}
@@ -595,7 +613,7 @@
             <div>
                 <h1 class="text-4xl font-black tracking-tighter uppercase italic leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">The HQ</h1>
                 <p id="hq-user-email" class="hidden"></p>
-                <div class="flex items-center gap-3 mt-3">
+                <div id="hq-stat-chips" class="flex items-center gap-3 mt-3">
                     <div class="bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-fire text-orange-500 text-[10px]"></i><span id="hq-streak" class="text-[10px] font-bold text-orange-100">0 Day Streak</span></div>
                     <div class="bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-bolt text-yellow-400 text-[10px]"></i><span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span></div>
                 </div>
@@ -606,7 +624,7 @@
                 <button id="logout-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Sign out"><i class="fas fa-right-from-bracket text-xs"></i></button>
             </div>
         </div>
-        <div class="level-badge mx-2 hq-anim">
+        <div id="hq-level-badge" class="level-badge mx-2 hq-anim">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i><span id="hq-level-name" class="text-yellow-300 text-xs font-black uppercase tracking-widest">LVL 1 · RECRUIT</span></div>
                 <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">65 XP to next level</span>
@@ -614,20 +632,20 @@
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
         </div>
         <div id="deload-banner" class="deload-banner mx-2 hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
-        <div class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
+        <div id="hq-calendar-card" class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
         <p class="text-[9px] font-black text-slate-700 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
         <div id="last-measure-row" class="flex gap-3 mx-2">
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
         </div>
         <!-- Coach Tee Hourly Tip -->
-        <div class="tip-card mx-2 hq-anim">
+        <div id="hq-tip-card" class="tip-card mx-2 hq-anim">
             <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee</p>
             <p id="daily-tip-title" class="text-[11px] font-black text-white uppercase tracking-wide mb-1"></p>
             <p id="daily-tip" class="text-[12px] text-slate-300 leading-relaxed italic"></p>
         </div>
         <!-- Hydration Tracker -->
-        <div class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
+        <div id="hq-hydration-card" class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
             <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-droplet text-blue-400 text-sm"></i>
@@ -656,7 +674,7 @@
         </div>
 
     <!-- Sleep + Soreness quick-log -->
-    <div class="px-2 space-y-2 hq-anim">
+    <div id="hq-checkin-card" class="px-2 space-y-2 hq-anim">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Daily Check-In</p>
         <div class="instruction-card" style="padding:.85rem 1rem;">
             <div class="space-y-2.5">
@@ -683,7 +701,7 @@
     </div>
 
     <!-- Personal Records -->
-    <div class="px-2 space-y-2 hq-anim">
+    <div id="hq-records-card" class="px-2 space-y-2 hq-anim">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Personal Records</p>
         <div class="flex gap-2">
             <div class="record-chip"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Best Streak</p><p id="record-streak" class="text-lg font-black text-white">0d</p></div>
@@ -702,12 +720,12 @@
             <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
         </div>
         <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
-        <div class="grid grid-cols-3 gap-2">
+        <div id="hq-tools-row" class="grid grid-cols-3 gap-2">
             <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
             <button id="weekly-report-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-calendar-week text-emerald-400 text-xs"></i> Week</button>
             <button id="photos-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-images text-xs" style="color:#a855f7"></i> Photos</button>
         </div>
-        <div class="grid grid-cols-2 gap-2">
+        <div id="hq-coach-row" class="grid grid-cols-2 gap-2">
             <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Ask Coach Tee</button>
             <button id="manual-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-book-open text-xs" style="color:#a855f7"></i> Manual</button>
         </div>
@@ -1135,6 +1153,20 @@
 
 </div>
 
+<!-- GUIDED TOUR (coach marks) -->
+<div id="tour-layer">
+    <div id="tour-hole"></div>
+    <div id="tour-card">
+        <h4 id="tour-title"></h4>
+        <p id="tour-body"></p>
+        <div class="tour-foot">
+            <button id="tour-skip">Skip tour</button>
+            <div class="tour-dots" id="tour-dots"></div>
+            <button id="tour-next">Next</button>
+        </div>
+    </div>
+</div>
+
 <!-- MANUAL MODAL -->
 
 <div id="manual-modal">
@@ -1149,6 +1181,10 @@
                 <p class="text-slate-500 text-[11px] mt-1">Everything you need to use this app correctly</p>
             </div>
             <button id="manual-close-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 flex-shrink-0 mt-1"><i class="fas fa-xmark text-lg"></i></button>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button id="replay-intro-btn" class="btn-outline flex-1 py-2.5 text-[10px] flex items-center justify-center gap-1.5"><i class="fas fa-rotate-left text-[10px]"></i> Replay Intro</button>
+            <button id="replay-tour-btn" class="btn-outline flex-1 py-2.5 text-[10px] flex items-center justify-center gap-1.5" style="border-color:rgba(59,130,246,.3);color:#93c5fd;"><i class="fas fa-location-crosshairs text-[10px]"></i> Replay Tour</button>
         </div>
     </div>
 
@@ -3805,8 +3841,125 @@ function goToObSlide(idx){
     if(btn) btn.innerText=idx>=2?'Get Started':'Next';
 }
 function obNext(){
-    if(_obSlide>=2) hideOnboarding();
+    if(_obSlide>=2) finishOnboarding();
     else goToObSlide(_obSlide+1);
+}
+// Completing the intro flows into the guided tour. Skipping it does not, but the
+// tour stays available from the Manual.
+function finishOnboarding(){
+    hideOnboarding();
+    setTimeout(()=>maybeStartTour(),450);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GUIDED TOUR (coach marks)
+// ═══════════════════════════════════════════════════════════════════════════
+// #step-0 is the scrolling element (html/body are overflow:hidden), so
+// getBoundingClientRect() already returns viewport coordinates and the fixed
+// positioned hole/card need no scroll offset math.
+const TOUR_STOPS=[
+    {sel:'#hq-stat-chips',    title:'Your progress',    body:'Every session you finish adds XP and extends your streak. This is the quickest read on how consistent you have been.'},
+    {sel:'#hq-calendar-card', title:'Your training week',body:'Tap any day to change what it is: Length, Girth, or Rest. Rest days are part of the plan, not a gap in it.'},
+    {sel:'#hq-tip-card',      title:'Coach Tee tip',    body:'A new coaching tip lands here every day. Short, practical, and worth ten seconds of your time.'},
+    {sel:'#hq-hydration-card',title:'Log your water',   body:'Tap the amount as you drink. Hit 3L. Blood flow is the whole game and dehydrated tissue does not respond.'},
+    {sel:'#hq-checkin-card',  title:'Daily check-in',   body:'Log last night’s sleep and how sore you are. It takes two taps and it is what tells you when to back off.'},
+    {sel:'#launch-btn',       title:'Start training',   body:'This runs your session start to finish: warmup, timed sets, and coaching cues at every step. Just follow it.'},
+    {sel:'#hq-coach-row',     title:'Ask Coach Tee',    body:'Your advisor, any hour. Ask about soreness, technique, or why something works and get a straight answer.'},
+    {sel:'#hq-tools-row',     title:'Track your gains', body:'Progress holds your measurement charts, Week is your summary, and Photos is your before and after. The Manual explains everything in depth.'},
+];
+let _tourStops=[], _tourIdx=0, _tourIsTip=false;
+
+function maybeStartTour(){
+    if(!currentUser) return;
+    if(localStorage.getItem('bp_tour_done_'+currentUser.id)) return;
+    startTour();
+}
+function startTour(){
+    const step0=document.getElementById('step-0');
+    // Only meaningful on the HQ, and only once its cards have been rendered.
+    if(!step0 || step0.classList.contains('hidden-step')) return;
+    // Drop any stop whose element is missing or collapsed (e.g. an empty list).
+    _tourStops=TOUR_STOPS.filter(s=>{
+        const el=document.querySelector(s.sel);
+        return el && el.offsetParent!==null && el.getBoundingClientRect().height>4;
+    });
+    if(!_tourStops.length) return;
+    _tourIdx=0; _tourIsTip=false;
+    step0.scrollTop=0; // goToStep() never resets scroll, so start from the top
+    const dots=document.getElementById('tour-dots');
+    dots.innerHTML=_tourStops.map(()=>'<div class="ob-dot"></div>').join('');
+    document.getElementById('tour-layer').classList.add('show');
+    // Let the scroll reset and the hq-anim stagger settle before measuring.
+    setTimeout(()=>renderTourStop(0),260);
+}
+function renderTourStop(i){
+    _tourIdx=i;
+    const stop=_tourStops[i];
+    const el=document.querySelector(stop.sel);
+    if(!el){ return endTour(); }
+    el.scrollIntoView({block:'center',behavior:'smooth'});
+    // No resolvable signal for smooth scrolling, so settle then measure.
+    setTimeout(()=>{
+        const r=el.getBoundingClientRect();
+        const pad=8;
+        const hole=document.getElementById('tour-hole');
+        hole.style.top=(r.top-pad)+'px';
+        hole.style.left=(r.left-pad)+'px';
+        hole.style.width=(r.width+pad*2)+'px';
+        hole.style.height=(r.height+pad*2)+'px';
+
+        document.getElementById('tour-title').textContent=stop.title;
+        document.getElementById('tour-body').textContent=stop.body;
+        document.getElementById('tour-next').textContent=(i>=_tourStops.length-1)?'Done':'Next';
+        document.querySelectorAll('#tour-dots .ob-dot').forEach((d,di)=>d.classList.toggle('active',di===i));
+
+        // Place the card in whichever gap is bigger, above or below the target.
+        const card=document.getElementById('tour-card');
+        card.style.animation='none'; void card.offsetWidth; card.style.animation='';
+        const ch=card.offsetHeight||190, gap=14;
+        const below=window.innerHeight-r.bottom, above=r.top;
+        let top = (below>=ch+gap+10) ? r.bottom+gap
+                : (above>=ch+gap+10) ? r.top-ch-gap
+                : Math.max(gap, (window.innerHeight-ch)/2);
+        card.style.top=Math.round(top)+'px';
+        const cw=card.offsetWidth;
+        card.style.left=Math.round(Math.min(Math.max(gap,(window.innerWidth-cw)/2),window.innerWidth-cw-gap))+'px';
+    },380);
+}
+function tourNext(){
+    if(_tourIdx>=_tourStops.length-1) endTour();
+    else renderTourStop(_tourIdx+1);
+}
+function endTour(){
+    document.getElementById('tour-layer').classList.remove('show');
+    // A single contextual tip must not mark the whole HQ tour as seen.
+    if(!_tourIsTip && currentUser) try{localStorage.setItem('bp_tour_done_'+currentUser.id,'1');}catch(e){}
+    _tourIsTip=false;
+}
+// Reusable one-shot coach mark for moments the HQ tour cannot cover, e.g. the
+// first time a member opens Progress or Photos. Shows once per user per key.
+function oneTimeTip(key,sel,title,body){
+    if(!currentUser) return;
+    const k='bp_tip_'+key+'_'+currentUser.id;
+    if(localStorage.getItem(k)) return;
+    const el=document.querySelector(sel);
+    if(!el || el.offsetParent===null) return;
+    try{localStorage.setItem(k,'1');}catch(e){}
+    _tourStops=[{sel,title,body}]; _tourIdx=0; _tourIsTip=true;
+    document.getElementById('tour-dots').innerHTML='';
+    document.getElementById('tour-layer').classList.add('show');
+    setTimeout(()=>renderTourStop(0),120);
+}
+function closeManual(){document.getElementById('manual-modal').classList.remove('show');}
+// Replay entry points (Manual). Force a fresh run regardless of the done flag.
+function replayTour(){
+    closeManual();
+    if(currentUser) try{localStorage.removeItem('bp_tour_done_'+currentUser.id);}catch(e){}
+    setTimeout(startTour,320);
+}
+function replayIntro(){
+    closeManual();
+    setTimeout(showOnboarding,320);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4416,10 +4569,16 @@ function init(){
     document.getElementById('photo-log-add-btn').addEventListener('click',()=>document.getElementById('photo-log-file-input').click());
     document.getElementById('photo-log-file-input').addEventListener('change',e=>{if(e.target.files[0])handlePhotoLogUpload(e.target.files[0]);e.target.value='';});
     document.getElementById('manual-btn').addEventListener('click',()=>document.getElementById('manual-modal').classList.add('show'));
-    document.getElementById('manual-close-btn').addEventListener('click',()=>document.getElementById('manual-modal').classList.remove('show'));
+    document.getElementById('manual-close-btn').addEventListener('click',closeManual);
+    document.getElementById('replay-intro-btn').addEventListener('click',replayIntro);
+    document.getElementById('replay-tour-btn').addEventListener('click',replayTour);
     document.getElementById('history-close-btn').addEventListener('click',()=>document.getElementById('history-modal').style.display='none');
     document.getElementById('ob-next-btn').addEventListener('click',obNext);
     document.getElementById('ob-skip-btn').addEventListener('click',hideOnboarding);
+    document.getElementById('tour-next').addEventListener('click',tourNext);
+    document.getElementById('tour-skip').addEventListener('click',endTour);
+    // Tapping the dimmed area advances, matching how these tours usually behave.
+    document.getElementById('tour-layer').addEventListener('click',e=>{if(e.target.id==='tour-layer')tourNext();});
     document.getElementById('tier-lock-close-btn').addEventListener('click',()=>document.getElementById('tier-lock-modal').classList.add('hidden'));
     document.getElementById('soreness-dismiss-btn').addEventListener('click',()=>document.getElementById('soreness-warning-modal').classList.remove('show'));
     document.getElementById('soreness-go-recovery-btn').addEventListener('click',()=>{
