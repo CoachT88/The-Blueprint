@@ -686,6 +686,19 @@
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
         </div>
         <div id="deload-banner" class="deload-banner mx-2 hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
+        <div id="hq-pelvic-prompt" class="hidden mx-2 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-stethoscope text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Pelvic Floor Check</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">A pelvic floor can be too tight as easily as too weak, and the training for each is the opposite. Thirty seconds, six questions, and your Recovery Protocol adjusts to the answer.</p>
+                    <div class="flex gap-2 mt-2">
+                        <button id="hq-pelvic-start" class="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-amber-500/20 px-3 py-1.5 rounded-xl">Take The Check</button>
+                        <button id="hq-pelvic-learn" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Why?</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="hq-calendar-card" class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
         <p class="text-[9px] font-black text-slate-700 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
         <div id="last-measure-row" class="flex gap-3 mx-2">
@@ -821,7 +834,7 @@
         </div>
         <div id="hq-coach-row" class="grid grid-cols-2 gap-2">
             <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Ask Coach Tee</button>
-            <button id="manual-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-book-open text-xs" style="color:#a855f7"></i> Manual</button>
+            <button id="manual-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[12px] font-black" style="border-color:rgba(168,85,247,.45);color:#c4b5fd;background:rgba(168,85,247,.07)"><i class="fas fa-book-open text-xs" style="color:#a855f7"></i> Manual</button>
         </div>
     </div>
     <div class="px-2 space-y-2">
@@ -1067,7 +1080,7 @@
     <!-- EQ check-in -->
     <div class="instruction-card border-blue-500/20 mx-2 text-left">
         <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-gauge-high"></i> EQ During Session</p>
-        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Erection Quality: how firm were you? 1 = flaccid, 10 = maximum.</p>
+        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Erection Quality: how firm were you? 1 = flaccid, 10 = maximum. <button onclick="openManualAt('m-eq')" class="text-blue-400 font-bold underline" style="background:none;border:none;padding:0;cursor:pointer;font-size:inherit">Read more</button></p>
         <div class="grid grid-cols-5 gap-1.5" id="eq-checkin-btns">
             <button class="eq-btn" data-eq="1">1<br><span class="text-[9px] font-normal opacity-60">Flaccid</span></button>
             <button class="eq-btn" data-eq="2">2</button>
@@ -1085,7 +1098,7 @@
     <!-- RPE -->
     <div class="instruction-card border-emerald-500/20 mx-2 text-left">
         <p class="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-dumbbell"></i> Session Effort (RPE)</p>
-        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Rate of Perceived Exertion: how hard the session felt overall.</p>
+        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Rate of Perceived Exertion: how hard the session felt overall. <button onclick="openManualAt('m-eq')" class="text-emerald-400 font-bold underline" style="background:none;border:none;padding:0;cursor:pointer;font-size:inherit">Read more</button></p>
         <div class="grid grid-cols-5 gap-1.5" id="rpe-btns">
             <button class="rpe-btn" data-rpe="1">1<br><span class="text-[9px] font-normal opacity-60">Easy</span></button>
             <button class="rpe-btn" data-rpe="2">2</button>
@@ -1739,6 +1752,7 @@
         <h3 id="pelvic-result-title" class="text-xl font-black uppercase italic text-white mb-3"></h3>
         <p id="pelvic-result-msg" class="text-slate-400 text-[13px] leading-relaxed mb-5 text-left"></p>
         <button id="pelvic-result-ok" class="btn-primary py-4 text-sm">Got It</button>
+        <button id="pelvic-result-learn" class="btn-outline w-full py-2.5 text-[10px] mt-2">Read about pelvic floor work</button>
     </div>
 </div>
 
@@ -1763,6 +1777,7 @@
         <p id="tier-lock-desc" class="text-slate-400 text-sm leading-relaxed"></p>
         <div id="tier-lock-elite-req" class="hidden elite-req text-left"><i class="fas fa-skull-crossbones mr-1.5"></i><span id="tier-lock-elite-text"></span></div>
         <button id="tier-lock-close-btn" class="btn-primary py-4 text-sm">GOT IT</button>
+        <button id="tier-lock-learn-btn" class="btn-outline w-full py-2.5 text-[10px]">Why the tiers are locked</button>
     </div>
 </div>
 
@@ -1890,8 +1905,11 @@ function openPelvicScreen(){
         row.querySelectorAll('[data-screen-a]').forEach(btn=>{
             btn.addEventListener('click',()=>{
                 _pelvicAnswers[row.dataset.screenQ]=btn.dataset.screenA==='yes';
-                row.querySelectorAll('[data-screen-a]').forEach(b=>b.classList.remove('selected'));
-                btn.classList.add('selected');
+                // .quick-tap styles its selected state as .active. Using .selected
+                // here stored the answer and enabled the button while changing
+                // nothing on screen, so the check looked broken.
+                row.querySelectorAll('[data-screen-a]').forEach(b=>b.classList.remove('active'));
+                btn.classList.add('active');
                 document.getElementById('pelvic-screen-submit').disabled=
                     Object.keys(_pelvicAnswers).length<PELVIC_SCREEN_QUESTIONS.length;
             });
@@ -4239,6 +4257,10 @@ function renderDashboard(){
     // Flag a rest day up front so the member knows before entering the funnel.
     // Mission Select also enforces it, now ahead of any warmup.
     const _rest=isBlackoutDay();
+    // Unscreened members get the pelvic check offered up top rather than only
+    // buried in the Manual or behind a locked card in the Recovery picker.
+    const _pelvicPrompt=document.getElementById('hq-pelvic-prompt');
+    if(_pelvicPrompt) _pelvicPrompt.classList.toggle('hidden',hasPelvicScreen());
     const _restBanner=document.getElementById('hq-rest-banner');
     if(_restBanner) _restBanner.classList.toggle('hidden',!_rest);
     const _launch=document.getElementById('launch-btn');
@@ -4683,6 +4705,19 @@ function showTierLockInfo(tierId){
 // ═══════════════════════════════════════════════════════════════════════════
 // MANUAL
 // ═══════════════════════════════════════════════════════════════════════════
+// Open the Manual at a specific chapter, already expanded and scrolled to.
+// Nine collapsed headings is not an answer to someone who just hit a question,
+// so every deep-link lands on the section that addresses it.
+function openManualAt(sectionId){
+    document.getElementById('manual-modal').classList.add('show');
+    setTimeout(()=>{
+        const sec=document.getElementById(sectionId);
+        if(!sec) return;
+        if(!sec.classList.contains('open')) toggleManualSection(sectionId);
+        const chapter=sec.previousElementSibling;
+        (chapter||sec).scrollIntoView({block:'start',behavior:'smooth'});
+    },240);
+}
 function toggleManualSection(id){
     const section=document.getElementById(id);
     const chevron=document.getElementById(id+'-chevron');
@@ -5637,15 +5672,19 @@ function init(){
     });
     document.getElementById('change-goal-btn').addEventListener('click',openGoalPicker);
     document.getElementById('pelvic-screen-btn').addEventListener('click',()=>{closeManual();setTimeout(openPelvicScreen,320);});
+    document.getElementById('hq-pelvic-start').addEventListener('click',openPelvicScreen);
+    document.getElementById('hq-pelvic-learn').addEventListener('click',()=>openManualAt('m-recovery'));
     document.getElementById('pelvic-screen-submit').addEventListener('click',submitPelvicScreen);
     document.getElementById('pelvic-screen-later').addEventListener('click',closePelvicScreen);
     document.getElementById('pelvic-result-ok').addEventListener('click',closePelvicResult);
+    document.getElementById('pelvic-result-learn').addEventListener('click',()=>{closePelvicResult();openManualAt('m-recovery');});
     document.getElementById('ob-skip-btn').addEventListener('click',()=>{track('intro_skipped',{slide:_obSlide});hideOnboarding();});
     document.getElementById('tour-next').addEventListener('click',tourNext);
     document.getElementById('tour-skip').addEventListener('click',()=>{if(!_tourIsTip)track('tour_skipped',{stop:_tourIdx});endTour();});
     // Tapping the dimmed area advances, matching how these tours usually behave.
     document.getElementById('tour-layer').addEventListener('click',e=>{if(e.target.id==='tour-layer')tourNext();});
     document.getElementById('tier-lock-close-btn').addEventListener('click',()=>document.getElementById('tier-lock-modal').classList.add('hidden'));
+    document.getElementById('tier-lock-learn-btn').addEventListener('click',()=>{document.getElementById('tier-lock-modal').classList.add('hidden');openManualAt('m-tiers');});
     document.getElementById('soreness-dismiss-btn').addEventListener('click',()=>document.getElementById('soreness-warning-modal').classList.remove('show'));
     document.getElementById('soreness-go-recovery-btn').addEventListener('click',()=>{
         document.getElementById('soreness-warning-modal').classList.remove('show');
