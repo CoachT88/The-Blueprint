@@ -434,6 +434,11 @@
             <div class="flex items-center gap-2"><div class="chart-legend-dot bg-emerald-500"></div><span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">MSEG — Mid-Shaft Erect Girth</span></div>
             <div class="chart-svg-wrap"><svg id="mseg-chart" width="100%" viewBox="0 0 340 160"></svg></div>
         </div>
+        <div class="px-2 space-y-3">
+            <div class="flex items-center gap-2"><div class="chart-legend-dot" style="background:#a855f7"></div><span class="text-[10px] font-black uppercase tracking-widest" style="color:#a855f7">EQ — Erection Quality Per Session</span></div>
+            <div class="chart-svg-wrap"><svg id="eq-chart" width="100%" viewBox="0 0 340 160"></svg></div>
+            <p class="text-[9px] text-slate-600 text-center italic">EQ responds in weeks. It moves long before the tape does.</p>
+        </div>
         <div id="chart-stats" class="grid grid-cols-2 gap-3 px-2"></div>
         <p class="text-center text-slate-600 text-[10px] italic px-2">Measurements logged at session end.</p>
         <!-- Photo gallery -->
@@ -2545,6 +2550,7 @@ async function handlePhotoLogUpload(file){
 function openProgressChart(){document.getElementById('chart-modal').classList.remove('hidden');renderProgressChart();renderPhotoGallery();}
 function closeProgressChart(){document.getElementById('chart-modal').classList.add('hidden')}
 function renderProgressChart(){
+    renderEqChart(); // independent of measurements, so draw it before any early return
     const meas=(persisted.measurements||[]).slice(-30);
     const statsEl=document.getElementById('chart-stats');
     if(meas.length<2){
@@ -2563,10 +2569,17 @@ function renderProgressChart(){
     drawLine('bpel-chart',meas.map(m=>m.bpel).filter(v=>!isNaN(parseFloat(v))).map(Number),meas.map(m=>m.date),'#3b82f6');
     drawLine('mseg-chart',meas.map(m=>m.mseg).filter(v=>!isNaN(parseFloat(v))).map(Number),meas.map(m=>m.date),'#10b981');
 }
+// EQ is logged every session but was only ever surfaced as a weekly average.
+// Plotting it gives members visible movement in weeks rather than months.
+function renderEqChart(){
+    const pts=(persisted.sessionLog||[]).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).slice(-30);
+    if(pts.length<1){drawEmpty('eq-chart');return;}
+    drawLine('eq-chart',pts.map(s=>s.eq),pts.map(s=>s.date),'#a855f7','',1);
+}
 function drawEmpty(id){
     document.getElementById(id).innerHTML=`<text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="Inter,sans-serif" font-size="11" fill="#475569">No data yet</text>`;
 }
-function drawLine(id,vals,dates,color){
+function drawLine(id,vals,dates,color,unit='"',dec=2){
     const svg=document.getElementById(id);
     if(!vals.length){drawEmpty(id);return}
     const W=340,H=160,T=16,R=16,B=30,L=42,cW=W-L-R,cH=H-T-B;
@@ -2574,7 +2587,7 @@ function drawLine(id,vals,dates,color){
     if(vals.length===1){
         svg.innerHTML=`
             <circle cx="${W/2}" cy="${H/2}" r="5" fill="${color}" stroke="#020617" stroke-width="2" filter="drop-shadow(0 0 8px ${color})"/>
-            <text x="${W/2}" y="${H/2-14}" text-anchor="middle" font-size="10" font-weight="bold" fill="${color}" font-family="'JetBrains Mono',monospace">${vals[0].toFixed(2)}"</text>
+            <text x="${W/2}" y="${H/2-14}" text-anchor="middle" font-size="10" font-weight="bold" fill="${color}" font-family="'JetBrains Mono',monospace">${vals[0].toFixed(dec)}${unit}</text>
             <text x="${W/2}" y="${H-6}" text-anchor="middle" font-size="8" fill="#475569" font-family="Inter,sans-serif">${dates[0]?new Date(dates[0]).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</text>
             <text x="${W/2}" y="${H/2+22}" text-anchor="middle" font-size="8" fill="#475569" font-family="Inter,sans-serif">Log more sessions to see your trend</text>`;
         return;
@@ -2591,17 +2604,18 @@ function drawLine(id,vals,dates,color){
     const gid=`g_${id}`;
     // % gain from first to last
     const gainPct=((vals[vals.length-1]-vals[0])/vals[0]*100);
-    const gainStr=gainPct>=0?`+${gainPct.toFixed(2)}%`:`${gainPct.toFixed(2)}%`;
+    // A percent change is only meaningful for a measured unit, not the 1-10 EQ scale.
+    const gainStr=unit===''?'':(gainPct>=0?`+${gainPct.toFixed(2)}%`:`${gainPct.toFixed(2)}%`);
     const gainColor=gainPct>=0?'#10b981':'#ef4444';
     svg.innerHTML=`
         <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".3"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
-        ${[0,.5,1].map(t=>{const y=T+t*cH,v=(maxV-t*range).toFixed(2);return`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#1e293b" stroke-width="1"/><text x="${L-4}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="7" fill="#475569" font-family="'JetBrains Mono',monospace">${v}"</text>`}).join('')}
+        ${[0,.5,1].map(t=>{const y=T+t*cH,v=(maxV-t*range).toFixed(dec);return`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#1e293b" stroke-width="1"/><text x="${L-4}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="7" fill="#475569" font-family="'JetBrains Mono',monospace">${v}${unit}</text>`}).join('')}
         <path d="${area}" fill="url(#${gid})"/>
         <path d="${pth}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 8px ${color}66)"/>
         ${vals.map((v,i)=>`<circle cx="${xS(i)}" cy="${yS(v)}" r="${i===vals.length-1?4.5:3}" fill="${i===vals.length-1?color:'#020617'}" stroke="${color}" stroke-width="${i===vals.length-1?1.5:1.5}"/>`).join('')}
         <text x="${xS(vals.length-1)+6}" y="${yS(vals[vals.length-1])}" dominant-baseline="middle" font-size="9" font-weight="bold" fill="${gainColor}" font-family="'JetBrains Mono',monospace">${gainStr}</text>
         <text x="${xS(0)}" y="${H-6}" text-anchor="middle" font-size="7.5" fill="#475569" font-family="Inter,sans-serif">${lbl0}</text>
-        <text x="${xS(vals.length-1)}" y="${H-6}" text-anchor="middle" font-size="7.5" fill="${color}" font-family="Inter,sans-serif" font-weight="bold">${vals[vals.length-1].toFixed(2)}"</text>`;
+        <text x="${xS(vals.length-1)}" y="${H-6}" text-anchor="middle" font-size="7.5" fill="${color}" font-family="Inter,sans-serif" font-weight="bold">${vals[vals.length-1].toFixed(dec)}${unit}</text>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2623,6 +2637,47 @@ async function fetchClaude(userMsg, systemPrompt){
         const text=data.content?.map(b=>b.type==='text'?b.text:'').join('')||'';
         return{ok:true,text};
     }catch(e){return{ok:false,error:'[fetch failed] '+e.message}}
+}
+
+// Builds a compact snapshot of the member's real data so Coach Tee answers as
+// someone who knows them rather than a generic chatbot. Everything here is
+// already on the client; nothing extra is fetched.
+function _coachContext(){
+    const log=persisted.sessionLog||[];
+    if(!log.length){
+        return `LIVE USER DATA\nThis member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.`;
+    }
+    const lines=[];
+    lines.push(`Streak: ${getCurrentStreak()} day(s).`);
+    try{ lines.push(`Level: ${getLevelInfo(persisted.totalXp||0).displayName}, ${persisted.totalXp||0} XP total.`); }catch(e){}
+    try{ lines.push(`Difficulty tier: ${getDiff().label||getDiff().id}.`); }catch(e){}
+    lines.push(`Sessions logged all time: ${persisted.allTimeSessionCount||log.length}.`);
+
+    const recent=log.slice(-5).map(s=>{
+        const d=(s.date||'').split('T')[0];
+        return `${d} ${s.routineType||'?'}${s.eq?` EQ ${s.eq}`:''}${s.rpe?` RPE ${s.rpe}`:''}`;
+    });
+    if(recent.length) lines.push(`Last ${recent.length} sessions: ${recent.join('; ')}.`);
+
+    // EQ direction: mean of the last 3 logged EQ values vs the 3 before them.
+    const eqs=log.filter(s=>typeof s.eq==='number').map(s=>s.eq);
+    if(eqs.length>=4){
+        const avg=a=>a.reduce((t,v)=>t+v,0)/a.length;
+        const recentAvg=avg(eqs.slice(-3)), priorAvg=avg(eqs.slice(-6,-3));
+        if(priorAvg){
+            const delta=recentAvg-priorAvg;
+            lines.push(`EQ trend: ${delta>0.3?'improving':delta<-0.3?'declining':'stable'} (recent avg ${recentAvg.toFixed(1)} vs prior ${priorAvg.toFixed(1)}).`);
+        }
+    }
+    const m=(persisted.measurements||[]).slice(-1)[0];
+    if(m) lines.push(`Latest measurements: ${m.bpel?`BPEL ${m.bpel}in`:''}${m.bpel&&m.mseg?', ':''}${m.mseg?`MSEG ${m.mseg}in`:''} on ${(m.date||'').split('T')[0]}.`);
+    try{ lines.push(`Water logged today: ${getHydration().toFixed(1)}L of 3L.`); }catch(e){}
+    try{
+        const sleep=localStorage.getItem(getTodaySleepKey())||'', sore=localStorage.getItem(getTodaySorenessKey())||'';
+        if(sleep||sore) lines.push(`Today's check-in: ${sleep?`sleep ${sleep}`:''}${sleep&&sore?', ':''}${sore?`soreness ${sore}`:''}.`);
+    }catch(e){}
+
+    return `LIVE USER DATA (this is the member you are talking to. Reference it naturally where it is relevant, never dump it back verbatim, and never state a number that is not listed here)\n${lines.join('\n')}`;
 }
 
 async function askCoach(){
@@ -2650,7 +2705,9 @@ RESPONSE STYLE:
 - Be specific. Cite mechanisms, not just conclusions. "Nitric oxide dilates the smooth muscle of the corpus cavernosum" is better than "good blood flow helps erections."
 - Speak like a knowledgeable coach who has studied this deeply and worked with real men, not like a disclaimer-heavy medical chatbot.
 - Never say "consult a doctor" as a cop-out. You can note when something warrants professional evaluation, but still give a substantive answer.
-- The user is an adult who wants real information. Give it to them.`;
+- The user is an adult who wants real information. Give it to them.
+
+${_coachContext()}`;
     const r=await fetchClaude(q,sys);
     if(r.ok) area.innerHTML+=`<div class="chat-msg ai">CoachTee: ${esc(r.text)}</div>`;
     else area.innerHTML+=`<div class="chat-msg error"><i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}</div>`;
