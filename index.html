@@ -549,6 +549,29 @@
             </div>
             <p class="text-[9px] text-slate-700 italic mt-2 text-center">Stored privately — only you can see this.</p>
         </div>
+        <div class="px-2">
+            <button id="photo-compare-btn" class="btn-outline w-full py-3 text-[11px] flex items-center justify-center gap-2" style="border-color:rgba(16,185,129,.3);color:#6ee7b7;">
+                <i class="fas fa-code-compare text-xs" style="color:#10b981"></i> Compare Before &amp; After
+            </button>
+            <p id="photo-compare-hint" class="hidden text-[10px] text-slate-500 italic mt-2 text-center"></p>
+        </div>
+        <!-- Before / after -->
+        <div id="photo-compare" class="hidden px-2 space-y-3">
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-slate-500 text-center mb-1">Before</p>
+                    <img id="photo-compare-before" class="w-full aspect-square object-cover rounded-xl bg-slate-800">
+                    <p id="photo-compare-before-date" class="text-[10px] text-slate-400 text-center mt-1 font-semibold"></p>
+                </div>
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-emerald-400 text-center mb-1">After</p>
+                    <img id="photo-compare-after" class="w-full aspect-square object-cover rounded-xl bg-slate-800">
+                    <p id="photo-compare-after-date" class="text-[10px] text-emerald-300 text-center mt-1 font-semibold"></p>
+                </div>
+            </div>
+            <p id="photo-compare-gap" class="text-center text-[11px] font-black uppercase tracking-widest text-slate-300"></p>
+            <p class="text-center text-[10px] text-slate-600 italic">Tap any photo below to use it as the After shot.</p>
+        </div>
         <div id="photo-log-gallery" class="grid grid-cols-3 gap-2 px-2"></div>
         <div class="scroll-buffer"></div>
     </div>
@@ -2543,7 +2566,63 @@ async function openPhotoLog(){
     document.getElementById('photo-log-modal').classList.remove('hidden');
     await renderGalleryInto('photo-log-gallery');
 }
-function closePhotoLog(){document.getElementById('photo-log-modal').classList.add('hidden');}
+function closePhotoLog(){_hidePhotoCompare();document.getElementById('photo-log-modal').classList.add('hidden');}
+// ── Before / after comparison ──────────────────────────────────────────────
+let _galleryItems=[], _compareMode=false, _compareAfterIdx=0;
+function _refreshCompareAvailability(){
+    const btn=document.getElementById('photo-compare-btn');
+    const hint=document.getElementById('photo-compare-hint');
+    if(!btn) return;
+    const enough=_galleryItems.length>=2;
+    btn.disabled=!enough;
+    btn.style.opacity=enough?'':'0.4';
+    if(hint){
+        hint.classList.toggle('hidden',enough);
+        if(!enough) hint.textContent=_galleryItems.length===1
+            ? 'Add one more photo to unlock the before and after view.'
+            : 'Add two photos to unlock the before and after view.';
+    }
+    if(!enough) _hidePhotoCompare();
+}
+function togglePhotoCompare(){
+    if(_galleryItems.length<2) return;
+    if(_compareMode){_hidePhotoCompare();return;}
+    _compareMode=true;
+    _compareAfterIdx=0; // newest first, so index 0 is the latest shot
+    document.getElementById('photo-compare').classList.remove('hidden');
+    document.getElementById('photo-compare-btn').innerHTML='<i class="fas fa-xmark text-xs"></i> Close Comparison';
+    _renderPhotoCompare();
+}
+function _hidePhotoCompare(){
+    _compareMode=false;
+    const box=document.getElementById('photo-compare');
+    if(box) box.classList.add('hidden');
+    const btn=document.getElementById('photo-compare-btn');
+    if(btn) btn.innerHTML='<i class="fas fa-code-compare text-xs" style="color:#10b981"></i> Compare Before &amp; After';
+}
+function _renderPhotoCompare(){
+    const before=_galleryItems[_galleryItems.length-1]; // oldest
+    const after=_galleryItems[_compareAfterIdx];
+    if(!before||!after) return;
+    document.getElementById('photo-compare-before').src=before.url;
+    document.getElementById('photo-compare-after').src=after.url;
+    document.getElementById('photo-compare-before-date').textContent=before.date;
+    document.getElementById('photo-compare-after-date').textContent=after.date;
+    const gapEl=document.getElementById('photo-compare-gap');
+    if(before.ts&&after.ts&&after.ts!==before.ts){
+        const days=Math.round(Math.abs(after.ts-before.ts)/864e5);
+        const weeks=Math.floor(days/7);
+        gapEl.textContent=days<14?`${days} days apart`:`${days} days apart · about ${weeks} weeks`;
+    } else {
+        gapEl.textContent=after.ts===before.ts?'Same photo — pick a different one below':'';
+    }
+}
+// While comparing, a tap picks the After shot instead of opening the viewer.
+function onGalleryTap(i,url,date,path){
+    if(_compareMode){_compareAfterIdx=i;_renderPhotoCompare();return;}
+    openPhotoViewer(url,date,path);
+}
+
 async function renderGalleryInto(elId){
     const el=document.getElementById(elId);
     if(!el||!currentUser)return;
@@ -2556,9 +2635,12 @@ async function renderGalleryInto(elId){
         const urls=(signed||[]).map((s,i)=>{
             const ts=parseInt(data[i].name);
             const date=isNaN(ts)?data[i].name:new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
-            return{url:s.signedUrl||'',date,path:paths[i]};
+            return{url:s.signedUrl||'',date,path:paths[i],ts:isNaN(ts)?null:ts};
         });
-        el.innerHTML=urls.map(p=>`<div class="cursor-pointer" onclick="openPhotoViewer('${p.url}','${p.date}','${p.path}')"><img src="${p.url}" loading="lazy" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] text-slate-500 text-center mt-1 truncate">${p.date}</p></div>`).join('');
+        // Keep the newest-first list around so compare mode can use it without refetching.
+        _galleryItems=urls;
+        el.innerHTML=urls.map((p,i)=>`<div class="cursor-pointer" onclick="onGalleryTap(${i},'${p.url}','${p.date}','${p.path}')"><img src="${p.url}" loading="lazy" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] text-slate-500 text-center mt-1 truncate">${p.date}</p></div>`).join('');
+        _refreshCompareAvailability();
     }catch(e){el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4">Could not load photos.</p>';}
 }
 async function handlePhotoLogUpload(file){
@@ -4745,6 +4827,7 @@ function init(){
     document.getElementById('measure-howto-btn').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.remove('hidden'));
     document.getElementById('measure-howto-close').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.add('hidden'));
     document.getElementById('photo-log-close').addEventListener('click',closePhotoLog);
+    document.getElementById('photo-compare-btn').addEventListener('click',togglePhotoCompare);
     document.getElementById('photo-log-howto-btn').addEventListener('click',()=>document.getElementById('measure-howto-modal').classList.remove('hidden'));
     document.getElementById('photo-log-add-btn').addEventListener('click',()=>document.getElementById('photo-log-file-input').click());
     document.getElementById('photo-log-file-input').addEventListener('change',e=>{if(e.target.files[0])handlePhotoLogUpload(e.target.files[0]);e.target.value='';});
