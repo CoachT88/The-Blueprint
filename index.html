@@ -1653,6 +1653,37 @@
             </div>
         </div>
 
+        <!-- CHAPTER 10: PRIVACY -->
+        <div class="manual-chapter px-5 py-4" onclick="toggleManualSection('m-privacy')">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-lock text-slate-400 text-xs"></i></div>
+                    <div><p class="text-sm font-black text-white">Your Privacy</p><p class="text-[10px] text-slate-500">What is stored, and what is never stored</p></div>
+                </div>
+                <i id="m-privacy-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+            </div>
+        </div>
+        <div id="m-privacy" class="manual-section">
+            <div class="space-y-3 text-[12px] text-slate-400 leading-relaxed">
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Where your data lives</p>
+                    <p>Everything is stored in this app's own private database and nothing is sold, shared, or sent to any advertising or analytics company. There are no third-party trackers in this app.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">Your progress</p>
+                    <p>Your sessions, measurements, notes, and photos are yours. They are tied to your account and only you can read them. Photos are stored privately and are only ever shown back to you. You can export everything, or delete a photo, at any time.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">How the app is improved</p>
+                    <p>The app records which features get used, so problems can be found and fixed. That means things like: a session was started, a mission was chosen, a session was finished with its length and your EQ and RPE numbers, the intro was skipped, or Coach Tee was asked a question.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                    <p class="text-white font-bold text-xs mb-1">What is never recorded</p>
+                    <p>Your session notes, your measurements, your photos, your email address, and the questions you ask Coach Tee are never included in that usage record. It knows a question was asked, never what you asked. Usage is linked to an anonymous account ID, not to your email.</p>
+                </div>
+            </div>
+        </div>
+
         <div class="px-5 py-6 text-center">
             <p class="text-slate-600 text-[10px] italic">The Blueprint — built by CoachTee</p>
         </div>
@@ -2357,6 +2388,85 @@ function pruneOldDailyKeys(keepDays){
         }
     }catch(e){}
     return removed;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRODUCT ANALYTICS
+// ═══════════════════════════════════════════════════════════════════════════
+// First-party only: rows go into this project's own analytics_events table and
+// nowhere else. Keyed on the auth UUID, never the email, matching the rest of
+// the schema. RLS lets a member append their own rows and read nothing.
+//
+// Nothing a member types is ever recorded. No notes, no measurements, no photos,
+// no free text. Event names plus numeric or enumerated properties only. If you
+// add an event, keep it that way.
+const ANALYTICS_BUFFER_KEY='bp_events';
+const ANALYTICS_MAX_BUFFER=200;
+let _analyticsBuffer=[];
+let _analyticsDebounce=null;
+let _analyticsFlushing=false;
+
+function _analyticsKey(){ return ANALYTICS_BUFFER_KEY+'_'+(currentUser?.id||''); }
+function _loadAnalyticsBuffer(){
+    try{ _analyticsBuffer=JSON.parse(localStorage.getItem(_analyticsKey())||'[]')||[]; }
+    catch(e){ _analyticsBuffer=[]; }
+}
+function _persistAnalyticsBuffer(){
+    // Best effort. If the device is out of room, dropping telemetry is always
+    // preferable to interfering with the member's actual data.
+    try{ localStorage.setItem(_analyticsKey(),JSON.stringify(_analyticsBuffer)); }catch(e){}
+}
+// Only primitives survive, so a caller cannot accidentally pass a note or an
+// object containing one.
+function _cleanProps(props){
+    const out={};
+    if(!props||typeof props!=='object') return out;
+    for(const [k,v] of Object.entries(props)){
+        if(v===null||v===undefined) continue;
+        if(typeof v==='number'&&isFinite(v)) out[k]=v;
+        else if(typeof v==='boolean') out[k]=v;
+        else if(typeof v==='string'&&v.length<=40) out[k]=v;   // enums, not prose
+    }
+    return out;
+}
+function track(event,props){
+    if(!currentUser||!event) return;
+    _analyticsBuffer.push({
+        user_id: currentUser.id,
+        event: String(event).slice(0,60),
+        props: _cleanProps(props),
+        created_at: new Date().toISOString(),
+    });
+    if(_analyticsBuffer.length>ANALYTICS_MAX_BUFFER) _analyticsBuffer=_analyticsBuffer.slice(-ANALYTICS_MAX_BUFFER);
+    _persistAnalyticsBuffer();
+    clearTimeout(_analyticsDebounce);
+    _analyticsDebounce=setTimeout(flushAnalytics,800);
+}
+// Fires at most once per member for a given key, reusing the app's existing
+// one-shot idiom so a returning member does not re-emit funnel milestones.
+function trackOnce(key,event,props){
+    if(!currentUser) return;
+    const k='bp_ev_'+key+'_'+currentUser.id;
+    try{ if(localStorage.getItem(k)) return; localStorage.setItem(k,'1'); }catch(e){}
+    track(event,props);
+}
+async function flushAnalytics(){
+    if(_analyticsFlushing||!currentUser||!_analyticsBuffer.length) return;
+    _analyticsFlushing=true;
+    const batch=_analyticsBuffer.slice();
+    try{
+        const {error}=await sb.from('analytics_events').insert(batch);
+        if(error){
+            // Keep them buffered for the next attempt, exactly as savePersisted
+            // keeps the dirty flag. Analytics must never surface an error to the
+            // member or interrupt anything.
+            console.warn('analytics flush deferred:',error.message);
+        } else {
+            _analyticsBuffer=_analyticsBuffer.slice(batch.length);
+            _persistAnalyticsBuffer();
+        }
+    }catch(e){ /* offline; retry on the next flush */ }
+    finally{ _analyticsFlushing=false; }
 }
 
 function savePersisted(){
@@ -3066,6 +3176,7 @@ function _coachContext(){
 async function askCoach(){
     const inp=document.getElementById('coach-input'),btn=document.getElementById('coach-submit-btn'),area=document.getElementById('coach-chat-area');
     const q=inp.value.trim();if(!q)return;
+    track('coach_asked');   // the question itself is never recorded
     area.innerHTML+=`<div class="chat-msg user">${esc(q)}</div>`;inp.value='';btn.textContent='...';btn.disabled=true;area.scrollTop=area.scrollHeight;
     const sys=`You are Coach Tee, a men's sexual health and performance specialist with deep expertise in pelvic floor physiology, tissue conditioning, blood flow optimization, hormonal health, and PE protocols. You speak with authority and precision backed by research and clinical understanding. You are direct, confident, and never hedge unnecessarily.
 
@@ -3124,6 +3235,14 @@ function getLevelInfo(xp){
 // NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════════
 function goToStep(step){
+    if(session.step===4 && step===0 && currentUser){
+        track('session_abandoned',{
+            routineType:session.routineType,
+            exerciseIndex:session.exerciseIndex||0,
+            setIndex:session.setIndex||0,
+            aborted:!!session._aborting,
+        });
+    }
     if(session.step===4 && step===0 && !session._aborting && currentUser){
         const draft={exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,sessionStartTime:_sessionStartTime,savedAt:Date.now()};
         localStorage.setItem('bp_session_draft_'+currentUser.id,JSON.stringify(draft));
@@ -4076,6 +4195,13 @@ function finishSession(){
     persisted.sessionLog=trimToByteBudget(persisted.sessionLog,SESSION_LOG_BUDGET_BYTES);
     if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
     updateRecords(earnedXp);
+    track('session_completed',{
+        mission:session.routineType, xp:earnedXp,
+        duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0,
+        eq:selectedEQ||0, rpe:selectedRPE||0,
+        sessionNumber:persisted.allTimeSessionCount||0,
+    });
+    trackOnce('first_session','first_session_completed');
     _passEarnedThisSession=maybeEarnStreakPass();
     savePersisted();
     checkMilestones();
@@ -4309,6 +4435,7 @@ function maybePromptPush(){
     if(typeof Notification==='undefined' || Notification.permission!=='default') return;
     if(localStorage.getItem('bp_push_prompted_'+currentUser.id)) return;
     try{localStorage.setItem('bp_push_prompted_'+currentUser.id,'1');}catch(e){}
+    track('push_prompted');
     setTimeout(openNotifModal,700);
 }
 
@@ -4519,6 +4646,7 @@ function selectGoal(key){
     persisted.primaryGoal=key;
     renderGoalOptions();
     const applied=maybeApplyGoalSchedule(key);
+    track('goal_selected',{goal:key,schedule_applied:!!applied});
     savePersisted();
     const note=document.getElementById('goal-confirm');
     if(note){
@@ -4554,6 +4682,7 @@ function openGoalPicker(){
 // Completing the intro flows into the guided tour. Skipping it does not, but the
 // tour stays available from the Manual.
 function finishOnboarding(){
+    trackOnce('intro_done','intro_completed');
     hideOnboarding();
     setTimeout(()=>maybeStartTour(),450);
 }
@@ -4592,6 +4721,7 @@ function startTour(){
     });
     if(!_tourStops.length) return;
     _tourIdx=0; _tourIsTip=false;
+    track('tour_started');
     step0.scrollTop=0; // goToStep() never resets scroll, so start from the top
     const dots=document.getElementById('tour-dots');
     dots.innerHTML=_tourStops.map(()=>'<div class="ob-dot"></div>').join('');
@@ -4634,7 +4764,7 @@ function renderTourStop(i){
     },380);
 }
 function tourNext(){
-    if(_tourIdx>=_tourStops.length-1) endTour();
+    if(_tourIdx>=_tourStops.length-1){ if(!_tourIsTip) trackOnce('tour_done','tour_completed'); endTour(); }
     else renderTourStop(_tourIdx+1);
 }
 function endTour(){
@@ -4842,6 +4972,7 @@ async function handleLogout(){
     showAuthScreen();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     _flushSaveNow();
+    flushAnalytics();
     try{await sb.auth.signOut();}catch(e){console.error('signOut error:',e);}
 }
 // ── Purchase link shown when a signed-in email is not on the members list ──
@@ -4864,6 +4995,8 @@ async function checkMembership(user){
             // Definitively not a member. Drop any cached pass so a refunded or
             // removed member cannot keep riding an old device.
             try{localStorage.removeItem('bp_member_ok_'+user.id);}catch(e){}
+            // Emitted before signOut: after it the JWT is gone and RLS rejects the insert.
+            currentUser=currentUser||user; track('membership_denied',{reason:'no_row'}); await flushAnalytics();
             setAuthErrorHTML(_purchaseLinksHTML());
             await sb.auth.signOut();
             showAuthScreen();
@@ -4879,6 +5012,7 @@ async function checkMembership(user){
         let seen=null;
         try{seen=localStorage.getItem('bp_member_ok_'+user.id);}catch(e2){}
         if(seen) return true;
+        currentUser=currentUser||user; track('membership_denied',{reason:'unverified_device'}); await flushAnalytics();
         setAuthError("Couldn't verify your membership. Check your connection and tap SIGN IN again.");
         try{await sb.auth.signOut();}catch(e2){}
         showAuthScreen();
@@ -4901,9 +5035,21 @@ async function onUserSignedIn(user){
         if(currentUser?.id!==user.id) return;
         if(!isMember){currentUser=null;return;}
         document.getElementById('hq-user-email').textContent=user.email;
+        _loadAnalyticsBuffer();
         await loadPersisted();
         // Bail if logout happened while we were awaiting
         if(currentUser?.id!==user.id) return;
+        // Signup is counted only when the account genuinely looks new. Without
+        // this gate every existing member would register as a fresh signup on
+        // their first login after analytics shipped, which would poison the
+        // funnel and every retention cohort from day one.
+        const _looksNew=(persisted.allTimeSessionCount||0)===0
+            && !persisted.firstSessionDate
+            && !(persisted.sessionLog||[]).length;
+        if(_looksNew) trackOnce('signup','signup');
+        else { try{ localStorage.setItem('bp_ev_signup_'+user.id,'1'); }catch(e){} } // never count them later
+        track('signin');
+        flushAnalytics();
         pruneOldDailyKeys();   // reclaim date-keyed entries that were never cleaned up
         loadHydrationUnit();
         _scheduleLocalNotif();
@@ -4916,7 +5062,7 @@ async function onUserSignedIn(user){
         const onboarded=localStorage.getItem('bp_onboarded_'+user.id);
         if(welcomed){
             goToStep(0);
-            if(!onboarded) setTimeout(showOnboarding,600);
+            if(!onboarded){ track('intro_shown'); setTimeout(showOnboarding,600); }
         } else {
             document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
             const w=document.getElementById('step-welcome');
@@ -5124,16 +5270,17 @@ function init(){
     initBtn.addEventListener('click', () => {
         if(!checkLiab.checked || !checkPain.checked) return;
         if(currentUser) localStorage.setItem('bp_welcomed_'+currentUser.id, '1');
+        track('welcome_accepted');
         goToStep(0);
         // First-ever entry: run the intro here. The sign-in path (onUserSignedIn)
         // only reaches its showOnboarding call for users who were already welcomed,
         // so without this a brand-new member never sees the intro on day one.
-        if(currentUser && !localStorage.getItem('bp_onboarded_'+currentUser.id)) setTimeout(showOnboarding,600);
+        if(currentUser && !localStorage.getItem('bp_onboarded_'+currentUser.id)){ track('intro_shown'); setTimeout(showOnboarding,600); }
     });
 
     try {
     // HQ
-    document.getElementById('launch-btn').addEventListener('click',()=>goToStep(1));
+    document.getElementById('launch-btn').addEventListener('click',()=>{track('session_started',{scheduled:getScheduledType()});goToStep(1);});
     document.getElementById('resume-btn').addEventListener('click',resumeSession);
     document.getElementById('weekly-report-btn').addEventListener('click',showWeeklyReport);
     document.getElementById('weekly-report-close-btn').addEventListener('click',closeWeeklyReport);
@@ -5193,10 +5340,10 @@ function init(){
     // Warmup
     document.getElementById('warmup-btn').addEventListener('click',toggleWarmup);
     document.getElementById('warmup-reset-btn').addEventListener('click',stopWarmup);
-    document.getElementById('warmup-skip-btn').addEventListener('click',nextStep);
+    document.getElementById('warmup-skip-btn').addEventListener('click',()=>{track('warmup_skipped',{mission:session.routineType});nextStep();});
     document.getElementById('warmup-back-btn').addEventListener('click',()=>goToStep(3));
     // Mission Select
-    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';goToStep(2)});
+    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';track('mission_selected',{mission:'length'});goToStep(2)});
     document.getElementById('mission-girth-btn').addEventListener('click',()=>{
         session.routineType='girth';
         // resetSession() derives the round count from the tier when the engine
@@ -5204,10 +5351,11 @@ function init(){
         const diffKey=getDiff().id;
         const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
         session.girthRound=1;session.girthTotalRounds=cfg.rounds;
+        track('mission_selected',{mission:'girth'});
         goToStep(2);
     });
     // Stamina and Recovery do not get the warmup.
-    document.getElementById('mission-stamina-btn').addEventListener('click',()=>{session.routineType='stamina';goToStep(4)});
+    document.getElementById('mission-stamina-btn').addEventListener('click',()=>{session.routineType='stamina';track('mission_selected',{mission:'stamina'});goToStep(4)});
     // Update diff-detail subtext when hovering mission cards (so text updates before tap)
     ['mission-length-btn','mission-girth-btn','mission-stamina-btn'].forEach(id=>{
         const btn=document.getElementById(id);
@@ -5215,7 +5363,7 @@ function init(){
         btn.addEventListener('pointerenter',()=>{const prev=session.routineType;session.routineType=type;renderDifficultySelector();session.routineType=prev;});
         btn.addEventListener('pointerleave',()=>renderDifficultySelector());
     });
-    document.getElementById('mission-recovery-btn').addEventListener('click',()=>{session.routineType='recovery';goToRecoveryPicker()});
+    document.getElementById('mission-recovery-btn').addEventListener('click',()=>{session.routineType='recovery';track('mission_selected',{mission:'recovery'});goToRecoveryPicker()});
     document.getElementById('recovery-back-btn').addEventListener('click',()=>goToStep(3));
     document.getElementById('recovery-select-all-btn').addEventListener('click',selectAllRecovery);
     document.getElementById('recovery-select-daily-btn').addEventListener('click',selectDailyRecommended);
@@ -5311,9 +5459,9 @@ function init(){
         btn.addEventListener('click',()=>selectGoal(btn.dataset.goal));
     });
     document.getElementById('change-goal-btn').addEventListener('click',openGoalPicker);
-    document.getElementById('ob-skip-btn').addEventListener('click',hideOnboarding);
+    document.getElementById('ob-skip-btn').addEventListener('click',()=>{track('intro_skipped',{slide:_obSlide});hideOnboarding();});
     document.getElementById('tour-next').addEventListener('click',tourNext);
-    document.getElementById('tour-skip').addEventListener('click',endTour);
+    document.getElementById('tour-skip').addEventListener('click',()=>{if(!_tourIsTip)track('tour_skipped',{stop:_tourIdx});endTour();});
     // Tapping the dimmed area advances, matching how these tours usually behave.
     document.getElementById('tour-layer').addEventListener('click',e=>{if(e.target.id==='tour-layer')tourNext();});
     document.getElementById('tier-lock-close-btn').addEventListener('click',()=>document.getElementById('tier-lock-modal').classList.add('hidden'));
@@ -5401,7 +5549,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 
     // Save on tab hide; re-acquire wake lock when screen comes back on mid-timer
     document.addEventListener('visibilitychange',()=>{
-        if(document.visibilityState==='hidden') _flushSaveNow();
+        if(document.visibilityState==='hidden'){ _flushSaveNow(); flushAnalytics(); }
         else _syncWakeLock(); // wake lock is auto-released on hide; reclaim it if a timer is still running
     });
 });
