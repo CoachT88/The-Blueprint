@@ -48,6 +48,16 @@
         .type-length{border-bottom:4px solid var(--accent-blue);color:#93c5fd}
         .type-girth{border-bottom:4px solid var(--accent-emerald);color:#6ee7b7}
         .type-rest{border-bottom:4px solid #475569;color:#94a3b8}
+        .type-stamina{border-bottom:4px solid #a855f7;color:#d8b4fe}
+        .type-unknown{border-bottom:4px solid #334155;color:#64748b}
+        .calendar-day.scheduled-focus{box-shadow:0 0 0 2px rgba(59,130,246,.55)}
+        .mission-focus{box-shadow:0 0 0 2px rgba(59,130,246,.55)!important}
+        .goal-opt{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.9rem .5rem;border-radius:1rem;
+            background:rgba(30,41,59,.5);border:1px solid rgba(148,163,184,.15);cursor:pointer;transition:all .2s;text-align:center}
+        .goal-opt i{font-size:1.15rem}
+        .goal-opt span{font-size:.7rem;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.02em;line-height:1.15}
+        .goal-opt em{font-size:.58rem;font-style:normal;color:#64748b;line-height:1.2}
+        .goal-opt.selected{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.6)}
         .level-badge{background:linear-gradient(135deg,rgba(250,204,21,.1) 0%,rgba(245,158,11,.05) 100%);border:1px solid rgba(250,204,21,.2);border-radius:.75rem;padding:.75rem 1rem}
         .level-bar-track{height:3px;background:#1e293b;border-radius:999px;width:100%;margin-top:.4rem}
         .level-bar-fill{height:100%;background:linear-gradient(90deg,#facc15,#f59e0b);border-radius:999px;transition:width .8s cubic-bezier(.4,0,.2,1)}
@@ -680,6 +690,10 @@
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
         </div>
+        <div id="eq-summary-row" class="hidden flex gap-3 mx-2">
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Avg EQ</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">last 7 sessions</p><p id="eq-avg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+        </div>
         <!-- Coach Tee Hourly Tip -->
         <div id="hq-tip-card" class="tip-card mx-2 hq-anim">
             <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee</p>
@@ -1176,7 +1190,7 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">Your Weekly Schedule</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The HQ shows your 7-day training plan. Each day is assigned Length, Girth, or Rest. Tap any day to change it. Rest days are mandatory — your tissue adapts during recovery, not during training.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The HQ shows your 7-day training plan. Each day is assigned Length, Girth, Stamina or Rest. Tap any day to change it. Rest days are mandatory — your tissue adapts during recovery, not during training.</p>
         <div class="mt-6 flex gap-3 justify-center">
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 w-16"><i class="fas fa-up-right-and-down-left-from-center text-blue-400 text-lg"></i><span class="text-[9px] font-black text-blue-300 uppercase">Length</span></div>
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 w-16"><i class="fas fa-expand text-emerald-400 text-lg"></i><span class="text-[9px] font-black text-emerald-300 uppercase">Girth</span></div>
@@ -1215,10 +1229,29 @@
         </div>
     </div>
 
+    <div class="ob-slide" id="ob-slide-3">
+        <div class="relative mb-6">
+            <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
+            <div class="relative p-6 bg-blue-500/08 rounded-full border border-blue-500/20 w-fit mx-auto">
+                <i class="fas fa-bullseye text-4xl text-blue-400"></i>
+            </div>
+        </div>
+        <h2 class="text-3xl font-black italic uppercase text-white mb-2">What are you here for?</h2>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">This sets your weekly schedule and what I focus on. You can change it any time from the Manual.</p>
+        <div class="grid grid-cols-2 gap-2.5 w-full max-w-xs" id="goal-options">
+            <button class="goal-opt" data-goal="size"><i class="fas fa-up-right-and-down-left-from-center text-blue-400"></i><span>Size</span><em>Length and girth work</em></button>
+            <button class="goal-opt" data-goal="stamina"><i class="fas fa-fire-flame-curved text-purple-400"></i><span>Lasting longer</span><em>Control and endurance</em></button>
+            <button class="goal-opt" data-goal="eq"><i class="fas fa-heart-pulse text-emerald-400"></i><span>Erection quality</span><em>Firmness and blood flow</em></button>
+            <button class="goal-opt" data-goal="all"><i class="fas fa-layer-group text-amber-400"></i><span>All of it</span><em>The complete protocol</em></button>
+        </div>
+        <p id="goal-confirm" class="hidden text-[10px] text-emerald-400 font-bold mt-4"></p>
+    </div>
+
 <!-- Nav -->
 <div class="absolute bottom-0 left-0 right-0 p-8 flex flex-col items-center gap-4">
     <div class="flex gap-2" id="ob-dots">
         <div class="ob-dot active"></div>
+        <div class="ob-dot"></div>
         <div class="ob-dot"></div>
         <div class="ob-dot"></div>
     </div>
@@ -1261,6 +1294,7 @@
             <button id="replay-intro-btn" class="btn-outline flex-1 py-2.5 text-[10px] flex items-center justify-center gap-1.5"><i class="fas fa-rotate-left text-[10px]"></i> Replay Intro</button>
             <button id="replay-tour-btn" class="btn-outline flex-1 py-2.5 text-[10px] flex items-center justify-center gap-1.5" style="border-color:rgba(59,130,246,.3);color:#93c5fd;"><i class="fas fa-location-crosshairs text-[10px]"></i> Replay Tour</button>
         </div>
+        <button id="change-goal-btn" class="btn-outline w-full py-2.5 text-[10px] flex items-center justify-center gap-1.5 mt-2" style="border-color:rgba(16,185,129,.3);color:#6ee7b7;"><i class="fas fa-bullseye text-[10px]"></i> Change My Goal</button>
     </div>
 
     <!-- Scrollable content -->
@@ -1290,7 +1324,7 @@
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-calendar-week text-slate-300 mr-1.5"></i>Weekly Calendar</p>
-                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, grey for Rest. Tap any day to change its assignment or mark it complete. Today is highlighted with a border.</p>
+                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, purple for Stamina, grey for Rest. Tap any day to change its assignment or mark it complete. Today is highlighted with a border, and today's training focus gets a ring.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-moon text-slate-300 mr-1.5"></i>Daily Check-In</p>
@@ -1682,6 +1716,7 @@
         <div class="space-y-4">
             <button id="modal-length-btn" class="w-full py-5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 font-black uppercase italic cursor-pointer">Length</button>
             <button id="modal-girth-btn"  class="w-full py-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-black uppercase italic cursor-pointer">Girth</button>
+            <button id="modal-stamina-btn" class="w-full py-5 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-300 font-black uppercase italic cursor-pointer">Stamina</button>
             <button id="modal-rest-btn"   class="w-full py-5 rounded-2xl bg-slate-800 border border-slate-700 text-slate-300 font-black uppercase italic cursor-pointer">Rest</button>
         </div>
         <div class="h-px w-full bg-slate-800 my-6"></div>
@@ -1708,6 +1743,44 @@
 // DATA
 // ═══════════════════════════════════════════════════════════════════════════
 const DAY_NAMES=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+// ── Training day types ─────────────────────────────────────────────────────
+// The schedule system is type-agnostic (assignDay takes any string, and
+// isBlackoutDay only tests for 'rest'), so these drive presentation.
+const DAY_TYPES={
+    length:  {label:'Length',   icon:'fa-up-right-and-down-left-from-center'},
+    girth:   {label:'Girth',    icon:'fa-expand'},
+    stamina: {label:'Stamina',  icon:'fa-fire-flame-curved'},
+    rest:    {label:'Rest',     icon:'fa-bed'},
+};
+// A stale cached shell can receive a type it does not know about. Show it as
+// unknown rather than falling through to the rest icon, which would read as a
+// rest day while the app still treats it as a training day.
+const UNKNOWN_DAY_ICON='fa-circle-question';
+function dayTypeIcon(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].icon)||UNKNOWN_DAY_ICON; }
+function dayTypeLabel(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].label)||'Unset'; }
+
+// ── Primary goal ───────────────────────────────────────────────────────────
+// '' means never answered and behaves exactly as 'all', so skipping the
+// question leaves the app working the way it always has.
+const GOALS={
+    size:    {label:'Size',            blurb:'Length and girth work',        icon:'fa-up-right-and-down-left-from-center', color:'blue',
+              schedule:['length','girth','rest','length','girth','rest','rest'],
+              mission:'length', coach:'Their focus is size. Lead with length and girth work, tissue adaptation and measurement progress.'},
+    stamina: {label:'Lasting longer',  blurb:'Control and endurance',        icon:'fa-fire-flame-curved', color:'purple',
+              schedule:['stamina','rest','stamina','rest','stamina','rest','rest'],
+              mission:'stamina', coach:'Their focus is lasting longer. Lead with ejaculatory control, pelvic floor state (assess hypertonic vs weak before recommending anything), arousal management and stamina work. Do not push size training unless they ask.'},
+    eq:      {label:'Erection quality',blurb:'Firmness and blood flow',      icon:'fa-heart-pulse', color:'emerald',
+              schedule:['stamina','rest','length','rest','stamina','rest','rest'],
+              mission:'stamina', coach:'Their focus is erection quality. Lead with vascular health, nitric oxide and endothelial function, sleep, and pelvic floor blood flow. Do not push size training unless they ask.'},
+    all:     {label:'All of it',       blurb:'The complete protocol',        icon:'fa-layer-group', color:'amber',
+              schedule:['length','girth','rest','stamina','length','rest','rest'],
+              mission:'length', coach:'They want the complete protocol. Balance size, stamina and erection quality rather than favouring one.'},
+};
+function getGoal(){ return GOALS[persisted.primaryGoal]||GOALS.all; }
+function getGoalKey(){ return GOALS[persisted.primaryGoal]?persisted.primaryGoal:'all'; }
+function isSizeLed(){ const k=getGoalKey(); return k==='size'||k==='all'; }
+function getScheduledType(){ return (persisted.schedule||[])[new Date().getDay()]||'rest'; }
 const DIRECTIONALS=['OUT','UP','DOWN','LEFT','RIGHT'];
 const SESSION_XP={beginner:10,intermediate:15,advanced:20,elite:25,recovery:5};
 const RANK_NAMES=['Recruit','Operator','Specialist','Veteran','Elite','Legend'];
@@ -2022,6 +2095,7 @@ const DEFAULT_PERSISTED={
     streakPasses:0,        // banked Recovery Passes (max 2)
     passProtectedDates:[], // ISO dates a spent pass is covering
     lastPassEarnedDate:'', // guards against earning twice in one day
+    primaryGoal:'',        // '' | size | stamina | eq | all  ('' behaves as all)
 };
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
@@ -2112,6 +2186,7 @@ async function loadPersisted(){
                 streakPasses:        data.streak_passes        || 0,
                 passProtectedDates:  data.pass_protected_dates || [],
                 lastPassEarnedDate:  data.last_pass_earned_date|| '',
+                primaryGoal:         data.primary_goal        || '',
             };
         }
         // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
@@ -2127,6 +2202,7 @@ async function loadPersisted(){
             persisted.xpMigrated=true;
             savePersisted();
         }
+        normaliseSchedule();
         // Auto-reset completedDays if we're in a new week
         const currentWeek = getCurrentWeekKey();
         if(persisted.weekKey !== currentWeek){
@@ -2162,6 +2238,7 @@ function _buildSavePayload(){
         streak_passes:         persisted.streakPasses||0,
         pass_protected_dates:  persisted.passProtectedDates||[],
         last_pass_earned_date: persisted.lastPassEarnedDate||'',
+        primary_goal:          persisted.primaryGoal||'',
         updated_at:            new Date().toISOString(),
     };
 }
@@ -2169,7 +2246,7 @@ function _buildSavePayload(){
 // matching ALTER TABLE has been run, Supabase rejects the whole upsert and the
 // member silently stops syncing. We detect that once and fall back to writing
 // the columns that do exist, so progress is never lost over a migration gap.
-const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date'];
+const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date','primary_goal'];
 let _schemaMissingNewCols=false;
 function _isUnknownColumnError(err){
     if(!err) return false;
@@ -2371,6 +2448,50 @@ function getHydrationWarning(){
 }
 
 // ── Blackout Day (Rest Day) Enforcement ───────────────────────────────────
+// Nothing has ever validated the stored schedule, so a truncated array or an
+// unrecognised type would render as a broken or misleading cell. Repair in place
+// rather than replacing the whole week, so a member only loses the bad slots.
+// Today's scheduled day and the member's stated goal both point at a mission.
+// Surface that instead of leaving Mission Select as four equal choices.
+const _MISSION_BTN={length:'mission-length-btn',girth:'mission-girth-btn',stamina:'mission-stamina-btn'};
+function renderMissionGuidance(blackout){
+    const note=document.getElementById('beginner-rec-note');
+    Object.values(_MISSION_BTN).forEach(id=>{
+        const b=document.getElementById(id);
+        if(b) b.classList.remove('mission-focus');
+    });
+    if(!note) return;
+    if(blackout){ note.classList.add('hidden'); return; }
+
+    const scheduled=getScheduledType();
+    const goalKey=getGoalKey();
+    const newish=getDiff().id==='beginner' && (persisted.allTimeSessionCount||0)<5;
+
+    // Prefer what today's calendar says; fall back to the goal's default mission.
+    const target=_MISSION_BTN[scheduled]?scheduled:(newish?getGoal().mission:null);
+    if(target){
+        const btn=document.getElementById(_MISSION_BTN[target]);
+        if(btn) btn.classList.add('mission-focus');
+    }
+
+    let msg='';
+    if(_MISSION_BTN[scheduled]){
+        msg=`Today is a <span class="font-black">${dayTypeLabel(scheduled)}</span> day on your schedule.`;
+        if(newish) msg+=' New here? Following the plan is the whole plan.';
+    } else if(newish){
+        msg=goalKey==='size'||goalKey==='all'
+            ? 'New here? Start with <span class="font-black">Length</span>. It is the more forgiving of the two and builds the base girth work depends on.'
+            : `New here? <span class="font-black">${GOALS[goalKey].label}</span> is your focus, so start with <span class="font-black">Stamina and Blood Flow</span>.`;
+    }
+    note.innerHTML=msg?`<i class="fas fa-circle-info mr-1"></i>${msg}`:'';
+    note.classList.toggle('hidden',!msg);
+}
+function normaliseSchedule(){
+    const def=DEFAULT_PERSISTED.schedule;
+    const cur=Array.isArray(persisted.schedule)?persisted.schedule:[];
+    const fixed=def.map((d,i)=>DAY_TYPES[cur[i]]?cur[i]:d);
+    if(JSON.stringify(fixed)!==JSON.stringify(cur)) persisted.schedule=fixed;
+}
 function isBlackoutDay(){
     const todayType=persisted.schedule[new Date().getDay()];
     return todayType==='rest';
@@ -2715,7 +2836,10 @@ function renderProgressChart(){
     const meas=(persisted.measurements||[]).slice(-30);
     const statsEl=document.getElementById('chart-stats');
     if(meas.length<2){
-        statsEl.innerHTML=`<div class="col-span-2 text-center py-6 text-slate-600 text-sm italic">Log measurements after sessions to see trends here.</div>`;
+        // An EQ-led member can have plenty charted above this; do not tell them
+        // they have no data.
+        const _hasEq=getEqSummary().count>0;
+        statsEl.innerHTML=`<div class="col-span-2 text-center py-6 text-slate-600 text-sm italic">${_hasEq?'Your EQ trend is above. Log BPEL and MSEG after a session to add size tracking.':'Log measurements after sessions to see trends here.'}</div>`;
         drawEmpty('bpel-chart');drawEmpty('mseg-chart');return;
     }
     const first=meas[0],last=meas[meas.length-1];
@@ -2732,6 +2856,22 @@ function renderProgressChart(){
 }
 // EQ is logged every session but was only ever surfaced as a weekly average.
 // Plotting it gives members visible movement in weeks rather than months.
+// EQ aggregation was inlined in several places. One helper, used by the HQ row,
+// Coach Tee and the weekly report. Tier-unlock maths is deliberately left alone.
+function getEqSummary(n){
+    const eqs=(persisted.sessionLog||[]).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).map(s=>s.eq);
+    if(!eqs.length) return {count:0,avg:null,latest:null,trend:'none',recentAvg:null,priorAvg:null};
+    const window=eqs.slice(-(n||7));
+    const mean=a=>a.reduce((t,v)=>t+v,0)/a.length;
+    let trend='stable',recentAvg=null,priorAvg=null;
+    if(eqs.length>=4){
+        recentAvg=mean(eqs.slice(-3));
+        priorAvg=mean(eqs.slice(-6,-3));
+        const d=recentAvg-priorAvg;
+        trend=d>0.3?'improving':d<-0.3?'declining':'stable';
+    } else { trend='building'; }
+    return {count:eqs.length,avg:mean(window),latest:eqs[eqs.length-1],trend,recentAvg,priorAvg};
+}
 function renderEqChart(){
     const pts=(persisted.sessionLog||[]).filter(s=>typeof s.eq==='number'&&!isNaN(s.eq)).slice(-30);
     if(pts.length<1){drawEmpty('eq-chart');return;}
@@ -2806,9 +2946,11 @@ async function fetchClaude(userMsg, systemPrompt){
 function _coachContext(){
     const log=persisted.sessionLog||[];
     if(!log.length){
-        return `LIVE USER DATA\nThis member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.`;
+        return `LIVE USER DATA\nThis member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nToday's scheduled focus: ${dayTypeLabel(getScheduledType())}.`;
     }
     const lines=[];
+    lines.push(`Stated goal: ${getGoal().label}. ${getGoal().coach}`);
+    lines.push(`Today's scheduled focus: ${dayTypeLabel(getScheduledType())}.`);
     lines.push(`Streak: ${getCurrentStreak()} day(s).`);
     try{ lines.push(`Level: ${getLevelInfo(persisted.totalXp||0).displayName}, ${persisted.totalXp||0} XP total.`); }catch(e){}
     try{ lines.push(`Difficulty tier: ${getDiff().label||getDiff().id}.`); }catch(e){}
@@ -2820,15 +2962,11 @@ function _coachContext(){
     });
     if(recent.length) lines.push(`Last ${recent.length} sessions: ${recent.join('; ')}.`);
 
-    // EQ direction: mean of the last 3 logged EQ values vs the 3 before them.
-    const eqs=log.filter(s=>typeof s.eq==='number').map(s=>s.eq);
-    if(eqs.length>=4){
-        const avg=a=>a.reduce((t,v)=>t+v,0)/a.length;
-        const recentAvg=avg(eqs.slice(-3)), priorAvg=avg(eqs.slice(-6,-3));
-        if(priorAvg){
-            const delta=recentAvg-priorAvg;
-            lines.push(`EQ trend: ${delta>0.3?'improving':delta<-0.3?'declining':'stable'} (recent avg ${recentAvg.toFixed(1)} vs prior ${priorAvg.toFixed(1)}).`);
-        }
+    const _eq=getEqSummary(7);
+    if(_eq.count>=4 && _eq.priorAvg){
+        lines.push(`EQ trend: ${_eq.trend} (recent avg ${_eq.recentAvg.toFixed(1)} vs prior ${_eq.priorAvg.toFixed(1)}).`);
+    } else if(_eq.count){
+        lines.push(`Average EQ so far: ${_eq.avg.toFixed(1)} across ${_eq.count} logged session(s).`);
     }
     const m=(persisted.measurements||[]).slice(-1)[0];
     if(m) lines.push(`Latest measurements: ${m.bpel?`BPEL ${m.bpel}in`:''}${m.bpel&&m.mseg?', ':''}${m.mseg?`MSEG ${m.mseg}in`:''} on ${(m.date||'').split('T')[0]}.`);
@@ -2928,10 +3066,7 @@ function goToStep(step){
         document.getElementById('mission-length-btn').style.opacity=blackout?'0.35':'';
         document.getElementById('mission-girth-btn').style.opacity=blackout?'0.35':'';
         document.getElementById('mission-stamina-btn').style.opacity=blackout?'0.35':'';
-        // Length vs Girth is an unexplained fork for a first-timer. Point them at
-        // the safer starting point until they have a few sessions logged.
-        const _newish=getDiff().id==='beginner' && (persisted.allTimeSessionCount||0)<5;
-        document.getElementById('beginner-rec-note').classList.toggle('hidden',!(_newish&&!blackout));
+        renderMissionGuidance(blackout);
         // Hydration warning
         const hydWarn=getHydrationWarning();
         const hydBanner=document.getElementById('hydration-warning-banner');
@@ -3740,12 +3875,19 @@ function renderDashboard(){
     const _restBanner=document.getElementById('hq-rest-banner');
     if(_restBanner) _restBanner.classList.toggle('hidden',!_rest);
     const _launch=document.getElementById('launch-btn');
-    if(_launch) _launch.textContent=_rest?'BEGIN RECOVERY SESSION':'BEGIN SESSION';
+    // Name today's focus so the calendar is not just decoration.
+    if(_launch){
+        const _t=getScheduledType();
+        _launch.textContent=_rest?'BEGIN RECOVERY SESSION'
+            :DAY_TYPES[_t]?`BEGIN ${DAY_TYPES[_t].label.toUpperCase()} SESSION`:'BEGIN SESSION';
+    }
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
         const d=document.createElement('div');
-        d.className=`calendar-day type-${type} ${i===new Date().getDay()?'active':''} ${persisted.completedDays[i]?'completed':''}`;
-        d.innerHTML=`<span>${DAY_NAMES[i]}</span><i class="fas ${type==='length'?'fa-up-right-and-down-left-from-center':type==='girth'?'fa-expand':'fa-bed'}"></i>`;
+        const _known=!!DAY_TYPES[type];
+        const _isToday=i===new Date().getDay();
+        d.className=`calendar-day type-${_known?type:'unknown'} ${_isToday?'active':''} ${persisted.completedDays[i]?'completed':''} ${_isToday&&type!=='rest'?'scheduled-focus':''}`;
+        d.innerHTML=`<span>${DAY_NAMES[i]}</span><i class="fas ${dayTypeIcon(type)}"></i>`;
         d.addEventListener('click',()=>{session.selectedDayIdx=i;document.getElementById('type-modal').classList.remove('hidden')});
         g.appendChild(d);
     });
@@ -3762,6 +3904,25 @@ function renderDashboard(){
     const last=meas.length?meas[meas.length-1]:null;
     document.getElementById('last-bpel').innerText=last?.bpel?`${last.bpel}"`:'—';
     document.getElementById('last-mseg').innerText=last?.mseg?`${last.mseg}"`:'—';
+    // Lead with the number that matches what the member said they came for.
+    const _sizeLed=isSizeLed();
+    const _measRow=document.getElementById('last-measure-row');
+    const _eqRow=document.getElementById('eq-summary-row');
+    if(_measRow) _measRow.classList.toggle('hidden',!_sizeLed);
+    if(_eqRow){
+        _eqRow.classList.toggle('hidden',_sizeLed);
+        if(!_sizeLed){
+            const eq=getEqSummary(7);
+            const avgEl=document.getElementById('eq-avg');
+            const trEl=document.getElementById('eq-trend');
+            if(avgEl) avgEl.innerText=eq.count?eq.avg.toFixed(1):'—';
+            if(trEl){
+                const map={improving:'↑ Up',declining:'↓ Down',stable:'→ Steady',building:'Building',none:'—'};
+                trEl.innerText=map[eq.trend]||'—';
+                trEl.style.color=eq.trend==='improving'?'#34d399':eq.trend==='declining'?'#f87171':'#fff';
+            }
+        }
+    }
     renderLog();
     renderRecords();
     renderDailyTip();
@@ -4201,9 +4362,13 @@ function showSessionHistory(){
 // ONBOARDING
 // ═══════════════════════════════════════════════════════════════════════════
 let _obSlide=0;
-function showOnboarding(){
+// Derived rather than hardcoded, so adding a slide cannot silently strand the
+// Get Started button on the wrong screen.
+function _obLastIdx(){ return Math.max(0,document.querySelectorAll('.ob-slide').length-1); }
+function showOnboarding(startIdx){
     document.getElementById('onboarding-overlay').classList.add('show');
-    goToObSlide(0);
+    renderGoalOptions();
+    goToObSlide(startIdx||0);
 }
 function hideOnboarding(){
     document.getElementById('onboarding-overlay').classList.remove('show');
@@ -4220,11 +4385,58 @@ function goToObSlide(idx){
     });
     _obSlide=idx;
     const btn=document.getElementById('ob-next-btn');
-    if(btn) btn.innerText=idx>=2?'Get Started':'Next';
+    if(btn) btn.innerText=idx>=_obLastIdx()?'Get Started':'Next';
 }
 function obNext(){
-    if(_obSlide>=2) finishOnboarding();
+    if(_obSlide>=_obLastIdx()) finishOnboarding();
     else goToObSlide(_obSlide+1);
+}
+
+// ── Primary goal picker ────────────────────────────────────────────────────
+function renderGoalOptions(){
+    const cur=persisted.primaryGoal||'';
+    document.querySelectorAll('#goal-options .goal-opt').forEach(b=>{
+        b.classList.toggle('selected',b.dataset.goal===cur);
+    });
+    const note=document.getElementById('goal-confirm');
+    if(note) note.classList.add('hidden');
+}
+function selectGoal(key){
+    if(!GOALS[key]) return;
+    persisted.primaryGoal=key;
+    renderGoalOptions();
+    const applied=maybeApplyGoalSchedule(key);
+    savePersisted();
+    const note=document.getElementById('goal-confirm');
+    if(note){
+        note.textContent=applied?`Weekly schedule set for ${GOALS[key].label.toLowerCase()}.`:`Focus set to ${GOALS[key].label.toLowerCase()}.`;
+        note.classList.remove('hidden');
+    }
+    renderDashboard();
+}
+// A member's calendar is theirs. Only write it automatically when the account is
+// genuinely untouched; otherwise ask, and leave it alone if they decline.
+function maybeApplyGoalSchedule(key){
+    const preset=GOALS[key].schedule;
+    if(!preset) return false;
+    const cur=persisted.schedule||[];
+    if(JSON.stringify(cur)===JSON.stringify(preset)) return false; // already matches
+    const untouched=(persisted.allTimeSessionCount||0)===0
+        && JSON.stringify(cur)===JSON.stringify(DEFAULT_PERSISTED.schedule);
+    if(untouched){
+        persisted.schedule=preset.slice();
+        return true;
+    }
+    const days=preset.map(t=>dayTypeLabel(t)).join(', ');
+    if(confirm(`Update your weekly schedule to match this focus?\n\nNew week: ${days}\n\nYour current schedule will be replaced.`)){
+        persisted.schedule=preset.slice();
+        return true;
+    }
+    return false;
+}
+function openGoalPicker(){
+    closeManual();
+    setTimeout(()=>showOnboarding(_obLastIdx()),320);
 }
 // Completing the intro flows into the guided tour. Skipping it does not, but the
 // tour stays available from the Manual.
@@ -4241,7 +4453,7 @@ function finishOnboarding(){
 // positioned hole/card need no scroll offset math.
 const TOUR_STOPS=[
     {sel:'#hq-stat-chips',    title:'Your progress',    body:'Every session you finish adds XP and extends your streak. This is the quickest read on how consistent you have been.'},
-    {sel:'#hq-calendar-card', title:'Your training week',body:'Tap any day to change what it is: Length, Girth, or Rest. Rest days are part of the plan, not a gap in it.'},
+    {sel:'#hq-calendar-card', title:'Your training week',body:'Tap any day to change what it is: Length, Girth, Stamina or Rest. Rest days are part of the plan, not a gap in it.'},
     {sel:'#hq-tip-card',      title:'Coach Tee tip',    body:'A new coaching tip lands here every day. Short, practical, and worth ten seconds of your time.'},
     {sel:'#hq-hydration-card',title:'Log your water',   body:'Tap the amount as you drink. Hit 3L. Blood flow is the whole game and dehydrated tissue does not respond.'},
     {sel:'#hq-checkin-card',  title:'Daily check-in',   body:'Log last night’s sleep and how sore you are. It takes two taps and it is what tells you when to back off.'},
@@ -4939,6 +5151,7 @@ function init(){
     // Day modal
     document.getElementById('modal-length-btn').addEventListener('click',()=>assignDay('length'));
     document.getElementById('modal-girth-btn').addEventListener('click',()=>assignDay('girth'));
+    document.getElementById('modal-stamina-btn').addEventListener('click',()=>assignDay('stamina'));
     document.getElementById('modal-rest-btn').addEventListener('click',()=>assignDay('rest'));
     document.getElementById('modal-toggle-btn').addEventListener('click',toggleDayCompletion);
     document.getElementById('modal-dismiss-btn').addEventListener('click',closeModal);
@@ -4963,6 +5176,10 @@ function init(){
     document.getElementById('replay-tour-btn').addEventListener('click',replayTour);
     document.getElementById('history-close-btn').addEventListener('click',()=>document.getElementById('history-modal').style.display='none');
     document.getElementById('ob-next-btn').addEventListener('click',obNext);
+    document.querySelectorAll('#goal-options .goal-opt').forEach(btn=>{
+        btn.addEventListener('click',()=>selectGoal(btn.dataset.goal));
+    });
+    document.getElementById('change-goal-btn').addEventListener('click',openGoalPicker);
     document.getElementById('ob-skip-btn').addEventListener('click',hideOnboarding);
     document.getElementById('tour-next').addEventListener('click',tourNext);
     document.getElementById('tour-skip').addEventListener('click',endTour);
