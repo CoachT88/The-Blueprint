@@ -4984,13 +4984,26 @@ function _purchaseLinksHTML(){
     const k=KOFI_URL?`<a href="${KOFI_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">get access here</a>`:'purchase The Blueprint';
     return `No membership found for this email. If you have not joined yet, ${k}, then sign in with the same email you purchased with.<br><span style="opacity:.75">Just bought? Give it about a minute, then tap SIGN IN again.</span>`;
 }
+async function _membersLookup(email,ms){
+    const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));
+    const _query=sb.from('members').select('email').eq('email',email).single();
+    return Promise.race([_query,_timeout]);
+}
 async function checkMembership(user){
     // Verifies the signed-in email against the members table (populated by the
     // Ko-fi webhook, and historically the Whop one).
     try{
-        const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
-        const _query=sb.from('members').select('email').eq('email',user.email).single();
-        const {data,error}=await Promise.race([_query,_timeout]);
+        let res;
+        try{
+            res=await _membersLookup(user.email,8000);
+        }catch(firstErr){
+            // One retry before turning a paying member away. A first sign-in on
+            // a new device has no cached pass to fall back on, so a single slow
+            // request would otherwise send them back to the sign-in screen.
+            console.warn('membership lookup retrying after:',firstErr.message);
+            res=await _membersLookup(user.email,8000);
+        }
+        const {data,error}=res;
         if(error||!data){
             // Definitively not a member. Drop any cached pass so a refunded or
             // removed member cannot keep riding an old device.
@@ -5525,18 +5538,32 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     _loadingDeadline=setTimeout(()=>{
         if(!document.getElementById('loading-screen').classList.contains('hidden'))showAuthScreen();
     },12000);
-    sb.auth.onAuthStateChange(async(event,session)=>{
+    // Deliberately NOT an async callback, and nothing is awaited inside it.
+    //
+    // supabase-js holds an internal lock while an auth-state callback runs. Any
+    // Supabase query issued from inside the callback waits on that same lock, so
+    // it cannot resolve until the callback returns — which it never does if the
+    // callback is awaiting the query. The queries then hung until our own 8s
+    // timeouts fired, checkMembership failed with no cached pass on a fresh
+    // device, and the member was bounced straight back to the sign-in screen.
+    // Force-quitting and reopening was the only way in, because the restored
+    // session takes a different path.
+    //
+    // Deferring the work to a task lets the callback return immediately and
+    // release the lock before any query runs.
+    sb.auth.onAuthStateChange((event,session)=>{
         if(event==='SIGNED_OUT'){
             currentUser=null;persisted={...DEFAULT_PERSISTED};_persistedLoaded=false;
             showAuthScreen();return;
         }
-        try{
-            if(session?.user) await onUserSignedIn(session.user);
-            else showAuthScreen();
-        }catch(e){
-            console.error('onAuthStateChange handler error:',e);
-            showAuthScreen();
-        }
+        setTimeout(()=>{
+            if(session?.user){
+                onUserSignedIn(session.user).catch(e=>{
+                    console.error('onAuthStateChange handler error:',e);
+                    showAuthScreen();
+                });
+            } else showAuthScreen();
+        },0);
     });
     // Check for password reset link first; fall back to session check.
     // Loading screen stays up until onUserSignedIn resolves or we confirm no session.
