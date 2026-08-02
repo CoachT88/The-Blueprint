@@ -4423,19 +4423,18 @@ async function handleLogout(){
     _flushSaveNow();
     try{await sb.auth.signOut();}catch(e){console.error('signOut error:',e);}
 }
-// ── Purchase links shown when a signed-in email is not on the members list ──
-// TODO: paste your real product URLs here. Leave a value empty to show plain text
-// instead of a link for that platform.
-const WHOP_URL='';
-const KOFI_URL='';
+// ── Purchase link shown when a signed-in email is not on the members list ──
+// Ko-fi is the current storefront. Members who originally bought through Whop
+// keep their access: they are already rows in the members table, and the Whop
+// webhook stays live to handle any remaining cancellations.
+const KOFI_URL='https://ko-fi.com/s/75a70cb698';
 function _purchaseLinksHTML(){
-    const w=WHOP_URL?`<a href="${WHOP_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">Whop</a>`:'Whop';
-    const k=KOFI_URL?`<a href="${KOFI_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">Ko-fi</a>`:'Ko-fi';
-    return `No membership found for this email. Get access on ${w} or ${k}, then sign in with the same email you purchased with.<br><span style="opacity:.75">Just bought? Give it about a minute, then tap SIGN IN again.</span>`;
+    const k=KOFI_URL?`<a href="${KOFI_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">get access here</a>`:'purchase The Blueprint';
+    return `No membership found for this email. If you have not joined yet, ${k}, then sign in with the same email you purchased with.<br><span style="opacity:.75">Just bought? Give it about a minute, then tap SIGN IN again.</span>`;
 }
 async function checkMembership(user){
     // Verifies the signed-in email against the members table (populated by the
-    // Whop and Ko-fi webhooks).
+    // Ko-fi webhook, and historically the Whop one).
     try{
         const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
         const _query=sb.from('members').select('email').eq('email',user.email).single();
