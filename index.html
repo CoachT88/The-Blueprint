@@ -842,7 +842,8 @@
         </div>
         <div class="flex flex-col gap-4 px-2">
             <div class="grid grid-cols-2 gap-4"><button id="warmup-btn" class="btn-primary py-4">Start</button><button id="warmup-reset-btn" class="btn-outline">Reset</button></div>
-            <button id="warmup-skip-btn" class="text-slate-500 font-black text-[10px] tracking-widest py-3">Skip to Mission Select</button>
+            <button id="warmup-skip-btn" class="text-slate-500 font-black text-[10px] tracking-widest py-3">Skip Warmup, Start Session</button>
+            <button id="warmup-back-btn" class="btn-outline py-3 text-[11px]">Back to Mission Select</button>
         </div>
         <div class="scroll-buffer"></div>
     </div>
@@ -1312,7 +1313,7 @@
         </div>
         <div id="m-training" class="manual-section">
             <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
-                <p>Tap <strong class="text-white">Begin Session</strong> to start. You will pass through a warmup phase, then arrive at Mission Select.</p>
+                <p>Tap <strong class="text-white">Begin Session</strong> to start. After the pre-flight check you pick your mission. Length and Girth then run the warmup phase first, because cold tissue does not stretch. Stamina and Recovery start straight away.</p>
                 <div class="space-y-3">
                     <div class="p-3 rounded-xl bg-blue-500/05 border border-blue-500/20">
                         <p class="text-blue-300 font-bold text-xs mb-1"><i class="fas fa-up-right-and-down-left-from-center mr-1.5"></i>Length Protocol</p>
@@ -1579,7 +1580,7 @@
             <div class="space-y-3 text-[12px] text-slate-400 leading-relaxed">
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Never skip the warmup</p>
-                    <p>The 10-minute warmup phase is not optional. Collagen does not stretch when cold. Guys who skip warmup plateau 3–4 times faster than consistent warmers. Use a warm towel, warm shower, or the warmup timer in the app.</p>
+                    <p>The 10-minute warmup phase is not optional before Length or Girth work. Collagen does not stretch when cold. Guys who skip warmup plateau 3–4 times faster than consistent warmers. Use a warm towel, warm shower, or the warmup timer in the app. Stamina and Recovery sessions do not need it.</p>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Hydration is structural</p>
@@ -2228,7 +2229,11 @@ function resetSession(){
     stopCarousel();
     session.exerciseIndex=0;session.setIndex=1;session.directionalIndex=0;session.xp=0;
     session.recoveryQueue=null;session.recoveryQueuePos=0;
-    session.girthRound=1;session.girthTotalRounds=3;
+    // Derive from the tier. Hardcoding 3 here silently overrode the round count
+    // the mission handler had just set, so Intermediate ran 3 rounds instead of 4
+    // and Advanced/Elite 3 instead of 5.
+    const _gcfg=(typeof GIRTH_CIRCUIT!=='undefined'&&GIRTH_CIRCUIT[getDiff().id])||{rounds:3};
+    session.girthRound=1;session.girthTotalRounds=_gcfg.rounds||3;
     _releaseWakeLock();
 }
 
@@ -2931,7 +2936,9 @@ function goToStep(step){
     if(step===4){if(!session._resuming){resetSession();_sessionStartTime=Date.now();}updateExUI()}
     if(step===5){if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'});document.getElementById('photo-preview').classList.add('hidden');document.getElementById('photo-error').classList.add('hidden');document.getElementById('photo-capture-btn').innerText='Take / Upload Photo';document.getElementById('photo-capture-btn').disabled=false;}
 }
-function nextStep(){if(session.step===2)goToStep(3);else goToStep(session.step+1)}
+// Warmup (step 2) now runs AFTER mission select (step 3), so finishing or
+// skipping it goes straight to the engine.
+function nextStep(){if(session.step===2)goToStep(4);else goToStep(session.step+1)}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // WARMUP
@@ -3655,8 +3662,8 @@ function renderDashboard(){
     if(maybeConsumeStreakPass()) _showPassUsedBanner();
     renderHydration();
     maybeShowUpdateNotice();
-    // Warn about a rest day here, before the member commits to pre-flight and a
-    // 10-minute warmup only to hit the lock at Mission Select.
+    // Flag a rest day up front so the member knows before entering the funnel.
+    // Mission Select also enforces it, now ahead of any warmup.
     const _rest=isBlackoutDay();
     const _restBanner=document.getElementById('hq-rest-banner');
     if(_restBanner) _restBanner.classList.toggle('hidden',!_rest);
@@ -4764,21 +4771,25 @@ function init(){
         });
     });
     // Pre-Flight
-    document.getElementById('primed-btn').addEventListener('click',nextStep);
+    document.getElementById('primed-btn').addEventListener('click',()=>goToStep(3));
     document.getElementById('preflight-back-btn').addEventListener('click',()=>goToStep(0));
     // Warmup
     document.getElementById('warmup-btn').addEventListener('click',toggleWarmup);
     document.getElementById('warmup-reset-btn').addEventListener('click',stopWarmup);
     document.getElementById('warmup-skip-btn').addEventListener('click',nextStep);
+    document.getElementById('warmup-back-btn').addEventListener('click',()=>goToStep(3));
     // Mission Select
-    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';goToStep(4)});
+    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';goToStep(2)});
     document.getElementById('mission-girth-btn').addEventListener('click',()=>{
         session.routineType='girth';
+        // resetSession() derives the round count from the tier when the engine
+        // opens, so this is just so the warmup screen has it available first.
         const diffKey=getDiff().id;
         const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
         session.girthRound=1;session.girthTotalRounds=cfg.rounds;
-        goToStep(4);
+        goToStep(2);
     });
+    // Stamina and Recovery do not get the warmup.
     document.getElementById('mission-stamina-btn').addEventListener('click',()=>{session.routineType='stamina';goToStep(4)});
     // Update diff-detail subtext when hovering mission cards (so text updates before tap)
     ['mission-length-btn','mission-girth-btn','mission-stamina-btn'].forEach(id=>{
