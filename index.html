@@ -58,6 +58,9 @@
         .goal-opt span{font-size:.7rem;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.02em;line-height:1.15}
         .goal-opt em{font-size:.58rem;font-style:normal;color:#64748b;line-height:1.2}
         .goal-opt.selected{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.6)}
+        .coach-chip{text-align:left;padding:.55rem .75rem;border-radius:.75rem;font-size:.72rem;line-height:1.35;
+            background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);color:#d8b4fe;cursor:pointer;transition:all .2s}
+        .coach-chip:active{background:rgba(168,85,247,.18)}
         .ex-pick-card.pick-locked{opacity:.5;cursor:not-allowed;border-style:dashed}
         .ex-pick-card.pick-locked .ex-pick-benefit{color:#f59e0b}
         .level-badge{background:linear-gradient(135deg,rgba(250,204,21,.1) 0%,rgba(245,158,11,.05) 100%);border:1px solid rgba(250,204,21,.2);border-radius:.75rem;padding:.75rem 1rem}
@@ -686,6 +689,19 @@
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
         </div>
         <div id="deload-banner" class="deload-banner mx-2 hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
+        <div id="hq-coach-nudge" class="hidden mx-2 p-3 rounded-2xl" style="background:rgba(168,85,247,.09);border:1px solid rgba(168,85,247,.3)">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-comment-dots text-lg flex-shrink-0 mt-0.5" style="color:#a855f7"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-black uppercase tracking-widest" style="color:#c4b5fd">Coach Tee noticed</p>
+                    <p id="hq-coach-nudge-text" class="text-[11px] text-slate-300 mt-0.5 leading-relaxed"></p>
+                    <div class="flex gap-2 mt-2">
+                        <button id="hq-coach-nudge-ask" class="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl" style="background:rgba(168,85,247,.2);color:#d8b4fe">Ask Coach Tee</button>
+                        <button id="hq-coach-nudge-dismiss" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Not now</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="hq-pelvic-prompt" class="hidden mx-2 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30">
             <div class="flex items-start gap-3">
                 <i class="fas fa-stethoscope text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
@@ -1819,6 +1835,7 @@
         <div class="flex justify-between items-center"><h3 class="font-black uppercase italic text-purple-400 tracking-widest"><i class="fas fa-comment-dots"></i> Ask Coach Tee ✨</h3><button id="coach-close-btn" class="text-slate-500 cursor-pointer"><i class="fas fa-xmark text-xl"></i></button></div>
         <div id="coach-chat-area" class="flex-grow overflow-y-auto bg-slate-950/50 rounded-xl p-4 border border-slate-800/80 text-sm text-slate-300 space-y-3 min-h-[200px]"><p class="italic text-slate-500 text-sm">CoachTee is ready. Ask anything.</p></div>
         <div class="pt-2 flex flex-col gap-3">
+            <div id="coach-chips" class="flex flex-col gap-1.5"></div>
             <textarea id="coach-input" class="glass-input h-20" placeholder="What's good Coach Tee..."></textarea>
             <button id="coach-submit-btn" class="btn-primary btn-ai py-4 text-sm">Send</button>
         </div>
@@ -4259,6 +4276,7 @@ function renderDashboard(){
     const _rest=isBlackoutDay();
     // Unscreened members get the pelvic check offered up top rather than only
     // buried in the Manual or behind a locked card in the Recovery picker.
+    renderCoachNudge();
     const _pelvicPrompt=document.getElementById('hq-pelvic-prompt');
     if(_pelvicPrompt) _pelvicPrompt.classList.toggle('hidden',hasPelvicScreen());
     const _restBanner=document.getElementById('hq-rest-banner');
@@ -5040,7 +5058,187 @@ function importData(file){
 function toggleDayCompletion(){persisted.completedDays[session.selectedDayIdx]=!persisted.completedDays[session.selectedDayIdx];savePersisted();closeModal();renderDashboard()}
 function assignDay(type){persisted.schedule[session.selectedDayIdx]=type;savePersisted();closeModal();renderDashboard()}
 function closeModal(){document.getElementById('type-modal').classList.add('hidden')}
-function openCoach(){document.getElementById('coach-modal').classList.remove('hidden')}
+// ── Coach Tee notices something ────────────────────────────────────────────
+// The nudge text is hand-written and the trigger is plain code, so showing one
+// costs nothing. Only tapping it calls the model. The "my coach noticed" feeling
+// comes from the trigger being real, not from the sentence being generated.
+//
+// Bounded so it stays a coach rather than a banner: one at a time, highest
+// priority only, dismissible, and the same observation will not come back for
+// two weeks. Presentation state lives in localStorage rather than a synced
+// column, because it is per-device and does not warrant a migration.
+const NUDGE_COOLOFF_DAYS=14;
+const COACH_NUDGES=[
+    {
+        id:'hard_rpe',
+        test:()=>{
+            const r=(persisted.sessionLog||[]).slice(-3).filter(s=>typeof s.rpe==='number').map(s=>s.rpe);
+            return r.length>=3 && (r.reduce((t,v)=>t+v,0)/r.length)>=8;
+        },
+        text:'Your last few sessions have been rated near maximum effort. That is usually a sign to pull back rather than push on.',
+        question:'My last few sessions have felt like maximum effort. Am I pushing too hard, and should I back off?',
+    },
+    {
+        id:'poor_sleep',
+        test:()=>{
+            let bad=0;
+            for(let i=0;i<3;i++){
+                const d=new Date(); d.setDate(d.getDate()-i);
+                const key='bp_sleep_'+(currentUser?.id||'')+'_'+d.toISOString().split('T')[0];
+                try{ if(localStorage.getItem(key)==='poor') bad++; }catch(e){}
+            }
+            return bad>=3;
+        },
+        text:'Three rough nights logged in a row. Sleep is where most of your recovery and your testosterone actually happen.',
+        question:'I have slept badly three nights in a row. How much is that affecting my training and my EQ?',
+    },
+    {
+        id:'eq_declining',
+        test:()=>getEqSummary(7).trend==='declining',
+        text:'Your erection quality has slipped over your recent sessions. That is worth understanding rather than ignoring.',
+        question:'My EQ has been declining over my last few sessions. What causes that and what should I change?',
+    },
+    {
+        id:'returning',
+        test:()=>{
+            const log=persisted.sessionLog||[];
+            if(log.length<3) return false;
+            const last=new Date(log[log.length-1].date).getTime();
+            return (Date.now()-last)/864e5>=7;
+        },
+        text:'It has been over a week since your last session. Coming back too hard is the usual way guys get hurt.',
+        question:'I have had more than a week off. How should I restart without overdoing it?',
+    },
+    {
+        id:'tier_ready',
+        test:()=>getCurrentStreak()>=14 && ['beginner','intermediate'].includes(getDiff().id),
+        text:'Two weeks of consistency. That is usually the point where the next tier starts to make sense.',
+        question:'I have been consistent for two weeks. How do I know when I am ready to move up a difficulty tier?',
+    },
+];
+function _nudgeKey(id){ return 'bp_nudge_'+id+'_'+(currentUser?.id||''); }
+function _nudgeSuppressed(id){
+    try{
+        const at=localStorage.getItem(_nudgeKey(id));
+        if(!at) return false;
+        return (Date.now()-Number(at))/864e5 < NUDGE_COOLOFF_DAYS;
+    }catch(e){ return false; }
+}
+function _suppressNudge(id){
+    try{ localStorage.setItem(_nudgeKey(id),String(Date.now())); }catch(e){}
+}
+function pickCoachNudge(){
+    if(!currentUser) return null;
+    if(!(persisted.sessionLog||[]).length) return null;   // nothing to have noticed yet
+    for(const n of COACH_NUDGES){
+        if(_nudgeSuppressed(n.id)) continue;
+        let hit=false;
+        try{ hit=n.test(); }catch(e){ hit=false; }
+        if(hit) return n;
+    }
+    return null;
+}
+let _activeNudge=null,_nudgeTracked=null;
+function renderCoachNudge(){
+    const card=document.getElementById('hq-coach-nudge');
+    if(!card) return;
+    _activeNudge=pickCoachNudge();
+    card.classList.toggle('hidden',!_activeNudge);
+    if(!_activeNudge){ _nudgeTracked=null; return; }
+    document.getElementById('hq-coach-nudge-text').textContent=_activeNudge.text;
+    // renderDashboard runs on eight different state changes, so count the
+    // appearance rather than every repaint of the same card.
+    if(_nudgeTracked!==_activeNudge.id){ _nudgeTracked=_activeNudge.id; track('nudge_shown',{nudge:_activeNudge.id}); }
+}
+function dismissCoachNudge(){
+    if(_activeNudge){ _suppressNudge(_activeNudge.id); track('nudge_dismissed',{nudge:_activeNudge.id}); }
+    document.getElementById('hq-coach-nudge').classList.add('hidden');
+    _activeNudge=null;_nudgeTracked=null;
+}
+function actOnCoachNudge(){
+    if(!_activeNudge) return;
+    const n=_activeNudge;
+    _suppressNudge(n.id);            // acted on; do not raise the same thing again
+    track('nudge_tapped',{nudge:n.id});
+    document.getElementById('hq-coach-nudge').classList.add('hidden');
+    _activeNudge=null;_nudgeTracked=null;
+    openCoach(n.question);
+}
+
+// ── Suggested questions ────────────────────────────────────────────────────
+// A blank text box is the hardest thing to face. To use Coach Tee a member had
+// to already have a question, remember the feature exists, and decide to type
+// it. These remove the third barrier and soften the first, and they cost
+// nothing: the questions are chosen in plain code from data the app already has.
+//
+// Ordered most specific first; the first three matches win, with evergreens
+// backfilling so the row is never empty.
+function coachChipCandidates(){
+    const out=[];
+    const sessions=persisted.allTimeSessionCount||0;
+    const eq=getEqSummary(7);
+    const streak=getCurrentStreak();
+    const goal=getGoalKey();
+    let sleep='',sore='';
+    try{ sleep=localStorage.getItem(getTodaySleepKey())||''; sore=localStorage.getItem(getTodaySorenessKey())||''; }catch(e){}
+
+    if(isFloorTight()){
+        out.push('Why can I not do kegels, and what should I do instead?');
+        out.push('How long does it take to release a tight pelvic floor?');
+    }
+    if(sessions===0){
+        out.push('I am brand new. What should my first week look like?');
+        out.push('How long before I see anything change?');
+    }
+    if(sore==='high'||sore==='moderate') out.push('I am sore today. Should I train or take recovery?');
+    if(sleep==='poor') out.push('I slept badly. How much does that actually affect training?');
+    if(eq.trend==='declining') out.push('My EQ has been dropping. What causes that and how do I fix it?');
+    if(goal==='stamina') out.push('What actually makes someone last longer, physically?');
+    if(goal==='eq') out.push('What is the fastest way to improve erection quality?');
+    if(goal==='size') out.push('Does length or girth come first, and why?');
+    if(streak>=14) out.push('I have been consistent for two weeks. When should I move up a tier?');
+    if(sessions>=1&&sessions<5) out.push('How do I know if I am doing this correctly?');
+
+    // Evergreen backfill.
+    out.push('How important is the warmup really?');
+    out.push('What does hydration have to do with any of this?');
+    out.push('What is the most common mistake guys make?');
+    return out;
+}
+function renderCoachChips(){
+    const box=document.getElementById('coach-chips');
+    if(!box) return;
+    const picked=[...new Set(coachChipCandidates())].slice(0,3);
+    // Built as nodes rather than an innerHTML string: esc() escapes < > &, not
+    // quotes, so a question containing one would break out of the attribute.
+    box.innerHTML='';
+    picked.forEach(q=>{
+        const btn=document.createElement('button');
+        btn.className='coach-chip';
+        btn.dataset.chip=q;
+        btn.textContent=q;
+        btn.addEventListener('click',()=>{
+            track('coach_chip_tapped');   // which question is not recorded
+            askCoachWith(q);
+        });
+        box.appendChild(btn);
+    });
+}
+// Ask on the member's behalf through the normal path, so context, analytics and
+// error handling are identical to a typed question.
+function askCoachWith(question){
+    const inp=document.getElementById('coach-input');
+    inp.value=question;
+    const box=document.getElementById('coach-chips');
+    if(box) box.innerHTML='';   // they have asked; the suggestions have done their job
+    askCoach();
+}
+
+function openCoach(question){
+    document.getElementById('coach-modal').classList.remove('hidden');
+    renderCoachChips();
+    if(typeof question==='string'&&question) askCoachWith(question);
+}
 function closeCoach(){document.getElementById('coach-modal').classList.add('hidden')}
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5513,7 +5711,8 @@ function init(){
     document.querySelectorAll('[data-rpe]').forEach(btn=>{
         btn.addEventListener('click',()=>selectRPE(parseInt(btn.dataset.rpe)));
     });
-    document.getElementById('ai-coach-btn').addEventListener('click',openCoach);
+    // Wrapped so the click Event is not passed as the pre-asked question.
+    document.getElementById('ai-coach-btn').addEventListener('click',()=>openCoach());
     document.getElementById('progress-btn').addEventListener('click',openProgressChart);
     // Hydration — liter bubbles
     document.querySelectorAll('.hydration-liter').forEach(el=>{
@@ -5673,6 +5872,8 @@ function init(){
     document.getElementById('change-goal-btn').addEventListener('click',openGoalPicker);
     document.getElementById('pelvic-screen-btn').addEventListener('click',()=>{closeManual();setTimeout(openPelvicScreen,320);});
     document.getElementById('hq-pelvic-start').addEventListener('click',openPelvicScreen);
+    document.getElementById('hq-coach-nudge-ask').addEventListener('click',actOnCoachNudge);
+    document.getElementById('hq-coach-nudge-dismiss').addEventListener('click',dismissCoachNudge);
     document.getElementById('hq-pelvic-learn').addEventListener('click',()=>openManualAt('m-recovery'));
     document.getElementById('pelvic-screen-submit').addEventListener('click',submitPelvicScreen);
     document.getElementById('pelvic-screen-later').addEventListener('click',closePelvicScreen);

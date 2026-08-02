@@ -1,0 +1,67 @@
+name: Tests
+
+# Two speeds, matching how the suites are actually used:
+#   every push  — unit + syntax, about a second, no browser. Catches a syntax
+#                 break, a stray markdown fence or a duplicate element id at once.
+#   pull request — all 183 including the browser suites, before anything merges.
+#
+# Deliberately no `paths:` filter. index.html is the whole app, so there is no
+# change that should be allowed to skip these.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    name: Unit and syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit and syntax tests
+        run: npm test
+
+  e2e:
+    name: Browser suites
+    runs-on: ubuntu-latest
+    # Only on pull requests: 20 files open a browser each and run serially, so
+    # this is minutes rather than seconds. Every merge still passes through it.
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # npm ci installs the playwright package but not the browser binary, and
+      # the harness has no /opt fallback on a runner, so this is required.
+      # Keyed on the resolved version rather than the ^range so a lockfile bump
+      # invalidates the cache.
+      - name: Cache Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-1.62.1
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser suites
+        run: npm run test:e2e
