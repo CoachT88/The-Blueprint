@@ -92,8 +92,6 @@
         #box-phase-label{font-size:1.1rem;font-weight:900;text-transform:uppercase;letter-spacing:.2em;font-style:italic}
         #box-phase-count{font-family:'JetBrains Mono',monospace;font-size:3rem;font-weight:900;line-height:1;text-shadow:0 0 30px rgba(16,185,129,.6)}
         /* API Key modal */
-        #apikey-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:999999;backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:2rem}
-        #apikey-modal.show{display:flex}
         /* Difficulty selector */
         .diff-btn{flex:1;padding:.55rem .25rem;border-radius:.75rem;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);color:#475569}
         .diff-btn.active-diff{color:#f8fafc;transform:translateY(-1px)}
@@ -282,7 +280,6 @@
             <p class="text-slate-500 text-[11px] mt-1 font-semibold uppercase tracking-widest">Members Only</p>
         </div>
 
-```
     <!-- Tabs -->
     <div class="flex gap-1 bg-slate-900/60 p-1 rounded-xl mb-5">
         <button class="auth-tab active" id="tab-login">Sign In</button>
@@ -384,7 +381,6 @@
     <path id="box-active-seg" d=""/>
     <svg id="box-svg"></svg>
 </div>
-```
 
 </div>
 
@@ -401,22 +397,6 @@
         <h3 id="milestone-title" class="text-2xl font-black italic uppercase text-white mb-3">First Blood</h3>
         <p id="milestone-desc" class="text-slate-400 text-sm leading-relaxed mb-6">You completed your first session.</p>
         <button id="milestone-close-btn" class="btn-primary py-4 text-sm">ACKNOWLEDGED</button>
-    </div>
-</div>
-
-<!-- API KEY MODAL -->
-
-<div id="apikey-modal">
-    <div style="background:linear-gradient(145deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);border:1px solid rgba(168,85,247,.3);border-top:1px solid rgba(168,85,247,.5);border-radius:2rem;padding:2rem;max-width:20rem;width:100%;text-align:center;">
-        <i class="fas fa-brain text-purple-400 text-4xl mb-4"></i>
-        <h3 class="text-xl font-black uppercase italic text-white mb-2">Connect Coach Tee</h3>
-        <p class="text-slate-400 text-xs leading-relaxed mb-5">Enter your Anthropic API key to enable AI coaching. Get one free at <span class="text-purple-400 font-bold">console.anthropic.com</span>. Stored only on this device.</p>
-        <input id="apikey-input" type="password" placeholder="sk-ant-..." class="glass-input mb-4" style="font-family:'JetBrains Mono',monospace;font-size:.8rem;letter-spacing:.05em;">
-        <div class="flex gap-3">
-            <button id="apikey-cancel-btn" class="btn-outline py-3 text-xs">Cancel</button>
-            <button id="apikey-save-btn" class="btn-primary btn-ai py-3 text-xs" style="flex:2">Save & Connect</button>
-        </div>
-        <p id="apikey-error" class="text-red-400 text-[11px] mt-3 hidden"></p>
     </div>
 </div>
 
@@ -582,7 +562,6 @@
             <h1 class="text-[3.5rem] leading-none font-black italic uppercase tracking-tighter bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent drop-shadow-sm">The Blueprint</h1>
         </div>
 
-```
     <!-- Liability gate -->
     <div class="px-4 w-full space-y-3 text-left">
         <div class="bg-red-950/30 border border-red-500/20 rounded-2xl p-4 mb-1">
@@ -605,7 +584,6 @@
     </div>
     <div class="scroll-buffer"></div>
 </div>
-```
 
 </div>
 
@@ -749,7 +727,6 @@
     </div>
     <div class="scroll-buffer"></div>
 </div>
-```
 
 </div>
 
@@ -796,7 +773,6 @@
         <h2 class="text-4xl font-black italic uppercase text-slate-50">Select Mission</h2>
         <div id="deload-mission-note" class="hidden mx-2 deload-banner text-left"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><p class="text-orange-300 text-[11px]">Deload active — reduced volume loaded automatically.</p></div>
 
-```
     <!-- Difficulty selector -->
     <div class="px-2 space-y-2">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Difficulty</p>
@@ -864,7 +840,6 @@
             </div>
         </div>
 
-```
     <!-- Coach Tee recommendation -->
     <div class="coach-rec-banner mx-2">
         <i class="fas fa-comment-dots text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
@@ -891,7 +866,6 @@
     </div>
     <div class="scroll-buffer"></div>
 </div>
-```
 
 </div>
 
@@ -965,7 +939,6 @@
         </button>
     </div>
 </div>
-```
 
 </div>
 
@@ -977,7 +950,6 @@
         <h2 class="text-4xl font-black italic uppercase text-slate-50">Mission Success</h2>
         <p id="success-xp-text" class="text-yellow-400 font-bold text-sm">+0 XP EARNED</p>
 
-```
     <!-- EQ check-in -->
     <div class="instruction-card border-blue-500/20 mx-2 text-left">
         <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-gauge-high"></i> EQ During Session</p>
@@ -1061,7 +1033,6 @@
     <div class="px-2 w-full pt-2"><button id="finish-session-btn" class="btn-primary py-5 text-lg" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">CONFIRM HQ SYNC</button></div>
     <div class="scroll-buffer"></div>
 </div>
-```
 
 </div>
 
@@ -1144,7 +1115,7 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">Start at Beginner</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The app has 4 tiers: Beginner → Intermediate → Advanced → Elite. Everyone starts at Beginner. Each tier requires 4 weeks of consistent training before the next unlocks — this lets your tissue adapt safely. On rest days, always do the Recovery Protocol.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The app has 4 tiers: Beginner → Intermediate → Advanced → Elite. New pilots start at Beginner. Each tier requires 4 weeks of consistent training before the next unlocks — this lets your tissue adapt safely. On rest days, always do the Recovery Protocol.</p>
         <div class="mt-6 p-4 rounded-2xl bg-amber-500/08 border border-amber-500/20 text-left max-w-xs w-full">
             <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">CoachTee Says</p>
             <p class="text-slate-400 text-xs leading-relaxed">The guys who try to skip to Advanced in week one are the same guys who quit in week three. Trust the process.</p>
@@ -1169,7 +1140,6 @@
 <div id="manual-modal">
     <div style="display:flex;flex-direction:column;height:100%;max-height:100vh;">
 
-```
     <!-- Header -->
     <div style="padding:3rem 1.25rem 1rem;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);">
         <div class="flex justify-between items-start">
@@ -1537,7 +1507,6 @@
 
     </div>
 </div>
-```
 
 </div>
 
@@ -1962,13 +1931,22 @@ async function loadPersisted(){
     try{
         const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
         const _query=sb.from('user_data').select('*').eq('id',currentUser.id).single();
+        let _queryFailed=false;
         const {data,error}=await Promise.race([_query,_timeout]).catch(e=>{
             // Timeout or network error — fall back to localStorage
+            _queryFailed=true;
             if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e2){}
             return {};
         });
         if(!data){
             if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};}catch(e){}
+            // Brand-new account starts at Beginner, matching what the intro promises.
+            // Only when the query genuinely SUCCEEDED and found no row (PGRST116) and
+            // there is no local backup — a timeout or error must never downgrade a
+            // returning member who simply could not be read this time.
+            else if(!_queryFailed && (!error || error.code==='PGRST116')){
+                persisted={...DEFAULT_PERSISTED, difficulty:'beginner'};
+            }
             return;
         }
         // If the local backup is newer than Supabase, or if a previous write
@@ -3658,6 +3636,17 @@ function showSessionSummary(xp){
 function closeSessionSummary(){
     document.getElementById('session-summary-modal').classList.remove('show');
     goToStep(0);
+    maybePromptPush();
+}
+// Ask about notifications once, after the member has actually finished a session
+// and knows what the app does. Uses the app's own explainer modal rather than
+// firing the raw OS prompt cold.
+function maybePromptPush(){
+    if(!currentUser) return;
+    if(typeof Notification==='undefined' || Notification.permission!=='default') return;
+    if(localStorage.getItem('bp_push_prompted_'+currentUser.id)) return;
+    try{localStorage.setItem('bp_push_prompted_'+currentUser.id,'1');}catch(e){}
+    setTimeout(openNotifModal,700);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3893,6 +3882,21 @@ function _clearLoadingDeadline(){clearTimeout(_loadingDeadline);_loadingDeadline
 function showAuthScreen(){_clearLoadingDeadline();document.getElementById('loading-screen').classList.add('hidden');document.getElementById('auth-screen').classList.remove('hidden');}
 function hideAuthScreen(){_clearLoadingDeadline();document.getElementById('auth-screen').classList.add('hidden');document.getElementById('loading-screen').classList.add('hidden');}
 function setAuthError(msg){const el=document.getElementById('auth-error');el.textContent=msg;el.classList.toggle('show',!!msg);document.getElementById('auth-success').classList.remove('show')}
+// Same element, but allows the few static trusted strings that need links.
+// Never call this with user-supplied or server-supplied text.
+function setAuthErrorHTML(html){const el=document.getElementById('auth-error');el.innerHTML=html;el.classList.toggle('show',!!html);document.getElementById('auth-success').classList.remove('show')}
+// Supabase surfaces developer-grade strings. Map the common ones to plain English.
+function _friendlyAuthError(err){
+    const raw=((err&&(err.message||err))+'').toLowerCase();
+    if(raw.includes('invalid login credentials')) return 'That email or password is not right. If you just purchased, create an account using the same email you bought with.';
+    if(raw.includes('email not confirmed')) return 'Check your inbox and confirm your email, then sign in.';
+    if(raw.includes('user already registered')||raw.includes('already been registered')) return 'You already have an account with this email. Switch to Sign In.';
+    if(raw.includes('password should be')||raw.includes('at least 6')) return 'Your password needs to be at least 6 characters.';
+    if(raw.includes('unable to validate email')||raw.includes('invalid email')) return 'That does not look like a valid email address.';
+    if(raw.includes('rate limit')||raw.includes('too many')) return 'Too many attempts. Wait about a minute and try again.';
+    if(raw.includes('timeout')||raw.includes('network')||raw.includes('fetch')) return 'Connection problem. Check your signal and try again.';
+    return 'Something went wrong signing you in. Try again in a moment.';
+}
 function setAuthSuccess(msg){const el=document.getElementById('auth-success');el.textContent=msg;el.classList.toggle('show',!!msg);document.getElementById('auth-error').classList.remove('show')}
 let authMode='login';
 function switchAuthMode(mode){
@@ -3931,7 +3935,7 @@ async function handleAuthSubmit(){
             }
         }
         if(result.error){
-            setAuthError('Error: '+result.error.message+' ('+result.error.status+')');
+            setAuthError(_friendlyAuthError(result.error));
             btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
             btn.disabled=false;return;
         }
@@ -3940,7 +3944,7 @@ async function handleAuthSubmit(){
         btn.disabled=false;
         if(result.data?.user) await onUserSignedIn(result.data.user);
     }catch(e){
-        setAuthError('Caught: '+(e.message||JSON.stringify(e)));
+        setAuthError(_friendlyAuthError(e));
         btn.textContent=authMode==='login'?'SIGN IN':'CREATE ACCOUNT';
         btn.disabled=false;
     }
@@ -3963,23 +3967,46 @@ async function handleLogout(){
     _flushSaveNow();
     try{await sb.auth.signOut();}catch(e){console.error('signOut error:',e);}
 }
+// ── Purchase links shown when a signed-in email is not on the members list ──
+// TODO: paste your real product URLs here. Leave a value empty to show plain text
+// instead of a link for that platform.
+const WHOP_URL='';
+const KOFI_URL='';
+function _purchaseLinksHTML(){
+    const w=WHOP_URL?`<a href="${WHOP_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">Whop</a>`:'Whop';
+    const k=KOFI_URL?`<a href="${KOFI_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">Ko-fi</a>`:'Ko-fi';
+    return `No membership found for this email. Get access on ${w} or ${k}, then sign in with the same email you purchased with.<br><span style="opacity:.75">Just bought? Give it about a minute, then tap SIGN IN again.</span>`;
+}
 async function checkMembership(user){
-    // Check members table in Supabase — you add rows manually or via Whop webhook later
+    // Verifies the signed-in email against the members table (populated by the
+    // Whop and Ko-fi webhooks).
     try{
         const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
         const _query=sb.from('members').select('email').eq('email',user.email).single();
         const {data,error}=await Promise.race([_query,_timeout]);
         if(error||!data){
-            // Not in members table — show access denied
-            setAuthError('Access denied. Purchase The Blueprint on Whop or Ko-fi to get access.');
+            // Definitively not a member. Drop any cached pass so a refunded or
+            // removed member cannot keep riding an old device.
+            try{localStorage.removeItem('bp_member_ok_'+user.id);}catch(e){}
+            setAuthErrorHTML(_purchaseLinksHTML());
             await sb.auth.signOut();
             showAuthScreen();
             return false;
         }
+        // Remember that this device has verified this user at least once.
+        try{localStorage.setItem('bp_member_ok_'+user.id,new Date().toISOString());}catch(e){}
         return true;
     }catch(e){
-        // Network timeout or members table doesn't exist yet — allow access
-        return true;
+        // Could not reach Supabase. Previously this returned true, meaning any
+        // network failure granted access to anyone. Now we only extend trust to a
+        // device that has already verified this user successfully before.
+        let seen=null;
+        try{seen=localStorage.getItem('bp_member_ok_'+user.id);}catch(e2){}
+        if(seen) return true;
+        setAuthError("Couldn't verify your membership. Check your connection and tap SIGN IN again.");
+        try{await sb.auth.signOut();}catch(e2){}
+        showAuthScreen();
+        return false;
     }
 }
 
@@ -4003,10 +4030,10 @@ async function onUserSignedIn(user){
         if(currentUser?.id!==user.id) return;
         _scheduleLocalNotif();
         hideAuthScreen();
-        // Auto-request push permission once per user if not yet decided
-        if('Notification' in window && Notification.permission==='default'){
-            setTimeout(()=>enableNotifications(),1500);
-        }
+        // Push permission is NOT requested here. Firing a native OS dialog 1.5s after
+        // landing interrupts a member who has not seen the app yet and burns the one
+        // chance to ask. It is now offered after their first completed session
+        // (see maybePromptPush, called from closeSessionSummary).
         const welcomed=localStorage.getItem('bp_welcomed_'+user.id);
         const onboarded=localStorage.getItem('bp_onboarded_'+user.id);
         if(welcomed){
@@ -4220,6 +4247,10 @@ function init(){
         if(!checkLiab.checked || !checkPain.checked) return;
         if(currentUser) localStorage.setItem('bp_welcomed_'+currentUser.id, '1');
         goToStep(0);
+        // First-ever entry: run the intro here. The sign-in path (onUserSignedIn)
+        // only reaches its showOnboarding call for users who were already welcomed,
+        // so without this a brand-new member never sees the intro on day one.
+        if(currentUser && !localStorage.getItem('bp_onboarded_'+currentUser.id)) setTimeout(showOnboarding,600);
     });
 
     try {
