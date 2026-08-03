@@ -1,5 +1,21 @@
+/**
+ * Sends the notifications the settings screen promises, and nothing else.
+ *
+ * Run hourly by pg_cron (see supabase/notifications.sql). Every member whose
+ * chosen reminder hour has arrived in their own timezone is considered; almost
+ * all of them are then skipped, because they already trained, already got
+ * today's message, are on a rest day, or spent a Recovery Pass.
+ *
+ * All of that judgement lives in _shared/notifyRules.js, which is unit tested.
+ * This file is only plumbing: read, decide, send, record.
+ *
+ * The previous version of this function sent sixteen educational tips a day,
+ * ignored the member's chosen time and streak preference entirely, and had no
+ * auth on the endpoint.
+ */
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
+import { decideNotification, localDateFor } from '../_shared/notifyRules.js';
 
 const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -12,87 +28,176 @@ webpush.setVapidDetails(
     Deno.env.get('VAPID_PRIVATE_KEY')!
 );
 
-// ─── Hourly educational tips (indexed by local hour, 7–22) ───────────────────
-// Each tip links a daily habit directly to blood flow and EQ.
+/** Subscriptions per round trip. Keeps any single query bounded. */
+const PAGE_SIZE = 500;
 
-const HOURLY_TIPS: Record<number, { title: string; body: string }> = {
-    7:  { title: 'Coach Tee', body: "Morning. First thing — drink 500mL of water before anything else. Blood is 90% water. Dehydrated blood doesn't move well, and that shows up directly in your EQ." },
-    8:  { title: 'Coach Tee', body: "How's your water intake looking? You should have 500mL in already. Hydration isn't optional — it's the first variable that affects your blood flow and your results." },
-    9:  { title: 'Coach Tee', body: "Take 3 slow deep breaths right now. Belly breathing activates your parasympathetic nervous system — the same state your body needs to achieve full erections. Practice it daily." },
-    10: { title: 'Coach Tee', body: "If you've been sitting for a while, your pelvic floor is probably tight. Release it consciously right now. A tight floor restricts blood flow to the genitals. Release is a skill." },
-    11: { title: 'Coach Tee', body: "Check your posture. Slouching compresses the arteries that feed blood to your pelvic region. Sit tall — it's not just aesthetics, it's a direct blood flow intervention." },
-    12: { title: 'Coach Tee', body: "Midday check. You should be at 1L of water by now. If you're not, drink up. Smooth muscle in your blood vessels needs water to stay flexible. Stiff vessels = weaker EQ." },
-    13: { title: 'Coach Tee', body: "Get a 10-minute walk in this afternoon. Walking activates femoral artery blood flow — the same circuit that feeds the pudendal artery, which is the main supply line to your erections." },
-    14: { title: 'Coach Tee', body: "Cold shower today if you can. Cold triggers vasoconstriction then vasodilation — that cycling trains your arteries to open on demand. Same mechanism as EQ. Do it." },
-    15: { title: 'Coach Tee', body: "What's your stress level right now? Chronic stress raises cortisol, suppresses testosterone, and tightens blood vessels. Managing stress isn't soft — it's part of the protocol." },
-    16: { title: 'Coach Tee', body: "Hydration window is closing. Most guys are 1.5-2L short by 4 PM. Drink 500mL now. You can't make it up at night — late water disrupts sleep, and sleep is when testosterone is produced." },
-    17: { title: 'Coach Tee', body: "If you're training tonight, eat light now. A heavy meal redirects blood to digestion and away from the pelvic region. Let the blood stay where it needs to be." },
-    18: { title: 'Coach Tee', body: "Session coming up. Remember — cold collagen tears instead of stretches. 10-minute warmup before you touch the protocol. Non-negotiable. Start earlier than you think you need to." },
-    19: { title: 'Coach Tee', body: "Time to train. Warmup, protocol, pelvic floor work — all three. The guys who get results aren't the most intense, they're the most consistent. Get it done tonight." },
-    20: { title: 'Coach Tee', body: "Start winding down. Testosterone peaks during deep sleep, but blue light, stress, and late eating all suppress it. Dim the screens, let the body shift into recovery mode." },
-    21: { title: 'Coach Tee', body: "Screens down if you can. Blue light delays melatonin by 2-3 hours. Melatonin kicks off the hormone cascade that peaks in deep sleep — that's when your tissue remodels. Protect it." },
-    22: { title: 'Coach Tee', body: "Last check of the day. Water done? Session done? Pelvic floor work done? 7-9 hours of sleep is part of the protocol. Log off and let the recovery do its job." },
-};
-
-const WAKING_HOURS = Object.keys(HOURLY_TIPS).map(Number);
-
-function getUserLocalHour(now: Date, timezone: string): number {
-    try {
-        return parseInt(now.toLocaleString('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }), 10);
-    } catch {
-        return now.getUTCHours();
-    }
+interface Subscription {
+    user_id: string;
+    endpoint: string;
+    p256dh: string;
+    auth: string;
+    reminder_time: string | null;
+    streak_warn: boolean | null;
+    timezone: string | null;
+    last_notified_date: string | null;
 }
 
-Deno.serve(async () => {
+interface TrainingRow {
+    user_id: string;
+    session_log?: unknown[];
+    pass_protected_dates?: string[];
+    schedule?: string[];
+}
+
+/**
+ * A push service returns 404 or 410 when a subscription is dead: the app was
+ * uninstalled, or the browser rotated it. Keeping those rows means retrying a
+ * doomed send every hour forever.
+ */
+function isGone(err: unknown): boolean {
+    const code = (err as { statusCode?: number })?.statusCode;
+    return code === 404 || code === 410;
+}
+
+/** A column the table may not have yet, same detection the app uses on save. */
+function isUnknownColumn(err: { code?: string; message?: string } | null): boolean {
+    if (!err) return false;
+    return err.code === 'PGRST204' || err.code === '42703'
+        || /column .* does not exist|could not find the .* column/i.test(err.message || '');
+}
+
+/**
+ * Read just enough of each member's row to decide.
+ *
+ * pass_protected_dates and schedule were both added after the original schema,
+ * so a project that has not run every migration would reject the whole select.
+ * The app already tolerates that on the way in (see _NEWER_COLUMNS in
+ * index.html); this does the same on the way out, and reports honestly when it
+ * cannot read at all so the caller can decline to send rather than guess.
+ */
+async function readTrainingState(ids: string[]): Promise<{ rows: TrainingRow[]; failed: boolean }> {
+    const full = await supabase
+        .from('user_data')
+        .select('user_id, session_log, pass_protected_dates, schedule')
+        .in('user_id', ids);
+    if (!full.error) return { rows: full.data || [], failed: false };
+
+    if (!isUnknownColumn(full.error)) {
+        console.error('Reading user_data failed:', full.error);
+        return { rows: [], failed: true };
+    }
+
+    // session_log predates everything and is the one field the decision cannot
+    // do without. A member simply loses rest-day and Recovery Pass awareness
+    // until the migration is run.
+    console.warn('user_data is missing newer columns; falling back to session_log only');
+    const basic = await supabase.from('user_data').select('user_id, session_log').in('user_id', ids);
+    if (basic.error) {
+        console.error('Fallback read failed:', basic.error);
+        return { rows: [], failed: true };
+    }
+    return { rows: basic.data || [], failed: false };
+}
+
+Deno.serve(async (req) => {
+    // Without this the endpoint is a public button that fires a notification at
+    // every member of the app.
+    const secret = Deno.env.get('CRON_SECRET');
+    if (!secret || req.headers.get('Authorization') !== `Bearer ${secret}`) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), {
+            status: 401, headers: { 'Content-Type': 'application/json' },
+        });
+    }
+
+    const now = new Date();
+    let checked = 0, sent = 0, dropped = 0;
+
     try {
-        const now = new Date();
-        const currentUTCHour = now.getUTCHours();
+        for (let page = 0; ; page++) {
+            const { data: subs, error } = await supabase
+                .from('push_subscriptions')
+                .select('user_id, endpoint, p256dh, auth, reminder_time, streak_warn, timezone, last_notified_date')
+                .order('user_id')
+                .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-        const { data: subs, error } = await supabase
-            .from('push_subscriptions')
-            .select('*');
-
-        if (error || !subs?.length) {
-            return new Response(JSON.stringify({ sent: 0 }), { status: 200 });
-        }
-
-        let sent = 0;
-
-        for (const sub of subs) {
-            try {
-                const timezone = sub.timezone || 'UTC';
-                const localHour = getUserLocalHour(now, timezone);
-
-                // Only fire during waking hours
-                if (!WAKING_HOURS.includes(localHour)) continue;
-
-                // Deduplicate: only fire once per local hour per user
-                // We use the UTC hour that corresponds to the user's local hour
-                const userDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
-                const utcDate  = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
-                const offsetHours = Math.round((userDate.getTime() - utcDate.getTime()) / 3600000);
-                const expectedUTCHour = ((localHour - offsetHours) + 24) % 24;
-                if (currentUTCHour !== expectedUTCHour) continue;
-
-                const tip = HOURLY_TIPS[localHour];
-
-                await webpush.sendNotification(
-                    { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-                    JSON.stringify({ title: tip.title, body: tip.body, tag: `hourly-${localHour}` })
-                );
-                sent++;
-            } catch (subErr) {
-                if ((subErr as { statusCode?: number }).statusCode === 410) {
-                    await supabase.from('push_subscriptions').delete().eq('user_id', sub.user_id);
-                }
-                console.error(`Failed for ${sub.user_id}:`, subErr);
+            if (error) {
+                console.error('Reading subscriptions failed:', error);
+                return new Response(JSON.stringify({ error: 'read_failed', checked, sent, dropped }), {
+                    status: 500, headers: { 'Content-Type': 'application/json' },
+                });
             }
+            if (!subs?.length) break;
+
+            // One read for the whole page, and only the fields the rules need.
+            // Session logs are large; nothing here should pull a whole row.
+            const ids = (subs as Subscription[]).map(s => s.user_id);
+            const { rows, failed } = await readTrainingState(ids);
+
+            // Without this a failed read looks exactly like "nobody has trained
+            // today", and everyone on this page gets messaged despite having
+            // done the session. Sending nothing is the safe direction.
+            if (failed) {
+                console.error('Skipping page: could not read training state');
+                if (subs.length < PAGE_SIZE) break;
+                continue;
+            }
+            const byUser = new Map<string, TrainingRow>(rows.map(r => [r.user_id, r]));
+
+            for (const sub of subs as Subscription[]) {
+                checked++;
+                const row = byUser.get(sub.user_id);
+
+                const decision = decideNotification({
+                    sessionLog: row?.session_log || [],
+                    passProtectedDates: row?.pass_protected_dates || [],
+                    schedule: row?.schedule || null,
+                    reminderTime: sub.reminder_time || '19:00',
+                    streakWarn: sub.streak_warn !== false,
+                    timezone: sub.timezone || 'UTC',
+                    lastNotifiedDate: sub.last_notified_date,
+                    now,
+                });
+                if (!decision) continue;
+
+                try {
+                    await webpush.sendNotification(
+                        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                        JSON.stringify({
+                            title: decision.title,
+                            body: decision.body,
+                            tag: decision.tag,
+                            url: decision.url,
+                        })
+                    );
+                    sent++;
+
+                    // Stamped with the member's local date, which is what the
+                    // one-a-day rule compares against.
+                    await supabase
+                        .from('push_subscriptions')
+                        .update({ last_notified_date: localDateFor(now, sub.timezone || 'UTC') })
+                        .eq('user_id', sub.user_id);
+                } catch (sendErr) {
+                    if (isGone(sendErr)) {
+                        await supabase.from('push_subscriptions').delete().eq('user_id', sub.user_id);
+                        dropped++;
+                    } else {
+                        // One member's bad endpoint must not end the run.
+                        console.error(`Send failed for ${sub.user_id}:`, sendErr);
+                    }
+                }
+            }
+
+            if (subs.length < PAGE_SIZE) break;
         }
 
-        return new Response(JSON.stringify({ sent }), { status: 200 });
+        return new Response(JSON.stringify({ checked, sent, dropped }), {
+            status: 200, headers: { 'Content-Type': 'application/json' },
+        });
     } catch (e) {
         console.error(e);
-        return new Response(JSON.stringify({ error: String(e) }), { status: 500 });
+        return new Response(JSON.stringify({ error: String(e), checked, sent, dropped }), {
+            status: 500, headers: { 'Content-Type': 'application/json' },
+        });
     }
 });

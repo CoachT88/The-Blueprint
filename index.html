@@ -477,7 +477,8 @@
         </div>
         <div id="notif-supported">
             <div class="space-y-4">
-                <p class="text-[11px] text-slate-400 leading-relaxed">Get reminders to train, streak warnings before you lose your streak, and milestone alerts.</p>
+                <p class="text-[11px] text-slate-400 leading-relaxed">One reminder a day at the time you choose, and a warning before a streak breaks. Nothing on a rest day, and nothing once you've trained.</p>
+                <p class="text-[10px] text-slate-600 leading-relaxed">Notifications only ever say The Blueprint. Nothing about what you train appears on your lock screen.</p>
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
                         <div>
@@ -5364,7 +5365,6 @@ async function handleLogout(){
     // Clear state and show auth screen immediately — don't wait on the network.
     // Any in-flight onUserSignedIn will see currentUser cleared and abort.
     currentUser=null;persisted={...DEFAULT_PERSISTED};
-    clearTimeout(_localNotifTimer);_localNotifTimer=null;
     _releaseWakeLock();
     showAuthScreen();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
@@ -5462,7 +5462,7 @@ async function onUserSignedIn(user){
         flushAnalytics();
         pruneOldDailyKeys();   // reclaim date-keyed entries that were never cleaned up
         loadHydrationUnit();
-        _scheduleLocalNotif();
+        _refreshPushTimezone();   // fire and forget; a member who travels keeps their reminder hour
         hideAuthScreen();
         // Push permission is NOT requested here. Firing a native OS dialog 1.5s after
         // landing interrupts a member who has not seen the app yet and burns the one
@@ -5495,76 +5495,11 @@ async function initServiceWorker(){
     catch(e){console.error('SW register:',e);}
 }
 
-// ── Local notification scheduler ──────────────────────────────────────────
-// Fires at the user-set time directly from the browser — no server needed.
-// Works as long as the PWA or browser tab is running. Re-schedules daily.
-let _localNotifTimer=null;
-
-const _NOTIF_MSGS={
-    rest:[
-        {title:'Coach Tee',body:"Rest day but don't slack. Drink your water, do your pelvic floor release, and get some hip opener work in. 5 minutes is all it takes."},
-        {title:'Coach Tee',body:"Recovery day. That means RK holds and pelvic floor release — not nothing. And you better be close to 3L of water by now."},
-        {title:'Coach Tee',body:"Checking in. Water hit? Pelvic floor release done? Those 5 minutes on rest days are what separate guys who gain from guys who plateau."},
-        {title:'Coach Tee',body:"Rest day doesn't mean off day. Reverse kegels, hip openers, 3L of water. Blood flow doesn't take days off."},
-        {title:'Coach Tee',body:"Your tissue rebuilds tonight — but only if you gave it what it needs today. Water, floor release, recovery work. All three."},
-        {title:'Coach Tee',body:"Pelvic floor release today. Tight floor = restricted blood flow = weaker EQ. 5 minutes. You've got 5 minutes."},
-        {title:'Coach Tee',body:"Recovery is the work. RK holds, hip openers, water. Do it now so tomorrow's session hits different."},
-    ],
-    streak:[
-        (s)=>({title:'Coach Tee',body:`${s} days. You're building something real. Don't let today be the gap — warm up, run the protocol, finish with pelvic floor work. Water too.`}),
-        (s)=>({title:'Coach Tee',body:`${s}-day streak on the line. Hydrate, warm the tissue, execute the session. You know what to do.`}),
-        (s)=>({title:'Coach Tee',body:`Day ${s+1}. Keep the chain going. Water first, warmup second, protocol third, pelvic floor to finish. Same as always.`}),
-        (s)=>({title:'Coach Tee',body:`${s} days straight. That consistency is the protocol. Get your water in and run the session tonight.`}),
-        (s)=>({title:'Coach Tee',body:`You're at ${s} days. The tissue is adapting. Don't break now — hydrate, train, do the floor work.`}),
-        (s)=>({title:'Coach Tee',body:`${s} days in and you're still showing up. Warm the tissue, hit the protocol, finish with RK holds. Let's go.`}),
-        (s)=>({title:'Coach Tee',body:`${s} days. Most guys stop here. You're not most guys. Water, session, pelvic floor. Tonight.`}),
-    ],
-    train:[
-        {title:'Coach Tee',body:"Time to train. Drink your water, warm up the tissue, run the protocol, finish with pelvic floor work. All four. Don't cut corners."},
-        {title:'Coach Tee',body:"Checking in. You hydrated today? Get 3L in, warm up properly, and run the session. Pelvic floor work at the end. Non-negotiable."},
-        {title:'Coach Tee',body:"Tonight's session is ready when you are. Water first — blood can't move through dehydrated vessels. Then warm up and execute."},
-        {title:'Coach Tee',body:"Don't skip tonight. Warm up the tissue before you touch the protocol. Finish with reverse kegels. And drink your water."},
-        {title:'Coach Tee',body:"Collagen remodels 48-72 hours after the stimulus. Give it the stimulus tonight. Hydrate, warm up, train, floor work. That's the whole job."},
-        {title:'Coach Tee',body:"You know the drill. 3L of water, 10-minute warmup, protocol, pelvic floor release. Open the app and get it done."},
-        {title:'Coach Tee',body:"One session tonight. That's it. Hydrate, warm the tissue, run it, finish with RK holds. Your future self doesn't skip."},
-    ],
-};
-
-function _buildNotifPayload(){
-    const day=new Date().getDay();
-    const todayKey=new Date().toISOString().split('T')[0];
-    const trained=(persisted?.sessionLog||[]).some(s=>s.date?.startsWith(todayKey));
-    if(trained) return null;
-    const todayType=(persisted?.schedule||[])[day]||'rest';
-    const isRest=todayType==='rest';
-    if(isRest) return _NOTIF_MSGS.rest[day%7];
-    const streak=getCurrentStreak();
-    if(streak>0) return _NOTIF_MSGS.streak[day%7](streak);
-    return _NOTIF_MSGS.train[day%7];
-}
-
-async function _fireLocalNotif(){
-    const payload=_buildNotifPayload();
-    if(payload){
-        const opts={body:payload.body,icon:'/icon-192.png',badge:'/badge-72.png',tag:'daily-reminder',data:{url:'/'},silent:false};
-        if(_swRegistration) await _swRegistration.showNotification(payload.title,opts).catch(()=>{});
-        else if(typeof Notification!=='undefined' && Notification.permission==='granted') new Notification(payload.title,{body:payload.body,icon:'/icon-192.png'});
-    }
-    _scheduleLocalNotif(); // re-arm for tomorrow
-}
-
-function _scheduleLocalNotif(){
-    clearTimeout(_localNotifTimer);_localNotifTimer=null;
-    if(typeof Notification==='undefined'||Notification.permission!=='granted') return;
-    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
-    if(!prefs.time) return;
-    const [h,m]=prefs.time.split(':').map(Number);
-    const now=new Date();
-    const target=new Date(now);
-    target.setHours(h,m,0,0);
-    if(target<=now) target.setDate(target.getDate()+1);
-    _localNotifTimer=setTimeout(_fireLocalNotif,target.getTime()-now.getTime());
-}
+// Server-side delivery only. There used to be a setTimeout here that fired a
+// notification at the chosen time straight from the page, but a timer hours in
+// the future only survives while the tab is open, which for a phone PWA is
+// almost never. It made the feature look implemented without delivering it.
+// The reminder now comes from supabase/functions/send-notifications.
 
 function openNotifModal(){
     const modal=document.getElementById('notif-modal');
@@ -5594,21 +5529,22 @@ async function enableNotifications(){
     try{
         const perm=typeof Notification!=='undefined'?await Notification.requestPermission():'denied';
         if(perm!=='granted'){document.getElementById('notif-status').innerText='Permission denied.';btn.innerHTML='Enable Notifications';btn.disabled=false;return;}
-        // Local scheduler — works immediately, no server needed
-        _scheduleLocalNotif();
-        // Best-effort push subscription for server-side delivery (non-blocking)
+        // The subscription IS the feature now. Without it nothing can be sent,
+        // so a failure here has to be visible rather than swallowed.
         if(_swRegistration&&'PushManager' in window){
             try{
                 const sub=await _swRegistration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
                 await _savePushSubscription(sub);
-            }catch(e){/* push subscription optional — local scheduler already armed */}
+            }catch(e){
+                console.error('Push subscribe:',e);
+                document.getElementById('notif-status').innerText='Could not set up reminders. Try again.';
+            }
         }
         await _refreshNotifUI();
     }catch(e){console.error('Enable notifications:',e);document.getElementById('notif-status').innerText='Could not enable — try again.';}
     btn.innerHTML='Enable Notifications';btn.disabled=false;
 }
 async function disableNotifications(){
-    clearTimeout(_localNotifTimer);_localNotifTimer=null;
     if(_swRegistration&&'PushManager' in window){
         const sub=await _swRegistration.pushManager.getSubscription().catch(()=>null);
         if(sub){await sub.unsubscribe().catch(()=>{});await _deletePushSubscription(sub);}
@@ -5634,6 +5570,24 @@ async function _deletePushSubscription(sub){
     if(!currentUser)return;
     await sb.from('push_subscriptions').delete().eq('user_id',currentUser.id);
 }
+// The server decides when to send using the timezone stored at subscribe time.
+// Someone who moves, or crosses a DST boundary, would otherwise keep getting
+// their reminder at the old local hour until they resubscribed. Cheap to check
+// on each sign-in and it writes only when the value actually changed.
+async function _refreshPushTimezone(){
+    try{
+        if(!currentUser)return;
+        const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if(!tz||tz===localStorage.getItem('bp_push_tz'))return;
+        // Deliberately not gated on _swRegistration or on fetching the
+        // subscription: initServiceWorker() is not awaited, so the registration
+        // is often still null at sign-in and the refresh would silently never
+        // happen. The update simply matches no rows for a member who has not
+        // subscribed, and the cached key means it runs once per device per move.
+        const {error}=await sb.from('push_subscriptions').update({timezone:tz}).eq('user_id',currentUser.id);
+        if(!error) localStorage.setItem('bp_push_tz',tz);
+    }catch(e){/* reminders are not worth failing a sign-in over */}
+}
 function _setToggleUI(trackId,thumbId,on){
     const track=document.getElementById(trackId);
     const thumb=document.getElementById(thumbId);
@@ -5648,11 +5602,15 @@ async function saveNotifPrefs(){
     const streakWarn=document.getElementById('streak-warn-toggle').style.background==='rgb(59, 130, 246)';
     const prefs={time,streakWarn};
     localStorage.setItem('bp_notif_prefs',JSON.stringify(prefs));
-    _scheduleLocalNotif(); // re-arm with new time
-    // Update in Supabase if subscribed
+    // The server reads these columns, so this write is the only thing that
+    // makes the picker and the toggle mean anything.
     if(currentUser&&_swRegistration&&'PushManager' in window){
         const sub=await _swRegistration.pushManager.getSubscription().catch(()=>null);
-        if(sub) await sb.from('push_subscriptions').update({reminder_time:time,streak_warn:streakWarn}).eq('user_id',currentUser.id).catch(()=>{});
+        if(sub) await sb.from('push_subscriptions').update({
+            reminder_time:time,
+            streak_warn:streakWarn,
+            timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }).eq('user_id',currentUser.id).catch(()=>{});
     }
 }
 
