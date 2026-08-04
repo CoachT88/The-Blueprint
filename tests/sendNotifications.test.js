@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 /**
@@ -85,10 +86,19 @@ describe('the VAPID public key', () => {
         expect(key).toHaveLength(87);
     });
 
-    test('is not the retired key', () => {
-        // That pair's private half could not be accounted for, so it was
-        // rotated. Reintroducing it would mean nothing could be signed.
-        expect(key).not.toMatch(/^BNaN9Nyz/);
+    test('is the key the deployed secret actually holds', () => {
+        // Supabase shows only a SHA256 digest of each secret, never the value.
+        // Hashing this constant and comparing to that digest is how the pair was
+        // confirmed to match, and pinning it here means the check survives.
+        //
+        // Changing the constant without setting the matching VAPID_PUBLIC_KEY
+        // and VAPID_PRIVATE_KEY secrets makes every push fail with a 403.
+        // Nothing else in the codebase would notice, so this test is the only
+        // thing standing between an innocent-looking edit and silence on every
+        // member's phone. If you are rotating the key on purpose, update the
+        // secrets first, then this digest.
+        const digest = createHash('sha256').update(key).digest('hex');
+        expect(digest).toMatch(/^ed323c303ae234005ae1c8aff0cf611/);
     });
 });
 

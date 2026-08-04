@@ -5488,11 +5488,18 @@ async function onUserSignedIn(user){
 // PUSH NOTIFICATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 // The public half of the pair that signs every push. Safe to be readable here;
-// the private half lives only in the edge function's secrets. They only work
-// together, so if this is ever changed the server's VAPID_PUBLIC_KEY has to
-// change with it, and _ensureCurrentPushSubscription below repairs everyone
-// who subscribed under the old one.
-const VAPID_PUBLIC_KEY='BJLPh1D1BSpxfWJ_h7xk1OKaHpU7czQmH9aIKHuNSuOQVrD2sJovwK6H1FMZftIII8RNZ7hFQjFljZ6f11ZxsYw';
+// the private half lives only in the edge function's secrets.
+//
+// The two halves only work together. Changing this line without setting the
+// matching VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY secrets makes every push fail
+// with a 403 and nothing else in the app would tell you, so it is pinned by a
+// test in tests/sendNotifications.test.js.
+//
+// This value is confirmed to match the deployed secret: its SHA256 is
+// ed323c30..., which is the digest Supabase shows for VAPID_PUBLIC_KEY.
+// _ensureCurrentPushSubscription below exists so that a future rotation can be
+// done without members having to touch anything.
+const VAPID_PUBLIC_KEY='BNaN9NyzTiFTSmDKROx-7aTfT5rnIVVBcQDXGkzi5nrl5rt-VIqzdALnIIexqxaP-hZGxtUfhJ5IFMx_o8cz3-8';
 function _urlBase64ToUint8(b64){const p=(b64+'='.repeat((4-b64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(p);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
 let _swRegistration=null;
 async function initServiceWorker(){
