@@ -65,6 +65,33 @@ describe('the sender', () => {
     });
 });
 
+describe('the VAPID public key', () => {
+    // A mistyped or truncated key does not throw anywhere. Subscription simply
+    // fails, or succeeds against a key the server cannot match, and every push
+    // silently goes nowhere on every device. Nothing else in the codebase would
+    // notice, which is exactly why this is worth eleven lines.
+    const html = readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const key = /const VAPID_PUBLIC_KEY='([^']*)'/.exec(html)?.[1];
+
+    test('is present', () => {
+        expect(key).toBeTruthy();
+    });
+
+    test('is a valid uncompressed P-256 point', () => {
+        expect(key).toMatch(/^[A-Za-z0-9_-]+$/);          // base64url, no padding
+        const bytes = Buffer.from(key, 'base64url');
+        expect(bytes).toHaveLength(65);                    // 0x04 + 32-byte x + 32-byte y
+        expect(bytes[0]).toBe(0x04);                       // uncompressed point marker
+        expect(key).toHaveLength(87);
+    });
+
+    test('is not the retired key', () => {
+        // That pair's private half could not be accounted for, so it was
+        // rotated. Reintroducing it would mean nothing could be signed.
+        expect(key).not.toMatch(/^BNaN9Nyz/);
+    });
+});
+
 describe('the setup SQL', () => {
     const sql = readFileSync(path.join(ROOT, 'supabase/notifications.sql'), 'utf8');
 
