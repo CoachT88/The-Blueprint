@@ -5462,7 +5462,8 @@ async function onUserSignedIn(user){
         flushAnalytics();
         pruneOldDailyKeys();   // reclaim date-keyed entries that were never cleaned up
         loadHydrationUnit();
-        _refreshPushTimezone();   // fire and forget; a member who travels keeps their reminder hour
+        _refreshPushTimezone();            // fire and forget; a member who travels keeps their reminder hour
+        _ensureCurrentPushSubscription();  // and one whose key was rotated is repaired without noticing
         hideAuthScreen();
         // Push permission is NOT requested here. Firing a native OS dialog 1.5s after
         // landing interrupts a member who has not seen the app yet and burns the one
@@ -5486,7 +5487,12 @@ async function onUserSignedIn(user){
 // ═══════════════════════════════════════════════════════════════════════════
 // PUSH NOTIFICATIONS
 // ═══════════════════════════════════════════════════════════════════════════
-const VAPID_PUBLIC_KEY='BNaN9NyzTiFTSmDKROx-7aTfT5rnIVVBcQDXGkzi5nrl5rt-VIqzdALnIIexqxaP-hZGxtUfhJ5IFMx_o8cz3-8';
+// The public half of the pair that signs every push. Safe to be readable here;
+// the private half lives only in the edge function's secrets. They only work
+// together, so if this is ever changed the server's VAPID_PUBLIC_KEY has to
+// change with it, and _ensureCurrentPushSubscription below repairs everyone
+// who subscribed under the old one.
+const VAPID_PUBLIC_KEY='BJLPh1D1BSpxfWJ_h7xk1OKaHpU7czQmH9aIKHuNSuOQVrD2sJovwK6H1FMZftIII8RNZ7hFQjFljZ6f11ZxsYw';
 function _urlBase64ToUint8(b64){const p=(b64+'='.repeat((4-b64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(p);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
 let _swRegistration=null;
 async function initServiceWorker(){
@@ -5565,6 +5571,9 @@ async function _savePushSubscription(sub){
         timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         updated_at:new Date().toISOString(),
     },{onConflict:'user_id'});
+    // Which key this subscription was made with, so a future rotation can tell
+    // on browsers that do not expose options.applicationServerKey.
+    try{ localStorage.setItem('bp_push_key',VAPID_PUBLIC_KEY); }catch(e){}
 }
 async function _deletePushSubscription(sub){
     if(!currentUser)return;
@@ -5587,6 +5596,47 @@ async function _refreshPushTimezone(){
         const {error}=await sb.from('push_subscriptions').update({timezone:tz}).eq('user_id',currentUser.id);
         if(!error) localStorage.setItem('bp_push_tz',tz);
     }catch(e){/* reminders are not worth failing a sign-in over */}
+}
+// A push subscription is bound to the VAPID key it was created with. When that
+// key is rotated every existing subscription silently stops being deliverable:
+// the member's settings still say notifications are on, and nothing arrives.
+//
+// Permission has already been granted, so re-subscribing raises no prompt and
+// the member sees nothing at all. This is the only reason a key rotation does
+// not become a support problem.
+function _sameKeyAsCurrent(sub){
+    // options.applicationServerKey is authoritative where the browser provides
+    // it. Where it does not, fall back to what this device recorded at
+    // subscribe time. A member who subscribed before that marker existed reads
+    // as unknown, which is correct: they are exactly who needs re-subscribing.
+    const want=_urlBase64ToUint8(VAPID_PUBLIC_KEY);
+    const raw=sub&&sub.options&&sub.options.applicationServerKey;
+    if(raw){
+        const have=new Uint8Array(raw);
+        if(have.length!==want.length) return false;
+        for(let i=0;i<want.length;i++) if(have[i]!==want[i]) return false;
+        return true;
+    }
+    try{ return localStorage.getItem('bp_push_key')===VAPID_PUBLIC_KEY; }catch(e){ return true; }
+}
+async function _ensureCurrentPushSubscription(){
+    try{
+        if(!currentUser||!('serviceWorker' in navigator)||!('PushManager' in window))return;
+        if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+        // initServiceWorker() is not awaited, so _swRegistration is often still
+        // null here. `ready` resolves once any registration is active.
+        const reg=_swRegistration||await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise(res=>setTimeout(()=>res(null),10000)),
+        ]);
+        if(!reg||!reg.pushManager)return;
+        const sub=await reg.pushManager.getSubscription().catch(()=>null);
+        if(!sub)return;                      // never enabled reminders; nothing to repair
+        if(_sameKeyAsCurrent(sub))return;    // already on the current key
+        await sub.unsubscribe().catch(()=>{});
+        const fresh=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
+        await _savePushSubscription(fresh);
+    }catch(e){/* same rule as the timezone refresh: never fail a sign-in over this */}
 }
 function _setToggleUI(trackId,thumbId,on){
     const track=document.getElementById(trackId);

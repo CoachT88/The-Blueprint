@@ -59,6 +59,21 @@ function isGone(err: unknown): boolean {
     return code === 404 || code === 410;
 }
 
+/**
+ * 403 means the push service would not accept our signature: either the
+ * subscription was created under a different VAPID key, or this server's key
+ * configuration is wrong.
+ *
+ * Deliberately NOT treated as a dead subscription. The second cause makes every
+ * send fail at once, so deleting on 403 would empty the whole table over a
+ * single mistyped environment variable. The first cause repairs itself: the
+ * client re-subscribes under the current key next time that member opens the
+ * app (see _ensureCurrentPushSubscription in index.html). Count it and move on.
+ */
+function isRejectedSignature(err: unknown): boolean {
+    return (err as { statusCode?: number })?.statusCode === 403;
+}
+
 /** A column the table may not have yet, same detection the app uses on save. */
 function isUnknownColumn(err: { code?: string; message?: string } | null): boolean {
     if (!err) return false;
@@ -110,7 +125,7 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date();
-    let checked = 0, sent = 0, dropped = 0;
+    let checked = 0, sent = 0, dropped = 0, rejected = 0;
 
     try {
         for (let page = 0; ; page++) {
@@ -122,7 +137,7 @@ Deno.serve(async (req) => {
 
             if (error) {
                 console.error('Reading subscriptions failed:', error);
-                return new Response(JSON.stringify({ error: 'read_failed', checked, sent, dropped }), {
+                return new Response(JSON.stringify({ error: 'read_failed', checked, sent, dropped, rejected }), {
                     status: 500, headers: { 'Content-Type': 'application/json' },
                 });
             }
@@ -181,6 +196,9 @@ Deno.serve(async (req) => {
                     if (isGone(sendErr)) {
                         await supabase.from('push_subscriptions').delete().eq('user_id', sub.user_id);
                         dropped++;
+                    } else if (isRejectedSignature(sendErr)) {
+                        // Left in place on purpose; see isRejectedSignature.
+                        rejected++;
                     } else {
                         // One member's bad endpoint must not end the run.
                         console.error(`Send failed for ${sub.user_id}:`, sendErr);
@@ -191,12 +209,14 @@ Deno.serve(async (req) => {
             if (subs.length < PAGE_SIZE) break;
         }
 
-        return new Response(JSON.stringify({ checked, sent, dropped }), {
+        // rejected > 0 across the board means this server's VAPID keys are
+        // wrong, not that members' subscriptions are stale.
+        return new Response(JSON.stringify({ checked, sent, dropped, rejected }), {
             status: 200, headers: { 'Content-Type': 'application/json' },
         });
     } catch (e) {
         console.error(e);
-        return new Response(JSON.stringify({ error: String(e), checked, sent, dropped }), {
+        return new Response(JSON.stringify({ error: String(e), checked, sent, dropped, rejected }), {
             status: 500, headers: { 'Content-Type': 'application/json' },
         });
     }

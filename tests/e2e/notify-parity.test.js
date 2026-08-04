@@ -69,6 +69,106 @@ describe('the server computes the same streak the app shows', () => {
     });
 });
 
+/**
+ * A push subscription is bound to the VAPID key it was made with. Rotating the
+ * key leaves every existing subscription undeliverable while the member's
+ * settings still say reminders are on, which is the exact failure this whole
+ * change set exists to remove. Permission is already granted, so the repair can
+ * happen silently.
+ */
+describe('a subscription made with an old key repairs itself', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'rotate' }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    /**
+     * Stand in for the service worker registration. `withKey` decides whether
+     * the existing subscription looks current or stale.
+     */
+    const stub = (page, { withKey, hasSubscription = true }) => page.evaluate(({ withKey, hasSubscription }) => {
+        // Notification.permission is a read-only getter on the real object.
+        Object.defineProperty(Notification, 'permission', { value: 'granted', configurable: true });
+
+        const fakeSub = (endpoint, keyBytes) => ({
+            endpoint,
+            options: { applicationServerKey: keyBytes ? keyBytes.buffer : null },
+            toJSON: () => ({ endpoint, keys: { p256dh: 'p', auth: 'a' } }),
+            unsubscribe: () => { window.__calls.push('unsubscribe'); return Promise.resolve(true); },
+        });
+
+        window.__calls = [];
+        const current = _urlBase64ToUint8(VAPID_PUBLIC_KEY);
+        const stale = new Uint8Array(current.length).fill(7);   // a different key entirely
+        const existing = hasSubscription
+            ? fakeSub('https://push.example/old', withKey === 'current' ? current : stale)
+            : null;
+
+        _swRegistration = {
+            pushManager: {
+                getSubscription: () => Promise.resolve(existing),
+                subscribe: (opts) => {
+                    window.__calls.push('subscribe');
+                    window.__subscribedWith = [...new Uint8Array(opts.applicationServerKey)];
+                    return Promise.resolve(fakeSub('https://push.example/new', current));
+                },
+            },
+        };
+        window.__writes = [];
+    }, { withKey, hasSubscription });
+
+    test('a stale key is swapped for the current one, without a prompt', async () => {
+        await stub(app.page, { withKey: 'stale' });
+        const r = await app.page.evaluate(async () => {
+            await _ensureCurrentPushSubscription();
+            return {
+                calls: window.__calls,
+                subscribedWith: window.__subscribedWith,
+                wrote: window.__writes.map(w => w.endpoint),
+                expected: [..._urlBase64ToUint8(VAPID_PUBLIC_KEY)],
+            };
+        });
+        // Old one released before the new one is taken, in that order.
+        expect(r.calls).toEqual(['unsubscribe', 'subscribe']);
+        expect(r.subscribedWith).toEqual(r.expected);
+        // And the new endpoint is what the server will now send to.
+        expect(r.wrote).toContain('https://push.example/new');
+    }, 30_000);
+
+    test('a subscription already on the current key is left alone', async () => {
+        // Without this the app would churn a fresh subscription on every single
+        // sign-in, invalidating the endpoint the server just stored.
+        await stub(app.page, { withKey: 'current' });
+        const r = await app.page.evaluate(async () => {
+            await _ensureCurrentPushSubscription();
+            return { calls: window.__calls, writes: window.__writes.length };
+        });
+        expect(r.calls).toEqual([]);
+        expect(r.writes).toBe(0);
+    }, 30_000);
+
+    test('someone who never enabled reminders is not subscribed behind their back', async () => {
+        await stub(app.page, { withKey: 'stale', hasSubscription: false });
+        const r = await app.page.evaluate(async () => {
+            await _ensureCurrentPushSubscription();
+            return { calls: window.__calls, writes: window.__writes.length };
+        });
+        expect(r.calls).toEqual([]);
+        expect(r.writes).toBe(0);
+    }, 30_000);
+
+    test('and neither is anyone who has not granted permission', async () => {
+        await stub(app.page, { withKey: 'stale' });
+        const r = await app.page.evaluate(async () => {
+            Object.defineProperty(Notification, 'permission', { value: 'default', configurable: true });
+            await _ensureCurrentPushSubscription();
+            return { calls: window.__calls, writes: window.__writes.length };
+        });
+        expect(r.calls).toEqual([]);
+        expect(r.writes).toBe(0);
+        expect(app.errors).toEqual([]);
+    }, 30_000);
+});
+
 describe('the settings screen no longer promises what it cannot send', () => {
     let app;
     beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'notifcopy' }); }, 60_000);

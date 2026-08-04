@@ -31,6 +31,26 @@ create index if not exists push_subscriptions_user_idx
 
 
 -- ---------------------------------------------------------------------------
+-- One-time cleanup after a VAPID key rotation  (optional)
+-- ---------------------------------------------------------------------------
+--
+-- A push subscription is bound to the VAPID key it was created with, so
+-- rotating the key makes every existing row undeliverable. The app repairs
+-- itself: _ensureCurrentPushSubscription() re-subscribes under the current key
+-- the next time that member opens it, with no prompt and nothing for them to do.
+--
+-- So this is housekeeping, not a fix. It clears rows belonging to members who
+-- may never come back, so the hourly run stops attempting them. Left commented
+-- out deliberately: running it against a table that has already repaired itself
+-- would delete live subscriptions and genuinely turn reminders off for people.
+--
+-- Only run this if you rotated the key AND want the stale rows gone now.
+--
+-- delete from public.push_subscriptions
+-- where updated_at < timestamptz '2026-08-04 00:00:00+00';   -- set to the moment you deployed the new key
+
+
+-- ---------------------------------------------------------------------------
 -- Schedule  (run once)
 -- ---------------------------------------------------------------------------
 
