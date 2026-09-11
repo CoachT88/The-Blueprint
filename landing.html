@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A training programme for men who want their function back. Pelvic floor work, guided sessions, and a coach that knows your numbers. Private, on your own phone, nobody watching.">
+<meta name="theme-color" content="#0b0c0d">
+
+<meta property="og:title" content="The Blueprint — Nobody teaches men this">
+<meta property="og:description" content="Most men are never told their pelvic floor is trainable. This is the programme that trains it. Private, guided, on your own phone.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="The Blueprint">
+
+<!-- Absolute, because scrapers do not run JavaScript and cannot resolve a
+     relative path. Both change together the moment this gets a domain. -->
+<meta property="og:url" content="https://theblueprint.armakebeatz.workers.dev/">
+<meta property="og:image" content="https://theblueprint.armakebeatz.workers.dev/img/og-card.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://theblueprint.armakebeatz.workers.dev/">
+
+<title>The Blueprint — Nobody teaches men this</title>
+<style>
+/* ==========================================================================
+   The Blueprint — sales page.
+
+   The look is a classified file: manila and carbon, monospace labels, stamps
+   and redaction bars. It suits the name, and it suits the buyer, who is
+   reading this on a phone he does not want anyone looking over.
+
+   Every font here is a system stack. No CDN, no Google Fonts, no third party
+   of any kind: a man reading a page about erectile function should not have
+   his visit announced to somebody else's server. That is also why there is
+   not a single external request on this page.
+   ========================================================================== */
+
+:root{
+  --carbon:#0b0c0d;        /* the ground */
+  --slab:#141618;
+  --slab-2:#1b1e21;
+  --edge:#2a2f33;
+  --paper:#ece5d8;         /* manila, the file itself */
+  --paper-ink:#17181a;
+  --bone:#f2f1ed;
+  /* Measured 5.8:1 on --carbon. Carries the fineprint and the labels. */
+  --muted:#9aa0a6;
+  --dim:#7e858c;
+  --stamp:#c8412f;         /* the red of a CLASSIFIED stamp */
+  --go:#3ddc97;            /* the app's own green, so the page and app match */
+  --go-ink:#04140d;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --pad:clamp(20px,5vw,40px);
+  --wide:1060px;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+
+body{
+  margin:0;background:var(--carbon);color:var(--bone);
+  font-family:var(--sans);font-size:17px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%;height:auto;display:block}
+h1,h2,h3,p,ul,figure{margin:0}
+ul{padding:0;list-style:none}
+a{color:var(--go)}
+:focus-visible{outline:2px solid var(--go);outline-offset:3px;border-radius:3px}
+
+.wrap{max-width:var(--wide);margin:0 auto;padding-left:var(--pad);padding-right:var(--pad)}
+section{padding:clamp(52px,8vw,96px) 0}
+section[id]{scroll-margin-top:72px}
+
+/* ---- the dossier voice: monospace labels, stamped and spaced ----------- */
+.label{
+  font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--dim);
+}
+.label.go{color:var(--go)}
+.label.stamp{color:var(--stamp)}
+
+.display{
+  font-family:var(--sans);font-weight:800;line-height:1.04;
+  letter-spacing:-.02em;text-wrap:balance;
+}
+h1.display{font-size:clamp(34px,6vw,60px)}
+h2.display{font-size:clamp(27px,4.4vw,42px)}
+h3{font-size:19px;font-weight:700;letter-spacing:-.01em}
+
+p{color:var(--muted);max-width:64ch}
+p b,li b{color:var(--bone);font-weight:650}
+.lede{font-size:clamp(17px,2vw,20px);color:var(--bone);max-width:58ch}
+.small{font-size:14.5px}
+.tiny{font-size:12.5px;color:var(--dim)}
+
+/* A file-divider: the perforated rule that runs between sections. */
+.rule{height:1px;background:repeating-linear-gradient(90deg,var(--edge) 0 8px,transparent 8px 16px)}
+
+/* ---- header ------------------------------------------------------------ */
+header.bar{
+  position:sticky;top:0;z-index:50;background:rgba(11,12,13,.9);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--edge);
+}
+.bar-in{display:flex;align-items:center;justify-content:space-between;gap:14px;height:60px}
+.brand{
+  display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:14px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--bone);text-decoration:none;white-space:nowrap;
+}
+.brand{min-height:44px}
+.brand .mark{
+  width:24px;height:24px;flex:none;border:1.5px solid var(--go);border-radius:3px;
+  display:grid;place-items:center;font-size:11px;color:var(--go);font-weight:700;
+}
+
+/* ---- buttons ----------------------------------------------------------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  min-height:52px;padding:0 26px;border-radius:4px;border:1px solid transparent;
+  background:var(--go);color:var(--go-ink);
+  font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  text-decoration:none;cursor:pointer;transition:transform .12s ease,filter .12s ease;
+}
+.btn:hover{filter:brightness(1.08)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--bone);border-color:var(--edge)}
+.btn.sm{min-height:44px;padding:0 16px;font-size:11.5px}
+.btn-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
+
+/* ---- hero -------------------------------------------------------------- */
+.hero{padding-top:clamp(40px,7vw,72px);position:relative;overflow:hidden}
+/* The faint grid of a document scan, so the ground is not just flat black. */
+.hero::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.35;
+  background:
+    linear-gradient(transparent 95%,rgba(255,255,255,.03) 95%) 0 0/100% 28px,
+    radial-gradient(1200px 400px at 50% -10%,rgba(61,220,151,.07),transparent 70%);
+}
+.hero .wrap{position:relative}
+
+.filetag{
+  display:inline-flex;align-items:center;gap:10px;padding:6px 12px;
+  border:1px solid var(--edge);border-radius:3px;background:var(--slab);
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
+}
+.filetag i{width:6px;height:6px;border-radius:50%;background:var(--go);flex:none}
+
+/* The stamp: rotated, outlined, sitting on the page like ink. */
+.stampmark{
+  display:inline-block;margin-top:26px;padding:7px 14px;
+  border:2px solid var(--stamp);color:var(--stamp);border-radius:3px;
+  font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+  transform:rotate(-2.5deg);
+}
+
+/* ---- redaction --------------------------------------------------------- */
+/* Used once, on the line about what men are not told. It has to earn it. */
+.redact{
+  background:var(--bone);color:var(--bone);border-radius:2px;padding:0 .25em;
+  transition:color .25s ease,background .25s ease;
+}
+.redact:hover,.redact:focus{background:transparent;color:var(--stamp)}
+
+/* ---- cards ------------------------------------------------------------- */
+.grid{display:grid;gap:14px;margin-top:30px}
+@media (min-width:720px){.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:repeat(3,1fr)}}
+
+.card{
+  background:var(--slab);border:1px solid var(--edge);border-radius:5px;padding:22px;
+  position:relative;
+}
+.card h3{margin-bottom:8px}
+.card p{font-size:15.5px;line-height:1.55}
+.card .num{
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--dim);
+  display:block;margin-bottom:12px;
+}
+
+/* The manila file card, for the section that reads as the document itself. */
+.manila{
+  background:var(--paper);color:var(--paper-ink);border:none;border-radius:5px;
+  padding:clamp(22px,4vw,34px);
+}
+.manila h2,.manila h3{color:var(--paper-ink)}
+.manila p{color:#3c3f43}
+.manila .label{color:#6b6f74}
+.manila b{color:var(--paper-ink)}
+
+/* ---- what is inside the file (feature list) ---------------------------- */
+.spec{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--edge)}
+.spec:last-child{border-bottom:none}
+.spec .k{
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--go);
+  flex:none;width:52px;padding-top:3px;
+}
+.spec .t{flex:1}
+.spec h3{font-size:17px;margin-bottom:3px}
+.spec p{font-size:15px;line-height:1.5;margin:0}
+
+/* ---- screenshots ------------------------------------------------------- */
+.shots{display:grid;gap:18px;margin-top:30px}
+@media (min-width:760px){.shots{grid-template-columns:repeat(3,1fr)}}
+figure.shot{margin:0}
+.phone{
+  border:1px solid var(--edge);border-radius:22px;padding:7px;background:var(--slab-2);
+  overflow:hidden;
+}
+.phone img{border-radius:16px;width:100%;display:block}
+/* Until the real captures land, the slot holds its own shape so the page
+   never collapses around a missing image. */
+.phone .slot{
+  aspect-ratio:390/844;border-radius:16px;background:
+    repeating-linear-gradient(45deg,#191c1f 0 10px,#15181a 10px 20px);
+  display:grid;place-items:center;text-align:center;padding:20px;
+}
+.phone .slot span{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+figure.shot figcaption{margin-top:12px;font-size:14px;color:var(--muted);line-height:1.45}
+figure.shot figcaption b{color:var(--bone)}
+
+/* ---- pricing ----------------------------------------------------------- */
+.price{
+  text-align:center;border:1px solid var(--edge);border-radius:6px;background:var(--slab);
+  padding:clamp(26px,5vw,42px);margin-top:30px;
+}
+.price .fig{font-size:clamp(40px,8vw,62px);font-weight:800;letter-spacing:-.03em;line-height:1}
+.price p{margin-left:auto;margin-right:auto}
+.price ul{margin:22px auto 0;max-width:34ch;text-align:left}
+.price li{display:flex;gap:10px;padding:7px 0;font-size:15px;color:var(--muted)}
+.price li span{color:var(--go);flex:none;font-family:var(--mono)}
+
+/* ---- footer ------------------------------------------------------------ */
+footer{border-top:1px solid var(--edge);padding:34px 0 46px}
+footer p{font-size:13.5px;color:var(--dim);max-width:70ch}
+
+/* ---- narrow phones ----------------------------------------------------- */
+@media (max-width:560px){
+  .bar-cta .btn.ghost{display:none}
+  .btn{width:100%}
+  .btn-row .btn{width:100%}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="brand" href="#top"><span class="mark" aria-hidden="true">B</span>The&nbsp;Blueprint</a>
+    <div class="bar-cta"><a class="btn sm" href="#get">Get the file</a></div>
+  </div>
+</header>
+
+<!-- ================================================================ HERO -->
+<section class="hero" id="top">
+  <div class="wrap">
+    <span class="filetag"><i aria-hidden="true"></i>File 001 &middot; Men&rsquo;s pelvic health</span>
+
+    <h1 class="display" style="margin-top:22px">Nobody ever told you this muscle was trainable.</h1>
+
+    <p class="lede" style="margin-top:20px">
+      You have a muscle that controls how hard you get, how long you last, and how much
+      control you have. It is as trainable as any other muscle in your body. <b>No one
+      teaches men this.</b> You were not in the room when it was explained, because there
+      was no room.
+    </p>
+
+    <p style="margin-top:16px">
+      The Blueprint is the training programme for it. Guided sessions on your own phone,
+      built around what your body can actually do today, with a coach that knows your
+      numbers. Nobody watching, nothing to explain to anyone.
+    </p>
+
+    <div class="btn-row">
+      <a class="btn" href="#get">Get the file</a>
+      <a class="btn ghost" href="#inside">See what&rsquo;s in it</a>
+    </div>
+
+    <div class="stampmark">Private &middot; No one has to know</div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ============================================================= THE PAIN -->
+<section id="why">
+  <div class="wrap">
+    <span class="label stamp">Section 01 &middot; The part you don&rsquo;t say out loud</span>
+    <h2 class="display" style="margin-top:14px">You noticed. You just haven&rsquo;t said it to anyone.</h2>
+
+    <div class="grid two">
+      <div>
+        <p style="margin-top:20px">
+          Maybe it takes longer than it used to. Maybe it goes soft halfway and you have to
+          work to get it back. Maybe you finish before you want to and you have started
+          planning around it &mdash; the drink first, the excuse ready, the night you
+          quietly avoid.
+        </p>
+        <p style="margin-top:14px">
+          Maybe nothing is wrong exactly. It is just <b>not what it was at twenty-two</b>,
+          and you have started wondering whether that is simply the rest of your life now.
+        </p>
+        <p style="margin-top:14px">
+          You have not told your doctor, because the appointment would take three weeks and
+          four minutes and end with a pamphlet. You have not told your partner, because
+          saying it out loud makes it real. So you searched at midnight, found forums full
+          of men guessing, and closed the tab.
+        </p>
+      </div>
+      <div class="card manila">
+        <span class="label">Memo</span>
+        <h3 style="margin-top:10px;font-size:20px">What you were never told</h3>
+        <p style="margin-top:12px">
+          The pelvic floor is a sheet of muscle that sits at the base of your core. It is
+          involved in getting hard, staying hard, and finishing when you choose to.
+        </p>
+        <p style="margin-top:12px">
+          Like any muscle, it can be <b>weak</b> &mdash; or it can be <b>too tight</b>,
+          which is the part almost nobody gets right. A tight pelvic floor causes many of
+          the same problems as a weak one, and the usual advice makes it worse.
+        </p>
+        <p style="margin-top:12px">
+          Women get told about this after childbirth. <b>Men get told nothing at all</b>,
+          then get sold a pill that treats the symptom for four hours.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- =========================================================== THE ANSWER -->
+<section id="answer">
+  <div class="wrap">
+    <span class="label go">Section 02 &middot; What this actually is</span>
+    <h2 class="display" style="margin-top:14px">Training, not a pill.</h2>
+
+    <p class="lede" style="margin-top:18px">
+      A pill gives you four hours. Training gives you back the thing itself. The
+      difference is that training takes weeks and nobody sells it to you, because
+      there is no bottle to ship.
+    </p>
+
+    <div class="grid three">
+      <div class="card">
+        <span class="num">01</span>
+        <h3>It knows which problem you have</h3>
+        <p>Too weak and too tight need opposite work. Get that backwards and you make it
+          worse. The programme separates them instead of handing every man the same
+          squeeze.</p>
+      </div>
+      <div class="card">
+        <span class="num">02</span>
+        <h3>It runs the session for you</h3>
+        <p>You do not read a plan and try to remember it. The app counts, times the
+          breathing, tells you when to hold and when to release, and ends the session
+          when it should end.</p>
+      </div>
+      <div class="card">
+        <span class="num">03</span>
+        <h3>It gets harder when you do</h3>
+        <p>Four levels. You do not pick one because it sounds impressive &mdash; the
+          next one opens when your own logged sessions say you are ready for it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ========================================================= INSIDE THE FILE -->
+<section id="inside">
+  <div class="wrap">
+    <span class="label">Section 03 &middot; Contents</span>
+    <h2 class="display" style="margin-top:14px">What&rsquo;s in the file.</h2>
+    <p style="margin-top:16px">Plain terms. This is everything you get, described the way a
+      person would describe it.</p>
+
+    <div class="card" style="margin-top:26px;padding:6px 22px">
+      <div class="spec">
+        <div class="k">A&middot;01</div>
+        <div class="t">
+          <h3>Guided pelvic floor sessions</h3>
+          <p>Squeeze work and release work, in the right proportion for where you are. The
+            app times every hold and every breath so you are not counting in your head.</p>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="k">A&middot;02</div>
+        <div class="t">
+          <h3>A warm-up that isn&rsquo;t optional</h3>
+          <p>Heat and breathing before the work, because cold tissue and a braced body are
+            how men hurt themselves doing this unsupervised off a forum post.</p>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="k">A&middot;03</div>
+        <div class="t">
+          <h3>A coach you can ask anything</h3>
+          <p>Built in, and it can see your own numbers, so the answer is about you rather
+            than a general article. Ask it the question you would never ask a person.
+            It answers straight, at two in the morning, without a face.</p>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="k">A&middot;04</div>
+        <div class="t">
+          <h3>Your week, laid out</h3>
+          <p>Work days and rest days in order. Rest is scheduled, not skipped &mdash;
+            this is one of the few places where doing more actually sets you back.</p>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="k">A&middot;05</div>
+        <div class="t">
+          <h3>Recovery that gets checked</h3>
+          <p>Log how a session felt and it reads it back: whether to push, hold steady, or
+            take a day. If you are training through something you should not be, it says so.</p>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="k">A&middot;06</div>
+        <div class="t">
+          <h3>Water, sleep and soreness, tracked</h3>
+          <p>Not filler. Blood flow and recovery are downstream of hydration and sleep, so
+            they sit on the same screen as the training instead of being someone else&rsquo;s app.</p>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="k">A&middot;07</div>
+        <div class="t">
+          <h3>Progress you can actually see</h3>
+          <p>Sessions, streaks, and how things are trending over weeks &mdash; because
+            week to week you will not notice, and month to month you will.</p>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="k">A&middot;08</div>
+        <div class="t">
+          <h3>A private log</h3>
+          <p>Notes and photos if you want them, so progress is measured rather than
+            remembered. Yours, and not something you have to keep in your camera roll.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ========================================================== SCREENSHOTS -->
+<section id="look">
+  <div class="wrap">
+    <span class="label">Section 04 &middot; Exhibits</span>
+    <h2 class="display" style="margin-top:14px">What it looks like in your hand.</h2>
+
+    <div class="shots">
+      <figure class="shot">
+        <div class="phone">
+          <!-- Replace with img/shot-session.jpg (390x844 @2x) -->
+          <div class="slot"><span>Exhibit A<br>Session</span></div>
+        </div>
+        <figcaption><b>A session running.</b> One instruction on screen, a clock, and the
+          breathing counted for you.</figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="phone">
+          <!-- Replace with img/shot-hq.jpg (390x844 @2x) -->
+          <div class="slot"><span>Exhibit B<br>Your week</span></div>
+        </div>
+        <figcaption><b>The week ahead.</b> Work days, rest days, and what today is
+          supposed to be.</figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="phone">
+          <!-- Replace with img/shot-coach.jpg (390x844 @2x) -->
+          <div class="slot"><span>Exhibit C<br>The coach</span></div>
+        </div>
+        <figcaption><b>The coach.</b> Ask it anything. It already knows your numbers, so
+          the answer is about you.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ============================================================ DISCRETION -->
+<section id="private">
+  <div class="wrap">
+    <div class="card manila">
+      <span class="label">Section 05 &middot; Handling</span>
+      <h2 class="display" style="margin-top:12px;font-size:clamp(24px,3.6vw,34px)">
+        Nobody has to know you bought this.</h2>
+      <div class="grid two" style="margin-top:18px">
+        <div>
+          <p>It is an app on your phone. It does not post anything, it does not need a
+            community, and there is no group chat where men introduce themselves.</p>
+          <p style="margin-top:12px">No appointment. No waiting room. No conversation with
+            anyone who knows your name.</p>
+        </div>
+        <div>
+          <p>You do the work in your own bathroom, in your own time, and the only person
+            who ever sees the numbers is you.</p>
+          <p style="margin-top:12px">The one thing it asks is honesty in the log. It is the
+            only place where lying costs you something real.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ================================================================ WHO -->
+<section id="who">
+  <div class="wrap">
+    <span class="label">Section 06 &middot; Subject profile</span>
+    <h2 class="display" style="margin-top:14px">Who this is for.</h2>
+
+    <div class="grid two">
+      <div class="card">
+        <h3>The man who noticed</h3>
+        <p>Nothing dramatic. It just takes more to get going than it used to, and stays
+          less reliably once it does. You are not ill. You are untrained, in a muscle
+          nobody told you to train.</p>
+      </div>
+      <div class="card">
+        <h3>The man who finishes too fast</h3>
+        <p>And has tried thinking about something else, which does not work, because the
+          problem is usually physical and tension-related rather than mental.</p>
+      </div>
+      <div class="card">
+        <h3>The man who won&rsquo;t go to a doctor</h3>
+        <p>Not out of pride. It is three weeks for an appointment, four minutes in the
+          room, and a script you will not fill. You want to try the thing you can do
+          yourself first.</p>
+      </div>
+      <div class="card">
+        <h3>The man who already tried kegels</h3>
+        <p>Read a forum, squeezed for a month, felt no different or felt worse. That is
+          the classic sign of a pelvic floor that needed <b>release</b> work, not more
+          squeezing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ======================================================== WHAT IT ISN'T -->
+<section id="straight">
+  <div class="wrap">
+    <span class="label stamp">Section 07 &middot; Straight talk</span>
+    <h2 class="display" style="margin-top:14px">What this is not.</h2>
+
+    <div class="grid two" style="margin-top:24px">
+      <div class="card">
+        <h3>It is not a pill and not instant</h3>
+        <p>This is muscle training. It works the way training works: a few sessions a week,
+          for weeks, before the change is obvious. If you want something that works tonight,
+          this is the wrong purchase.</p>
+      </div>
+      <div class="card">
+        <h3>It is not a diagnosis</h3>
+        <p>Sudden changes, pain, or symptoms that came on fast deserve a doctor, and the app
+          will tell you so rather than train you through it. Training is for the slow
+          decline, not the alarm.</p>
+      </div>
+      <div class="card">
+        <h3>It is not more is better</h3>
+        <p>Rest days are scheduled because this tissue needs them. Doing extra is the most
+          common way men get worse instead of better.</p>
+      </div>
+      <div class="card">
+        <h3>It is not a promise</h3>
+        <p>Bodies differ, and anyone guaranteeing you a specific outcome is selling
+          something. What is offered here is the right work, ordered properly, with
+          someone to ask.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- =============================================================== PRICE -->
+<section id="get">
+  <div class="wrap">
+    <span class="label go">Section 08 &middot; Access</span>
+    <h2 class="display" style="margin-top:14px">Get the file.</h2>
+
+    <div class="price">
+      <div class="label">One payment</div>
+      <div class="fig" style="margin-top:8px">{{PRICE}}</div>
+      <p class="small" style="margin-top:10px">Once. Not a subscription, nothing to cancel,
+        no card sitting on file waiting for next month.</p>
+
+      <ul>
+        <li><span>&rarr;</span> Every session, every level, the whole programme</li>
+        <li><span>&rarr;</span> The coach, unlimited questions</li>
+        <li><span>&rarr;</span> Your week, your log, your progress</li>
+        <li><span>&rarr;</span> Updates as it gets better</li>
+      </ul>
+
+      <div class="btn-row" style="justify-content:center">
+        <a class="btn" href="https://ko-fi.com/s/75a70cb698">Get the file</a>
+      </div>
+      <p class="tiny" style="margin-top:16px">
+        You will be sent to Ko-fi to pay, then sign in with the same email you paid with.
+      </p>
+    </div>
+
+    <p class="tiny" style="margin-top:22px;max-width:70ch">
+      Problems getting in, or it is not what you expected? Email
+      <a href="mailto:Therealcoachtee@gmail.com?subject=The%20Blueprint">Therealcoachtee@gmail.com</a>
+      and a real person answers.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="brand" style="margin-bottom:14px"><span class="mark" aria-hidden="true">B</span>The&nbsp;Blueprint</div>
+    <p>
+      <b>This is training, not medical care.</b> The Blueprint is an exercise programme for
+      the pelvic floor. It does not diagnose, treat, or cure anything. If you have pain,
+      a sudden change in function, blood, numbness, or symptoms that came on quickly, see
+      a doctor before you train. If you are being treated for a prostate, nerve, or
+      cardiovascular condition, ask them first.
+    </p>
+    <p style="margin-top:12px">&copy; The Blueprint. Built by Coach Tee.</p>
+  </div>
+</footer>
+
+</body>
+</html>
