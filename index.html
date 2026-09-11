@@ -4883,6 +4883,12 @@ function openGoalPicker(){
 function finishOnboarding(){
     trackOnce('intro_done','intro_completed');
     hideOnboarding();
+    // A man who just finished the intro has no earlier progress that could
+    // have been lost, so the apology is not addressed to him. Dismissing it
+    // rather than only marking it seen matters: renderDashboard opens it
+    // while the intro is still up, so by now it is already on screen, and a
+    // full-screen modal is the one thing the tour cannot point through.
+    dismissUpdateNotice();
     setTimeout(()=>maybeStartTour(),450);
 }
 
@@ -4904,9 +4910,48 @@ const TOUR_STOPS=[
 ];
 let _tourStops=[], _tourIdx=0, _tourIsTip=false;
 
-function maybeStartTour(){
+/* The tour works by cutting a hole in its own dark overlay so one card on the
+   HQ shows through. That only points at anything if the HQ is what is behind
+   the hole. A full-screen modal covers the whole viewport, so the hole frames
+   the modal instead and every stop looks identical no matter what the text
+   says — which is exactly what the update notice was doing to it.
+
+   So the tour waits for the screen to be its own rather than starting on top
+   of someone else's. It waits rather than giving up, because bailing here
+   means the user never gets a tour at all. */
+function _blockingModalOpen(){
+    /* Asks what is actually on the screen rather than which classes an
+       element happens to carry. The overlays here are a mix: the update
+       notice is built from Tailwind utilities, the Manual is styled in plain
+       CSS, and a selector written for one silently misses the other. Anything
+       pinned over most of the viewport counts, however it got that way.
+
+       Only body's own children are checked. Every overlay in this app is one,
+       and walking the whole document on a timer is not worth it. */
+    return [...document.body.children].some(el => {
+        if(el.id === 'tour-layer') return false;
+        const cs = getComputedStyle(el);
+        /* Deliberately no offsetParent test: it is null for every fixed
+           element, so checking it here would reject exactly the overlays this
+           is looking for. Visibility comes from the computed style instead. */
+        if(cs.position !== 'fixed') return false;
+        if(cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return false;
+        const r = el.getBoundingClientRect();
+        return r.height > window.innerHeight * 0.5 && r.width > window.innerWidth * 0.5;
+    });
+}
+
+function maybeStartTour(_waited){
     if(!currentUser) return;
     if(localStorage.getItem('bp_tour_done_'+currentUser.id)) return;
+    if(_blockingModalOpen()){
+        /* Roughly fifteen seconds of waiting, then let it go. A modal still up
+           after that is one the user is reading, and interrupting it with a
+           tour is worse than skipping the tour. */
+        const waited=(_waited||0)+1;
+        if(waited>30) return;
+        return setTimeout(()=>maybeStartTour(waited),500);
+    }
     startTour();
 }
 function startTour(){
