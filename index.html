@@ -4939,11 +4939,25 @@ let _tourStops=[], _tourIdx=0, _tourIsTip=false;
    of someone else's. It waits rather than giving up, because bailing here
    means the user never gets a tour at all. */
 function _blockingModalOpen(){
-    return [...document.querySelectorAll('.fixed.inset-0')].some(el =>
-        !el.classList.contains('hidden') &&
-        el.id !== 'tour-layer' &&
-        el.offsetParent !== null &&
-        el.getBoundingClientRect().height > window.innerHeight * 0.5);
+    /* Asks what is actually on the screen rather than which classes an
+       element happens to carry. The overlays here are a mix: the update
+       notice is built from Tailwind utilities, the Manual is styled in plain
+       CSS, and a selector written for one silently misses the other. Anything
+       pinned over most of the viewport counts, however it got that way.
+
+       Only body's own children are checked. Every overlay in this app is one,
+       and walking the whole document on a timer is not worth it. */
+    return [...document.body.children].some(el => {
+        if(el.id === 'tour-layer') return false;
+        const cs = getComputedStyle(el);
+        /* Deliberately no offsetParent test: it is null for every fixed
+           element, so checking it here would reject exactly the overlays this
+           is looking for. Visibility comes from the computed style instead. */
+        if(cs.position !== 'fixed') return false;
+        if(cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return false;
+        const r = el.getBoundingClientRect();
+        return r.height > window.innerHeight * 0.5 && r.width > window.innerWidth * 0.5;
+    });
 }
 
 function maybeStartTour(_waited){
