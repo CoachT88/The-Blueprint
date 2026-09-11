@@ -56,8 +56,15 @@ async function isSignedIn(request, env) {
 }
 
 export async function onRequestPost({ request, env }) {
-  if (!env.ANTHROPIC_API_KEY || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
-    console.error('coach-tee: required secrets are not configured');
+  /* Names the missing variable in the log. The browser is told nothing
+     beyond "unavailable", because a stranger has no business learning which
+     of our secrets is absent, but whoever is looking at the logs needs to
+     know which one to go and set. Verifying a session made SUPABASE_ANON_KEY
+     newly required here, and a Worker configured before that change has
+     every other secret it needs and still refuses every request. */
+  const missing = ['ANTHROPIC_API_KEY', 'SUPABASE_URL', 'SUPABASE_ANON_KEY'].filter((k) => !env[k]);
+  if (missing.length) {
+    console.error('coach-tee: not configured, missing ' + missing.join(', '));
     return json({ error: { message: 'Coach Tee is unavailable right now.' } }, 503);
   }
 
