@@ -1,0 +1,24 @@
+# Files that live in the repo but must never be served to visitors.
+# wrangler.jsonc sets assets.directory to the repo root, so without this
+# every source file here is a fetchable URL on the live site.
+
+node_modules
+.git
+.github
+.claude
+
+# Backend source and schema. None of it holds secrets, but published it is
+# a free map of the backend for anyone probing the site.
+functions
+supabase
+src
+
+# Tests and tooling, not site content
+tests
+vitest.config.js
+package.json
+package-lock.json
+wrangler.jsonc
+vercel.json
+.assetsignore
+.gitignore
