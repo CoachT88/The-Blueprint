@@ -64,13 +64,22 @@ function json(body, status) {
    already trusts, rather than inventing a second idea of who a user is. */
 async function isSignedIn(request, supabase) {
   const auth = request.headers.get('Authorization') || '';
-  if (!auth.startsWith('Bearer ')) return false;
+  if (!auth.startsWith('Bearer ')) {
+    console.error('coach-tee: refused, no bearer token on the request');
+    return false;
+  }
   try {
     const res = await fetch(supabase.url + '/auth/v1/user', {
       headers: { apikey: supabase.anonKey, Authorization: auth },
     });
+    /* Says which way it failed. A 401 here is a token Supabase does not
+       accept, usually an expired one; anything else is the check itself
+       being broken, and the two need very different fixes. Without this the
+       app just says "sign in" to somebody who already is. */
+    if (!res.ok) console.error('coach-tee: Supabase rejected the session, status ' + res.status);
     return res.ok;
-  } catch {
+  } catch (e) {
+    console.error('coach-tee: could not reach Supabase to check the session -', e.message);
     return false;
   }
 }
