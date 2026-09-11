@@ -189,3 +189,46 @@ describe('coach-tee endpoint', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 });
+
+describe('coach-tee configuration', () => {
+  /* The outage this prevents: verifying a session made the Supabase anon key
+     newly required, so a Worker that had every secret it needed still refused
+     every request. Those two values are public - they are in the page source -
+     so they now have defaults and only a real secret can stop the endpoint. */
+  const noSupabaseEnv = { ANTHROPIC_API_KEY: 'anthropic-key' };
+
+  it('runs without the Supabase variables being configured at all', async () => {
+    const res = await coachPost({
+      request: coachRequest({ mode: 'coach', userMsg: 'hi' }),
+      env: noSupabaseEnv,
+    });
+    expect(res.status).not.toBe(503);
+  });
+
+  it('still verifies the session when they are absent', async () => {
+    const res = await coachPost({
+      request: coachRequest({ mode: 'coach', userMsg: 'hi' }, { signedIn: false }),
+      env: noSupabaseEnv,
+    });
+    expect(res.status).toBe(401);
+    expect(calls.filter((c) => c.url.includes('anthropic'))).toHaveLength(0);
+  });
+
+  it('accepts SUPABASE_ANON as well, which is what the client calls it', async () => {
+    await coachPost({
+      request: coachRequest({ mode: 'coach', userMsg: 'hi' }),
+      env: { ...noSupabaseEnv, SUPABASE_URL: 'https://other.supabase.co', SUPABASE_ANON: 'anon-key' },
+    });
+    const check = calls.find((c) => c.url.includes('/auth/v1/user'));
+    expect(check.url).toContain('other.supabase.co');
+    expect(check.init.headers.apikey).toBe('anon-key');
+  });
+
+  it('still refuses to run with no Anthropic key', async () => {
+    const res = await coachPost({
+      request: coachRequest({ mode: 'coach', userMsg: 'hi' }),
+      env: {},
+    });
+    expect(res.status).toBe(503);
+  });
+});
