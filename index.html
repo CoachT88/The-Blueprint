@@ -3304,14 +3304,23 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 // purpose model anyone could drive on our Anthropic key. The signed-in
 // session travels with the request for the same reason: each call costs us.
 async function fetchClaude(mode, userMsg, context){
+    const _send=(token)=>fetch('/api/coach-tee',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+        body:JSON.stringify({mode,userMsg,context:context||''})
+    });
     try{
         const {data:{session}}=await sb.auth.getSession();
         if(!session)return{ok:false,error:'Sign in to talk to Coach Tee.'};
-        const res=await fetch('/api/coach-tee',{
-            method:'POST',
-            headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
-            body:JSON.stringify({mode,userMsg,context:context||''})
-        });
+        let res=await _send(session.access_token);
+        // An access token lasts about an hour. A man who left the app open on
+        // his phone and came back to it is still signed in as far as he is
+        // concerned, so a stale token should be refreshed and retried rather
+        // than thrown back at him as "sign in" while he is already signed in.
+        if(res.status===401){
+            const {data:{session:fresh}}=await sb.auth.refreshSession();
+            if(fresh) res=await _send(fresh.access_token);
+        }
         const data=await res.json();
         if(!res.ok)return{ok:false,error:`[${res.status}] ${data.error?.message||JSON.stringify(data)}`};
         const text=data.content?.map(b=>b.type==='text'?b.text:'').join('')||'';

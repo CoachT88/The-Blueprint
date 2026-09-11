@@ -32,6 +32,26 @@ const SYSTEM_PROMPTS = {
 const MAX_USER_MSG = 4000;
 const MAX_CONTEXT = 4000;
 
+/* The Supabase project this app talks to. Both values are public: they are
+   already in index.html, visible to anyone who views source. Environment
+   variables still win, so a different project can be pointed at without a
+   code change, but nothing breaks when they are simply absent. The anon key
+   only ever asks Supabase "who does this token belong to" - the service role
+   key, which is a real secret, is not used here at all. */
+const SUPABASE_DEFAULTS = {
+  url: 'https://edqmujiczuvavlemfpaz.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkcW11amljenV2YXZsZW1mcGF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MDQyMTcsImV4cCI6MjA4OTk4MDIxN30.DGn__9ff5TIAL_a5YELE9yGlIRzyMop6QYh1LlmXMa8',
+};
+
+function supabaseConfig(env) {
+  return {
+    url: env.SUPABASE_URL || SUPABASE_DEFAULTS.url,
+    /* SUPABASE_ANON is accepted too: that is what the constant is called in
+       index.html, and copying the name from there is the obvious mistake. */
+    anonKey: env.SUPABASE_ANON_KEY || env.SUPABASE_ANON || SUPABASE_DEFAULTS.anonKey,
+  };
+}
+
 function json(body, status) {
   return new Response(JSON.stringify(body), {
     status,
@@ -42,33 +62,43 @@ function json(body, status) {
 /* Confirms the caller is signed in by asking Supabase who the token belongs
    to. This endpoint then trusts exactly the session the rest of the app
    already trusts, rather than inventing a second idea of who a user is. */
-async function isSignedIn(request, env) {
+async function isSignedIn(request, supabase) {
   const auth = request.headers.get('Authorization') || '';
-  if (!auth.startsWith('Bearer ')) return false;
+  if (!auth.startsWith('Bearer ')) {
+    console.error('coach-tee: refused, no bearer token on the request');
+    return false;
+  }
   try {
-    const res = await fetch(env.SUPABASE_URL + '/auth/v1/user', {
-      headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: auth },
+    const res = await fetch(supabase.url + '/auth/v1/user', {
+      headers: { apikey: supabase.anonKey, Authorization: auth },
     });
+    /* Says which way it failed. A 401 here is a token Supabase does not
+       accept, usually an expired one; anything else is the check itself
+       being broken, and the two need very different fixes. Without this the
+       app just says "sign in" to somebody who already is. */
+    if (!res.ok) console.error('coach-tee: Supabase rejected the session, status ' + res.status);
     return res.ok;
-  } catch {
+  } catch (e) {
+    console.error('coach-tee: could not reach Supabase to check the session -', e.message);
     return false;
   }
 }
 
 export async function onRequestPost({ request, env }) {
-  /* Names the missing variable in the log. The browser is told nothing
-     beyond "unavailable", because a stranger has no business learning which
-     of our secrets is absent, but whoever is looking at the logs needs to
-     know which one to go and set. Verifying a session made SUPABASE_ANON_KEY
-     newly required here, and a Worker configured before that change has
-     every other secret it needs and still refuses every request. */
-  const missing = ['ANTHROPIC_API_KEY', 'SUPABASE_URL', 'SUPABASE_ANON_KEY'].filter((k) => !env[k]);
-  if (missing.length) {
-    console.error('coach-tee: not configured, missing ' + missing.join(', '));
+  const supabase = supabaseConfig(env);
+
+  /* Only the Anthropic key can stop this endpoint now. The Supabase URL and
+     anon key are public values printed in the page source, so requiring them
+     to be configured separately bought nothing and cost an outage: verifying
+     a session made the anon key newly required, and a Worker set up before
+     that change refused every request while looking perfectly configured.
+     A secret has to be set. A public constant should not need to be. */
+  if (!env.ANTHROPIC_API_KEY) {
+    console.error('coach-tee: not configured, missing ANTHROPIC_API_KEY');
     return json({ error: { message: 'Coach Tee is unavailable right now.' } }, 503);
   }
 
-  if (!(await isSignedIn(request, env))) {
+  if (!(await isSignedIn(request, supabase))) {
     return json({ error: { message: 'Sign in to talk to Coach Tee.' } }, 401);
   }
 

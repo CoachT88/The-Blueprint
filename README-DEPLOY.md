@@ -14,15 +14,16 @@ name the missing variable.
 | Name | Kind | Used by | Notes |
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | Secret | `/api/coach-tee` | Anthropic console → API keys |
-| `SUPABASE_URL` | Variable | coach-tee, ko-fi | Public; it is in the page source |
-| `SUPABASE_ANON_KEY` | Variable | `/api/coach-tee` | Public by design; also in the page source. Used to ask Supabase who a session token belongs to |
+| `SUPABASE_URL` | Optional | coach-tee, ko-fi | Public; already in the page source. coach-tee falls back to a built-in default, ko-fi requires it |
+| `SUPABASE_ANON_KEY` | Optional | `/api/coach-tee` | Public by design. Falls back to a built-in default. `SUPABASE_ANON` is accepted too, since that is what index.html calls it |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | `/api/kofi-webhook` | Bypasses row level security. Never put this in the client |
 | `KOFI_VERIFICATION_TOKEN` | Secret | `/api/kofi-webhook` | Ko-fi → Webhooks. Without it the webhook refuses every request rather than accepting forgeries |
 
-`SUPABASE_ANON_KEY` was added when coach-tee started verifying sessions. A
-Worker configured before that change has everything else and still refuses
-every request, which is exactly what it is meant to do — it just needs setting
-once.
+Only the secrets can stop an endpoint. The Supabase URL and anon key are
+public constants sitting in the page source, so coach-tee carries defaults for
+them rather than refusing to run when they are not configured — requiring a
+public value to be set separately bought nothing and cost an outage the first
+time it changed.
 
 ## Keep auto-reload off on Anthropic credits
 
