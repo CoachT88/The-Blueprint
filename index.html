@@ -71,9 +71,16 @@
         #rest-overlay:not(.hidden){display:flex}
         .ai-response-box{background:rgba(168,85,247,.1);border-left:4px solid var(--accent-purple);padding:1rem;border-radius:.5rem;font-size:.85rem;line-height:1.6;color:#e2e8f0;display:none;white-space:pre-wrap}
         .ai-response-box.ai-error{background:rgba(239,68,68,.1);border-left-color:#ef4444;color:#fca5a5}
-        .chat-msg{padding:.5rem .75rem;border-radius:.75rem;font-size:.8rem;line-height:1.55}
+        /* pre-wrap, like .ai-response-box above. Without it every line break
+           Coach Tee sends is collapsed into a space and a five paragraph answer
+           arrives as one block. The Recovery box has always had it, which is
+           why the same model reads fine there and badly here. */
+        .chat-msg{padding:.65rem .85rem;border-radius:.75rem;font-size:.8rem;line-height:1.6;white-space:pre-wrap}
         .chat-msg.user{background:rgba(255,255,255,.04);color:#f1f5f9}
         .chat-msg.ai{background:rgba(168,85,247,.1);color:#c4b5fd}
+        /* The speaker's name on its own line. Run inline it became the first
+           few words of the answer, which is the opposite of a label. */
+        .chat-who{display:block;font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#a855f7;margin-bottom:.35rem}
         .chat-msg.error{background:rgba(239,68,68,.08);color:#fca5a5;border-left:3px solid #ef4444}
         /* Warmup Carousel */
         .warmup-carousel-wrap{position:relative;overflow:hidden;border-radius:1.5rem;min-height:150px}
@@ -3297,6 +3304,22 @@ function drawLine(id,vals,dates,color,unit='"',dec=2){
 // ═══════════════════════════════════════════════════════════════════════════
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
+/* Coach Tee is told to separate paragraphs with a blank line, and .chat-msg
+   now renders those breaks instead of swallowing them. Trust the instruction,
+   but do not render it unchecked: with pre-wrap a stray run of newlines would
+   open a hole in the middle of an answer, and a model that ignores the "no
+   markdown" rule would show its asterisks as literal characters. This is the
+   last step before the text hits the screen, so it fixes both. */
+function tidyReply(s){
+    return String(s)
+        .replace(/\r\n/g,'\n')
+        .replace(/^#{1,6}\s+/gm,'')          // a stray markdown heading
+        .replace(/\*\*(.+?)\*\*/g,'$1')      // bold that would render as asterisks
+        .replace(/\n{3,}/g,'\n\n')           // no gaps wider than one blank line
+        .replace(/[ \t]+$/gm,'')
+        .trim();
+}
+
 // Coach Tee key is managed server-side
 
 // The system prompt now lives on the server and the client asks for one by
@@ -3376,7 +3399,7 @@ async function askCoach(){
     track('coach_asked');   // the question itself is never recorded
     area.innerHTML+=`<div class="chat-msg user">${esc(q)}</div>`;inp.value='';btn.textContent='...';btn.disabled=true;area.scrollTop=area.scrollHeight;
     const r=await fetchClaude('coach',q,_coachContext());
-    if(r.ok) area.innerHTML+=`<div class="chat-msg ai">CoachTee: ${esc(r.text)}</div>`;
+    if(r.ok) area.innerHTML+=`<div class="chat-msg ai"><span class="chat-who">Coach Tee</span>${esc(tidyReply(r.text))}</div>`;
     else area.innerHTML+=`<div class="chat-msg error"><i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}</div>`;
     btn.textContent='Send';btn.disabled=false;area.scrollTop=area.scrollHeight;
 }
@@ -3386,7 +3409,7 @@ async function analyzeRecovery(){
     const log=inp.value.trim();if(!log)return;
     box.className='ai-response-box mt-4';box.style.display='block';box.innerHTML='<i class="fas fa-spinner fa-spin"></i> Analyzing...';btn.disabled=true;
     const r=await fetchClaude('recovery',log);
-    if(r.ok) box.innerHTML=esc(r.text);
+    if(r.ok) box.innerHTML=esc(tidyReply(r.text));
     else{box.className='ai-response-box ai-error mt-4';box.innerHTML=`<i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}`}
     btn.disabled=false;
 }
