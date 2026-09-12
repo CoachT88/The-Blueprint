@@ -45,7 +45,10 @@ const SUPABASE_DEFAULTS = {
 
 function supabaseConfig(env) {
   return {
-    url: env.SUPABASE_URL || SUPABASE_DEFAULTS.url,
+    /* Trailing slashes get trimmed: a configured value ending in "/" would
+       build .co//auth/v1/user, which is not the endpoint and answers with
+       something that is not 200, and the user is told to sign in. */
+    url: String(env.SUPABASE_URL || SUPABASE_DEFAULTS.url).replace(/\/+$/, ''),
     /* SUPABASE_ANON is accepted too: that is what the constant is called in
        index.html, and copying the name from there is the obvious mistake. */
     anonKey: env.SUPABASE_ANON_KEY || env.SUPABASE_ANON || SUPABASE_DEFAULTS.anonKey,
@@ -62,25 +65,27 @@ function json(body, status) {
 /* Confirms the caller is signed in by asking Supabase who the token belongs
    to. This endpoint then trusts exactly the session the rest of the app
    already trusts, rather than inventing a second idea of who a user is. */
-async function isSignedIn(request, supabase) {
+/* Returns a short reason the session was not accepted, or null when it was.
+   Reasons are deliberately coarse and carry no secret. */
+async function sessionProblem(request, supabase) {
   const auth = request.headers.get('Authorization') || '';
-  if (!auth.startsWith('Bearer ')) {
-    console.error('coach-tee: refused, no bearer token on the request');
-    return false;
-  }
+  if (!auth.startsWith('Bearer ')) return 'no-token';
   try {
     const res = await fetch(supabase.url + '/auth/v1/user', {
       headers: { apikey: supabase.anonKey, Authorization: auth },
     });
-    /* Says which way it failed. A 401 here is a token Supabase does not
-       accept, usually an expired one; anything else is the check itself
-       being broken, and the two need very different fixes. Without this the
-       app just says "sign in" to somebody who already is. */
-    if (!res.ok) console.error('coach-tee: Supabase rejected the session, status ' + res.status);
-    return res.ok;
+    if (res.ok) return null;
+    /* A 401 here is one of two things and they need opposite fixes: the
+       user's token is stale, or the anon key this endpoint is configured
+       with does not belong to the project that issued it. The body says
+       which, so it goes to the log - never to the browser. */
+    const body = await res.text().catch(() => '');
+    console.error('coach-tee: Supabase would not accept the session, status ' + res.status +
+      ', host ' + supabase.url + ', said: ' + body.slice(0, 200));
+    return 'supabase-' + res.status;
   } catch (e) {
     console.error('coach-tee: could not reach Supabase to check the session -', e.message);
-    return false;
+    return 'unreachable';
   }
 }
 
@@ -98,8 +103,13 @@ export async function onRequestPost({ request, env }) {
     return json({ error: { message: 'Coach Tee is unavailable right now.' } }, 503);
   }
 
-  if (!(await isSignedIn(request, supabase))) {
-    return json({ error: { message: 'Sign in to talk to Coach Tee.' } }, 401);
+  /* The reason travels back with the refusal. It names no secret and gives
+     an attacker nothing - "we did not accept your token" is already implied
+     by a 401 - but it is the difference between a user reporting "it says
+     sign in" and reporting something anyone can act on. */
+  const why = await sessionProblem(request, supabase);
+  if (why) {
+    return json({ error: { message: 'Sign in to talk to Coach Tee.', reason: why } }, 401);
   }
 
   let payload;
