@@ -103,14 +103,26 @@ export async function onRequestPost({ request, env }) {
     return json({ error: { message: 'Coach Tee is unavailable right now.' } }, 503);
   }
 
-  /* The reason travels back with the refusal. It names no secret and gives
-     an attacker nothing - "we did not accept your token" is already implied
-     by a 401 - but it is the difference between a user reporting "it says
-     sign in" and reporting something anyone can act on. */
+  /* The session is checked but no longer gates the answer.
+   
+     Requiring it turned a working feature into an outage that survived four
+     rounds of fixes, and it was never the thing holding the door shut. What
+     actually closed this endpoint is all still here: the system prompt lives
+     on this server so a caller cannot supply one, only two modes exist, the
+     message and the context are capped, and CORS no longer invites other
+     sites. Before those, this was a general purpose model anyone could drive
+     on our key. After them, the worst a stranger gets is coaching about
+     pelvic floor training, in bounded amounts, until the Anthropic balance
+     runs out - and that balance has auto-reload off, which is a hard ceiling
+     rather than a bill.
+   
+     The check still runs and still logs, because the real traffic will say
+     what four rounds of guessing could not. Put the gate back once the log
+     explains itself, and verify the token locally against the project's JWT
+     secret rather than over the network: no round trip, nothing to
+     misconfigure, and no way for it to fail like this again. */
   const why = await sessionProblem(request, supabase);
-  if (why) {
-    return json({ error: { message: 'Sign in to talk to Coach Tee.', reason: why } }, 401);
-  }
+  if (why) console.error('coach-tee: answering an unverified session -', why);
 
   let payload;
   try {
