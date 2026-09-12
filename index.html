@@ -3322,7 +3322,7 @@ async function fetchClaude(mode, userMsg, context){
             if(fresh) res=await _send(fresh.access_token);
         }
         const data=await res.json();
-        if(!res.ok)return{ok:false,error:`[${res.status}] ${data.error?.message||JSON.stringify(data)}`};
+        if(!res.ok)return{ok:false,error:`[${res.status}${data.error?.reason?' '+data.error.reason:''}] ${data.error?.message||JSON.stringify(data)}`};
         const text=data.content?.map(b=>b.type==='text'?b.text:'').join('')||'';
         return{ok:true,text};
     }catch(e){return{ok:false,error:'[fetch failed] '+e.message}}
