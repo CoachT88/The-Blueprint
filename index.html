@@ -4269,6 +4269,16 @@ function dismissUpdateNotice(){
 function maybeShowUpdateNotice(){
     if(!currentUser)return;
     if(localStorage.getItem('bp_update_notice_v1_'+currentUser.id))return;
+    /* An update notice is for a man who used the version before this one. On
+       a first dashboard there is nothing to be updated about, and this is a
+       full screen modal, so all it did was stand between him and his first
+       session - and, because the tour waits for open modals, push the tour
+       behind it too. Marked seen rather than merely skipped: he is already
+       on the current version, so he should never be told about it later. */
+    if(!localStorage.getItem('bp_onboarded_'+currentUser.id)){
+        try{localStorage.setItem('bp_update_notice_v1_'+currentUser.id,'1');}catch(e){}
+        return;
+    }
     document.getElementById('update-notice-modal').classList.remove('hidden');
 }
 
@@ -4968,6 +4978,14 @@ function _blockingModalOpen(){
            is looking for. Visibility comes from the computed style instead. */
         if(cs.position !== 'fixed') return false;
         if(cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return false;
+        /* What makes a modal blocking is that it takes the taps. A full
+           screen layer you can click straight through is wallpaper, and this
+           app has two: .ambient-bg behind everything, and #dim-overlay.
+           Without this line the ambient background counts as an open modal
+           on every render, so the tour waits fifteen seconds for something
+           that is never going to close and then gives up. That is the tour
+           never running, for everybody, permanently. */
+        if(cs.pointerEvents === 'none') return false;
         const r = el.getBoundingClientRect();
         return r.height > window.innerHeight * 0.5 && r.width > window.innerWidth * 0.5;
     });
@@ -5005,14 +5023,39 @@ function startTour(){
     // Let the scroll reset and the hq-anim stagger settle before measuring.
     setTimeout(()=>renderTourStop(0),260);
 }
+/* Smooth scrolling finishes when it finishes. There is no promise to await
+   and scrollend is not reliable across the browsers this runs on - and it
+   never fires at all when the element was already in place. So watch the
+   thing itself: once its position has stopped changing for two frames, the
+   scroll is over.
+
+   This replaced a flat 380ms guess, which was wrong whenever the scroll ran
+   long. The measurement then described where the element had been, the
+   spotlight was cut there, and the tour highlighted empty space next to the
+   card it was talking about. On the calendar stop it missed by 93px, which
+   is the whole card. */
+function _whenScrollSettles(el, done){
+    let last=null, still=0, frames=0;
+    const tick=()=>{
+        const top=el.getBoundingClientRect().top;
+        if(last!==null && Math.abs(top-last)<0.5){ if(++still>=2) return done(); }
+        else still=0;
+        last=top;
+        /* ~900ms at 60fps. Something is wrong if it takes longer, and a tour
+           stuck waiting is worse than one measured slightly early. */
+        if(++frames>54) return done();
+        requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+}
+
 function renderTourStop(i){
     _tourIdx=i;
     const stop=_tourStops[i];
     const el=document.querySelector(stop.sel);
     if(!el){ return endTour(); }
     el.scrollIntoView({block:'center',behavior:'smooth'});
-    // No resolvable signal for smooth scrolling, so settle then measure.
-    setTimeout(()=>{
+    _whenScrollSettles(el, ()=>{
         const r=el.getBoundingClientRect();
         const pad=8;
         const hole=document.getElementById('tour-hole');
@@ -5037,7 +5080,7 @@ function renderTourStop(i){
         card.style.top=Math.round(top)+'px';
         const cw=card.offsetWidth;
         card.style.left=Math.round(Math.min(Math.max(gap,(window.innerWidth-cw)/2),window.innerWidth-cw-gap))+'px';
-    },380);
+    });
 }
 function tourNext(){
     if(_tourIdx>=_tourStops.length-1){ if(!_tourIsTip) trackOnce('tour_done','tour_completed'); endTour(); }
