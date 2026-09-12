@@ -121,7 +121,41 @@ describe('the tour points at what it is talking about', () => {
     }, 60_000);
     afterAll(async () => { await app?.close(); });
 
+    test('the hole follows its target instead of trusting one measurement', async () => {
+        /* The guarantee that replaced the guessing. Every version of this bug
+           was a single measurement taken before the scroll had finished - a
+           flat 380ms, then a settle detector with a ceiling - and any ceiling
+           loses to a long enough scroll on a tall enough screen. So the hole
+           is repositioned every frame while a stop is showing.
+
+           Scrolling the container out from under it is the strongest form of
+           the failure: the hole is position:fixed, so without the follower it
+           stays put while the page moves and ends up over whatever is there
+           now. Which is what "it highlighted the wrong card" was. */
+        await app.page.waitForTimeout(1_200);
+        const before = await app.page.evaluate(() => {
+            const el = document.querySelector(_tourStops[_tourIdx].sel);
+            return Math.round(document.getElementById('tour-hole').getBoundingClientRect().top
+                - (el.getBoundingClientRect().top - 8));
+        });
+        expect(Math.abs(before)).toBeLessThanOrEqual(4);
+
+        const after = await app.page.evaluate(async () => {
+            document.getElementById('step-0').scrollTop += 260;
+            // Long enough for the hole's own 0.32s transition to land.
+            await new Promise(r => setTimeout(r, 700));
+            const el = document.querySelector(_tourStops[_tourIdx].sel);
+            return Math.round(document.getElementById('tour-hole').getBoundingClientRect().top
+                - (el.getBoundingClientRect().top - 8));
+        });
+        expect(Math.abs(after)).toBeLessThanOrEqual(4);
+    }, 60_000);
+
     test('every stop cuts its hole over its own element', async () => {
+        // Start from stop one regardless of what the test above left behind.
+        await app.page.evaluate(() => renderTourStop(0));
+        await app.page.waitForTimeout(900);
+
         const count = await app.page.evaluate(() => _tourStops.length);
         expect(count).toBe(STOP_COUNT);
 
