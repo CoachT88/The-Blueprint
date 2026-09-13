@@ -182,7 +182,7 @@ describe('the settings screen no longer promises what it cannot send', () => {
     }, 30_000);
 
     test('the dead local scheduler is gone rather than left looking implemented', async () => {
-        const html = await app.page.evaluate(async () => (await fetch('/index.html')).text());
+        const html = await app.page.evaluate(async () => (await fetch('/app/index.html')).text());
         for (const dead of ['_scheduleLocalNotif', '_fireLocalNotif', '_buildNotifPayload', '_NOTIF_MSGS']) {
             expect(html).not.toContain(dead + '(');
             expect(html).not.toContain('function ' + dead);
@@ -193,7 +193,7 @@ describe('the settings screen no longer promises what it cannot send', () => {
         // These two columns are the whole contract between the picker and the
         // sender. If a refactor stops writing them, the settings go decorative
         // again and nothing else would notice.
-        const src = await app.page.evaluate(async () => (await fetch('/index.html')).text());
+        const src = await app.page.evaluate(async () => (await fetch('/app/index.html')).text());
         const fn = src.slice(src.indexOf('async function saveNotifPrefs'));
         const body = fn.slice(0, fn.indexOf('\n}'));
         expect(body).toContain('reminder_time');

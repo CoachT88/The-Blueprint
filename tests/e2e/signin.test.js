@@ -74,7 +74,7 @@ describe('auth state callback', () => {
         // Read the source of the actual registration rather than a stand-in, so
         // this fails if someone reintroduces `async (event, session) =>`.
         const src = await app.page.evaluate(async () => {
-            const res = await fetch('/index.html');
+            const res = await fetch('/app/index.html');
             const html = await res.text();
             const m = html.match(/sb\.auth\.onAuthStateChange\(([\s\S]{0,120})/);
             return m ? m[1] : '';
@@ -85,7 +85,7 @@ describe('auth state callback', () => {
 
     test('nothing inside the registration awaits a Supabase call', async () => {
         const body = await app.page.evaluate(async () => {
-            const res = await fetch('/index.html');
+            const res = await fetch('/app/index.html');
             const html = await res.text();
             const start = html.indexOf('sb.auth.onAuthStateChange(');
             return html.slice(start, start + 900);
