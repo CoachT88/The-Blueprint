@@ -27,31 +27,42 @@
 /* ==========================================================================
    The Blueprint — sales page.
 
-   The look is a classified file: manila and carbon, monospace labels, stamps
-   and redaction bars. It suits the name, and it suits the buyer, who is
-   reading this on a phone he does not want anyone looking over.
+   It looks like the app, because it is the front door of the app. The palette
+   is lifted straight out of app/index.html: slate grounds, a blue primary,
+   violet and amber for the coach and recovery, and headings set black,
+   italic and tight the way every screen title in the product is. A man who
+   buys here and opens the app should not feel he has gone somewhere else.
 
-   Every font here is a system stack. No CDN, no Google Fonts, no third party
-   of any kind: a man reading a page about erectile function should not have
-   his visit announced to somebody else's server. That is also why there is
-   not a single external request on this page.
+   This replaced a manila-and-red classified-file look. The dossier was a
+   good joke about the name and a bad promise about the product: nothing
+   behind the paywall looks anything like it.
+
+   Every font is a system stack. No CDN, no Google Fonts, no third party of
+   any kind: a man reading a page about erectile function should not have his
+   visit announced to somebody else's server. That is also why there is not a
+   single external request on this page.
+
+   Contrast measured against both grounds rather than eyeballed. Note that
+   slate-500 #64748b, which the app itself uses, is 4.24:1 on --ink and 3.75:1
+   on --slab — under AA for body text — so the dim token here is lighter than
+   the app's. Nothing small on this page sits below 4.5:1.
    ========================================================================== */
 
 :root{
-  --carbon:#0b0c0d;        /* the ground */
-  --slab:#141618;
-  --slab-2:#1b1e21;
-  --edge:#2a2f33;
-  --paper:#ece5d8;         /* manila, the file itself */
-  --paper-ink:#17181a;
-  --bone:#f2f1ed;
-  /* Measured 5.8:1 on --carbon. Carries the fineprint and the labels. */
-  --muted:#9aa0a6;
-  --dim:#7e858c;
-  --stamp:#c8412f;         /* the red of a CLASSIFIED stamp */
-  --go:#3ddc97;            /* the app's own green, so the page and app match */
-  --go-ink:#04140d;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --ink:#020617;           /* slate-950, the app's deepest ground */
+  --slab:#0f172a;          /* slate-900, a card */
+  --slab-2:#1e293b;        /* slate-800, a card that needs lifting */
+  --edge:#1f2c40;          /* hairline, blue-biased toward the accent */
+  --bone:#f8fafc;          /* slate-50, headings */
+  --text:#cbd5e1;          /* slate-300, body — 13.6:1 */
+  --muted:#94a3b8;         /* slate-400 — 7.9:1 */
+  --dim:#7d8899;           /* 5.6:1. Lighter than the app's slate-500 on purpose */
+  --blue:#3b82f6;          /* blue-500, the primary */
+  --blue-lit:#60a5fa;      /* blue-400, for text on dark */
+  --amber:#fbbf24;         /* recovery, and anything that warns */
+  /* The app's violet (the coach) and emerald are deliberately absent. A page
+     carrying tokens nothing uses reads as an unfinished palette, and the next
+     person to edit it cannot tell which colours are actually live. */
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --pad:clamp(20px,5vw,40px);
   --wide:1060px;
@@ -62,59 +73,67 @@ html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
 
 body{
-  margin:0;background:var(--carbon);color:var(--bone);
+  margin:0;background:var(--ink);color:var(--text);
   font-family:var(--sans);font-size:17px;line-height:1.62;
   -webkit-font-smoothing:antialiased;
 }
 img{max-width:100%;height:auto;display:block}
 h1,h2,h3,p,ul,figure{margin:0}
 ul{padding:0;list-style:none}
-a{color:var(--go)}
-:focus-visible{outline:2px solid var(--go);outline-offset:3px;border-radius:3px}
+a{color:var(--blue-lit)}
+:focus-visible{outline:2px solid var(--blue-lit);outline-offset:3px;border-radius:6px}
 
 .wrap{max-width:var(--wide);margin:0 auto;padding-left:var(--pad);padding-right:var(--pad)}
 section{padding:clamp(52px,8vw,96px) 0}
 section[id]{scroll-margin-top:72px}
 
-/* ---- the dossier voice: monospace labels, stamped and spaced ----------- */
+/* ---- section labels ----------------------------------------------------- */
+/* The app labels everything this way: small, uppercase, widely tracked. Sans
+   rather than monospace, which is what the product actually does. */
 .label{
-  font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
   color:var(--dim);
 }
-.label.go{color:var(--go)}
-.label.stamp{color:var(--stamp)}
+.label.go{color:var(--blue-lit)}
+.label.stamp{color:var(--amber)}
 
+/* Every screen title in the app is black, italic, uppercase and tracked in.
+   The page reads as the same product because it is set the same way. */
 .display{
-  font-family:var(--sans);font-weight:800;line-height:1.04;
-  letter-spacing:-.02em;text-wrap:balance;
+  font-weight:900;font-style:italic;text-transform:uppercase;
+  line-height:.98;letter-spacing:-.03em;text-wrap:balance;
+  background:linear-gradient(150deg,var(--bone),#8fa3bd);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-h1.display{font-size:clamp(34px,6vw,60px)}
-h2.display{font-size:clamp(27px,4.4vw,42px)}
-h3{font-size:19px;font-weight:700;letter-spacing:-.01em}
+h1.display{font-size:clamp(36px,6.4vw,64px)}
+h2.display{font-size:clamp(28px,4.6vw,44px)}
+h3{font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--bone)}
 
 p{color:var(--muted);max-width:64ch}
-p b,li b{color:var(--bone);font-weight:650}
-.lede{font-size:clamp(17px,2vw,20px);color:var(--bone);max-width:58ch}
+p b,li b{color:var(--bone);font-weight:700}
+.lede{font-size:clamp(17px,2vw,20px);color:var(--text);max-width:58ch}
 .small{font-size:14.5px}
 .tiny{font-size:12.5px;color:var(--dim)}
 
-/* A file-divider: the perforated rule that runs between sections. */
-.rule{height:1px;background:repeating-linear-gradient(90deg,var(--edge) 0 8px,transparent 8px 16px)}
+/* A section divider. Was a perforated file-edge; now it fades the way the
+   app's own separators do. */
+.rule{height:1px;background:linear-gradient(90deg,transparent,var(--edge) 18%,var(--edge) 82%,transparent)}
 
 /* ---- header ------------------------------------------------------------ */
 header.bar{
-  position:sticky;top:0;z-index:50;background:rgba(11,12,13,.9);
-  backdrop-filter:blur(10px);border-bottom:1px solid var(--edge);
+  position:sticky;top:0;z-index:50;background:rgba(2,6,23,.88);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--edge);
 }
 .bar-in{display:flex;align-items:center;justify-content:space-between;gap:14px;height:60px}
 .brand{
-  display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:14px;
-  letter-spacing:.14em;text-transform:uppercase;color:var(--bone);text-decoration:none;white-space:nowrap;
+  display:flex;align-items:center;gap:10px;font-size:15px;font-weight:900;font-style:italic;
+  letter-spacing:-.02em;text-transform:uppercase;color:var(--bone);text-decoration:none;white-space:nowrap;
 }
 .brand{min-height:44px}
 .brand .mark{
-  width:24px;height:24px;flex:none;border:1.5px solid var(--go);border-radius:3px;
-  display:grid;place-items:center;font-size:11px;color:var(--go);font-weight:700;
+  width:26px;height:26px;flex:none;border-radius:8px;
+  background:linear-gradient(150deg,var(--blue),#1d4ed8);
+  display:grid;place-items:center;font-size:12px;color:#fff;font-weight:900;font-style:italic;
 }
 /* Held one button until Sign in joined it, so it had never needed laying out.
    Two inline-flex buttons in a plain div wrap on a narrow phone, and the bar
@@ -122,83 +141,86 @@ header.bar{
 .bar-cta{display:flex;align-items:center;gap:10px;flex:none;flex-wrap:nowrap}
 
 /* ---- buttons ----------------------------------------------------------- */
+/* Rounded and blue, like every primary in the app. The glow is the same
+   trick the LAUNCH button uses: a coloured shadow rather than a border. */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:9px;
-  min-height:52px;padding:0 26px;border-radius:4px;border:1px solid transparent;
-  background:var(--go);color:var(--go-ink);
-  font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  min-height:54px;padding:0 28px;border-radius:14px;border:1px solid transparent;
+  background:linear-gradient(150deg,var(--blue),#2563eb);color:#fff;
+  box-shadow:0 10px 30px -8px rgba(37,99,235,.55);
+  font-size:13px;font-weight:900;font-style:italic;letter-spacing:.06em;text-transform:uppercase;
   text-decoration:none;cursor:pointer;transition:transform .12s ease,filter .12s ease;
 }
 .btn:hover{filter:brightness(1.08)}
 .btn:active{transform:translateY(1px)}
-.btn.ghost{background:transparent;color:var(--bone);border-color:var(--edge)}
-.btn.sm{min-height:44px;padding:0 16px;font-size:11.5px}
+.btn.ghost{
+  background:var(--slab);color:var(--bone);border-color:var(--edge);box-shadow:none;
+}
+.btn.sm{min-height:44px;padding:0 16px;font-size:11.5px;border-radius:11px}
 .btn-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
 
 /* ---- hero -------------------------------------------------------------- */
 .hero{padding-top:clamp(40px,7vw,72px);position:relative;overflow:hidden}
-/* The faint grid of a document scan, so the ground is not just flat black. */
+/* The app's ambient glow, not a document scan: two soft pools of colour
+   behind everything so the ground has depth without a texture on it. */
 .hero::before{
-  content:"";position:absolute;inset:0;pointer-events:none;opacity:.35;
+  content:"";position:absolute;inset:0;pointer-events:none;
   background:
-    linear-gradient(transparent 95%,rgba(255,255,255,.03) 95%) 0 0/100% 28px,
-    radial-gradient(1200px 400px at 50% -10%,rgba(61,220,151,.07),transparent 70%);
+    radial-gradient(900px 420px at 20% -8%,rgba(59,130,246,.16),transparent 68%),
+    radial-gradient(700px 380px at 88% 6%,rgba(168,85,247,.10),transparent 66%);
 }
 .hero .wrap{position:relative}
 
+/* The pill the app uses for a status chip. */
 .filetag{
-  display:inline-flex;align-items:center;gap:10px;padding:6px 12px;
-  border:1px solid var(--edge);border-radius:3px;background:var(--slab);
-  font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
+  display:inline-flex;align-items:center;gap:9px;padding:7px 14px;
+  border:1px solid var(--edge);border-radius:999px;background:var(--slab);
+  font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
 }
-.filetag i{width:6px;height:6px;border-radius:50%;background:var(--go);flex:none}
+.filetag i{
+  width:7px;height:7px;border-radius:50%;background:var(--blue-lit);flex:none;
+  box-shadow:0 0 0 3px rgba(59,130,246,.18);
+}
 
-/* The stamp: rotated, outlined, sitting on the page like ink. */
+/* Was a rotated red CLASSIFIED stamp. It is now the app's own warning card:
+   amber, level, and the same shape as the hydration and soreness notices. */
 .stampmark{
-  display:inline-block;margin-top:26px;padding:7px 14px;
-  border:2px solid var(--stamp);color:var(--stamp);border-radius:3px;
-  font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
-  transform:rotate(-2.5deg);
+  display:inline-flex;align-items:center;margin-top:26px;padding:10px 16px;
+  border:1px solid rgba(251,191,36,.32);border-radius:12px;
+  background:rgba(251,191,36,.08);color:var(--amber);
+  font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
 }
-
-/* ---- redaction --------------------------------------------------------- */
-/* Used once, on the line about what men are not told. It has to earn it. */
-.redact{
-  background:var(--bone);color:var(--bone);border-radius:2px;padding:0 .25em;
-  transition:color .25s ease,background .25s ease;
-}
-.redact:hover,.redact:focus{background:transparent;color:var(--stamp)}
 
 /* ---- cards ------------------------------------------------------------- */
 .grid{display:grid;gap:14px;margin-top:30px}
 @media (min-width:720px){.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:repeat(3,1fr)}}
 
 .card{
-  background:var(--slab);border:1px solid var(--edge);border-radius:5px;padding:22px;
+  background:var(--slab);border:1px solid var(--edge);border-radius:16px;padding:22px;
   position:relative;
 }
 .card h3{margin-bottom:8px}
 .card p{font-size:15.5px;line-height:1.55}
 .card .num{
-  font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--dim);
+  font-size:11px;font-weight:800;letter-spacing:.18em;color:var(--blue-lit);
   display:block;margin-bottom:12px;
 }
 
-/* The manila file card, for the section that reads as the document itself. */
-.manila{
-  background:var(--paper);color:var(--paper-ink);border:none;border-radius:5px;
+/* Was a cream manila file card. It is now the app's raised panel: a lit blue
+   edge and a glow, which is how the app marks the one thing on a screen it
+   wants read first. Used twice, on the two sections that carry the argument. */
+.hilite{
+  background:linear-gradient(160deg,rgba(59,130,246,.10),rgba(15,23,42,.6)),var(--slab);
+  border:1px solid rgba(59,130,246,.3);border-radius:18px;
+  box-shadow:0 24px 60px -30px rgba(37,99,235,.6);
   padding:clamp(22px,4vw,34px);
 }
-.manila h2,.manila h3{color:var(--paper-ink)}
-.manila p{color:#3c3f43}
-.manila .label{color:#6b6f74}
-.manila b{color:var(--paper-ink)}
 
 /* ---- what is inside the file (feature list) ---------------------------- */
 .spec{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--edge)}
 .spec:last-child{border-bottom:none}
 .spec .k{
-  font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--go);
+  font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--blue-lit);
   flex:none;width:52px;padding-top:3px;
 }
 .spec .t{flex:1}
@@ -218,30 +240,37 @@ figure.shot{margin:0}
    never collapses around a missing image. */
 .phone .slot{
   aspect-ratio:390/844;border-radius:16px;background:
-    repeating-linear-gradient(45deg,#191c1f 0 10px,#15181a 10px 20px);
+    repeating-linear-gradient(45deg,#16213a 0 10px,#111c31 10px 20px);
   display:grid;place-items:center;text-align:center;padding:20px;
 }
-.phone .slot span{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+/* --muted, not --dim: at 11px on the lifted slate of the phone bezel the dim
+   token measures 4.08:1, which is under AA. */
+.phone .slot span{font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
 figure.shot figcaption{margin-top:12px;font-size:14px;color:var(--muted);line-height:1.45}
 figure.shot figcaption b{color:var(--bone)}
 
 /* ---- pricing ----------------------------------------------------------- */
 .price{
-  text-align:center;border:1px solid var(--edge);border-radius:6px;background:var(--slab);
+  text-align:center;border:1px solid rgba(59,130,246,.3);border-radius:18px;
+  background:linear-gradient(160deg,rgba(59,130,246,.10),rgba(15,23,42,.6)),var(--slab);
+  box-shadow:0 24px 60px -30px rgba(37,99,235,.6);
   padding:clamp(26px,5vw,42px);margin-top:30px;
 }
 .price .fig{font-size:clamp(40px,8vw,62px);font-weight:800;letter-spacing:-.03em;line-height:1}
 .price p{margin-left:auto;margin-right:auto}
 .price ul{margin:22px auto 0;max-width:34ch;text-align:left}
 .price li{display:flex;gap:10px;padding:7px 0;font-size:15px;color:var(--muted)}
-.price li span{color:var(--go);flex:none;font-family:var(--mono)}
+.price li span{color:var(--blue-lit);flex:none;font-weight:800}
 
 /* ---- field reports ------------------------------------------------------ */
+/* Two across rather than three. There are four quotes, and four in a
+   three-up grid leaves one stranded alone on the second row looking like an
+   afterthought. Two-up is a clean 2x2. */
 .quotes{display:grid;gap:14px;margin-top:28px;grid-template-columns:1fr}
-@media (min-width:760px){.quotes{grid-template-columns:repeat(3,1fr)}}
+@media (min-width:720px){.quotes{grid-template-columns:1fr 1fr}}
 .quote{
   margin:0;background:var(--slab);border:1px solid var(--edge);
-  border-left:3px solid var(--go);border-radius:0 12px 12px 0;padding:22px 24px;
+  border-left:3px solid var(--blue);border-radius:4px 16px 16px 4px;padding:22px 24px;
 }
 .quote blockquote{margin:0;color:var(--bone);font-size:16px;line-height:1.55}
 .quote figcaption{
@@ -356,7 +385,7 @@ footer p{font-size:13.5px;color:var(--dim);max-width:70ch}
           of men guessing, and closed the tab.
         </p>
       </div>
-      <div class="card manila">
+      <div class="card hilite">
         <span class="label">Memo</span>
         <h3 style="margin-top:10px;font-size:20px">What you were never told</h3>
         <p style="margin-top:12px">
@@ -538,7 +567,7 @@ footer p{font-size:13.5px;color:var(--dim);max-width:70ch}
 <!-- ============================================================ DISCRETION -->
 <section id="private">
   <div class="wrap">
-    <div class="card manila">
+    <div class="card hilite">
       <span class="label">Section 05 &middot; Handling</span>
       <h2 class="display" style="margin-top:12px;font-size:clamp(24px,3.6vw,34px)">
         Nobody has to know you bought this.</h2>
@@ -646,25 +675,65 @@ footer p{font-size:13.5px;color:var(--dim);max-width:70ch}
      agree to be named on a page about their sexual health. First name and
      last initial at most, and only with a yes.
 
-     The section is commented out because there is nothing real in it yet.
-     Paste the quotes in, delete this comment and the hidden attribute, and
-     it appears. An empty testimonials section is worse than none. -->
-<section id="proof" hidden>
+     Every quote below is a real message from a real buyer. Two editorial
+     notes, so nobody wonders later why the page differs from the inbox:
+
+       - Andrew's message ended with a recommendation to buy a silicone
+         sleeve off eBay and wear it for hours after a session. His words,
+         and his business — but printing it here turns one man's habit into
+         the product's advice about an unvetted device worn on genital
+         tissue for hours. That is an endorsement this page is not in a
+         position to make. His result and his method are kept; the shopping
+         tip is cut, marked with an ellipsis.
+       - "the tissue pliable" and a couple of capitals were fixed. Nothing
+         was reworded.
+
+     No dates or star ratings appear because none were given. -->
+<section id="proof">
   <div class="wrap">
     <span class="label go">Section 08 &middot; Field reports</span>
     <h2 class="display" style="margin-top:14px">From men who bought it.</h2>
-    <p class="small" style="margin-top:14px;max-width:64ch">Used with permission.
-      First names and initials only, because nobody should have to put their
-      full name on a page about this to help another man out.</p>
+    <p class="small" style="margin-top:14px;max-width:64ch">Used with permission,
+      in their own words. First names and initials only, because nobody should
+      have to put their full name on a page about this to help another man out.</p>
 
     <div class="quotes">
-      <!-- One block per quote. Copy it, do not invent it.
       <figure class="quote">
-        <blockquote>&ldquo;PASTE THE EXACT WORDS HE SENT.&rdquo;</blockquote>
-        <figcaption><b>First L.</b>bought MONTH YEAR</figcaption>
+        <blockquote>&ldquo;I&rsquo;ve been doing your manual routines and love how easy
+          and convenient it is. In 2 months with occasional pumping, I have nearly
+          gained 1cm in length.&rdquo;</blockquote>
+        <figcaption><b>Rick M.</b></figcaption>
       </figure>
-      -->
+
+      <figure class="quote">
+        <blockquote>&ldquo;My erections have been insanely good since I started doing
+          the pelvic floor exercises 2 months ago. I&rsquo;ll be purchasing your Lazy
+          GymRat app soon. Love your products man, thanks!&rdquo;</blockquote>
+        <figcaption><b>Harry</b></figcaption>
+      </figure>
+
+      <figure class="quote">
+        <blockquote>&ldquo;I gained my first .5 using the length manuals. I like doing
+          them in the shower and immediately after, while the tissue is
+          pliable&hellip;&rdquo;</blockquote>
+        <figcaption><b>Andrew S.</b></figcaption>
+      </figure>
+
+      <figure class="quote">
+        <blockquote>&ldquo;I&rsquo;ve gained both length and thickness since I&rsquo;ve
+          been using your app man, and my lady noticed before I did!&rdquo;</blockquote>
+        <figcaption><b>Carlos M.</b></figcaption>
+      </figure>
     </div>
+
+    <!-- Three of the four quote a number. The FTC's position on that is not
+         subtle: a testimonial that states a result implies it is the result
+         a buyer can expect, unless the page says otherwise, in plain sight,
+         near the claim rather than in the footer. -->
+    <p class="tiny" style="margin-top:20px;max-width:64ch">These are individual
+      results, not an average and not a promise. Bodies differ, some of these men
+      were doing other things alongside the programme, and no honest version of
+      this page can tell you what yours will be.</p>
   </div>
 </section>
 
