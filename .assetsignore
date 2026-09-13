@@ -20,8 +20,10 @@ src
 # site. Getting it out of the repo is the real fix. This stops the bleeding.
 harmonymap
 
-# Tests and tooling, not site content
+# Tests and tooling, not site content. img/ is deliberately absent from this
+# list: the screenshots and the link-preview card have to be fetchable.
 tests
+tools
 vitest.config.js
 package.json
 package-lock.json

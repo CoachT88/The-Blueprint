@@ -235,17 +235,10 @@ figure.shot{margin:0}
   border:1px solid var(--edge);border-radius:22px;padding:7px;background:var(--slab-2);
   overflow:hidden;
 }
+/* The captures are all cropped to one ratio, so the three phones in the row
+   are the same height. width and height are on the tags as well, so the page
+   does not jump when they load. */
 .phone img{border-radius:16px;width:100%;display:block}
-/* Until the real captures land, the slot holds its own shape so the page
-   never collapses around a missing image. */
-.phone .slot{
-  aspect-ratio:390/844;border-radius:16px;background:
-    repeating-linear-gradient(45deg,#16213a 0 10px,#111c31 10px 20px);
-  display:grid;place-items:center;text-align:center;padding:20px;
-}
-/* --muted, not --dim: at 11px on the lifted slate of the phone bezel the dim
-   token measures 4.08:1, which is under AA. */
-.phone .slot span{font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
 figure.shot figcaption{margin-top:12px;font-size:14px;color:var(--muted);line-height:1.45}
 figure.shot figcaption b{color:var(--bone)}
 
@@ -576,27 +569,32 @@ footer p{font-size:13.5px;color:var(--dim);max-width:70ch}
     <div class="shots">
       <figure class="shot">
         <div class="phone">
-          <!-- Replace with img/shot-session.jpg (390x844 @2x) -->
-          <div class="slot"><span>A session</span></div>
+          <img src="img/shot-home.jpg" width="780" height="1481" loading="lazy"
+               alt="The Blueprint home screen: a level and streak, a pelvic floor check,
+                    the week laid out by training type, last measurements, a coaching note
+                    about posture and blood flow, and the day's hydration.">
         </div>
-        <figcaption><b>A session running.</b> One instruction on screen, a clock, and the
-          breathing counted for you.</figcaption>
+        <figcaption><b>Your day, the moment you open it.</b> What today is for, your last
+          numbers, your water, and one thing the coach wants you to know.</figcaption>
       </figure>
       <figure class="shot">
         <div class="phone">
-          <!-- Replace with img/shot-hq.jpg (390x844 @2x) -->
-          <div class="slot"><span>Your numbers</span></div>
+          <img src="img/shot-mission.jpg" width="780" height="1481" loading="lazy"
+               alt="The session picker: a difficulty level, a warning that hydration is
+                    too low to train, a choice between length and girth work, and separate
+                    entries for stamina and blood flow work and for recovery.">
         </div>
-        <figcaption><b>What you are tracking.</b> Erection quality, measurements, sessions,
-          and how they move together.</figcaption>
+        <figcaption><b>Picking today&rsquo;s work.</b> Length or girth, at your level. And it
+          tells you to drink before you train, because dry tissue tears.</figcaption>
       </figure>
       <figure class="shot">
         <div class="phone">
-          <!-- Replace with img/shot-coach.jpg (390x844 @2x) -->
-          <div class="slot"><span>The coach</span></div>
+          <img src="img/shot-recovery.jpg" width="780" height="1481" loading="lazy"
+               alt="The recovery screen: eight exercises with the ones suited to tonight
+                    already selected, each explaining what it trains and why it matters.">
         </div>
-        <figcaption><b>The coach.</b> Ask it anything. It already knows your numbers, so
-          the answer is about you.</figcaption>
+        <figcaption><b>Recovery, picked for tonight.</b> The work that fits this time of day
+          is already chosen, and each one tells you what it is for.</figcaption>
       </figure>
     </div>
   </div>
