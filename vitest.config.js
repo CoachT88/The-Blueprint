@@ -6,14 +6,12 @@ import { defineConfig } from 'vitest/config';
 //                   to run constantly while working.
 //   npm run test:e2e  the browser suites. Slower, drives the real index.html.
 //
-// harmonymap/ is a separate project with its own tests, so it is excluded here
-// rather than being swept up by the root config.
 const isE2E = process.env.E2E === '1';
 
 export default defineConfig({
     test: {
         include: isE2E ? ['tests/e2e/**/*.test.js'] : ['tests/*.test.js'],
-        exclude: ['**/node_modules/**', 'harmonymap/**'],
+        exclude: ['**/node_modules/**'],
         // Each e2e suite launches its own browser and static server, so running
         // them concurrently would multiply memory and make timing assertions
         // flaky. Unit tests keep the default parallelism.

@@ -70,7 +70,7 @@ describe('the VAPID public key', () => {
     // fails, or succeeds against a key the server cannot match, and every push
     // silently goes nowhere on every device. Nothing else in the codebase would
     // notice, which is exactly why this is worth eleven lines.
-    const html = readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const html = readFileSync(path.join(ROOT, 'app', 'index.html'), 'utf8');
     const key = /const VAPID_PUBLIC_KEY='([^']*)'/.exec(html)?.[1];
 
     test('is present', () => {

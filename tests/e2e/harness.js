@@ -1,7 +1,8 @@
 /**
  * Shared setup for the end-to-end suites.
  *
- * The app is a single ~5,000 line index.html with no build step, so these tests
+ * The app is a single ~5,000 line app/index.html with no build step (the sales
+ * page took the site root), so these tests
  * drive the real page in a real browser rather than importing modules. Every
  * suite needs the same four things, which is what this file provides:
  *
@@ -145,7 +146,7 @@ export async function openApp(opts = {}) {
     // Generous timeout: e2e files run serially but each describe block opens its
     // own browser, so a loaded machine can push a cold navigation past the 30s
     // default. A flaky suite is worse than a slow one.
-    await page.goto(`${srv.origin}/index.html`, { waitUntil: 'domcontentloaded', timeout: 90_000 });
+    await page.goto(`${srv.origin}/app/index.html`, { waitUntil: 'domcontentloaded', timeout: 90_000 });
     await page.addStyleTag({ path: SHIM_CSS });
     await page.waitForTimeout(900); // let the inline script finish wiring
 

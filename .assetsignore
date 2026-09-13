@@ -13,8 +13,10 @@ functions
 supabase
 src
 
-# Tests and tooling, not site content
+# Tests and tooling, not site content. img/ is deliberately absent from this
+# list: the screenshots and the link-preview card have to be fetchable.
 tests
+tools
 vitest.config.js
 package.json
 package-lock.json
