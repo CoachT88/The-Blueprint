@@ -191,5 +191,5 @@ export function decideNotification({
     const kind = (streakWarn && streak >= STREAK_WARN_MIN) ? 'streak_warning' : 'daily_reminder';
     const msg = kind === 'streak_warning' ? MESSAGES.streak_warning(streak) : MESSAGES.daily_reminder();
 
-    return { kind, ...msg, url: '/' };
+    return { kind, ...msg, url: '/app/' };
 }

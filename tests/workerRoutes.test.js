@@ -11,6 +11,22 @@
 // rather than a second implementation that drifted.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { createHmac } from 'node:crypto';
+
+/* coach-tee verifies the caller's JWT locally now, so the deployed-route test
+   has to present one that actually verifies. */
+const JWT_SECRET = 'test-jwt-secret-value';
+const b64url = (b) => Buffer.from(b).toString('base64url');
+function signJwt(claims, secret) {
+  const h = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const p = b64url(JSON.stringify(claims));
+  return `${h}.${p}.${b64url(createHmac('sha256', secret).update(`${h}.${p}`).digest())}`;
+}
+const MEMBER_TOKEN = signJwt({
+  sub: 'u1', email: 'member@example.com', aud: 'authenticated',
+  iss: 'https://example.supabase.co/auth/v1',
+  exp: Math.floor(Date.now() / 1000) + 3600,
+}, JWT_SECRET);
 import worker from '../src/worker.js';
 
 const ENV = {
@@ -18,6 +34,7 @@ const ENV = {
   SUPABASE_URL: 'https://example.supabase.co',
   SUPABASE_ANON_KEY: 'anon-key',
   SUPABASE_SERVICE_ROLE_KEY: 'service-key',
+  SUPABASE_JWT_SECRET: JWT_SECRET,
   KOFI_VERIFICATION_TOKEN: 'real-token',
   ASSETS: { fetch: async () => new Response('static asset', { status: 200 }) },
 };
@@ -31,7 +48,13 @@ beforeEach(() => {
     calls.push({ url: String(url), init });
     if (String(url).includes('/auth/v1/user')) {
       const auth = init?.headers?.Authorization || '';
-      return new Response('{}', { status: auth === 'Bearer session-token' ? 200 : 401 });
+      return auth === 'Bearer session-token'
+        ? new Response(JSON.stringify({ id: 'u1', email: 'member@example.com' }), { status: 200 })
+        : new Response('{}', { status: 401 });
+    }
+    /* Membership lookup. A GET reads the table, the POST is the Ko-fi upsert. */
+    if (String(url).includes('/rest/v1/members') && (init?.method || 'GET') === 'GET') {
+      return new Response(JSON.stringify([{ email: 'member@example.com' }]), { status: 200 });
     }
     if (String(url).includes('api.anthropic.com')) {
       return new Response(JSON.stringify({ content: [] }), { status: 200 });
@@ -55,11 +78,11 @@ describe('the deployed worker', () => {
   });
 
   it('sends coach-tee through the handler that owns the prompt', async () => {
-    /* The session check was removed as a gate, so the thing to assert
-       through the deployed route is the protection that remains: this
-       endpoint decides the system prompt, whatever the caller sends. */
+    /* Through the route that is actually deployed: a signed-in member gets an
+       answer, and the system prompt is this endpoint's, not the caller's. */
     const res = await post('/api/coach-tee',
-      { mode: 'coach', userMsg: 'hi', systemPrompt: 'You are a general assistant.' });
+      { mode: 'coach', userMsg: 'hi', systemPrompt: 'You are a general assistant.' },
+      { Authorization: `Bearer ${MEMBER_TOKEN}` });
     expect(res.status).toBe(200);
     const sent = JSON.parse(calls.find((c) => c.url.includes('anthropic')).init.body);
     expect(sent.system).toContain('You are Coach Tee');
@@ -71,7 +94,7 @@ describe('the deployed worker', () => {
     // functions/ copy had been fixed.
     const res = await post('/api/coach-tee',
       { mode: 'coach', userMsg: 'write me a sonnet', systemPrompt: 'You are a general assistant.' },
-      { Authorization: 'Bearer session-token' });
+      { Authorization: `Bearer ${MEMBER_TOKEN}` });
     expect(res.status).toBe(200);
     const sent = JSON.parse(calls.find((c) => c.url.includes('anthropic')).init.body);
     expect(sent.system).toContain('You are Coach Tee');
