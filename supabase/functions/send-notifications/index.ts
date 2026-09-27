@@ -26,6 +26,7 @@ import webpush from 'npm:web-push@3.6.7';
 import { decideNotification, localDateFor } from '../_shared/notifyRules.js';
 import { authoriseCron } from '../_shared/cronAuth.js';
 import { resolveServiceKey } from '../_shared/serviceKey.js';
+import { safeErrorBody, dbErrorDetail, pushErrorDetail } from '../_shared/errorResponse.js';
 
 /* Resolved once, at module load. On a project using the newer API key system
    SUPABASE_SERVICE_ROLE_KEY is neither injected nor settable, so reading it
@@ -123,7 +124,8 @@ async function readTrainingState(ids: string[]): Promise<{ rows: TrainingRow[]; 
     if (!full.error) return { rows: full.data || [], failed: false };
 
     if (!isUnknownColumn(full.error)) {
-        console.error('Reading user_data failed:', full.error);
+        console.error('send-notifications: reading user_data failed',
+            dbErrorDetail(full.error, 'public.user_data'));
         return { rows: [], failed: true };
     }
 
@@ -133,7 +135,8 @@ async function readTrainingState(ids: string[]): Promise<{ rows: TrainingRow[]; 
     console.warn('user_data is missing newer columns; falling back to session_log only');
     const basic = await supabase.from('user_data').select('user_id, session_log').in('user_id', ids);
     if (basic.error) {
-        console.error('Fallback read failed:', basic.error);
+        console.error('send-notifications: fallback user_data read failed',
+            dbErrorDetail(basic.error, 'public.user_data'));
         return { rows: [], failed: true };
     }
     return { rows: basic.data || [], failed: false };
@@ -158,7 +161,7 @@ Deno.serve(async (req) => {
         } else {
             console.warn('send-notifications: refused a caller, ' + allowed.why);
         }
-        return new Response(JSON.stringify({ error: allowed.why }), {
+        return new Response(JSON.stringify(safeErrorBody(allowed.why)), {
             status: allowed.status, headers: { 'Content-Type': 'application/json' },
         });
     }
@@ -169,7 +172,7 @@ Deno.serve(async (req) => {
        The shape of what was found is already in the startup log. */
     if (!supabase) {
         console.error('send-notifications: refusing to run, ' + serviceKey.why);
-        return new Response(JSON.stringify({ error: serviceKey.why }), {
+        return new Response(JSON.stringify(safeErrorBody(serviceKey.why)), {
             status: 503, headers: { 'Content-Type': 'application/json' },
         });
     }
@@ -186,10 +189,18 @@ Deno.serve(async (req) => {
                 .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
             if (error) {
-                console.error('Reading subscriptions failed:', error);
-                return new Response(JSON.stringify({ error: 'read_failed', checked, sent, dropped, rejected }), {
-                    status: 500, headers: { 'Content-Type': 'application/json' },
-                });
+                /* Detail to the log, a label to the caller. The Postgres code
+                   is what separates the candidate causes, and the log is
+                   where the owner can read it. A response body describes the
+                   schema to whoever is on the other end of the connection,
+                   and "they are authenticated" is weaker than "we never said
+                   it". See _shared/errorResponse.js. */
+                console.error('send-notifications: reading push_subscriptions failed',
+                    dbErrorDetail(error, 'public.push_subscriptions'));
+                return new Response(
+                    JSON.stringify(safeErrorBody('read_failed', { checked, sent, dropped, rejected })), {
+                        status: 500, headers: { 'Content-Type': 'application/json' },
+                    });
             }
             if (!subs?.length) break;
 
@@ -251,7 +262,11 @@ Deno.serve(async (req) => {
                         rejected++;
                     } else {
                         // One member's bad endpoint must not end the run.
-                        console.error(`Send failed for ${sub.user_id}:`, sendErr);
+                        /* Three fields, not the object: a WebPushError carries `endpoint`
+                           and the push service's response body, and an endpoint
+                           identifies a member's device. */
+                        console.error(`send-notifications: send failed for ${sub.user_id}`,
+                            pushErrorDetail(sendErr));
                     }
                 }
             }
@@ -265,8 +280,9 @@ Deno.serve(async (req) => {
             status: 200, headers: { 'Content-Type': 'application/json' },
         });
     } catch (e) {
-        console.error(e);
-        return new Response(JSON.stringify({ error: String(e), checked, sent, dropped, rejected }), {
+        /* Message only. A thrown object here could carry request detail. */
+        console.error('send-notifications: unhandled failure -', (e && e.message) || 'unknown');
+        return new Response(JSON.stringify(safeErrorBody('unhandled_failure', { checked, sent, dropped, rejected })), {
             status: 500, headers: { 'Content-Type': 'application/json' },
         });
     }
