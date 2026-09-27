@@ -2,13 +2,21 @@
 // a browser.
 //
 // Required secrets (Cloudflare Pages -> Settings -> Variables and Secrets):
-//   ANTHROPIC_API_KEY - Anthropic console -> API keys
-//   SUPABASE_URL      - your Supabase project URL
-//   SUPABASE_ANON_KEY - Supabase -> Project Settings -> API -> anon/public
+//   ANTHROPIC_API_KEY         - Anthropic console -> API keys
+//   SUPABASE_JWT_SECRET       - Supabase -> Project Settings -> API -> JWT Secret
+//   SUPABASE_SERVICE_ROLE_KEY - Supabase -> Project Settings -> API -> service_role
+//   SUPABASE_URL              - optional; a public value with a default below
 //
-// This endpoint spends money on every call, so two things guard it: the
-// caller has to be signed in, and the system prompt is chosen here rather
-// than sent by the caller.
+// This endpoint spends money on every call, so three things guard it: the
+// caller has to hold a session this project issued, that session has to belong
+// to a paying member, and the system prompt is chosen here rather than sent by
+// the caller.
+//
+// Every one of those can fail, and the status code says whose fault it was.
+// 401 means sign in. 403 means you are signed in but have not bought this.
+// 503 means we are misconfigured or Supabase is unwell. Conflating the last
+// with the first is how this endpoint once told every paying member to sign in
+// while they already were.
 //
 // The previous version had neither. It forwarded whatever system prompt the
 // request supplied, with no authentication and Access-Control-Allow-Origin
@@ -35,26 +43,21 @@ const SYSTEM_PROMPTS = {
 const MAX_USER_MSG = 4000;
 const MAX_CONTEXT = 4000;
 
-/* The Supabase project this app talks to. Both values are public: they are
-   already in index.html, visible to anyone who views source. Environment
-   variables still win, so a different project can be pointed at without a
-   code change, but nothing breaks when they are simply absent. The anon key
-   only ever asks Supabase "who does this token belong to" - the service role
-   key, which is a real secret, is not used here at all. */
-const SUPABASE_DEFAULTS = {
-  url: 'https://edqmujiczuvavlemfpaz.supabase.co',
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkcW11amljenV2YXZsZW1mcGF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MDQyMTcsImV4cCI6MjA4OTk4MDIxN30.DGn__9ff5TIAL_a5YELE9yGlIRzyMop6QYh1LlmXMa8',
-};
+/* The project URL. Public: it is already in the page source. It keeps a
+   default so a value nobody has to keep secret cannot become the reason the
+   endpoint is down.
+
+   The anon key used to live here too, because identity was established by
+   asking Supabase over HTTP. It is gone: tokens are verified locally now, so
+   the only Supabase call left is the membership read, which uses the service
+   role key. */
+const SUPABASE_DEFAULT_URL = 'https://edqmujiczuvavlemfpaz.supabase.co';
 
 function supabaseConfig(env) {
   return {
     /* Trailing slashes get trimmed: a configured value ending in "/" would
-       build .co//auth/v1/user, which is not the endpoint and answers with
-       something that is not 200, and the user is told to sign in. */
-    url: String(env.SUPABASE_URL || SUPABASE_DEFAULTS.url).replace(/\/+$/, ''),
-    /* SUPABASE_ANON is accepted too: that is what the constant is called in
-       index.html, and copying the name from there is the obvious mistake. */
-    anonKey: env.SUPABASE_ANON_KEY || env.SUPABASE_ANON || SUPABASE_DEFAULTS.anonKey,
+       build .co//rest/v1/members, which is not the endpoint. */
+    url: String(env.SUPABASE_URL || SUPABASE_DEFAULT_URL).replace(/\/+$/, ''),
   };
 }
 
@@ -65,88 +68,154 @@ function json(body, status) {
   });
 }
 
-/* Confirms the caller is signed in by asking Supabase who the token belongs
-   to. This endpoint then trusts exactly the session the rest of the app
-   already trusts, rather than inventing a second idea of who a user is.
+/* Identity is established by verifying the caller's JWT here, against this
+   project's own signing secret. There is no network call.
 
-   Returns { user, problem }. Exactly one of them is set. The problem strings
-   are deliberately coarse and carry no secret, and they are split into two
-   kinds on purpose:
+   This replaced asking Supabase "who is this token" over HTTP, and the reason
+   is the distinction the previous version could not make. Supabase answers 401
+   both when the caller's token is genuinely invalid AND when the anon key this
+   endpoint is configured with belongs to a different project. Those need
+   opposite responses, and guessing wrong in one direction tells every paying
+   member to sign in while they already are. That is an outage this endpoint
+   has had once.
 
-     the caller's fault    no-token, supabase-401, supabase-403
-     our fault or nobody's supabase-5xx, unreachable
+   Verifying locally removes the ambiguity, because each failure has exactly
+   one cause:
 
-   Only the first kind is refused. That distinction is the whole reason this
-   gate can be turned back on: the previous attempt refused every request
-   whenever the check itself could not run, which is how a misconfigured anon
-   key became a total outage that survived four rounds of fixes. A request
-   arriving with no Authorization header at all can never be an infrastructure
-   problem, so that one is always safe to refuse. */
-async function identify(request, supabase) {
-  const auth = request.headers.get('Authorization') || '';
-  if (!auth.startsWith('Bearer ')) return { user: null, problem: 'no-token' };
-  try {
-    const res = await fetch(supabase.url + '/auth/v1/user', {
-      headers: { apikey: supabase.anonKey, Authorization: auth },
-    });
-    if (res.ok) {
-      const user = await res.json().catch(() => null);
-      if (user && user.id) return { user, problem: null };
-      return { user: null, problem: 'unreadable-user' };
-    }
-    /* A 401 here is one of two things and they need opposite fixes: the
-       user's token is stale, or the anon key this endpoint is configured
-       with does not belong to the project that issued it. The body says
-       which, so it goes to the log - never to the browser. */
-    const body = await res.text().catch(() => '');
-    console.error('coach-tee: Supabase would not accept the session, status ' + res.status +
-      ', host ' + supabase.url + ', said: ' + body.slice(0, 200));
-    return { user: null, problem: 'supabase-' + res.status };
-  } catch (e) {
-    console.error('coach-tee: could not reach Supabase to check the session -', e.message);
-    return { user: null, problem: 'unreachable' };
-  }
+     no Authorization header        the caller sent no credential
+     not three dot-separated parts  the caller sent something that is not a JWT
+     signature does not verify      not issued by this project
+     exp in the past                the token expired
+     JWT secret not configured      WE are misconfigured
+     algorithm is not HS256         WE are misconfigured for this project
+
+   Only the first four are the caller's problem. The last two are ours, and
+   must never be reported to a member as an authentication failure.
+
+   Returns one of:
+     { ok: true,  user: { id, email } }
+     { ok: false, kind: 'unauthorized',  why }   the caller can fix this
+     { ok: false, kind: 'misconfigured', why }   only a deploy can fix this   */
+
+function b64urlToBytes(s) {
+  const padded = s.replace(/-/g, '+').replace(/_/g, '/')
+    + '='.repeat((4 - (s.length % 4)) % 4);
+  const bin = atob(padded);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
-/* A refused session is one the caller can fix by signing in again. Anything
-   else means the check could not be carried out, and the answer goes through
-   with a loud log rather than taking the feature down. */
-function isCallersFault(problem) {
-  return problem === 'no-token' || problem === 'supabase-401' || problem === 'supabase-403';
+const unauthorized = (why) => ({ ok: false, kind: 'unauthorized', why });
+const misconfigured = (why) => ({ ok: false, kind: 'misconfigured', why });
+
+async function identify(request, env) {
+  const secret = env.SUPABASE_JWT_SECRET;
+  if (!secret) {
+    console.error('coach-tee: SUPABASE_JWT_SECRET is not set, so no session can be verified');
+    return misconfigured('no-jwt-secret');
+  }
+
+  const auth = request.headers.get('Authorization') || '';
+  if (!auth.startsWith('Bearer ')) return unauthorized('no-token');
+  const token = auth.slice(7).trim();
+
+  const parts = token.split('.');
+  if (parts.length !== 3) return unauthorized('malformed');
+
+  let header, claims;
+  try {
+    header = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[0])));
+    claims = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[1])));
+  } catch {
+    return unauthorized('undecodable');
+  }
+
+  /* Deliberately our fault rather than the caller's. A Supabase project moved
+     to asymmetric signing keys issues RS256 or ES256 tokens that this secret
+     cannot verify, and every member would otherwise be told to sign in. An
+     attacker who sets alg themselves is refused either way, so classifying
+     this as a configuration problem costs nothing and catches the migration
+     the day it happens. */
+  if (!header || header.alg !== 'HS256') {
+    console.error('coach-tee: token algorithm is ' + (header && header.alg) +
+      ', but this endpoint verifies HS256. The project signing keys and this secret disagree.');
+    return misconfigured('alg-mismatch');
+  }
+
+  let verified = false;
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+    verified = await crypto.subtle.verify(
+      'HMAC', key, b64urlToBytes(parts[2]),
+      new TextEncoder().encode(parts[0] + '.' + parts[1]));
+  } catch (e) {
+    /* importKey only throws on a secret this runtime cannot use, which is a
+       deploy fault. A wrong signature returns false; it does not throw. */
+    console.error('coach-tee: could not use SUPABASE_JWT_SECRET to verify -', e.message);
+    return misconfigured('unusable-secret');
+  }
+  if (!verified) return unauthorized('bad-signature');
+
+  if (typeof claims.exp === 'number' && claims.exp * 1000 <= Date.now()) {
+    return unauthorized('expired');
+  }
+  if (!claims.sub) return unauthorized('no-subject');
+
+  return { ok: true, user: { id: claims.sub, email: claims.email || '' } };
 }
 
 /* The same members-table check the app runs at sign-in, repeated here so a
    signed-in account that never paid cannot spend the Anthropic balance.
 
-   Returns true to allow. Failing open on an error is deliberate and matches
-   the rule above: a definitive "no row" refuses, but an unreadable table, a
-   missing service key or an unreachable host must not cost paying members
-   the feature. */
-async function isMember(email, env, supabase) {
+   This does NOT fail open. An earlier version let the request through when the
+   lookup errored, on the grounds that an outage should not cost paying members
+   the feature. That reasoning is wrong for a gate: "we could not check" is not
+   "they are a member", and an unreadable members table would have reopened the
+   endpoint to anyone with a Supabase account. Availability problems are
+   answered with 503, which is honest, rather than by letting the request past.
+
+   Returns the same shape as identify():
+     { ok: true }
+     { ok: false, kind: 'not-member' }     -> 403
+     { ok: false, kind: 'misconfigured' }  -> 503, our deploy is wrong
+     { ok: false, kind: 'upstream' }       -> 503, Supabase is unwell         */
+async function checkMembership(email, env, supabase) {
   if (!env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error('coach-tee: SUPABASE_SERVICE_ROLE_KEY is not set, cannot check membership');
-    return true;
+    return { ok: false, kind: 'misconfigured', why: 'no-service-key' };
   }
-  if (!email) return true;
+  /* A verified token with no email claim cannot be matched against the members
+     table, and letting it through would skip the gate entirely. */
+  if (!email) {
+    console.error('coach-tee: verified token carried no email claim');
+    return { ok: false, kind: 'not-member', why: 'no-email-claim' };
+  }
+  let res;
   try {
     const url = supabase.url + '/rest/v1/members?select=email&limit=1&email=eq.' + encodeURIComponent(email);
-    const res = await fetch(url, {
+    res = await fetch(url, {
       headers: {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
         Authorization: 'Bearer ' + env.SUPABASE_SERVICE_ROLE_KEY,
       },
     });
-    if (!res.ok) {
-      console.error('coach-tee: members lookup failed, status', res.status);
-      return true;
-    }
-    const rows = await res.json().catch(() => null);
-    if (!Array.isArray(rows)) return true;
-    return rows.length > 0;
   } catch (e) {
-    console.error('coach-tee: members lookup threw -', e.message);
-    return true;
+    console.error('coach-tee: members lookup could not reach Supabase -', e.message);
+    return { ok: false, kind: 'upstream', why: 'unreachable' };
   }
+  if (!res.ok) {
+    console.error('coach-tee: members lookup failed, status', res.status);
+    return { ok: false, kind: 'upstream', why: 'status-' + res.status };
+  }
+  const rows = await res.json().catch(() => null);
+  if (!Array.isArray(rows)) {
+    console.error('coach-tee: members lookup returned something that is not a list');
+    return { ok: false, kind: 'upstream', why: 'unreadable-body' };
+  }
+  return rows.length > 0 ? { ok: true } : { ok: false, kind: 'not-member', why: 'no-row' };
 }
 
 /* Questions per member per UTC day. Counted by supabase/coach-usage.sql, which
@@ -198,21 +267,33 @@ export async function onRequestPost({ request, env }) {
      Everything else that closes this endpoint is unchanged: the system prompt
      lives here so a caller cannot supply one, only two modes exist, the
      message and context are capped, and CORS invites nobody. */
-  const { user, problem } = await identify(request, supabase);
-  if (problem && isCallersFault(problem)) {
+  const who = await identify(request, env);
+  if (!who.ok && who.kind === 'unauthorized') {
     return json({ error: { message: 'Sign in to talk to Coach Tee.' } }, 401);
   }
-  if (problem) console.error('coach-tee: answering an unverified session -', problem);
+  if (!who.ok) {
+    /* Our fault, so say so. Telling a signed-in member to sign in when the
+       real problem is a missing secret is the failure this endpoint has
+       already had, and it is indistinguishable from the app being broken. */
+    console.error('coach-tee: refusing because this endpoint is misconfigured -', who.why);
+    return json({ error: { message: 'Coach Tee is temporarily unavailable. This is our end, not yours.' } }, 503);
+  }
+  const user = who.user;
 
   /* A signed-in account is not the same as a paying one. Anyone can create a
      Supabase account against a public anon key, so without this the endpoint
      is still open to anybody willing to sign up. */
-  if (user && !(await isMember(user.email, env, supabase))) {
-    console.warn('coach-tee: refused a signed-in non-member,', user.id);
+  const member = await checkMembership(user.email, env, supabase);
+  if (!member.ok && member.kind === 'not-member') {
+    console.warn('coach-tee: refused a signed-in non-member,', user.id, member.why);
     return json({ error: { message: 'Coach Tee is for Blueprint members.' } }, 403);
   }
+  if (!member.ok) {
+    console.error('coach-tee: could not establish membership -', member.kind, member.why);
+    return json({ error: { message: 'Coach Tee is temporarily unavailable. This is our end, not yours.' } }, 503);
+  }
 
-  if (user && !(await withinDailyLimit(user.id, env, supabase))) {
+  if (!(await withinDailyLimit(user.id, env, supabase))) {
     console.warn('coach-tee: daily limit reached for', user.id);
     return json({ error: { message: "That is today's Coach Tee limit. It resets tomorrow." } }, 429);
   }

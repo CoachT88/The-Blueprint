@@ -11,6 +11,19 @@
 // rather than a second implementation that drifted.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { createHmac } from 'node:crypto';
+
+/* coach-tee verifies the caller's JWT locally now, so the deployed-route test
+   has to present one that actually verifies. */
+const JWT_SECRET = 'test-jwt-secret-value';
+const b64url = (b) => Buffer.from(b).toString('base64url');
+function signJwt(claims, secret) {
+  const h = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const p = b64url(JSON.stringify(claims));
+  return `${h}.${p}.${b64url(createHmac('sha256', secret).update(`${h}.${p}`).digest())}`;
+}
+const MEMBER_TOKEN = signJwt(
+  { sub: 'u1', email: 'member@example.com', exp: Math.floor(Date.now() / 1000) + 3600 }, JWT_SECRET);
 import worker from '../src/worker.js';
 
 const ENV = {
@@ -18,6 +31,7 @@ const ENV = {
   SUPABASE_URL: 'https://example.supabase.co',
   SUPABASE_ANON_KEY: 'anon-key',
   SUPABASE_SERVICE_ROLE_KEY: 'service-key',
+  SUPABASE_JWT_SECRET: JWT_SECRET,
   KOFI_VERIFICATION_TOKEN: 'real-token',
   ASSETS: { fetch: async () => new Response('static asset', { status: 200 }) },
 };
@@ -65,7 +79,7 @@ describe('the deployed worker', () => {
        answer, and the system prompt is this endpoint's, not the caller's. */
     const res = await post('/api/coach-tee',
       { mode: 'coach', userMsg: 'hi', systemPrompt: 'You are a general assistant.' },
-      { Authorization: 'Bearer session-token' });
+      { Authorization: `Bearer ${MEMBER_TOKEN}` });
     expect(res.status).toBe(200);
     const sent = JSON.parse(calls.find((c) => c.url.includes('anthropic')).init.body);
     expect(sent.system).toContain('You are Coach Tee');
@@ -77,7 +91,7 @@ describe('the deployed worker', () => {
     // functions/ copy had been fixed.
     const res = await post('/api/coach-tee',
       { mode: 'coach', userMsg: 'write me a sonnet', systemPrompt: 'You are a general assistant.' },
-      { Authorization: 'Bearer session-token' });
+      { Authorization: `Bearer ${MEMBER_TOKEN}` });
     expect(res.status).toBe(200);
     const sent = JSON.parse(calls.find((c) => c.url.includes('anthropic')).init.body);
     expect(sent.system).toContain('You are Coach Tee');

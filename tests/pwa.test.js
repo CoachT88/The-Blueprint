@@ -198,4 +198,11 @@ describe('the assets the install needs are actually served', () => {
         expect(existsSync(path.join(ROOT, 'functions/api/whop-webhook.js'))).toBe(false);
         expect(read('src/worker.js').toString('utf8')).toMatch(/410/);
     });
+
+    test('nothing still claims the Whop webhook is live', () => {
+        // A comment that describes a decommissioned system as running is how
+        // the next person reasons from a false premise.
+        expect(html).not.toMatch(/Whop\s+webhook\s+stays\s+live/i);
+        expect(html).toMatch(/Whop is decommissioned/i);
+    });
 });

@@ -5516,9 +5516,11 @@ async function handleLogout(){
     try{await sb.auth.signOut();}catch(e){console.error('signOut error:',e);}
 }
 // ── Purchase link shown when a signed-in email is not on the members list ──
-// Ko-fi is the current storefront. Members who originally bought through Whop
-// keep their access: they are already rows in the members table, and the Whop
-// webhook stays live to handle any remaining cancellations.
+// Ko-fi is the only storefront. Whop is decommissioned: its webhook is gone
+// and the Worker answers 410 on that route. Members who originally bought
+// through Whop keep their access, because they are already rows in the members
+// table and nothing removes them. There is no automatic revocation path any
+// more, so a refund has to be handled by deleting the row by hand.
 const KOFI_URL='https://ko-fi.com/s/75a70cb698';
 function _purchaseLinksHTML(){
     const k=KOFI_URL?`<a href="${KOFI_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">get access here</a>`:'purchase The Blueprint';

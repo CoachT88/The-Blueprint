@@ -14,16 +14,35 @@ name the missing variable.
 | Name | Kind | Used by | Notes |
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | Secret | `/api/coach-tee` | Anthropic console → API keys |
-| `SUPABASE_URL` | Optional | coach-tee, ko-fi | Public; already in the page source. coach-tee falls back to a built-in default, ko-fi requires it |
-| `SUPABASE_ANON_KEY` | Optional | `/api/coach-tee` | Public by design. Falls back to a built-in default. `SUPABASE_ANON` is accepted too, since that is what index.html calls it |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | `/api/kofi-webhook` | Bypasses row level security. Never put this in the client |
+| `SUPABASE_JWT_SECRET` | **Secret** | `/api/coach-tee` | Project Settings → API → JWT Secret. Coach Tee verifies each caller's token against this locally. Without it the endpoint returns **503**, not 401 |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | coach-tee, ko-fi | Bypasses row level security. Coach Tee reads the members table with it; without it coach-tee returns 503. Never put this in the client |
 | `KOFI_VERIFICATION_TOKEN` | Secret | `/api/kofi-webhook` | Ko-fi → Webhooks. Without it the webhook refuses every request rather than accepting forgeries |
+| `SUPABASE_URL` | Optional | coach-tee, ko-fi | Public; already in the page source. coach-tee falls back to a built-in default, ko-fi requires it |
+| `KOFI_ACCEPTED_TYPES` | Optional | `/api/kofi-webhook` | Comma-separated Ko-fi event types that grant access. Defaults to `Shop Order` |
+| `KOFI_SHOP_ITEM_CODE` | Optional | `/api/kofi-webhook` | The shop item that is The Blueprint. Defaults to `75a70cb698`, the code in the checkout link |
 
-Only the secrets can stop an endpoint. The Supabase URL and anon key are
-public constants sitting in the page source, so coach-tee carries defaults for
-them rather than refusing to run when they are not configured — requiring a
-public value to be set separately bought nothing and cost an outage the first
-time it changed.
+`SUPABASE_ANON_KEY` is no longer used. Coach Tee used to ask Supabase over
+HTTP who a token belonged to, which meant a wrong anon key and an invalid
+token produced the same 401 and were answered the same way. Tokens are
+verified locally now, so that ambiguity is gone and the anon key with it.
+
+## What each Coach Tee failure means
+
+The status code says whose fault it is, and that distinction is deliberate.
+Telling a signed-in member to sign in, when the real problem is a missing
+secret, is an outage this endpoint has already had once.
+
+| The member sees | It means | Where to look |
+|---|---|---|
+| **401** Sign in to talk to Coach Tee | No token, a forged or expired one | Nothing to fix server-side |
+| **403** Coach Tee is for Blueprint members | Real session, no row in `members` | Did their purchase reach the webhook? |
+| **503** temporarily unavailable, this is our end | Missing secret, project key change, or Supabase unwell | Worker logs name the variable |
+| **429** today's limit | Over 100 questions in a day | `coach_usage` table |
+
+If **every** member suddenly gets 503, read the Worker log: it names the
+missing or unusable variable directly. If every member gets 401, that is not
+a configuration problem, because configuration problems cannot produce a 401
+any more.
 
 ## Keep auto-reload off on Anthropic credits
 
