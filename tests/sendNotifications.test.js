@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { authoriseCron, secretsMatch, CRON_SECRET_HEADER } from '../supabase/functions/_shared/cronAuth.js';
 import { resolveServiceKey, DEFAULT_KEY_NAME } from '../supabase/functions/_shared/serviceKey.js';
+import { safeErrorBody, dbErrorDetail, pushErrorDetail } from '../supabase/functions/_shared/errorResponse.js';
 
 /**
  * The edge function runs on Deno, against a live database, on a cron. Nothing
@@ -435,5 +436,152 @@ describe('the sender uses the resolver, and fails closed', () => {
 
     test('never logs the resolved key', () => {
         expect(src).not.toMatch(/console\.\w+\([^)]*serviceKey\.key/);
+    });
+});
+
+/* What the caller is told versus what the log is told.
+ *
+ * A previous version returned the Postgres code, message, details, hint and
+ * relation in the HTTP response, reasoning that the caller holds CRON_SECRET.
+ * The detail is what made the failure diagnosable and it still exists, but in
+ * the log: a response body describes the schema to whoever is on the other
+ * end, and "they are authenticated" is weaker than "we never said it".
+ */
+describe('error responses say nothing the caller should not hear', () => {
+    /* A realistic PostgREST error, with things that must not travel. */
+    const DB_ERROR = {
+        code: '42703',
+        message: 'column push_subscriptions.last_notified_date does not exist',
+        details: 'SELECT user_id, endpoint, p256dh FROM public.push_subscriptions',
+        hint: 'Perhaps you meant to reference the column "push_subscriptions.updated_at".',
+    };
+
+    test('returns a label and the counters, and nothing else', () => {
+        const body = safeErrorBody('read_failed', { checked: 3, sent: 1, dropped: 0, rejected: 2 });
+        expect(Object.keys(body).sort()).toEqual(['checked', 'dropped', 'error', 'rejected', 'sent']);
+        expect(body.error).toBe('read_failed');
+    });
+
+    test('carries no database detail into the body', () => {
+        const body = safeErrorBody('read_failed', { checked: 0, sent: 0, dropped: 0, rejected: 0 });
+        const text = JSON.stringify(body);
+        expect(text).not.toContain('42703');
+        expect(text).not.toContain('does not exist');
+        expect(text).not.toContain('Perhaps you meant');
+        expect(text).not.toContain('push_subscriptions');
+        expect(text).not.toContain('SELECT');
+        expect(body.hint).toBeUndefined();
+        expect(body.details).toBeUndefined();
+        expect(body.relation).toBeUndefined();
+        expect(body.db).toBeUndefined();
+        expect(body.keySource).toBeUndefined();
+    });
+
+    test('keeps every bit of that detail for the log', () => {
+        // Sanitising the response must not cost the diagnosis.
+        const detail = dbErrorDetail(DB_ERROR, 'public.push_subscriptions');
+        expect(detail.code).toBe('42703');
+        expect(detail.message).toBe(DB_ERROR.message);
+        expect(detail.details).toBe(DB_ERROR.details);
+        expect(detail.hint).toBe(DB_ERROR.hint);
+        expect(detail.relation).toBe('public.push_subscriptions');
+    });
+
+    test('cannot be made to leak through the counters argument', () => {
+        /* Counters are copied by name, so a call site that hands over a wider
+           object cannot widen what is returned. */
+        const body = safeErrorBody('read_failed', {
+            checked: 1,
+            message: DB_ERROR.message,
+            hint: DB_ERROR.hint,
+            key: 'sb_secret_leaked',
+            email: 'member@example.com',
+        });
+        expect(Object.keys(body).sort()).toEqual(['checked', 'error']);
+        const text = JSON.stringify(body);
+        expect(text).not.toContain('sb_secret_leaked');
+        expect(text).not.toContain('member@example.com');
+    });
+
+    test('swallows secrets, tokens, endpoints and emails hidden in a label', () => {
+        const nasty = 'read_failed sb_secret_abc eyJhbGciOiJIUzI1NiJ9.x.y https://fcm.googleapis.com/fcm/send/abc member@example.com';
+        // The label is stringified as given; the guarantee is that nothing is
+        // ADDED. A caller-supplied label is never built from an error object.
+        const body = safeErrorBody(nasty);
+        expect(Object.keys(body)).toEqual(['error']);
+    });
+
+    test('keeps a push failure diagnosable without logging the endpoint', () => {
+        /* A WebPushError carries the endpoint and the push service's response
+           body. An endpoint identifies a member's device. */
+        const detail = pushErrorDetail({
+            name: 'WebPushError',
+            statusCode: 410,
+            message: 'Received unexpected response code',
+            endpoint: 'https://fcm.googleapis.com/fcm/send/abc123',
+            body: '<html>NotRegistered</html>',
+            headers: { 'x-thing': 'y' },
+        });
+        expect(detail).toEqual({ name: 'WebPushError', statusCode: 410, message: 'Received unexpected response code' });
+        const text = JSON.stringify(detail);
+        expect(text).not.toContain('fcm.googleapis.com');
+        expect(text).not.toContain('NotRegistered');
+    });
+
+    test('survives an error that is null, empty or the wrong shape', () => {
+        for (const bad of [null, undefined, {}, 'a string', 42]) {
+            expect(() => dbErrorDetail(bad, 'public.x'), String(bad)).not.toThrow();
+            expect(() => pushErrorDetail(bad), String(bad)).not.toThrow();
+        }
+        expect(dbErrorDetail(null, 'public.x').code).toBeNull();
+        expect(pushErrorDetail(null).statusCode).toBeNull();
+    });
+
+    test('keeps read_failed distinguishable from a configuration failure', () => {
+        expect(safeErrorBody('read_failed').error).toBe('read_failed');
+        expect(safeErrorBody('service-key-not-configured').error).toBe('service-key-not-configured');
+        expect(safeErrorBody('read_failed').error)
+            .not.toBe(safeErrorBody('service-key-not-configured').error);
+    });
+});
+
+describe('the sender does not route detail around the sanitiser', () => {
+    /* A pure function cannot stop a call site inlining the error, so the
+       remaining guarantee has to be read off the source. */
+    const responses = src.match(/new Response\(\s*JSON\.stringify\([\s\S]{0,400}?\)\s*,/g) || [];
+
+    test('builds every response body through safeErrorBody or the counters', () => {
+        expect(responses.length).toBeGreaterThan(3);
+        for (const r of responses) {
+            const ok = r.includes('safeErrorBody(') || /\{ checked, sent, dropped, rejected \}/.test(r);
+            expect(ok, r.slice(0, 120)).toBe(true);
+        }
+    });
+
+    test('never interpolates a database message, hint or detail into a response', () => {
+        for (const r of responses) {
+            expect(r).not.toMatch(/error\.(message|hint|details|code)/);
+            expect(r).not.toMatch(/String\(e\)/);
+            expect(r).not.toMatch(/keySource/);
+        }
+    });
+
+    test('never puts the resolved key anywhere near a response or a log', () => {
+        expect(src).not.toMatch(/console\.\w+\([^)]*serviceKey\.key/);
+        expect(src).not.toMatch(/JSON\.stringify\([^)]*serviceKey\.key/);
+    });
+
+    test('logs the push failure through pushErrorDetail, not the raw error', () => {
+        expect(src).toMatch(/pushErrorDetail\(sendErr\)/);
+        expect(src).not.toMatch(/console\.error\([^)]*,\s*sendErr\s*\)/);
+    });
+
+    test('never logs a bare caught object', () => {
+        expect(src).not.toMatch(/console\.error\(e\)/);
+        expect(src).toMatch(/\(e && e\.message\)/);
+    });
+
+    test('sends database detail to the log on the read path', () => {
+        expect(src).toMatch(/dbErrorDetail\(error, 'public\.push_subscriptions'\)/);
     });
 });
