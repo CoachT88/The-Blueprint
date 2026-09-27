@@ -112,14 +112,49 @@ describe('the VAPID public key', () => {
 });
 
 describe('the setup SQL', () => {
-    const sql = readFileSync(path.join(ROOT, 'supabase/notifications.sql'), 'utf8');
+    /* Split in two so the schema can be applied without also starting the
+       hourly job. Bundling them meant the prerequisite could not be installed
+       without the switch being flipped at the same time. */
+    const schemaSql = readFileSync(path.join(ROOT, 'supabase/notifications-schema.sql'), 'utf8');
+    const sql = readFileSync(path.join(ROOT, 'supabase/notifications-cron.sql'), 'utf8');
     /* Only the statements that will actually run. Everything commented out is
        documentation or a fallback, and must not be mistaken for the live
        configuration by a test. */
     const live = sql.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
 
-    test('adds the column the sender writes to', () => {
-        expect(sql).toMatch(/add column if not exists last_notified_date/i);
+    test('PART A creates the column the sender reads, and the table if absent', () => {
+        /* Until this runs, selecting last_notified_date fails with 42703 and
+           the function reports read_failed, which points at row level
+           security rather than at a missing column. */
+        expect(schemaSql).toMatch(/add column if not exists last_notified_date/i);
+        expect(schemaSql).toMatch(/create table if not exists public\.push_subscriptions/i);
+    });
+
+    test('PART A covers every column the code touches', () => {
+        for (const col of ['endpoint', 'p256dh', 'auth', 'reminder_time',
+                           'streak_warn', 'timezone', 'last_notified_date', 'updated_at']) {
+            expect(schemaSql, col).toMatch(new RegExp(`add column if not exists\\s+${col}\\b`, 'i'));
+        }
+    });
+
+    test('PART A cannot start anything', () => {
+        // The whole point of the split: applying the schema must be safe.
+        const live = schemaSql.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+        expect(live).not.toMatch(/cron\.schedule/);
+        expect(live).not.toMatch(/net\.http_post/);
+        expect(live).not.toMatch(/vault\.create_secret/);
+    });
+
+    test('PART A is idempotent', () => {
+        const live = schemaSql.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+        for (const stmt of live.match(/^\s*(create|alter)\s+[^;]+;/gim) || []) {
+            expect(stmt.toLowerCase()).toMatch(/if not exists/);
+        }
+    });
+
+    test('the cron file says it must not be run yet', () => {
+        expect(sql).toMatch(/DO NOT RUN THIS UNTIL THE SMOKE TEST PASSES/);
+        expect(sql).toMatch(/notifications-schema\.sql/);
     });
 
     test('schedules the run hourly', () => {

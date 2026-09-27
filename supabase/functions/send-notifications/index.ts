@@ -186,8 +186,35 @@ Deno.serve(async (req) => {
                 .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
             if (error) {
-                console.error('Reading subscriptions failed:', error);
-                return new Response(JSON.stringify({ error: 'read_failed', checked, sent, dropped, rejected }), {
+                /* `read_failed` on its own sent a debugging session looking at
+                   row level security when the cause was a missing column. The
+                   Postgres code is the fastest way to tell these apart:
+
+                     42P01  the table does not exist
+                     42703  a column does not exist, e.g. last_notified_date
+                            before supabase/notifications-schema.sql is run
+                     42501  the resolved credential lacks privilege, which
+                            means it is not a secret key
+                     PGRST* PostgREST could not build or run the request
+
+                   None of this carries a secret: it is schema and status. The
+                   caller already holds CRON_SECRET, so it is not public
+                   either. `keySource` is a variable name, never a value. */
+                console.error('send-notifications: reading push_subscriptions failed', {
+                    code: error.code, message: error.message, hint: error.hint, details: error.details,
+                });
+                return new Response(JSON.stringify({
+                    error: 'read_failed',
+                    relation: 'public.push_subscriptions',
+                    db: {
+                        code: error.code || null,
+                        message: error.message || null,
+                        details: error.details || null,
+                        hint: error.hint || null,
+                    },
+                    keySource: serviceKey.source || null,
+                    checked, sent, dropped, rejected,
+                }), {
                     status: 500, headers: { 'Content-Type': 'application/json' },
                 });
             }
@@ -261,7 +288,7 @@ Deno.serve(async (req) => {
 
         // rejected > 0 across the board means this server's VAPID keys are
         // wrong, not that members' subscriptions are stale.
-        return new Response(JSON.stringify({ checked, sent, dropped, rejected }), {
+        return new Response(JSON.stringify({ checked, sent, dropped, rejected, keySource: serviceKey.source }), {
             status: 200, headers: { 'Content-Type': 'application/json' },
         });
     } catch (e) {
