@@ -6,6 +6,11 @@ on:
       - main
     paths:
       - 'supabase/functions/**'
+  # Manual redeploy. Without this the only ways to reach production are to
+  # re-run a past run or invent a commit that touches supabase/functions,
+  # which is a poor position to be in when a deploy has been failing and you
+  # are trying to confirm a fix.
+  workflow_dispatch:
 
 jobs:
   deploy:
