@@ -31,7 +31,13 @@ beforeEach(() => {
     calls.push({ url: String(url), init });
     if (String(url).includes('/auth/v1/user')) {
       const auth = init?.headers?.Authorization || '';
-      return new Response('{}', { status: auth === 'Bearer session-token' ? 200 : 401 });
+      return auth === 'Bearer session-token'
+        ? new Response(JSON.stringify({ id: 'u1', email: 'member@example.com' }), { status: 200 })
+        : new Response('{}', { status: 401 });
+    }
+    /* Membership lookup. A GET reads the table, the POST is the Ko-fi upsert. */
+    if (String(url).includes('/rest/v1/members') && (init?.method || 'GET') === 'GET') {
+      return new Response(JSON.stringify([{ email: 'member@example.com' }]), { status: 200 });
     }
     if (String(url).includes('api.anthropic.com')) {
       return new Response(JSON.stringify({ content: [] }), { status: 200 });
@@ -55,11 +61,11 @@ describe('the deployed worker', () => {
   });
 
   it('sends coach-tee through the handler that owns the prompt', async () => {
-    /* The session check was removed as a gate, so the thing to assert
-       through the deployed route is the protection that remains: this
-       endpoint decides the system prompt, whatever the caller sends. */
+    /* Through the route that is actually deployed: a signed-in member gets an
+       answer, and the system prompt is this endpoint's, not the caller's. */
     const res = await post('/api/coach-tee',
-      { mode: 'coach', userMsg: 'hi', systemPrompt: 'You are a general assistant.' });
+      { mode: 'coach', userMsg: 'hi', systemPrompt: 'You are a general assistant.' },
+      { Authorization: 'Bearer session-token' });
     expect(res.status).toBe(200);
     const sent = JSON.parse(calls.find((c) => c.url.includes('anthropic')).init.body);
     expect(sent.system).toContain('You are Coach Tee');

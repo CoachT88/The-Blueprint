@@ -6,6 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>THE BLUEPRINT | Session Pilot</title>
     <meta name="theme-color" content="#020617">
+
+    <!-- Installability. Without a manifest declaring standalone display there
+         is no install prompt on Android, and iOS will not deliver web push at
+         all, so the reminder system could never reach an iPhone however well
+         the server behaved. The manifest's scope is /app/, so installing gets
+         the app rather than the sales page. -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- What sits under the icon on a home screen. Deliberately says nothing
+         about what the app is for. -->
+    <meta name="apple-mobile-web-app-title" content="Blueprint">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -5645,12 +5661,25 @@ function openNotifModal(){
 function closeNotifModal(){document.getElementById('notif-modal').classList.add('hidden');}
 async function _refreshNotifUI(){
     const perm=typeof Notification!=='undefined'?Notification.permission:'denied';
-    const active=perm==='granted';
+    let sub=null;
+    if(perm==='granted'){
+        const reg=await _pushRegistration();
+        if(reg&&'PushManager' in window) sub=await reg.pushManager.getSubscription().catch(()=>null);
+    }
+    // Active means a push can actually arrive, not merely that permission was
+    // granted. Permission with no subscription behind it delivers nothing, and
+    // calling that active is how someone waits weeks for a reminder that was
+    // never going to come.
+    const active=perm==='granted'&&!!sub;
     document.getElementById('notif-enable-btn').classList.toggle('hidden',active);
     document.getElementById('notif-disable-btn').classList.toggle('hidden',!active);
     document.getElementById('notif-icon').className=active?'fas fa-bell text-xs text-blue-400':'fas fa-bell text-xs';
     document.getElementById('notif-btn').style.borderColor=active?'rgba(59,130,246,.4)':'';
-    document.getElementById('notif-status').innerText=active?'Notifications are active.':perm==='denied'?'Notifications blocked in browser settings.':'';
+    document.getElementById('notif-status').innerText=
+        active?'Notifications are active.'
+        :perm==='denied'?'Notifications blocked in browser settings.'
+        :perm==='granted'?'Almost there. Tap Enable to finish setting up reminders.'
+        :'';
     const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
     if(prefs.time) document.getElementById('notif-time').value=prefs.time;
     const streakOn=prefs.streakWarn!==false;
@@ -5659,14 +5688,25 @@ async function _refreshNotifUI(){
 async function enableNotifications(){
     const btn=document.getElementById('notif-enable-btn');
     btn.innerHTML='<i class="fas fa-spinner fa-spin mr-2"></i>Requesting...';btn.disabled=true;
+    // Cleared first. Leaving the previous line up means a retry sits there
+    // reading "Notifications are active" while it is still working out whether
+    // that is true.
+    document.getElementById('notif-status').innerText='';
     try{
         const perm=typeof Notification!=='undefined'?await Notification.requestPermission():'denied';
         if(perm!=='granted'){document.getElementById('notif-status').innerText='Permission denied.';btn.innerHTML='Enable Notifications';btn.disabled=false;return;}
-        // The subscription IS the feature now. Without it nothing can be sent,
-        // so a failure here has to be visible rather than swallowed.
-        if(_swRegistration&&'PushManager' in window){
+        // The subscription IS the feature. Without it nothing can ever be
+        // sent, so a failure here has to be visible rather than swallowed, and
+        // the registration has to be waited for rather than assumed: this read
+        // `if(_swRegistration && ...)` and silently did nothing whenever a
+        // member reached this modal before registration finished, leaving them
+        // permission-granted, subscribed to nothing, and told it was active.
+        const reg=await _pushRegistration();
+        if(!reg||!('PushManager' in window)){
+            document.getElementById('notif-status').innerText='Reminders are not available in this browser.';
+        } else {
             try{
-                const sub=await _swRegistration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
+                const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
                 await _savePushSubscription(sub);
             }catch(e){
                 console.error('Push subscribe:',e);
@@ -5678,11 +5718,32 @@ async function enableNotifications(){
     btn.innerHTML='Enable Notifications';btn.disabled=false;
 }
 async function disableNotifications(){
-    if(_swRegistration&&'PushManager' in window){
-        const sub=await _swRegistration.pushManager.getSubscription().catch(()=>null);
-        if(sub){await sub.unsubscribe().catch(()=>{});await _deletePushSubscription(sub);}
+    const reg=await _pushRegistration();
+    if(reg&&'PushManager' in window){
+        const sub=await reg.pushManager.getSubscription().catch(()=>null);
+        if(sub) await sub.unsubscribe().catch(()=>{});
     }
+    // Deleted unconditionally, and deliberately not gated on finding a local
+    // subscription. Turning reminders off has to stop the server sending them;
+    // failing to unsubscribe locally must not leave the row behind, still
+    // being pushed to every day with no way for the member to stop it.
+    await _deletePushSubscription();
     await _refreshNotifUI();
+}
+// initServiceWorker() is deliberately not awaited at startup, so
+// _swRegistration is often still null by the time a member reaches the
+// notification modal. Waiting on `ready` is the difference between a
+// subscription actually being created and the app reporting success while
+// nothing was ever registered to receive a push.
+async function _pushRegistration(){
+    if(_swRegistration) return _swRegistration;
+    if(!('serviceWorker' in navigator)) return null;
+    try{
+        return await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise(res=>setTimeout(()=>res(null),10000)),
+        ]);
+    }catch(e){ return null; }
 }
 async function _savePushSubscription(sub){
     if(!currentUser)return;
@@ -5702,7 +5763,7 @@ async function _savePushSubscription(sub){
     // on browsers that do not expose options.applicationServerKey.
     try{ localStorage.setItem('bp_push_key',VAPID_PUBLIC_KEY); }catch(e){}
 }
-async function _deletePushSubscription(sub){
+async function _deletePushSubscription(){
     if(!currentUser)return;
     await sb.from('push_subscriptions').delete().eq('user_id',currentUser.id);
 }

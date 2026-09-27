@@ -34,6 +34,23 @@ async function upsertMember(email, supabaseUrl, serviceKey) {
   if (!res.ok) throw new Error(`Supabase upsert failed: ${res.status}`);
 }
 
+/* Compared in constant time so response latency cannot be used to recover the
+   token one character at a time. */
+function tokensMatch(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/* Deliberately not a full RFC validator. The job is to stop a verified but
+   malformed payload writing junk into the table that grants paid access. */
+function isPlausibleEmail(value) {
+  return typeof value === 'string'
+    && value.length >= 6 && value.length <= 254
+    && /^[^\s@]+@[^\s@.]+\.[^\s@]+$/.test(value);
+}
+
 export async function onRequestPost({ request, env }) {
   /* Checked before the body is even parsed. The previous version only
      compared the token when KOFI_VERIFICATION_TOKEN happened to be set, so a
@@ -61,14 +78,28 @@ export async function onRequestPost({ request, env }) {
     return new Response('Bad Request', { status: 400 });
   }
 
-  if (body.verification_token !== env.KOFI_VERIFICATION_TOKEN) {
+  /* JSON.parse happily returns null, a number or a string, and reading a
+     property off null throws. Established before anything touches the body. */
+  if (!body || typeof body !== 'object') {
+    console.error('Ko-fi: payload was not an object');
+    return new Response('Bad Request', { status: 400 });
+  }
+
+  if (!tokensMatch(body.verification_token, env.KOFI_VERIFICATION_TOKEN)) {
     console.error('Ko-fi: verification token mismatch');
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const email = body.email;
-  if (!email) {
-    console.error('Ko-fi: verified payload carried no email');
+  /* Lowercased, because Supabase Auth lowercases the address it signs people
+     in with, and the members lookup is a case-sensitive equality test. A row
+     written as Buyer@Example.com never matches the buyer@example.com the app
+     asks about, so the buyer pays and is then told there is no membership for
+     their email. Trimmed for the same reason. */
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  if (!isPlausibleEmail(email)) {
+    /* Verified as genuinely from Ko-fi, but with nothing usable in it. 200 so
+       Ko-fi stops retrying a request that can never succeed. */
+    console.error('Ko-fi: verified payload carried no usable email');
     return new Response('OK', { status: 200 });
   }
 

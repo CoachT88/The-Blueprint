@@ -67,17 +67,33 @@ function json(body, status) {
 
 /* Confirms the caller is signed in by asking Supabase who the token belongs
    to. This endpoint then trusts exactly the session the rest of the app
-   already trusts, rather than inventing a second idea of who a user is. */
-/* Returns a short reason the session was not accepted, or null when it was.
-   Reasons are deliberately coarse and carry no secret. */
-async function sessionProblem(request, supabase) {
+   already trusts, rather than inventing a second idea of who a user is.
+
+   Returns { user, problem }. Exactly one of them is set. The problem strings
+   are deliberately coarse and carry no secret, and they are split into two
+   kinds on purpose:
+
+     the caller's fault    no-token, supabase-401, supabase-403
+     our fault or nobody's supabase-5xx, unreachable
+
+   Only the first kind is refused. That distinction is the whole reason this
+   gate can be turned back on: the previous attempt refused every request
+   whenever the check itself could not run, which is how a misconfigured anon
+   key became a total outage that survived four rounds of fixes. A request
+   arriving with no Authorization header at all can never be an infrastructure
+   problem, so that one is always safe to refuse. */
+async function identify(request, supabase) {
   const auth = request.headers.get('Authorization') || '';
-  if (!auth.startsWith('Bearer ')) return 'no-token';
+  if (!auth.startsWith('Bearer ')) return { user: null, problem: 'no-token' };
   try {
     const res = await fetch(supabase.url + '/auth/v1/user', {
       headers: { apikey: supabase.anonKey, Authorization: auth },
     });
-    if (res.ok) return null;
+    if (res.ok) {
+      const user = await res.json().catch(() => null);
+      if (user && user.id) return { user, problem: null };
+      return { user: null, problem: 'unreadable-user' };
+    }
     /* A 401 here is one of two things and they need opposite fixes: the
        user's token is stale, or the anon key this endpoint is configured
        with does not belong to the project that issued it. The body says
@@ -85,10 +101,76 @@ async function sessionProblem(request, supabase) {
     const body = await res.text().catch(() => '');
     console.error('coach-tee: Supabase would not accept the session, status ' + res.status +
       ', host ' + supabase.url + ', said: ' + body.slice(0, 200));
-    return 'supabase-' + res.status;
+    return { user: null, problem: 'supabase-' + res.status };
   } catch (e) {
     console.error('coach-tee: could not reach Supabase to check the session -', e.message);
-    return 'unreachable';
+    return { user: null, problem: 'unreachable' };
+  }
+}
+
+/* A refused session is one the caller can fix by signing in again. Anything
+   else means the check could not be carried out, and the answer goes through
+   with a loud log rather than taking the feature down. */
+function isCallersFault(problem) {
+  return problem === 'no-token' || problem === 'supabase-401' || problem === 'supabase-403';
+}
+
+/* The same members-table check the app runs at sign-in, repeated here so a
+   signed-in account that never paid cannot spend the Anthropic balance.
+
+   Returns true to allow. Failing open on an error is deliberate and matches
+   the rule above: a definitive "no row" refuses, but an unreadable table, a
+   missing service key or an unreachable host must not cost paying members
+   the feature. */
+async function isMember(email, env, supabase) {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('coach-tee: SUPABASE_SERVICE_ROLE_KEY is not set, cannot check membership');
+    return true;
+  }
+  if (!email) return true;
+  try {
+    const url = supabase.url + '/rest/v1/members?select=email&limit=1&email=eq.' + encodeURIComponent(email);
+    const res = await fetch(url, {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: 'Bearer ' + env.SUPABASE_SERVICE_ROLE_KEY,
+      },
+    });
+    if (!res.ok) {
+      console.error('coach-tee: members lookup failed, status', res.status);
+      return true;
+    }
+    const rows = await res.json().catch(() => null);
+    if (!Array.isArray(rows)) return true;
+    return rows.length > 0;
+  } catch (e) {
+    console.error('coach-tee: members lookup threw -', e.message);
+    return true;
+  }
+}
+
+/* Questions per member per UTC day. Counted by supabase/coach-usage.sql, which
+   is optional: with the migration unapplied this returns true every time and
+   there is simply no cap. */
+const DAILY_LIMIT = 100;
+
+async function withinDailyLimit(userId, env, supabase) {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY || !userId) return true;
+  try {
+    const res = await fetch(supabase.url + '/rest/v1/rpc/bump_coach_usage', {
+      method: 'POST',
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: 'Bearer ' + env.SUPABASE_SERVICE_ROLE_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_user: userId }),
+    });
+    if (!res.ok) return true;
+    const count = await res.json().catch(() => null);
+    return typeof count === 'number' ? count <= DAILY_LIMIT : true;
+  } catch {
+    return true;
   }
 }
 
@@ -106,26 +188,34 @@ export async function onRequestPost({ request, env }) {
     return json({ error: { message: 'Coach Tee is unavailable right now.' } }, 503);
   }
 
-  /* The session is checked but no longer gates the answer.
-   
-     Requiring it turned a working feature into an outage that survived four
-     rounds of fixes, and it was never the thing holding the door shut. What
-     actually closed this endpoint is all still here: the system prompt lives
-     on this server so a caller cannot supply one, only two modes exist, the
-     message and the context are capped, and CORS no longer invites other
-     sites. Before those, this was a general purpose model anyone could drive
-     on our key. After them, the worst a stranger gets is coaching about
-     pelvic floor training, in bounded amounts, until the Anthropic balance
-     runs out - and that balance has auto-reload off, which is a hard ceiling
-     rather than a bill.
-   
-     The check still runs and still logs, because the real traffic will say
-     what four rounds of guessing could not. Put the gate back once the log
-     explains itself, and verify the token locally against the project's JWT
-     secret rather than over the network: no round trip, nothing to
-     misconfigure, and no way for it to fail like this again. */
-  const why = await sessionProblem(request, supabase);
-  if (why) console.error('coach-tee: answering an unverified session -', why);
+  /* The gate is back on, narrowed so it cannot fail the way it did before.
+     Previously any failure of the check refused the request, so a
+     misconfigured anon key read as "everybody is a stranger" and the feature
+     was down for everyone while looking perfectly configured. Now only a
+     refusal the caller can actually fix is enforced. If the check itself
+     cannot run, the answer goes through and the log says why.
+
+     Everything else that closes this endpoint is unchanged: the system prompt
+     lives here so a caller cannot supply one, only two modes exist, the
+     message and context are capped, and CORS invites nobody. */
+  const { user, problem } = await identify(request, supabase);
+  if (problem && isCallersFault(problem)) {
+    return json({ error: { message: 'Sign in to talk to Coach Tee.' } }, 401);
+  }
+  if (problem) console.error('coach-tee: answering an unverified session -', problem);
+
+  /* A signed-in account is not the same as a paying one. Anyone can create a
+     Supabase account against a public anon key, so without this the endpoint
+     is still open to anybody willing to sign up. */
+  if (user && !(await isMember(user.email, env, supabase))) {
+    console.warn('coach-tee: refused a signed-in non-member,', user.id);
+    return json({ error: { message: 'Coach Tee is for Blueprint members.' } }, 403);
+  }
+
+  if (user && !(await withinDailyLimit(user.id, env, supabase))) {
+    console.warn('coach-tee: daily limit reached for', user.id);
+    return json({ error: { message: "That is today's Coach Tee limit. It resets tomorrow." } }, 429);
+  }
 
   let payload;
   try {
