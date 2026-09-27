@@ -22,8 +22,11 @@ function signJwt(claims, secret) {
   const p = b64url(JSON.stringify(claims));
   return `${h}.${p}.${b64url(createHmac('sha256', secret).update(`${h}.${p}`).digest())}`;
 }
-const MEMBER_TOKEN = signJwt(
-  { sub: 'u1', email: 'member@example.com', exp: Math.floor(Date.now() / 1000) + 3600 }, JWT_SECRET);
+const MEMBER_TOKEN = signJwt({
+  sub: 'u1', email: 'member@example.com', aud: 'authenticated',
+  iss: 'https://example.supabase.co/auth/v1',
+  exp: Math.floor(Date.now() / 1000) + 3600,
+}, JWT_SECRET);
 import worker from '../src/worker.js';
 
 const ENV = {

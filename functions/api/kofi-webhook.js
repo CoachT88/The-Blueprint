@@ -64,15 +64,19 @@ function isPlausibleEmail(value) {
  * "Donation", a membership payment as "Subscription", and neither is a
  * purchase of this product.
  *
- * Both values are overridable by environment variable, and that is deliberate
- * rather than decorative: this was written without network access to Ko-fi's
- * documentation, so the type string is from their documented payload format
- * rather than from a captured live request. If a real purchase is ever refused
- * here, the log below prints the exact type Ko-fi sent, and the fix is one
- * dashboard variable rather than a deploy.
+ * The rule is absolute: no verified Blueprint product identity, no access.
+ * A Shop Order whose product cannot be identified is refused, not waved
+ * through on the type alone.
+ *
+ * Both the accepted types and the product code are overridable by environment
+ * variable, and that is load bearing rather than decorative: this was written
+ * without network access to Ko-fi's documentation, so the field names come
+ * from their documented payload format rather than from a captured live
+ * request. Every refusal logs the structure it saw, so if the assumption is
+ * wrong the first real purchase says exactly where the identifier lives.
  */
 const DEFAULT_ACCEPTED_TYPES = ['Shop Order'];
-const DEFAULT_SHOP_ITEM_CODE = '75a70cb698';
+const DEFAULT_PRODUCT_CODE = '75a70cb698';
 
 function acceptedTypes(env) {
   const configured = String(env.KOFI_ACCEPTED_TYPES || '').trim();
@@ -80,29 +84,83 @@ function acceptedTypes(env) {
   return configured.split(',').map((t) => t.trim()).filter(Boolean);
 }
 
-/* Returns null when the event should grant access, or a short reason not to.
-   The reason is logged, never returned to the caller. */
+/* KOFI_SHOP_ITEM_CODE is the name this shipped with for one round of review.
+   Both are read so renaming it cannot silently stop matching. */
+function productCode(env) {
+  return String(env.KOFI_PRODUCT_CODE || env.KOFI_SHOP_ITEM_CODE || DEFAULT_PRODUCT_CODE).trim();
+}
+
+/* Every place Ko-fi is known to name the product that was bought. Returns
+   `{ code, where }` for each one found, with `where` used only for logging.
+
+   Deliberately limited to fields that have been named or observed. Inventing
+   more places to look would mean inventing more ways to let the wrong product
+   through. */
+function collectProductCodes(body) {
+  const found = [];
+  const add = (value, where) => {
+    if (typeof value === 'string' && value.trim()) found.push({ code: value.trim(), where });
+  };
+
+  add(body.direct_link_code, 'direct_link_code');
+  add(body.item_code, 'item_code');
+
+  if (Array.isArray(body.shop_items)) {
+    body.shop_items.forEach((item, i) => {
+      if (!item || typeof item !== 'object') return;
+      add(item.direct_link_code, `shop_items[${i}].direct_link_code`);
+      add(item.item_code, `shop_items[${i}].item_code`);
+    });
+  }
+  return found;
+}
+
+/* Structural detail only, for when a verified Shop Order is refused because no
+   product could be identified. Names and shapes, never values: no email, no
+   token, no amount, no message. Enough to see where Ko-fi actually put the
+   identifier, and nothing that would put a customer's details in a log. */
+function payloadShape(body) {
+  const keys = Object.keys(body).sort().join(',');
+  const items = Array.isArray(body.shop_items) ? body.shop_items : null;
+  const itemShape = !items
+    ? (body.shop_items === undefined ? 'shop_items:absent' : 'shop_items:not-an-array')
+    : items.length === 0
+      ? 'shop_items:empty'
+      : `shop_items[0] keys: ${Object.keys(items[0] || {}).sort().join(',')}`;
+  return `top-level keys: ${keys} | ${itemShape}`;
+}
+
+/* The single decision: does this verified payload buy The Blueprint?
+   Returns null to grant access, or a short reason not to.
+
+   The rule is that no verified product identity means no access. A Shop Order
+   with no identifiable product used to be granted on the type alone, on the
+   grounds that only one product exists. That is an assumption about the shop
+   rather than a fact about the payload, and it stops being true the first time
+   a second item is listed. */
 function notAPurchase(body, env) {
   const type = typeof body.type === 'string' ? body.type.trim() : '';
   if (!acceptedTypes(env).includes(type)) return `type=${type || '<missing>'}`;
 
-  /* A subscription payment can be reported alongside a shop order for
-     memberships. This product is a one-off purchase, so treat a recurring
-     payment as something other than buying it. */
+  /* A recurring payment is a membership, not a one-off purchase of this. */
   if (body.is_subscription_payment === true) return 'recurring payment, not a one-off purchase';
 
-  /* When Ko-fi tells us which item was bought, it has to be this one. When it
-     does not, the type gate above has already excluded donations and
-     subscriptions, and there is exactly one product in the shop, so the order
-     is allowed through with a note. */
-  const wanted = String(env.KOFI_SHOP_ITEM_CODE || DEFAULT_SHOP_ITEM_CODE).trim();
-  const items = Array.isArray(body.shop_items) ? body.shop_items : null;
-  if (items && items.length) {
-    const codes = items.map((i) => (i && typeof i.direct_link_code === 'string' ? i.direct_link_code.trim() : ''));
-    if (!codes.includes(wanted)) return `shop item ${codes.join(',') || '<none>'} is not The Blueprint`;
-  } else {
-    console.warn('Ko-fi: shop order carried no shop_items; accepting on type alone');
+  const wanted = productCode(env);
+  const found = collectProductCodes(body);
+
+  if (!found.length) {
+    /* The diagnostic that matters. If a real purchase is ever refused here,
+       this line says where Ko-fi put the identifier so the fix is obvious. */
+    console.error(`Ko-fi: verified ${type} carried no product identifier. ${payloadShape(body)}`);
+    return 'no product identifier in the payload';
   }
+
+  if (!found.some((f) => f.code === wanted)) {
+    console.error(`Ko-fi: verified ${type} is a different product. Found ` +
+      found.map((f) => `${f.where}=${f.code}`).join(', '));
+    return 'product identifier does not match The Blueprint';
+  }
+
   return null;
 }
 

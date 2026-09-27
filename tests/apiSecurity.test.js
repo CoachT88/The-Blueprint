@@ -23,7 +23,16 @@ const KOFI_ENV = {
    stubbing an answer out of Supabase. A signature that does not verify is the
    only thing that makes a token invalid. */
 const JWT_SECRET = 'test-jwt-secret-value';
+const SUPABASE_URL = 'https://example.supabase.co';
+const ISSUER = `${SUPABASE_URL}/auth/v1`;
 const nowSec = () => Math.floor(Date.now() / 1000);
+
+/* The claims a real Supabase user session carries. Tests that care about one
+   claim override just that one. */
+const sessionClaims = (over = {}) => ({
+  sub: 'u1', email: 'member@example.com', aud: 'authenticated',
+  iss: ISSUER, exp: nowSec() + 3600, ...over,
+});
 const b64url = (b) => Buffer.from(b).toString('base64url');
 
 function signJwt(claims, secret, { alg = 'HS256' } = {}) {
@@ -35,7 +44,7 @@ function signJwt(claims, secret, { alg = 'HS256' } = {}) {
 
 const COACH_ENV = {
   ANTHROPIC_API_KEY: 'anthropic-key',
-  SUPABASE_URL: 'https://example.supabase.co',
+  SUPABASE_URL,
   SUPABASE_JWT_SECRET: JWT_SECRET,
   /* The Worker shares one environment, so the key ko-fi needs is present here
      too. coach-tee uses it only to read the members table. */
@@ -52,7 +61,7 @@ function kofiRequest(payload) {
 function coachRequest(body, { signedIn = true, token } = {}) {
   const bearer = token !== undefined
     ? token
-    : signJwt({ sub: 'u1', email: 'member@example.com', exp: nowSec() + 3600 }, JWT_SECRET);
+    : signJwt(sessionClaims(), JWT_SECRET);
   return new Request('https://example.com/api/coach-tee', {
     method: 'POST',
     headers: signedIn
@@ -74,6 +83,7 @@ beforeEach(() => {
   usageBroken = false;
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
   global.fetch = vi.fn(async (url, init) => {
     calls.push({ url: String(url), init });
     // Supabase's "who is this token" endpoint
@@ -126,7 +136,7 @@ describe('ko-fi webhook', () => {
     /* type is now load-bearing: a correctly signed event only grants access
        when it is a purchase of this product. See the event-gate suite below. */
     const res = await kofiPost({
-      request: kofiRequest({ email: 'buyer@example.com', verification_token: 'real-token', type: 'Shop Order' }),
+      request: kofiRequest({ email: 'buyer@example.com', verification_token: 'real-token', type: 'Shop Order', shop_items: [{ direct_link_code: '75a70cb698' }] }),
       env: KOFI_ENV,
     });
     expect(res.status).toBe(200);
@@ -139,7 +149,7 @@ describe('ko-fi webhook', () => {
     // The email of someone who bought this particular product does not
     // belong in a request log.
     await kofiPost({
-      request: kofiRequest({ email: 'buyer@example.com', verification_token: 'real-token', type: 'Shop Order' }),
+      request: kofiRequest({ email: 'buyer@example.com', verification_token: 'real-token', type: 'Shop Order', shop_items: [{ direct_link_code: '75a70cb698' }] }),
       env: KOFI_ENV,
     });
     const logged = [...console.log.mock.calls, ...console.error.mock.calls]
@@ -181,7 +191,7 @@ describe('coach-tee: who gets an answer', () => {
 
   it('refuses a token signed with the wrong secret', async () => {
     // A forgery, or a token from another project. Either way, not ours.
-    const res = await ask(null, { token: signJwt({ sub: 'u1', email: 'm@e.com' }, 'not-our-secret') });
+    const res = await ask(null, { token: signJwt(sessionClaims(), 'not-our-secret') });
     expect(res.status).toBe(401);
     expect(anthropicCalled()).toBe(false);
   });
@@ -196,7 +206,7 @@ describe('coach-tee: who gets an answer', () => {
 
   it('refuses an expired token', async () => {
     const res = await ask(null, {
-      token: signJwt({ sub: 'u1', email: 'member@example.com', exp: nowSec() - 60 }, JWT_SECRET),
+      token: signJwt(sessionClaims({ exp: nowSec() - 60 }), JWT_SECRET),
     });
     expect(res.status).toBe(401);
     expect(anthropicCalled()).toBe(false);
@@ -204,13 +214,13 @@ describe('coach-tee: who gets an answer', () => {
 
   it('accepts a token that has not expired yet', async () => {
     const res = await ask(null, {
-      token: signJwt({ sub: 'u1', email: 'member@example.com', exp: nowSec() + 3600 }, JWT_SECRET),
+      token: signJwt(sessionClaims(), JWT_SECRET),
     });
     expect(res.status).toBe(200);
   });
 
   it('refuses a validly signed token with no subject', async () => {
-    const res = await ask(null, { token: signJwt({ email: 'member@example.com' }, JWT_SECRET) });
+    const res = await ask(null, { token: signJwt(sessionClaims({ sub: undefined }), JWT_SECRET) });
     expect(res.status).toBe(401);
   });
 
@@ -228,12 +238,12 @@ describe('coach-tee: who gets an answer', () => {
     /* A Supabase project moved to asymmetric keys issues RS256. Our HS256
        secret cannot verify those, and every member would be told to sign in.
        503 says the truth and names it in the log. */
-    const res = await ask(null, { token: signJwt({ sub: 'u1' }, JWT_SECRET, { alg: 'RS256' }) });
+    const res = await ask(null, { token: signJwt(sessionClaims(), JWT_SECRET, { alg: 'RS256' }) });
     expect(res.status).toBe(503);
   });
 
   it('refuses alg:none rather than trusting an unsigned token', async () => {
-    const res = await ask(null, { token: signJwt({ sub: 'u1', email: 'm@e.com' }, JWT_SECRET, { alg: 'none' }) });
+    const res = await ask(null, { token: signJwt(sessionClaims(), JWT_SECRET, { alg: 'none' }) });
     expect(res.status).not.toBe(200);
     expect(anthropicCalled()).toBe(false);
   });
@@ -267,7 +277,7 @@ describe('coach-tee: who gets an answer', () => {
       { setup: () => { membersStatus = 500; } },
       { setup: () => { membersStatus = 503; } },
       { setup: () => { membersThrows = true; } },
-      { opts: { token: signJwt({ sub: 'u1' }, JWT_SECRET, { alg: 'RS256' }) } },
+      { opts: { token: signJwt(sessionClaims(), JWT_SECRET, { alg: 'RS256' }) } },
     ];
     for (const f of serverFaults) {
       membersStatus = 200; membersThrows = false; membersRows = [{ email: 'member@example.com' }];
@@ -288,7 +298,7 @@ describe('coach-tee: who gets an answer', () => {
   });
 
   it('refuses a verified token carrying no email, rather than skipping the gate', async () => {
-    const res = await ask(null, { token: signJwt({ sub: 'u1' }, JWT_SECRET) });
+    const res = await ask(null, { token: signJwt(sessionClaims({ email: undefined }), JWT_SECRET) });
     expect(res.status).toBe(403);
     expect(anthropicCalled()).toBe(false);
   });
@@ -397,7 +407,10 @@ describe('ko-fi: what a verified payload is allowed to write', () => {
   const written = () => calls.find(
     (c) => c.url.includes('/rest/v1/members') && c.init?.method === 'POST');
 
-  const VALID = { verification_token: 'real-token', email: 'buyer@example.com', type: 'Shop Order' };
+  const VALID = {
+    verification_token: 'real-token', email: 'buyer@example.com', type: 'Shop Order',
+    shop_items: [{ direct_link_code: '75a70cb698' }],
+  };
 
   it('normalises the address, because Supabase signs people in lowercased', async () => {
     /* The lookup at sign-in is a case-sensitive equality test, so a row saved
@@ -491,10 +504,16 @@ describe('ko-fi: only a purchase of this product grants access', () => {
     expect(granted()).toBe(false);
   });
 
-  it('accepts a shop order that carries no item detail, since only one product exists', async () => {
-    const res = await send({ ...PURCHASE, shop_items: [] });
-    expect(res.status).toBe(200);
-    expect(granted()).toBe(true);
+  it('does NOT grant access for a shop order whose product cannot be identified', async () => {
+    /* This used to be allowed through on the type alone, reasoning that only
+       one product exists. That is an assumption about the shop rather than a
+       fact about the payload, and it stops being true the moment a second
+       item is listed. No verified product identity, no access. */
+    for (const shop_items of [[], undefined, null, 'not-an-array', [{}], [{ direct_link_code: '' }]]) {
+      const res = await send({ ...PURCHASE, shop_items });
+      expect(res.status, JSON.stringify(shop_items)).toBe(200);
+    }
+    expect(granted()).toBe(false);
   });
 
   it('the accepted type is overridable without a deploy', async () => {
@@ -524,5 +543,242 @@ describe('ko-fi: only a purchase of this product grants access', () => {
     const junk = await send({ ...PURCHASE, email: 'nope' });
     expect(junk.status).toBe(200);
     expect(granted()).toBe(false);
+  });
+});
+
+/* Product identity, covered exhaustively because this is the check that
+   decides whether a payment bought THIS product. The rule under test is a
+   single sentence: no verified Blueprint product identity, no access. */
+describe('ko-fi: proving which product was bought', () => {
+  const send = (payload, env) => kofiPost({ request: kofiRequest(payload), env: env || KOFI_ENV });
+  const granted = () => calls.some(
+    (c) => c.url.includes('/rest/v1/members') && c.init?.method === 'POST');
+
+  const BASE = { verification_token: 'real-token', email: 'buyer@example.com', type: 'Shop Order' };
+  const BLUEPRINT = '75a70cb698';
+  const OTHER = 'someotheritem';
+
+  // ---- granted -----------------------------------------------------------
+
+  it('grants for a matching product in shop_items', async () => {
+    await send({ ...BASE, shop_items: [{ direct_link_code: BLUEPRINT }] });
+    expect(granted()).toBe(true);
+  });
+
+  it('grants for a matching root-level direct_link_code', async () => {
+    await send({ ...BASE, direct_link_code: BLUEPRINT });
+    expect(granted()).toBe(true);
+  });
+
+  it('grants for a matching root-level item_code', async () => {
+    await send({ ...BASE, item_code: BLUEPRINT });
+    expect(granted()).toBe(true);
+  });
+
+  it('grants for a matching item_code inside shop_items', async () => {
+    await send({ ...BASE, shop_items: [{ item_code: BLUEPRINT }] });
+    expect(granted()).toBe(true);
+  });
+
+  it('grants when several items are bought and one of them is The Blueprint', async () => {
+    await send({ ...BASE, shop_items: [
+      { direct_link_code: OTHER }, { direct_link_code: BLUEPRINT }, { direct_link_code: 'third' },
+    ] });
+    expect(granted()).toBe(true);
+  });
+
+  // ---- refused -----------------------------------------------------------
+
+  it('refuses an empty shop_items array', async () => {
+    const res = await send({ ...BASE, shop_items: [] });
+    expect(res.status).toBe(200);
+    expect(granted()).toBe(false);
+  });
+
+  it('refuses a missing shop_items with no other identifier', async () => {
+    const res = await send({ ...BASE });
+    expect(res.status).toBe(200);
+    expect(granted()).toBe(false);
+  });
+
+  it('refuses a wrong product code in every position it could appear', async () => {
+    for (const payload of [
+      { ...BASE, shop_items: [{ direct_link_code: OTHER }] },
+      { ...BASE, direct_link_code: OTHER },
+      { ...BASE, item_code: OTHER },
+      { ...BASE, shop_items: [{ item_code: OTHER }] },
+    ]) {
+      const res = await send(payload);
+      expect(res.status).toBe(200);
+    }
+    expect(granted()).toBe(false);
+  });
+
+  it('refuses when several items are bought and none is The Blueprint', async () => {
+    const res = await send({ ...BASE, shop_items: [
+      { direct_link_code: OTHER }, { direct_link_code: 'third' },
+    ] });
+    expect(res.status).toBe(200);
+    expect(granted()).toBe(false);
+  });
+
+  it('refuses a shop_items entry that is not an object, or is empty', async () => {
+    for (const shop_items of [[null], ['string'], [{}], [{ direct_link_code: '   ' }]]) {
+      const res = await send({ ...BASE, shop_items });
+      expect(res.status, JSON.stringify(shop_items)).toBe(200);
+    }
+    expect(granted()).toBe(false);
+  });
+
+  it('refuses a donation even when it somehow carries the product code', async () => {
+    // The type gate runs first, so a tip cannot borrow a product identity.
+    const res = await send({ ...BASE, type: 'Donation', direct_link_code: BLUEPRINT });
+    expect(res.status).toBe(200);
+    expect(granted()).toBe(false);
+  });
+
+  it('refuses a perfect purchase payload with an invalid verification token', async () => {
+    const res = await send({ ...BASE, verification_token: 'wrong', shop_items: [{ direct_link_code: BLUEPRINT }] });
+    expect(res.status).toBe(401);
+    expect(granted()).toBe(false);
+  });
+
+  it('honours KOFI_PRODUCT_CODE, the name the review asked for', async () => {
+    await send({ ...BASE, shop_items: [{ direct_link_code: 'renamed-product' }] },
+      { ...KOFI_ENV, KOFI_PRODUCT_CODE: 'renamed-product' });
+    expect(granted()).toBe(true);
+  });
+
+  // ---- the diagnostic that makes a wrong guess recoverable ---------------
+
+  it('logs where to look when a verified order carries no identifier', async () => {
+    /* Written without access to Ko-fi's live docs. If the real payload names
+       the product somewhere unexpected, this log line is what says so. */
+    await send({ ...BASE, kofi_transaction_id: 'abc', shop_items: [{ variation_name: 'Standard' }] });
+    const logged = console.error.mock.calls.flat().map(String).join(' ');
+    expect(logged).toContain('no product identifier');
+    expect(logged).toContain('top-level keys');
+    expect(logged).toContain('variation_name');       // where it actually was
+  });
+
+  it('that diagnostic never logs customer data', async () => {
+    await send({ ...BASE, email: 'buyer@example.com', from_name: 'A Buyer',
+      amount: '25.00', message: 'thanks!', shop_items: [] });
+    const logged = [...console.error.mock.calls, ...console.log.mock.calls, ...console.warn.mock.calls]
+      .flat().map(String).join(' ');
+    expect(logged).not.toContain('buyer@example.com');
+    expect(logged).not.toContain('A Buyer');
+    expect(logged).not.toContain('thanks!');
+    expect(logged).not.toContain('real-token');
+    expect(logged).not.toContain('25.00');
+  });
+});
+
+/* Claim validation. A valid signature proves who minted the token, not what
+   the token is for. This project's own anon key is a JWT signed with the same
+   secret, so without these checks something that is not a login could satisfy
+   the signature. */
+describe('coach-tee: JWT claims, not just the signature', () => {
+  const withClaims = (over, env) => coachPost({
+    request: coachRequest({ mode: 'coach', userMsg: 'hi' },
+      { token: signJwt(sessionClaims(over), JWT_SECRET) }),
+    env: env === undefined ? COACH_ENV : env,
+  });
+  const anthropicCalled = () => calls.some((c) => c.url.includes('anthropic'));
+
+  it('accepts a session with the right issuer and audience', async () => {
+    const res = await withClaims({});
+    expect(res.status).toBe(200);
+  });
+
+  it('refuses the wrong audience', async () => {
+    const res = await withClaims({ aud: 'anon' });
+    expect(res.status).toBe(401);
+    expect(anthropicCalled()).toBe(false);
+  });
+
+  it('refuses a missing audience', async () => {
+    const res = await withClaims({ aud: undefined });
+    expect(res.status).toBe(401);
+    expect(anthropicCalled()).toBe(false);
+  });
+
+  it('accepts an audience list that contains authenticated', async () => {
+    // The spec allows aud to be an array, and Supabase has used both.
+    const res = await withClaims({ aud: ['authenticated', 'something-else'] });
+    expect(res.status).toBe(200);
+  });
+
+  it('refuses an audience list that does not contain authenticated', async () => {
+    const res = await withClaims({ aud: ['anon', 'service_role'] });
+    expect(res.status).toBe(401);
+  });
+
+  it('refuses a token with no issuer, which is not a Supabase session', async () => {
+    const res = await withClaims({ iss: undefined });
+    expect(res.status).toBe(401);
+    expect(anthropicCalled()).toBe(false);
+  });
+
+  it('reports a mismatched issuer as OUR configuration problem, not the member’s', async () => {
+    /* Deliberate, and a departure from "treat a bad issuer as a bad token".
+       The signature has already verified by this point, so the token came
+       from whoever holds our JWT secret, so it is from our project. An issuer
+       that then disagrees can only mean SUPABASE_URL and SUPABASE_JWT_SECRET
+       point at different projects. Telling a member to sign in would be
+       unactionable, and a forger holding the secret would just write the
+       right issuer, so 401 buys nothing here either. */
+    const res = await withClaims({ iss: 'https://a-different-project.supabase.co/auth/v1' });
+    expect(res.status).toBe(503);
+    expect(anthropicCalled()).toBe(false);
+  });
+
+  it('derives the expected issuer from SUPABASE_URL rather than a second setting', async () => {
+    const res = await coachPost({
+      request: coachRequest({ mode: 'coach', userMsg: 'hi' }, {
+        token: signJwt(sessionClaims({ iss: 'https://other.supabase.co/auth/v1' }), JWT_SECRET),
+      }),
+      env: { ...COACH_ENV, SUPABASE_URL: 'https://other.supabase.co' },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('refuses a token that is not valid yet', async () => {
+    const res = await withClaims({ nbf: nowSec() + 600 });
+    expect(res.status).toBe(401);
+  });
+
+  it('tolerates a minute of clock drift on nbf', async () => {
+    // A token issued half a second in the future is a clock problem, not an
+    // authentication problem, and must not read as one.
+    const res = await withClaims({ nbf: nowSec() + 5 });
+    expect(res.status).toBe(200);
+  });
+
+  it('refuses a valid signature whose claims are wrong', async () => {
+    // Signed with the real secret, still not a usable session.
+    for (const over of [{ aud: 'anon' }, { aud: undefined }, { iss: undefined }, { sub: undefined }]) {
+      const res = await withClaims(over);
+      expect(res.status, JSON.stringify(over)).toBe(401);
+    }
+    expect(anthropicCalled()).toBe(false);
+  });
+
+  it('refuses this project’s own anon key presented as a session', async () => {
+    /* The concrete reason aud is checked. The anon key is a real JWT signed
+       with this same secret; it is simply not a login. */
+    const anonKey = signJwt({ iss: 'supabase', ref: 'proj', role: 'anon', exp: nowSec() + 999999 }, JWT_SECRET);
+    const res = await coachPost({
+      request: coachRequest({ mode: 'coach', userMsg: 'hi' }, { token: anonKey }),
+      env: COACH_ENV,
+    });
+    expect(res.status).toBe(401);
+    expect(anthropicCalled()).toBe(false);
+  });
+
+  it('a fully valid member still gets through all of it', async () => {
+    const res = await withClaims({});
+    expect(res.status).toBe(200);
+    expect(anthropicCalled()).toBe(true);
   });
 });

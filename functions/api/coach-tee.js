@@ -53,6 +53,15 @@ const MAX_CONTEXT = 4000;
    role key. */
 const SUPABASE_DEFAULT_URL = 'https://edqmujiczuvavlemfpaz.supabase.co';
 
+/* Supabase mints user sessions with this audience. */
+const AUTHENTICATED_AUDIENCE = 'authenticated';
+
+/* Supabase's issuer is the project URL plus /auth/v1, so it is derived rather
+   than configured. One value to set, one place to be wrong. */
+function supabaseIssuer(env) {
+  return supabaseConfig(env).url + '/auth/v1';
+}
+
 function supabaseConfig(env) {
   return {
     /* Trailing slashes get trimmed: a configured value ending in "/" would
@@ -159,9 +168,57 @@ async function identify(request, env) {
   }
   if (!verified) return unauthorized('bad-signature');
 
-  if (typeof claims.exp === 'number' && claims.exp * 1000 <= Date.now()) {
+  /* ── Claims ───────────────────────────────────────────────────────────────
+     A valid signature proves the token was minted by whoever holds this
+     project's JWT secret. It does not prove the token is a user session, and
+     that gap is the reason aud is checked: this project's own anon key is a
+     JWT signed with the same secret, and without an audience check a token
+     that is not a login would satisfy the signature. */
+
+  const now = Date.now();
+  if (typeof claims.exp === 'number' && claims.exp * 1000 <= now) {
     return unauthorized('expired');
   }
+  /* Not-before, with a minute of slack for clock drift between Supabase and
+     this worker. Rejecting a token issued half a second in the future would
+     be a clock problem wearing an auth problem's clothes. */
+  if (typeof claims.nbf === 'number' && claims.nbf * 1000 > now + 60_000) {
+    return unauthorized('not-yet-valid');
+  }
+
+  /* Supabase issues user sessions with aud "authenticated". The spec allows a
+     single value or a list, so both are accepted. Anything else is not a
+     logged-in member and the caller is the one who can fix that. */
+  const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+  if (!audiences.includes(AUTHENTICATED_AUDIENCE)) {
+    return unauthorized('wrong-audience');
+  }
+
+  /* The issuer is derived from SUPABASE_URL rather than configured
+     separately, so there is no new value to get wrong and no second place to
+     keep in step.
+
+     Classified as OUR fault, not the caller's, and that is a deliberate
+     departure worth stating plainly. By the time this runs the signature has
+     already verified, which means the token was issued by the holder of our
+     JWT secret, which means it is from our project. An issuer that then fails
+     to match can only mean SUPABASE_URL and SUPABASE_JWT_SECRET are pointing
+     at different projects. Calling that an invalid caller token would hand
+     every member a "sign in" they cannot act on, which is the exact failure
+     this endpoint was fixed for. A forger cannot reach this line without the
+     secret, and a forger holding the secret would simply write the correct
+     issuer, so refusing with 401 here buys no security either. */
+  const expectedIssuer = supabaseIssuer(env);
+  if (typeof claims.iss === 'string' && claims.iss !== expectedIssuer) {
+    console.error('coach-tee: token issuer is ' + claims.iss + ' but SUPABASE_URL implies ' +
+      expectedIssuer + '. The configured project URL and JWT secret disagree.');
+    return misconfigured('issuer-mismatch');
+  }
+  if (!claims.iss) {
+    /* No issuer at all is not a Supabase session token. */
+    return unauthorized('no-issuer');
+  }
+
   if (!claims.sub) return unauthorized('no-subject');
 
   return { ok: true, user: { id: claims.sub, email: claims.email || '' } };
