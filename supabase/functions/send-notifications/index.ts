@@ -25,11 +25,27 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 import { decideNotification, localDateFor } from '../_shared/notifyRules.js';
 import { authoriseCron } from '../_shared/cronAuth.js';
+import { resolveServiceKey } from '../_shared/serviceKey.js';
 
-const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-);
+/* Resolved once, at module load. On a project using the newer API key system
+   SUPABASE_SERVICE_ROLE_KEY is neither injected nor settable, so reading it
+   directly handed createClient undefined: every query went out unauthenticated,
+   row level security refused it, and the function reported read_failed. See
+   _shared/serviceKey.js.
+
+   The client is built only when a key exists. A client with no key is worse
+   than no client, because it fails at the first query and blames the database. */
+const serviceKey = resolveServiceKey({
+    SUPABASE_SECRET_KEYS: Deno.env.get('SUPABASE_SECRET_KEYS'),
+    SUPABASE_SECRET_KEY_NAME: Deno.env.get('SUPABASE_SECRET_KEY_NAME'),
+    SUPABASE_SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+});
+for (const note of serviceKey.notes) console.warn('send-notifications: ' + note);
+if (serviceKey.key) console.log('send-notifications: backend key from ' + serviceKey.source);
+
+const supabase = serviceKey.key
+    ? createClient(Deno.env.get('SUPABASE_URL')!, serviceKey.key)
+    : null;
 
 webpush.setVapidDetails(
     Deno.env.get('VAPID_SUBJECT')!,
@@ -144,6 +160,17 @@ Deno.serve(async (req) => {
         }
         return new Response(JSON.stringify({ error: allowed.why }), {
             status: allowed.status, headers: { 'Content-Type': 'application/json' },
+        });
+    }
+
+    /* No backend key, no queries. Reported as 503 rather than letting the
+       first read fail: a missing credential is a deploy fault, and the old
+       read_failed pointed at row level security instead of the environment.
+       The shape of what was found is already in the startup log. */
+    if (!supabase) {
+        console.error('send-notifications: refusing to run, ' + serviceKey.why);
+        return new Response(JSON.stringify({ error: serviceKey.why }), {
+            status: 503, headers: { 'Content-Type': 'application/json' },
         });
     }
 

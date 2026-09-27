@@ -15,7 +15,7 @@ name the missing variable.
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | Secret | `/api/coach-tee` | Anthropic console → API keys |
 | `SUPABASE_JWT_SECRET` | **Secret** | `/api/coach-tee` | Project Settings → API → JWT Secret. Coach Tee verifies each caller's token against this locally. Without it the endpoint returns **503**, not 401 |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | coach-tee, ko-fi | Bypasses row level security. Coach Tee reads the members table with it; without it coach-tee returns 503. Never put this in the client |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | coach-tee, ko-fi | Bypasses row level security. Coach Tee reads the members table with it; without it coach-tee returns 503. Never put this in the client. **Worker only** — see the runtime note below |
 | `KOFI_VERIFICATION_TOKEN` | Secret | `/api/kofi-webhook` | Ko-fi → Webhooks. Without it the webhook refuses every request rather than accepting forgeries |
 | `SUPABASE_URL` | Optional | coach-tee, ko-fi | Public; already in the page source. coach-tee falls back to a built-in default and derives the expected JWT issuer from it, ko-fi requires it |
 | `KOFI_ACCEPTED_TYPES` | Optional | `/api/kofi-webhook` | Comma-separated Ko-fi event types that grant access. Defaults to `Shop Order` |
@@ -78,6 +78,39 @@ there is no `supabase/config.toml` turning it off. Both gates, always.
 
 Both values live in Supabase Vault and are read by name at call time, so
 `cron.job.command` holds no secret. See `supabase/notifications.sql`.
+
+### The backend admin key lives in two different places
+
+This caused a production failure worth writing down, because the two runtimes
+behave differently and the variable has the same job in both.
+
+| Runtime | What runs there | Where the admin key comes from |
+|---|---|---|
+| **Cloudflare Worker** | `/api/coach-tee`, `/api/kofi-webhook` | `SUPABASE_SERVICE_ROLE_KEY`, set by hand. Cloudflare has no reserved prefixes |
+| **Supabase Edge Function** | `send-notifications` | `SUPABASE_SECRET_KEYS`, injected automatically. `SUPABASE_`-prefixed names **cannot** be set by hand |
+
+On a project using the newer API key system, Supabase stopped injecting
+`SUPABASE_SERVICE_ROLE_KEY` into edge functions, and the reserved prefix means
+it cannot be added. The notification function was handed `undefined`, every
+query went out unauthenticated, row level security refused the read, and it
+reported `read_failed` — an error pointing squarely at the database, which was
+the one place nothing was wrong.
+
+`send-notifications` now reads `SUPABASE_SECRET_KEYS` first and falls back to
+`SUPABASE_SERVICE_ROLE_KEY`, so it works hosted, locally and self-hosted. If
+the key inside that map is not called `default`, set `SUPABASE_SECRET_KEY_NAME`
+to its name. Missing entirely is a **503** with `service-key-not-configured`,
+and the function's startup log names the shape it found without printing any
+value.
+
+The Worker is unaffected and needs no change. Its value is a legacy
+`service_role` JWT and still works because legacy keys remain enabled on this
+project. **If legacy JWT keys are ever disabled**, three things break together:
+the Worker's service-role calls, Coach Tee's `SUPABASE_JWT_SECRET` verification
+(user tokens become asymmetric, which the code reports as a 503
+`alg-mismatch`), and the cron's anon-JWT gateway credential. No code change is
+needed for that day: on Cloudflare the variable is just a name, so an
+`sb_secret_…` value can be pasted into the existing `SUPABASE_SERVICE_ROLE_KEY`.
 
 ### Function secrets
 

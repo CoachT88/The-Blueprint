@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { authoriseCron, secretsMatch, CRON_SECRET_HEADER } from '../supabase/functions/_shared/cronAuth.js';
+import { resolveServiceKey, DEFAULT_KEY_NAME } from '../supabase/functions/_shared/serviceKey.js';
 
 /**
  * The edge function runs on Deno, against a live database, on a cron. Nothing
@@ -263,5 +264,141 @@ describe('authoriseCron', () => {
             expect(secretsMatch(bad, 'abc')).toBe(false);
             expect(secretsMatch('abc', bad)).toBe(false);
         }
+    });
+});
+
+/* Where the backend admin key comes from.
+ *
+ * Production returned {"error":"read_failed"} because SUPABASE_SERVICE_ROLE_KEY
+ * is neither injected nor settable on a project using the newer API key
+ * system. createClient got undefined, every query went out unauthenticated,
+ * and row level security refused the read. The error pointed at the database,
+ * which was the one place the problem was not.
+ */
+describe('resolveServiceKey', () => {
+    const SECRET = 'sb_secret_abc123';
+
+    test('takes the default entry out of SUPABASE_SECRET_KEYS', () => {
+        const r = resolveServiceKey({ SUPABASE_SECRET_KEYS: JSON.stringify({ default: SECRET }) });
+        expect(r.key).toBe(SECRET);
+        expect(r.source).toBe('SUPABASE_SECRET_KEYS');
+    });
+
+    test('honours a different key name without a deploy', () => {
+        const env = { SUPABASE_SECRET_KEYS: JSON.stringify({ default: 'wrong', notifier: SECRET }) };
+        expect(resolveServiceKey(env, { name: 'notifier' }).key).toBe(SECRET);
+        expect(resolveServiceKey({ ...env, SUPABASE_SECRET_KEY_NAME: 'notifier' }).key).toBe(SECRET);
+    });
+
+    test('uses the only key present when the expected name is missing', () => {
+        /* A project whose key is called something else should work rather than
+           fail silently, and there is no ambiguity when there is only one. */
+        const r = resolveServiceKey({ SUPABASE_SECRET_KEYS: JSON.stringify({ something_else: SECRET }) });
+        expect(r.key).toBe(SECRET);
+        expect(r.notes.join(' ')).toContain('something_else');
+    });
+
+    test('refuses to guess between several keys when none matches', () => {
+        const r = resolveServiceKey({ SUPABASE_SECRET_KEYS: JSON.stringify({ a: 'one', b: 'two' }) });
+        expect(r.key).toBeNull();
+    });
+
+    test('accepts a bare key string, since that is unambiguous', () => {
+        // Written without access to Supabase's docs, so the parser is tolerant.
+        expect(resolveServiceKey({ SUPABASE_SECRET_KEYS: SECRET }).key).toBe(SECRET);
+        expect(resolveServiceKey({ SUPABASE_SECRET_KEYS: JSON.stringify(SECRET) }).key).toBe(SECRET);
+    });
+
+    test('falls back to the legacy variable for local and older projects', () => {
+        const r = resolveServiceKey({ SUPABASE_SERVICE_ROLE_KEY: 'legacy-jwt' });
+        expect(r.key).toBe('legacy-jwt');
+        expect(r.source).toBe('SUPABASE_SERVICE_ROLE_KEY');
+    });
+
+    test('prefers the modern source when both are present', () => {
+        const r = resolveServiceKey({
+            SUPABASE_SECRET_KEYS: JSON.stringify({ default: SECRET }),
+            SUPABASE_SERVICE_ROLE_KEY: 'legacy-jwt',
+        });
+        expect(r.key).toBe(SECRET);
+        expect(r.source).toBe('SUPABASE_SECRET_KEYS');
+    });
+
+    test('returns null rather than throwing on anything unusable', () => {
+        const rubbish = [
+            {}, undefined, null,
+            { SUPABASE_SECRET_KEYS: '' },
+            { SUPABASE_SECRET_KEYS: '{not json' },
+            { SUPABASE_SECRET_KEYS: 'null' },
+            { SUPABASE_SECRET_KEYS: '[]' },
+            { SUPABASE_SECRET_KEYS: '{}' },
+            { SUPABASE_SECRET_KEYS: JSON.stringify({ default: '' }) },
+            { SUPABASE_SECRET_KEYS: JSON.stringify({ default: 42 }) },
+            { SUPABASE_SECRET_KEYS: JSON.stringify({ default: null }) },
+            { SUPABASE_SECRET_KEYS: 123 },
+            { SUPABASE_SERVICE_ROLE_KEY: '   ' },
+        ];
+        for (const env of rubbish) {
+            let r;
+            expect(() => { r = resolveServiceKey(env); }, JSON.stringify(env)).not.toThrow();
+            expect(r.key, JSON.stringify(env)).toBeNull();
+            expect(r.why).toBe('service-key-not-configured');
+        }
+    });
+
+    test('says what it found, in shape only, when it finds nothing usable', () => {
+        /* The point of this change is that the next failure is legible. */
+        const r = resolveServiceKey({ SUPABASE_SECRET_KEYS: JSON.stringify({ alpha: 1, beta: 2 }) });
+        const notes = r.notes.join(' | ');
+        expect(notes).toContain('JSON object with keys');
+        expect(notes).toContain('alpha');
+        expect(notes).toContain(`"${DEFAULT_KEY_NAME}"`);
+        expect(notes).toContain('SUPABASE_SERVICE_ROLE_KEY: absent');
+    });
+
+    test('distinguishes absent, empty and malformed', () => {
+        expect(resolveServiceKey({}).notes.join(' ')).toContain('SUPABASE_SECRET_KEYS: absent');
+        expect(resolveServiceKey({ SUPABASE_SECRET_KEYS: '' }).notes.join(' ')).toContain('empty string');
+        expect(resolveServiceKey({ SUPABASE_SECRET_KEYS: '{oops' }).notes.join(' ')).toContain('not JSON');
+    });
+
+    test('never puts a key value in a note or a reason', () => {
+        const cases = [
+            { SUPABASE_SECRET_KEYS: JSON.stringify({ a: SECRET, b: 'another-secret' }) },
+            { SUPABASE_SECRET_KEYS: SECRET + '-but-not-json{' },
+            { SUPABASE_SECRET_KEYS: JSON.stringify({ default: SECRET }), SUPABASE_SERVICE_ROLE_KEY: 'legacy-jwt' },
+        ];
+        for (const env of cases) {
+            const r = resolveServiceKey(env);
+            const said = [r.why || '', ...r.notes].join(' | ');
+            expect(said).not.toContain(SECRET);
+            expect(said).not.toContain('another-secret');
+            expect(said).not.toContain('legacy-jwt');
+        }
+    });
+});
+
+describe('the sender uses the resolver, and fails closed', () => {
+    test('resolves the key rather than reading the variable directly', () => {
+        expect(src).toMatch(/from '\.\.\/_shared\/serviceKey\.js'/);
+        expect(src).toMatch(/resolveServiceKey\(/);
+        // The bare non-null assertion that caused read_failed is gone.
+        expect(src).not.toMatch(/createClient\([^)]*SUPABASE_SERVICE_ROLE_KEY'\)!/);
+    });
+
+    test('refuses before touching the database when there is no key', () => {
+        expect(src).toMatch(/if \(!supabase\)/);
+        expect(src).toMatch(/status: 503/);
+        expect(src.indexOf('if (!supabase)')).toBeLessThan(src.indexOf("from('push_subscriptions')"));
+    });
+
+    test('the cron gate still runs first', () => {
+        // Auth before configuration: an unauthenticated caller learns nothing
+        // about how this function is set up.
+        expect(src.indexOf('authoriseCron(')).toBeLessThan(src.indexOf('if (!supabase)'));
+    });
+
+    test('never logs the resolved key', () => {
+        expect(src).not.toMatch(/console\.\w+\([^)]*serviceKey\.key/);
     });
 });
