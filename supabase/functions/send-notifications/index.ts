@@ -12,10 +12,19 @@
  * The previous version of this function sent sixteen educational tips a day,
  * ignored the member's chosen time and streak preference entirely, and had no
  * auth on the endpoint.
+ *
+ * Invoking it requires BOTH credentials, and they go in different headers:
+ *
+ *   Authorization: Bearer <project JWT>   Supabase's gateway checks this
+ *   x-cron-secret: <CRON_SECRET>          this function checks this
+ *
+ * The gateway credential only satisfies the platform, and the anon key is
+ * enough for it. CRON_SECRET is the secret that authenticates the caller.
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 import { decideNotification, localDateFor } from '../_shared/notifyRules.js';
+import { authoriseCron } from '../_shared/cronAuth.js';
 
 const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -115,12 +124,26 @@ async function readTrainingState(ids: string[]): Promise<{ rows: TrainingRow[]; 
 }
 
 Deno.serve(async (req) => {
-    // Without this the endpoint is a public button that fires a notification at
-    // every member of the app.
-    const secret = Deno.env.get('CRON_SECRET');
-    if (!secret || req.headers.get('Authorization') !== `Bearer ${secret}`) {
-        return new Response(JSON.stringify({ error: 'unauthorized' }), {
-            status: 401, headers: { 'Content-Type': 'application/json' },
+    /* Two gates, and this is the second of them.
+     *
+     * Supabase's gateway has already checked `Authorization` for a valid
+     * project JWT by the time this runs; verify_jwt stays on and that check is
+     * not implemented here. What this checks is `x-cron-secret`, which is what
+     * actually says the caller is our scheduled job.
+     *
+     * They used to share the `Authorization` header, which meant the gateway
+     * saw CRON_SECRET where it expected a JWT, answered 401, and this function
+     * was never reached. See _shared/cronAuth.js.
+     */
+    const allowed = authoriseCron(req, { CRON_SECRET: Deno.env.get('CRON_SECRET') });
+    if (!allowed.ok) {
+        if (allowed.status === 503) {
+            console.error('send-notifications: refusing to run, ' + allowed.why);
+        } else {
+            console.warn('send-notifications: refused a caller, ' + allowed.why);
+        }
+        return new Response(JSON.stringify({ error: allowed.why }), {
+            status: allowed.status, headers: { 'Content-Type': 'application/json' },
         });
     }
 

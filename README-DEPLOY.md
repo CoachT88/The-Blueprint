@@ -56,3 +56,54 @@ any more.
 Credits without auto-reload are a hard ceiling on abuse: the worst case is that
 the balance runs out and the endpoint starts failing. Turn it on only alongside
 a spend cap.
+
+## Invoking the notification sender
+
+`/functions/v1/send-notifications` has two independent gates, in two different
+headers. Both must pass. Getting them the wrong way round produces a 401 that
+looks the same either way, which is why this table exists.
+
+| Header | Value | Checked by | What it is for |
+|---|---|---|---|
+| `Authorization` | `Bearer <SUPABASE_ANON_KEY>` | Supabase's gateway, before the function runs | Satisfying the platform's `verify_jwt`. Not a secret |
+| `x-cron-secret` | `<CRON_SECRET>` | The function, in `_shared/cronAuth.js` | **This is the authentication.** Keep it secret |
+
+The anon key is public: it is in the page source. It is there only because
+`verify_jwt` is on and the gateway wants a valid project JWT. The service role
+key would also pass, and should not be used: it bypasses row level security,
+and `cron.job` stores its command as plain text in the database.
+
+`verify_jwt` stays **on**. The deploy command carries no `--no-verify-jwt`, and
+there is no `supabase/config.toml` turning it off. Both gates, always.
+
+Both values live in Supabase Vault and are read by name at call time, so
+`cron.job.command` holds no secret. See `supabase/notifications.sql`.
+
+### Function secrets
+
+Set in Supabase → Edge Functions → Secrets, not on the Worker:
+
+| Name | Used for |
+|---|---|
+| `CRON_SECRET` | Matched against the `x-cron-secret` header |
+| `VAPID_SUBJECT` | `mailto:` contact on every push |
+| `VAPID_PUBLIC_KEY` | Must match the key in `app/index.html`. A test pins this |
+| `VAPID_PRIVATE_KEY` | Signs each push. Its public half is the one above |
+
+A missing `CRON_SECRET` returns **503**, not 401: an unset secret is a deploy
+fault and reporting it as "unauthorized" sends whoever is debugging it looking
+in the wrong place.
+
+### The VAPID pair must match
+
+`app/index.html` carries the public half; Supabase holds both. If they disagree
+every send fails with 403 `VapidPkHashMismatch` and nothing arrives. Supabase
+only shows a SHA256 digest of a secret, which is enough to check:
+
+```bash
+node -e "console.log(require('crypto').createHash('sha256').update('<key from app/index.html>').digest('hex'))"
+```
+
+The result must match the `VAPID_PUBLIC_KEY` digest in the dashboard.
+`tests/sendNotifications.test.js` pins this, so editing the key in the app
+without changing the secret fails the build.

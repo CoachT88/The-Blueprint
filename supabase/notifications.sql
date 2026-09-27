@@ -57,16 +57,61 @@ create index if not exists push_subscriptions_user_idx
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
+
+-- ── The two credentials, stored in Vault ───────────────────────────────────
+--
+-- Invoking the function needs BOTH, in different headers:
+--
+--   Authorization: Bearer <project JWT>   Supabase's gateway checks this
+--   x-cron-secret: <CRON_SECRET>          the function itself checks this
+--
+-- They used to share the Authorization header, which could never work: the
+-- gateway reads it first and expects a JWT, so a random CRON_SECRET was
+-- rejected with 401 and the function was never reached.
+--
+-- Use the ANON key for the gateway, not the service role key. The gateway
+-- cannot tell them apart, the function never reads the value, and the anon key
+-- is already public in the page source. The service role key bypasses row
+-- level security, and cron.job stores its command as plain text in this
+-- database, so putting it there would leave an RLS-bypassing key sitting in a
+-- table in exchange for nothing.
+--
+-- The anon key is NOT what protects this endpoint. It satisfies the platform.
+-- CRON_SECRET is the authentication.
+--
+-- Both values go in Vault so the schedule below holds only their names. Run
+-- these two once, replacing the placeholders:
+
+select vault.create_secret(
+    '<CRON_SECRET>', 'bp_cron_secret',
+    'x-cron-secret header for the send-notifications edge function');
+
+select vault.create_secret(
+    '<SUPABASE_ANON_KEY>', 'bp_anon_key',
+    'Project anon key, used only to satisfy the Supabase gateway on pg_net calls');
+
+-- Changing one later, without creating a duplicate:
+-- select vault.update_secret(
+--     (select id from vault.secrets where name = 'bp_cron_secret'), '<NEW_CRON_SECRET>');
+
+-- Confirm they are readable. Shows names only, never values.
+select name, created_at from vault.secrets where name in ('bp_cron_secret', 'bp_anon_key');
+
+
+-- ── The schedule ───────────────────────────────────────────────────────────
+--
 -- Hourly on the hour. Every member's chosen reminder time falls inside some
 -- hour, and the function skips everyone whose hour it is not, so this single
 -- schedule covers every timezone including the half-hour ones.
 --
--- Replace both placeholders before running:
---   <PROJECT-REF>   the project ref from the Supabase dashboard URL
---   <CRON-SECRET>   the same value set as the CRON_SECRET function secret
+-- Replace <PROJECT-REF> with the project ref from the Supabase dashboard URL.
+-- The secrets are read from Vault at call time, so nothing sensitive is stored
+-- in cron.job.command, which is plain text and readable by anyone who can read
+-- the table.
 --
--- The secret is what stops anyone who finds the URL from firing a notification
--- at every member of the app.
+-- vault.decrypted_secrets is restricted to privileged roles. A pg_cron job runs
+-- as the role that scheduled it, so postgres can read these while anon and
+-- authenticated cannot.
 
 select cron.unschedule('send-training-reminders')
     where exists (select 1 from cron.job where jobname = 'send-training-reminders');
@@ -79,13 +124,38 @@ select cron.schedule(
         url     := 'https://<PROJECT-REF>.supabase.co/functions/v1/send-notifications',
         headers := jsonb_build_object(
             'Content-Type',  'application/json',
-            'Authorization', 'Bearer <CRON-SECRET>'
+            'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'bp_anon_key'),
+            'x-cron-secret',              (select decrypted_secret from vault.decrypted_secrets where name = 'bp_cron_secret')
         ),
         body        := '{}'::jsonb,
         timeout_milliseconds := 55000
     );
     $$
 );
+
+
+-- ── Fallback, only if Vault is unavailable on this project ─────────────────
+--
+-- Works identically, but writes both secrets into cron.job.command in plain
+-- text. Prefer the Vault version above. If you use this one, treat CRON_SECRET
+-- as exposed to anyone with database read access.
+--
+-- select cron.schedule(
+--     'send-training-reminders',
+--     '0 * * * *',
+--     $$
+--     select net.http_post(
+--         url     := 'https://<PROJECT-REF>.supabase.co/functions/v1/send-notifications',
+--         headers := jsonb_build_object(
+--             'Content-Type',  'application/json',
+--             'Authorization', 'Bearer <SUPABASE_ANON_KEY>',
+--             'x-cron-secret', '<CRON_SECRET>'
+--         ),
+--         body        := '{}'::jsonb,
+--         timeout_milliseconds := 55000
+--     );
+--     $$
+-- );
 
 
 -- ---------------------------------------------------------------------------
@@ -102,9 +172,21 @@ order by start_time desc
 limit 20;
 
 
--- 2. What did the function actually reply? A 401 here means the secret does not
---    match; a 200 body of {"checked":N,"sent":0,...} at every hour of the day
---    means it is running but nobody's reminder hour is being matched.
+-- 2. What did the function actually reply?
+--
+--    200 with {"checked":N,...}                  working
+--    401 {"error":"missing-cron-secret-header"}  the x-cron-secret header did
+--                                                not arrive; check the schedule
+--    401 {"error":"cron-secret-mismatch"}        Vault and the function secret
+--                                                hold different values
+--    503 {"error":"cron-secret-not-configured"}  CRON_SECRET is not set on the
+--                                                function
+--    401 with an HTML or gateway-shaped body     the Authorization JWT was
+--                                                rejected before the function
+--                                                ran; check bp_anon_key
+--
+--    A 200 body of {"checked":N,"sent":0,...} at every hour of the day means it
+--    is running but nobody's reminder hour is being matched.
 select id, status_code, content, created
 from net._http_response
 order by created desc
