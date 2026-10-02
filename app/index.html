@@ -145,8 +145,6 @@
         #password-reset-modal{position:fixed;inset:0;background:var(--bg-deep);z-index:99999;display:none;align-items:center;justify-content:center;padding:2rem}
         #password-reset-modal.show{display:flex}
         /* Soreness warning modal */
-        #soreness-warning-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:99995;backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:2rem}
-        #soreness-warning-modal.show{display:flex}
         /* Blackout day */
         .blackout-banner{background:linear-gradient(135deg,rgba(99,102,241,.1) 0%,rgba(15,23,42,.6) 100%);border:1px solid rgba(99,102,241,.25);border-radius:1rem;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem}
         /* Elite requirement badge */
@@ -876,32 +874,6 @@
             <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
         </div>
 
-        <div id="hq-checkin-card" class="px-2 space-y-2 hq-anim">
-            <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Daily Check-In</p>
-            <div class="instruction-card" style="padding:.85rem 1rem;">
-                <div class="space-y-2.5">
-                    <div>
-                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-moon mr-1.5"></i>Last Night's Sleep</p>
-                        <div class="flex gap-1.5" id="sleep-btns">
-                            <button class="quick-tap" data-sleep="poor">&#128564; Poor</button>
-                            <button class="quick-tap" data-sleep="okay">&#128528; Okay</button>
-                            <button class="quick-tap" data-sleep="good">&#128522; Good</button>
-                            <button class="quick-tap" data-sleep="great">&#128293; Great</button>
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-triangle-exclamation mr-1.5"></i>Muscle Soreness Today</p>
-                        <div class="flex gap-1.5" id="soreness-btns">
-                            <button class="quick-tap" data-soreness="none">None</button>
-                            <button class="quick-tap" data-soreness="mild">Mild</button>
-                            <button class="quick-tap" data-soreness="moderate">Moderate</button>
-                            <button class="quick-tap" data-soreness="high">High</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Hydration, collapsed by default. It is a log, not a decision, and
              it was taking the best real estate on the screen. -->
         <div id="hq-hydration-card" class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
@@ -984,15 +956,75 @@
 
 <!-- STEP 1: PRE-FLIGHT -->
 
+<!-- ═══════════════════════════════════════════════════════════════════
+     STEP 1: READY
+
+     This was Pre-Flight: two paragraphs of warnings and a button that said
+     I AM PRIMED, which collected nothing and changed nothing. The daily
+     check-in sat separately on the HQ, where answering it produced a modal
+     that recommended Recovery and then offered a Dismiss button next to the
+     recommendation.
+
+     Now there is one screen, immediately before training, and what it
+     collects actually changes the plan. Soreness is required because it is
+     a decision input. Sleep is optional because it is not one.
+
+     Every line below the questions is rendered by renderReady() from the
+     resolver, so Ready and the Today card can never disagree.
+     ═══════════════════════════════════════════════════════════════════ -->
 <div id="step-1" class="step-content hidden-step">
-    <div class="inner-step-wrapper py-12 text-center space-y-10">
-        <div class="relative inline-block mx-auto"><div class="absolute inset-0 bg-red-500/30 blur-[30px] rounded-full"></div><div class="relative p-6 bg-red-500/10 rounded-full border border-red-500/30 w-fit backdrop-blur-md"><i class="fas fa-triangle-exclamation text-4xl text-red-500"></i></div></div>
-        <h2 class="text-4xl font-black uppercase italic text-slate-50">Pre-Flight</h2>
-        <div class="space-y-4 px-2">
-            <div class="instruction-card text-left border-red-500/20"><p class="text-[11px] font-black text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-bolt"></i> Nerve Sensitivity</p><p class="text-[13px] text-slate-300">Stop for <span class="text-red-100 font-bold">electric or stinging</span> sensations. We target ligament expansion, not dermal irritation.</p></div>
-            <div class="instruction-card text-left border-blue-500/20"><p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-droplet"></i> Hydration</p><p class="text-[13px] text-slate-300">Train <span class="text-blue-100 font-bold underline decoration-blue-500/50">well hydrated</span>. Top up through the day rather than drinking a lot right before you start.</p></div>
+    <div class="inner-step-wrapper py-12 space-y-7">
+        <div class="px-2">
+            <h2 class="text-4xl font-black uppercase italic text-slate-50 leading-none">Ready?</h2>
+            <p id="ready-planned" class="text-[12px] text-slate-500 mt-2"></p>
         </div>
-        <div class="flex flex-col gap-4 w-full px-2 pt-4"><button id="primed-btn" class="btn-primary">I AM PRIMED</button><button id="preflight-back-btn" class="btn-outline">Back home</button></div>
+
+        <div class="px-2 space-y-5">
+            <div>
+                <div class="flex items-baseline justify-between mb-2">
+                    <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest">Muscle Soreness</p>
+                    <span class="text-[9px] font-black text-amber-500/80 uppercase tracking-widest">Required</span>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5" id="soreness-btns">
+                    <button class="quick-tap" data-soreness="none">None</button>
+                    <button class="quick-tap" data-soreness="mild">Mild</button>
+                    <button class="quick-tap" data-soreness="moderate">Moderate</button>
+                    <button class="quick-tap" data-soreness="high">High</button>
+                </div>
+            </div>
+            <div>
+                <div class="flex items-baseline justify-between mb-2">
+                    <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest">Sleep</p>
+                    <span class="text-[9px] font-black text-slate-600 uppercase tracking-widest">Optional</span>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5" id="sleep-btns">
+                    <button class="quick-tap" data-sleep="poor">&#128564; Poor</button>
+                    <button class="quick-tap" data-sleep="okay">&#128528; Okay</button>
+                    <button class="quick-tap" data-sleep="good">&#128522; Good</button>
+                    <button class="quick-tap" data-sleep="great">&#128293; Great</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- The app reacting. Empty until there is something to say, because
+             a panel that is always there stops being read. -->
+        <div id="ready-response" class="hidden mx-2 rounded-2xl p-4" style="background:rgba(30,41,59,.75);border:1px solid rgba(148,163,184,.18);border-left:3px solid #3b82f6">
+            <p id="ready-response-title" class="text-[11px] font-black uppercase tracking-widest"></p>
+            <p id="ready-response-body" class="text-[12px] text-slate-300 mt-1.5 leading-relaxed"></p>
+            <p id="ready-response-withheld" class="hidden text-[11px] mt-2.5 leading-relaxed px-3 py-2 rounded-xl" style="background:rgba(100,116,139,.12);color:#cbd5e1"></p>
+        </div>
+
+        <!-- Stop signals. Long for the first few sessions, compact after. -->
+        <div id="ready-safety" class="mx-2 instruction-card text-left border-red-500/20">
+            <p class="text-[11px] font-black text-red-400 uppercase tracking-widest mb-2 flex items-center gap-2"><i class="fas fa-bolt"></i> What this check is not for</p>
+            <p id="ready-safety-short" class="text-[12px] text-slate-300 leading-relaxed">This check is for muscle soreness. Stop if you feel sharp, electric, stinging, joint, or nerve-like pain.</p>
+            <p id="ready-safety-long" class="text-[12px] text-slate-400 leading-relaxed mt-2">Muscle soreness is the dull ache that follows work, and the scale above is asking about that and nothing else. Sharp pain, electric or stinging sensations, unusual joint pain and anything nerve-like are a different thing, and they are not a volume problem. Stop the exercise, and get them looked at if they persist or come back.</p>
+        </div>
+
+        <div class="flex flex-col gap-3 w-full px-2 pt-2">
+            <button id="ready-cta" class="btn-primary" disabled>Choose your soreness level</button>
+            <button id="preflight-back-btn" class="btn-outline">Back home</button>
+        </div>
     </div>
 </div>
 
@@ -1894,17 +1926,6 @@
     </div>
 </div>
 
-<div id="soreness-warning-modal">
-    <div style="background:linear-gradient(145deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);border:1px solid rgba(239,68,68,.3);border-top:1px solid rgba(239,68,68,.5);border-radius:2rem;padding:2rem;max-width:20rem;width:100%;text-align:center;">
-        <i class="fas fa-triangle-exclamation text-red-400 text-4xl mb-4"></i>
-        <h3 class="text-xl font-black uppercase italic text-white mb-3">Recovery Recommended</h3>
-        <p id="soreness-warning-msg" class="text-slate-400 text-sm leading-relaxed mb-6"></p>
-        <div class="flex gap-3">
-            <button id="soreness-go-recovery-btn" class="btn-primary py-4 text-sm" style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%)">Go to Recovery</button>
-            <button id="soreness-dismiss-btn" class="btn-outline py-4 text-sm">Dismiss</button>
-        </div>
-    </div>
-</div>
 
 <!-- TIER LOCK MODAL -->
 
@@ -2068,6 +2089,9 @@ function submitPelvicScreen(){
     closePelvicScreen();
     showPelvicResult(profile,yes);
     renderDashboard();
+    // The screener can be opened from Ready as well as from the HQ, and the
+    // whole point of answering it is that the prescription changes.
+    if(session.step===1) renderReady();
 }
 function showPelvicResult(profile,yes){
     const tight=profile==='tight';
@@ -3567,6 +3591,7 @@ function goToStep(step){
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     const t=document.getElementById(`step-${step}`);t.classList.remove('hidden-step');t.classList.add('active-step');
     if(step===0)renderDashboard();
+    if(step===1)renderReady();
     if(step===2){resetWarmupUI();buildCarousel();startCarousel()}
     if(step===3){
         document.getElementById('deload-mission-note').classList.toggle('hidden',!isDeloadWeek());
@@ -4698,6 +4723,131 @@ function completeSummaryHtml(){
     return out.join('');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// READY
+//
+// One screen between the HQ and the session. It collects the one input that
+// changes the prescription, shows what changed, and sends the member down
+// the branch the resolver chose.
+//
+// It renders from the same nextBestAction() call the Today card uses, so the
+// two cannot disagree. There is no second opinion about today anywhere in
+// the app.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Sessions for which the long stop-signal text is shown in full. */
+const FULL_SAFETY_SESSIONS = 3;
+
+/** Has the member answered the one required question today? */
+function readinessAnswered(){
+    return !!localStorage.getItem(getTodaySorenessKey());
+}
+
+/** What Ready should do when its button is pressed, given the prescription. */
+function readyPlan(r){
+    if(!r) return {label:'Back home', go:()=>goToStep(0)};
+    switch(r.state){
+        case 'RECOVER':
+            return {label:'START RECOVERY', go:()=>{
+                session.routineType='recovery';
+                track('mission_selected',{mission:'recovery',source:'ready'});
+                goToRecoveryPicker();
+            }};
+        case 'RESUME':
+            // Only ever a recovery draft by the time it reaches here: the
+            // resolver withholds a mechanical one under high soreness.
+            return {label:'RESUME SESSION', go:resumeSession};
+        case 'MODIFIED':
+            return {label:'START MODIFIED SESSION', go:()=>goToStep(3)};
+        case 'TRAIN':
+            return {label:`CONTINUE TO ${dayTypeLabel(r.mission).toUpperCase()}`, go:()=>goToStep(3)};
+        case 'PREPARE':
+            if(r.prepare==='pelvic-screen') return {label:'TAKE THE CHECK', go:openPelvicScreen};
+            return {label:'Back home', go:()=>goToStep(0)};
+        default:
+            // COMPLETE and REST cannot launch a session, and the HQ does not
+            // offer a way in. Reaching here means something upstream changed
+            // under the member, so send them back rather than guess.
+            return {label:'Back home', go:()=>goToStep(0)};
+    }
+}
+
+/** How Ready explains what the answer did. Empty when it did nothing. */
+function readyResponse(r){
+    if(!r) return null;
+    if(r.state==='MODIFIED') return {
+        tone:'#f59e0b', title:'Modified session',
+        body:'You reported moderate muscle soreness, so today\'s volume is reduced.',
+    };
+    if(r.state==='RECOVER') return {
+        tone:'#f59e0b', title:'Recovery today',
+        body:'You reported high muscle soreness, so mechanical training is paused today. Recovery work is still on.',
+    };
+    if(r.state==='PREPARE'&&r.prepare==='pelvic-screen') return {
+        tone:'#94a3b8', title:'Before we personalise this',
+        body:'We need your pelvic floor check before prescribing contraction work. Six questions, and it is not a medical diagnosis.',
+    };
+    return null;
+}
+
+function renderReady(){
+    if(!window.BP) return;
+    const r=window.BP.nextBestAction(buildResolverInput());
+    _today=r;
+    const answered=readinessAnswered();
+    const el=id=>document.getElementById(id);
+
+    const planned=el('ready-planned');
+    if(planned){
+        planned.textContent=r.mission?`On the plan today: ${dayTypeLabel(r.mission)}.`:'';
+        planned.classList.toggle('hidden',!planned.textContent);
+    }
+
+    // The long version for the first few sessions, the one-liner after.
+    // allTimeSessionCount is never truncated, unlike sessionLog, so it is
+    // the only count here that can be trusted over a long membership.
+    const longSafety=el('ready-safety-long');
+    if(longSafety) longSafety.classList.toggle('hidden',
+        (persisted.allTimeSessionCount||0)>=FULL_SAFETY_SESSIONS);
+
+    const resp=answered?readyResponse(r):null;
+    const box=el('ready-response');
+    if(box){
+        box.classList.toggle('hidden',!resp);
+        if(resp){
+            box.style.borderLeftColor=resp.tone;
+            el('ready-response-title').textContent=resp.title;
+            el('ready-response-title').style.color=resp.tone;
+            el('ready-response-body').textContent=resp.body;
+        }
+        const wh=el('ready-response-withheld');
+        if(wh){
+            const w=answered?r.withheldSession:null;
+            wh.textContent=w?`Your unfinished ${dayTypeLabel(w.mission)} session is paused, not deleted. It will still be there when the soreness settles.`:'';
+            wh.classList.toggle('hidden',!w);
+        }
+    }
+
+    const cta=el('ready-cta');
+    if(cta){
+        if(!answered){
+            cta.disabled=true;
+            cta.textContent='Choose your soreness level';
+        } else {
+            cta.disabled=false;
+            cta.textContent=readyPlan(r).label;
+        }
+    }
+}
+
+/** The single exit from Ready. Always the branch the resolver chose. */
+function onReadyContinue(){
+    if(!readinessAnswered()) return;
+    const r=_today||(window.BP&&window.BP.nextBestAction(buildResolverInput()));
+    track('ready_continue',{state:r?r.state:'unknown'});
+    readyPlan(r).go();
+}
+
 function renderDashboard(){
     // Stagger-animate HQ sections on each render
     document.querySelectorAll('#step-0 .hq-anim').forEach((el,i)=>{
@@ -4869,26 +5019,27 @@ function getTodaySorenessKey(){ return 'bp_soreness_'+(currentUser?.id||'')+'_'+
 function setSleep(val){
     localStorage.setItem(getTodaySleepKey(), val);
     renderSleepSoreness();
+    // Sleep feeds Coach Tee and the poor-sleep nudge. It does not change the
+    // prescription, so Ready only re-renders to show the selection.
+    renderReady();
 }
+/**
+ * Readiness is reported, and the plan changes.
+ *
+ * What used to happen: a modal appeared recommending Recovery, with a
+ * Dismiss button beside the recommendation. A safety recommendation sitting
+ * next to a prominent way to ignore it is not a recommendation, and the
+ * recommendation changed nothing anyway.
+ *
+ * Now the answer goes into the resolver, the resolver changes the
+ * prescription, and both Ready and the Today card re-render from it. There
+ * is no separate message to dismiss, because the plan itself is the message.
+ */
 function setSoreness(val){
     localStorage.setItem(getTodaySorenessKey(), val);
     renderSleepSoreness();
-    // Show recovery recommendation for any soreness
-    if(val==='mild'||val==='moderate'||val==='high'){
-        showSorenessWarning(val);
-    }
-}
-
-function showSorenessWarning(level){
-    const modal=document.getElementById('soreness-warning-modal');
-    const msg=document.getElementById('soreness-warning-msg');
-    const msgs={
-        mild:'Mild muscle soreness. You are probably still recovering from the last session. Recovery Protocol is a reasonable swap today: the Big Four and pelvic work, without the mechanical load.',
-        moderate:'Moderate muscle soreness. Give it another day. Run the Recovery Protocol instead, which keeps you moving without adding mechanical stress.',
-        high:'High muscle soreness. Mechanical training is on hold today. Gentle breathing and the Big Four stretches are fine. Soreness is not an injury, but it is a signal worth respecting.'
-    };
-    msg.innerText=msgs[level]||'';
-    modal.classList.add('show');
+    renderReady();
+    renderToday();
 }
 function renderSleepSoreness(){
     const sleep=localStorage.getItem(getTodaySleepKey())||'';
@@ -6264,7 +6415,7 @@ function init(){
     try {
     // HQ
     document.getElementById('launch-btn').addEventListener('click',()=>{track('session_started',{scheduled:getScheduledType()});goToStep(1);});
-    document.getElementById('resume-btn').addEventListener('click',resumeSession);
+    document.getElementById('resume-btn').addEventListener('click',()=>goToStep(1));
     // Hydration is a log, not a decision, so it opens on request.
     const _hyToggle=document.getElementById('hydration-toggle');
     if(_hyToggle) _hyToggle.addEventListener('click',()=>{
@@ -6359,7 +6510,7 @@ function init(){
         });
     });
     // Pre-Flight
-    document.getElementById('primed-btn').addEventListener('click',()=>goToStep(3));
+    document.getElementById('ready-cta').addEventListener('click',onReadyContinue);
     document.getElementById('preflight-back-btn').addEventListener('click',()=>goToStep(0));
     // Warmup
     document.getElementById('warmup-btn').addEventListener('click',toggleWarmup);
@@ -6499,12 +6650,6 @@ function init(){
     document.getElementById('tour-layer').addEventListener('click',e=>{if(e.target.id==='tour-layer')tourNext();});
     document.getElementById('tier-lock-close-btn').addEventListener('click',()=>document.getElementById('tier-lock-modal').classList.add('hidden'));
     document.getElementById('tier-lock-learn-btn').addEventListener('click',()=>{document.getElementById('tier-lock-modal').classList.add('hidden');openManualAt('m-tiers');});
-    document.getElementById('soreness-dismiss-btn').addEventListener('click',()=>document.getElementById('soreness-warning-modal').classList.remove('show'));
-    document.getElementById('soreness-go-recovery-btn').addEventListener('click',()=>{
-        document.getElementById('soreness-warning-modal').classList.remove('show');
-        session.routineType='recovery';
-        goToRecoveryPicker();
-    });
     document.getElementById('milestone-close-btn').addEventListener('click',closeMilestone);
     } catch(err) {
         console.error('Blueprint init error:', err);
