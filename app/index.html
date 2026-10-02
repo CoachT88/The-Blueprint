@@ -198,6 +198,21 @@
         .manual-section.open{display:block}
         .manual-tag{display:inline-block;font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:.2rem .5rem;border-radius:999px;border:1px solid;margin-right:.3rem;margin-bottom:.3rem}
         /* Coach tip */
+        /* ── Today card ───────────────────────────────
+           The one element the eye should land on. Heavier border, more
+           padding and a lift than anything else on the HQ, and the state
+           tints the left edge so RECOVER and REST never look like TRAIN. */
+        .today-card{background:linear-gradient(160deg,rgba(30,41,59,.92) 0%,rgba(15,23,42,.96) 100%);border:1px solid rgba(148,163,184,.18);border-left:3px solid #3b82f6;border-radius:1.25rem;padding:1.15rem 1.25rem;box-shadow:0 10px 30px -12px rgba(0,0,0,.7)}
+        .today-card[data-state="MODIFIED"]{border-left-color:#f59e0b}
+        .today-card[data-state="RECOVER"]{border-left-color:#f59e0b}
+        .today-card[data-state="REST"]{border-left-color:#6366f1}
+        .today-card[data-state="COMPLETE"]{border-left-color:#10b981}
+        .today-card[data-state="RESUME"]{border-left-color:#10b981}
+        .today-card[data-state="PREPARE"]{border-left-color:#64748b}
+        /* COMPLETE is closure, not a prompt. Quieter, not louder. */
+        .today-card[data-state="COMPLETE"] #today-headline{color:#6ee7b7}
+        .week-dot{width:9px;height:9px;border-radius:999px;background:rgba(148,163,184,.22);display:inline-block}
+        .week-dot.done{background:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,.18)}
         .tip-card{background:linear-gradient(135deg,rgba(168,85,247,.08) 0%,rgba(15,23,42,.6) 100%);border:1px solid rgba(168,85,247,.2);border-radius:1.25rem;padding:.9rem 1rem}
         /* EQ check-in */
         .eq-btn{flex:1;padding:.5rem .2rem;border-radius:.75rem;font-size:.85rem;font-weight:900;text-align:center;cursor:pointer;transition:all .2s;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:#475569}
@@ -477,6 +492,15 @@
             <div class="chart-svg-wrap"><svg id="eq-chart" width="100%" viewBox="0 0 340 160"></svg></div>
             <p class="text-[9px] text-slate-600 text-center italic">EQ responds in weeks. It moves long before the tape does.</p>
         </div>
+    <!-- Personal Records -->
+    <div id="hq-records-card" class="px-2 space-y-2 hq-anim">
+        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Personal Records</p>
+        <div class="flex gap-2">
+            <div class="record-chip"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Best Streak</p><p id="record-streak" class="text-lg font-black text-white">0d</p></div>
+            <div class="record-chip"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">Best Session</p><p id="record-session-xp" class="text-lg font-black text-white">0 XP</p></div>
+            <div class="record-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Best Week</p><p id="record-week-xp" class="text-lg font-black text-white">0 XP</p></div>
+        </div>
+    </div>
         <div id="chart-stats" class="grid grid-cols-2 gap-3 px-2"></div>
         <p class="text-center text-slate-600 text-[10px] italic px-2">Measurements logged at session end.</p>
         <!-- Photo gallery -->
@@ -690,13 +714,19 @@
 
 <div id="step-0" class="step-content hidden-step">
     <div class="inner-step-wrapper pt-12 space-y-5">
+        <!-- ── Header ──────────────────────────────────────────────────────
+             Identity and controls, plus the one progress number that belongs
+             above the fold. Streak and XP used to sit here; they are now in
+             the level block near the bottom. A streak that breaks on a
+             scheduled rest day cannot share billing with a weekly target that
+             counts that same rest day as success. -->
         <div class="flex justify-between items-end px-2">
             <div>
                 <h1 class="text-4xl font-black tracking-tighter uppercase italic leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">The Blueprint</h1>
                 <p id="hq-user-email" class="hidden"></p>
-                <div id="hq-stat-chips" class="flex items-center gap-3 mt-3">
-                    <div class="bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-fire text-orange-500 text-[10px]"></i><span id="hq-streak" class="text-[10px] font-bold text-orange-100">0 Day Streak</span></div>
-                    <div class="bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded flex items-center gap-1.5"><i class="fas fa-bolt text-yellow-400 text-[10px]"></i><span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span></div>
+                <div id="hq-stat-chips" class="flex items-center gap-2 mt-3">
+                    <div id="hq-week-dots" class="flex items-center gap-1.5"></div>
+                    <span id="hq-week-label" class="text-[10px] font-bold text-slate-400">This week</span>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -705,59 +735,159 @@
                 <button id="logout-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Sign out"><i class="fas fa-right-from-bracket text-xs"></i></button>
             </div>
         </div>
-        <div id="hq-level-badge" class="level-badge mx-2 hq-anim">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i><span id="hq-level-name" class="text-yellow-300 text-xs font-black uppercase tracking-widest">LVL 1 · RECRUIT</span></div>
-                <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">65 XP to next level</span>
-            </div>
-            <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
-        </div>
-        <div id="deload-banner" class="deload-banner mx-2 hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
-        <div id="hq-coach-nudge" class="hidden mx-2 p-3 rounded-2xl" style="background:rgba(168,85,247,.09);border:1px solid rgba(168,85,247,.3)">
-            <div class="flex items-start gap-3">
-                <i class="fas fa-comment-dots text-lg flex-shrink-0 mt-0.5" style="color:#a855f7"></i>
+
+        <!-- ── Attention band ──────────────────────────────────────────────
+             Every message that used to stack here still exists and still has
+             its own element, handlers and tests. What changed is that at most
+             one of them is on screen at a time: renderAttentionBand() picks
+             the highest priority live condition and hides the rest. Five
+             coloured cards competing above the decision is five cards nobody
+             reads. Priority order is in ATTENTION_BAND. -->
+        <div id="hq-attention-band" class="px-2 space-y-3">
+            <div id="hq-load-failed-banner" class="hidden p-3 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-center gap-3">
+                <i class="fas fa-triangle-exclamation text-red-400 text-lg flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
-                    <p class="text-[11px] font-black uppercase tracking-widest" style="color:#c4b5fd">Coach Tee noticed</p>
-                    <p id="hq-coach-nudge-text" class="text-[11px] text-slate-300 mt-0.5 leading-relaxed"></p>
-                    <div class="flex gap-2 mt-2">
-                        <button id="hq-coach-nudge-ask" class="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl" style="background:rgba(168,85,247,.2);color:#d8b4fe">Ask Coach Tee</button>
-                        <button id="hq-coach-nudge-dismiss" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Not now</button>
+                    <p class="text-[11px] font-black text-red-300 uppercase tracking-widest">Could Not Load Your Data</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">Your progress is safe on the server, we just could not reach it. Nothing will be saved until it loads. Do not start a session yet.</p>
+                </div>
+                <button id="hq-load-retry-btn" class="text-[10px] font-black text-red-300 uppercase tracking-widest bg-red-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Retry</button>
+            </div>
+            <div id="hq-storage-full-banner" class="hidden p-3 rounded-2xl bg-orange-500/10 border border-orange-500/40 flex items-center gap-3">
+                <i class="fas fa-hard-drive text-orange-400 text-lg flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-black text-orange-300 uppercase tracking-widest">Device Storage Full</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">Your progress is still saving to the cloud, but this device cannot keep an offline copy. Free up some space when you get a chance.</p>
+                </div>
+            </div>
+            <div id="hq-pelvic-prompt" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-stethoscope text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Pelvic Floor Check</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">A pelvic floor can be too tight as easily as too weak, and the training for each is the opposite. Thirty seconds, six questions, and your Recovery Protocol adjusts to the answer.</p>
+                        <div class="flex gap-2 mt-2">
+                            <button id="hq-pelvic-start" class="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-amber-500/20 px-3 py-1.5 rounded-xl">Take The Check</button>
+                            <button id="hq-pelvic-learn" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Why?</button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div id="hq-pelvic-prompt" class="hidden mx-2 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30">
-            <div class="flex items-start gap-3">
-                <i class="fas fa-stethoscope text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
+            <div id="hq-pass-used-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
+                <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
-                    <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Pelvic Floor Check</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">A pelvic floor can be too tight as easily as too weak, and the training for each is the opposite. Thirty seconds, six questions, and your Recovery Protocol adjusts to the answer.</p>
-                    <div class="flex gap-2 mt-2">
-                        <button id="hq-pelvic-start" class="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-amber-500/20 px-3 py-1.5 rounded-xl">Take The Check</button>
-                        <button id="hq-pelvic-learn" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Why?</button>
+                    <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Your streak is still alive. Get back in today.</p>
+                </div>
+            </div>
+            <div id="hq-coach-nudge" class="hidden p-3 rounded-2xl" style="background:rgba(168,85,247,.09);border:1px solid rgba(168,85,247,.3)">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-comment-dots text-lg flex-shrink-0 mt-0.5" style="color:#a855f7"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] font-black uppercase tracking-widest" style="color:#c4b5fd">Coach Tee noticed</p>
+                        <p id="hq-coach-nudge-text" class="text-[11px] text-slate-300 mt-0.5 leading-relaxed"></p>
+                        <div class="flex gap-2 mt-2">
+                            <button id="hq-coach-nudge-ask" class="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl" style="background:rgba(168,85,247,.2);color:#d8b4fe">Ask Coach Tee</button>
+                            <button id="hq-coach-nudge-dismiss" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Not now</button>
+                        </div>
                     </div>
                 </div>
             </div>
+            <!-- Still rendered and still hidden by the same conditions as
+                 before, but the Today card is now where rest, deload and an
+                 unfinished session are communicated, so the band never
+                 promotes these three. Kept so nothing that reads them breaks. -->
+            <div id="deload-banner" class="deload-banner hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
+            <div id="hq-rest-banner" class="hidden p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-3">
+                <i class="fas fa-bed text-indigo-400 text-lg flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-black text-indigo-300 uppercase tracking-widest">Rest Day</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">Rest is on the schedule today. This takes you to the Recovery Protocol.</p>
+                </div>
+            </div>
+            <div id="resume-banner" class="hidden p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3">
+                <i class="fas fa-play-circle text-emerald-400 text-xl flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-black text-emerald-300 uppercase tracking-widest">Session In Progress</p>
+                    <p id="resume-banner-label" class="text-[10px] text-slate-400 mt-0.5"></p>
+                </div>
+            </div>
         </div>
+
+        <!-- ── Today ───────────────────────────────────────────────────────
+             The decision. Everything above is context and everything below is
+             support. It renders entirely from nextBestAction(): the DOM layer
+             reads state, mission, reason, duration, changes and
+             withheldSession, and decides nothing for itself. See renderToday. -->
+        <div id="hq-today-card" class="today-card mx-2 hq-anim">
+            <div class="flex items-baseline justify-between gap-3">
+                <p id="today-eyebrow" class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">Today</p>
+                <p id="today-meta" class="text-[10px] font-bold text-slate-500 hidden" style="font-family:'JetBrains Mono',monospace"></p>
+            </div>
+            <h2 id="today-headline" class="text-3xl font-black uppercase italic tracking-tight leading-none mt-1.5 text-slate-50">&nbsp;</h2>
+            <p id="today-sub" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
+            <p id="today-why" class="text-[12px] text-slate-300 mt-2 leading-relaxed"></p>
+            <p id="today-withheld" class="hidden text-[11px] mt-2 leading-relaxed px-3 py-2 rounded-xl" style="background:rgba(100,116,139,.12);color:#cbd5e1"></p>
+            <ul id="today-changes" class="hidden mt-3 space-y-1"></ul>
+            <div id="today-complete-summary" class="hidden mt-3 grid grid-cols-2 gap-2"></div>
+            <div id="today-actions" class="mt-4 space-y-2">
+                <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
+                <button id="resume-btn" class="btn-primary hidden" style="background:linear-gradient(135deg,#059669 0%,#047857 100%)">RESUME SESSION</button>
+                <button id="today-prepare-btn" class="btn-primary hidden">GET SET UP</button>
+                <button id="today-optional-btn" class="hidden w-full text-[11px] font-black uppercase tracking-widest text-slate-400 py-2.5 rounded-xl" style="background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.2)">Active Recovery</button>
+                <button id="today-why-btn" class="hidden w-full text-[10px] font-bold text-slate-500 py-1.5">Why this today?</button>
+                <!-- The explicit "Something else" path lands in 2A.4, when the
+                     primary CTA starts bypassing Mission Select. Until then
+                     both routes end at the same picker, so offering two
+                     identical buttons would be theatre. One honest line
+                     instead; see the report. -->
+                <p id="today-alt-note" class="hidden text-[10px] text-slate-600 text-center">You can still pick a different session at the next step.</p>
+            </div>
+        </div>
+
+        <!-- ── Secondary ───────────────────────────────────────────────────
+             Everything below supports the decision above and must not compete
+             with it. Nothing here was removed; it was reordered. -->
         <div id="hq-calendar-card" class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
         <p class="text-[9px] font-black text-slate-700 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
         <div id="last-measure-row" class="flex gap-3 mx-2">
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
         </div>
         <div id="eq-summary-row" class="hidden flex gap-3 mx-2">
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Avg EQ</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">last 7 sessions</p><p id="eq-avg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">—</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Avg EQ</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">last 7 sessions</p><p id="eq-avg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
         </div>
-        <!-- Coach Tee Hourly Tip -->
-        <div id="hq-tip-card" class="tip-card mx-2 hq-anim">
-            <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee</p>
-            <p id="daily-tip-title" class="text-[11px] font-black text-white uppercase tracking-wide mb-1"></p>
-            <p id="daily-tip" class="text-[12px] text-slate-300 leading-relaxed italic"></p>
+
+        <div id="hq-checkin-card" class="px-2 space-y-2 hq-anim">
+            <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Daily Check-In</p>
+            <div class="instruction-card" style="padding:.85rem 1rem;">
+                <div class="space-y-2.5">
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-moon mr-1.5"></i>Last Night's Sleep</p>
+                        <div class="flex gap-1.5" id="sleep-btns">
+                            <button class="quick-tap" data-sleep="poor">&#128564; Poor</button>
+                            <button class="quick-tap" data-sleep="okay">&#128528; Okay</button>
+                            <button class="quick-tap" data-sleep="good">&#128522; Good</button>
+                            <button class="quick-tap" data-sleep="great">&#128293; Great</button>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-triangle-exclamation mr-1.5"></i>Muscle Soreness Today</p>
+                        <div class="flex gap-1.5" id="soreness-btns">
+                            <button class="quick-tap" data-soreness="none">None</button>
+                            <button class="quick-tap" data-soreness="mild">Mild</button>
+                            <button class="quick-tap" data-soreness="moderate">Moderate</button>
+                            <button class="quick-tap" data-soreness="high">High</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <!-- Hydration Tracker -->
+
+        <!-- Hydration, collapsed by default. It is a log, not a decision, and
+             it was taking the best real estate on the screen. -->
         <div id="hq-hydration-card" class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
-            <div class="flex justify-between items-center mb-3">
+            <button id="hydration-toggle" class="w-full flex justify-between items-center">
                 <div class="flex items-center gap-2 min-w-0">
                     <i class="fas fa-droplet text-blue-400 text-sm flex-shrink-0"></i>
                     <span class="text-[10px] font-black uppercase tracking-widest text-blue-400 truncate">Daily Hydration</span>
@@ -765,134 +895,73 @@
                 <div class="flex items-center gap-2 flex-shrink-0 min-w-0">
                     <span id="hydration-over" class="hidden text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" style="background:rgba(16,185,129,.15);color:#6ee7b7;white-space:nowrap;"></span>
                     <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace;white-space:nowrap;">0 / 3L</span>
+                    <i id="hydration-chevron" class="fas fa-chevron-down text-slate-600 text-[10px] transition-transform"></i>
                 </div>
-            </div>
-            <!-- Liter milestone bubbles -->
-            <div class="flex gap-2 mb-3" id="hydration-liters">
-                <div class="hydration-liter" data-l="1">1L</div>
-                <div class="hydration-liter" data-l="2">2L</div>
-                <div class="hydration-liter" data-l="3">3L</div>
-            </div>
-            <div class="hydration-bar-track mb-3"><div id="hydration-bar" class="hydration-bar-fill" style="width:0%"></div></div>
-            <!-- Unit switch + input -->
-            <div class="flex gap-2 items-center mb-2">
-                <div class="unit-switch">
-                    <button id="unit-oz-btn" class="unit-pill">oz</button>
-                    <button id="unit-l-btn"  class="unit-pill active">L</button>
+            </button>
+            <div class="hydration-bar-track mt-3"><div id="hydration-bar" class="hydration-bar-fill" style="width:0%"></div></div>
+            <div id="hydration-body" class="hidden mt-3">
+                <div class="flex gap-2 mb-3" id="hydration-liters">
+                    <div class="hydration-liter" data-l="1">1L</div>
+                    <div class="hydration-liter" data-l="2">2L</div>
+                    <div class="hydration-liter" data-l="3">3L</div>
                 </div>
-                <input id="hydration-custom-input" type="number" min="0" step="any" placeholder="e.g. 0.5" class="auth-input text-center" style="font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:.5rem .75rem;flex:1;">
-                <button id="hydration-custom-btn" class="water-btn" style="flex-shrink:0;width:52px;"><i class="fas fa-plus"></i></button>
-                <button id="hydration-reset-btn" class="water-btn" style="flex-shrink:0;width:40px;border-color:rgba(100,116,139,.2);background:rgba(100,116,139,.05);color:#475569;"><i class="fas fa-rotate-left"></i></button>
-            </div>
-            <p id="hydration-entry-note" class="hidden text-[10px] text-center mb-1"></p>
-            <div class="flex justify-center mb-1">
-                <button id="hydration-undo-btn" class="hidden text-[9px] font-black uppercase tracking-widest text-slate-500 px-2 py-1"><i class="fas fa-rotate-left mr-1"></i>Undo last</button>
-            </div>
-            <p id="hydration-msg" class="text-[10px] text-slate-500 italic mt-1 text-center">Sip throughout the day — don't chug.</p>
-        </div>
-
-    <!-- Sleep + Soreness quick-log -->
-    <div id="hq-checkin-card" class="px-2 space-y-2 hq-anim">
-        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Daily Check-In</p>
-        <div class="instruction-card" style="padding:.85rem 1rem;">
-            <div class="space-y-2.5">
-                <div>
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-moon mr-1.5"></i>Last Night's Sleep</p>
-                    <div class="flex gap-1.5" id="sleep-btns">
-                        <button class="quick-tap" data-sleep="poor">😴 Poor</button>
-                        <button class="quick-tap" data-sleep="okay">😐 Okay</button>
-                        <button class="quick-tap" data-sleep="good">😊 Good</button>
-                        <button class="quick-tap" data-sleep="great">🔥 Great</button>
+                <div class="flex gap-2 items-center mb-2">
+                    <div class="unit-switch">
+                        <button id="unit-oz-btn" class="unit-pill">oz</button>
+                        <button id="unit-l-btn"  class="unit-pill active">L</button>
                     </div>
+                    <input id="hydration-custom-input" type="number" min="0" step="any" placeholder="e.g. 0.5" class="auth-input text-center" style="font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:.5rem .75rem;flex:1;">
+                    <button id="hydration-custom-btn" class="water-btn" style="flex-shrink:0;width:52px;"><i class="fas fa-plus"></i></button>
+                    <button id="hydration-reset-btn" class="water-btn" style="flex-shrink:0;width:40px;border-color:rgba(100,116,139,.2);background:rgba(100,116,139,.05);color:#475569;"><i class="fas fa-rotate-left"></i></button>
                 </div>
-                <div>
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-triangle-exclamation mr-1.5"></i>Soreness Today</p>
-                    <div class="flex gap-1.5" id="soreness-btns">
-                        <button class="quick-tap" data-soreness="none">None</button>
-                        <button class="quick-tap" data-soreness="mild">Mild</button>
-                        <button class="quick-tap" data-soreness="moderate">Moderate</button>
-                        <button class="quick-tap" data-soreness="high">High</button>
-                    </div>
+                <p id="hydration-entry-note" class="hidden text-[10px] text-center mb-1"></p>
+                <div class="flex justify-center mb-1">
+                    <button id="hydration-undo-btn" class="hidden text-[9px] font-black uppercase tracking-widest text-slate-500 px-2 py-1"><i class="fas fa-rotate-left mr-1"></i>Undo last</button>
                 </div>
+                <p id="hydration-msg" class="text-[10px] text-slate-500 italic mt-1 text-center">Sip through the day rather than drinking a lot at once.</p>
             </div>
         </div>
-    </div>
 
-    <!-- Personal Records -->
-    <div id="hq-records-card" class="px-2 space-y-2 hq-anim">
-        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Personal Records</p>
-        <div class="flex gap-2">
-            <div class="record-chip"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Best Streak</p><p id="record-streak" class="text-lg font-black text-white">0d</p></div>
-            <div class="record-chip"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">Best Session</p><p id="record-session-xp" class="text-lg font-black text-white">0 XP</p></div>
-            <div class="record-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Best Week</p><p id="record-week-xp" class="text-lg font-black text-white">0 XP</p></div>
+        <div id="hq-tip-card" class="tip-card mx-2 hq-anim">
+            <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee</p>
+            <p id="daily-tip-title" class="text-[11px] font-black text-white uppercase tracking-wide mb-1"></p>
+            <p id="daily-tip" class="text-[12px] text-slate-300 leading-relaxed italic"></p>
         </div>
-    </div>
 
-    <div class="px-2 space-y-3 hq-anim">
-        <div id="resume-banner" class="hidden p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3">
-            <i class="fas fa-play-circle text-emerald-400 text-xl flex-shrink-0"></i>
-            <div class="flex-1 min-w-0">
-                <p class="text-[11px] font-black text-emerald-300 uppercase tracking-widest">Session In Progress</p>
-                <p id="resume-banner-label" class="text-[10px] text-slate-400 mt-0.5"></p>
+        <div class="px-2 space-y-3 hq-anim">
+            <div id="hq-tools-row" class="grid grid-cols-3 gap-2">
+                <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
+                <button id="weekly-report-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-calendar-week text-emerald-400 text-xs"></i> Week</button>
+                <button id="photos-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-images text-xs" style="color:#a855f7"></i> Photos</button>
             </div>
-            <button id="resume-btn" class="text-[10px] font-black text-emerald-300 uppercase tracking-widest bg-emerald-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Resume</button>
-        </div>
-        <div id="hq-storage-full-banner" class="hidden p-3 rounded-2xl bg-orange-500/10 border border-orange-500/40 flex items-center gap-3">
-            <i class="fas fa-hard-drive text-orange-400 text-lg flex-shrink-0"></i>
-            <div class="flex-1 min-w-0">
-                <p class="text-[11px] font-black text-orange-300 uppercase tracking-widest">Device Storage Full</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">Your progress is still saving to the cloud, but this device cannot keep an offline copy. Free up some space when you get a chance.</p>
+            <div id="hq-coach-row" class="grid grid-cols-2 gap-2">
+                <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Ask Coach Tee</button>
+                <button id="manual-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[12px] font-black" style="border-color:rgba(168,85,247,.45);color:#c4b5fd;background:rgba(168,85,247,.07)"><i class="fas fa-book-open text-xs" style="color:#a855f7"></i> Manual</button>
             </div>
         </div>
-        <div id="hq-load-failed-banner" class="hidden p-3 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-center gap-3">
-            <i class="fas fa-triangle-exclamation text-red-400 text-lg flex-shrink-0"></i>
-            <div class="flex-1 min-w-0">
-                <p class="text-[11px] font-black text-red-300 uppercase tracking-widest">Could Not Load Your Data</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">Your progress is safe on the server, we just could not reach it. Nothing will be saved until it loads. Do not start a session yet.</p>
-            </div>
-            <button id="hq-load-retry-btn" class="text-[10px] font-black text-red-300 uppercase tracking-widest bg-red-500/20 px-3 py-1.5 rounded-xl flex-shrink-0">Retry</button>
-        </div>
-        <div id="hq-pass-used-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
-            <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
-            <div class="flex-1 min-w-0">
-                <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Your streak is still alive. Get back in today.</p>
-            </div>
-        </div>
-        <div id="hq-rest-banner" class="hidden p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-3">
-            <i class="fas fa-bed text-indigo-400 text-lg flex-shrink-0"></i>
-            <div class="flex-1 min-w-0">
-                <p class="text-[11px] font-black text-indigo-300 uppercase tracking-widest">Rest Day</p>
-                <p class="text-[10px] text-slate-400 mt-0.5">Rest is on the schedule today. This takes you to the Recovery Protocol.</p>
-            </div>
-        </div>
-        <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
-        <div id="hq-tools-row" class="grid grid-cols-3 gap-2">
-            <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
-            <button id="weekly-report-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-calendar-week text-emerald-400 text-xs"></i> Week</button>
-            <button id="photos-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-images text-xs" style="color:#a855f7"></i> Photos</button>
-        </div>
-        <div id="hq-coach-row" class="grid grid-cols-2 gap-2">
-            <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Ask Coach Tee</button>
-            <button id="manual-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[12px] font-black" style="border-color:rgba(168,85,247,.45);color:#c4b5fd;background:rgba(168,85,247,.07)"><i class="fas fa-book-open text-xs" style="color:#a855f7"></i> Manual</button>
-        </div>
-    </div>
-    <div class="px-2 space-y-2">
-        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Recent Sessions</p>
-        <div id="session-log" class="space-y-1.5"></div>
-    </div>
-    <div class="px-2 space-y-2">
-        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Data Management</p>
-        <div class="export-row">
-            <button id="export-btn"><i class="fas fa-download mr-1"></i>Export</button>
-            <button id="import-btn"><i class="fas fa-upload mr-1"></i>Import</button>
 
+        <div class="px-2 space-y-2">
+            <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Recent Sessions</p>
+            <div id="session-log" class="space-y-1.5"></div>
         </div>
-        <input type="file" id="import-file-input" accept=".json" class="hidden">
-    </div>
-    <div class="scroll-buffer"></div>
-</div>
 
+        <!-- Level and XP, demoted. Streak lives here too now: it is still
+             worth seeing, it is just not the headline while its own logic
+             counts a prescribed rest day as a miss. -->
+        <div id="hq-level-badge" class="level-badge mx-2 hq-anim">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i><span id="hq-level-name" class="text-yellow-300 text-xs font-black uppercase tracking-widest">LVL 1 &middot; RECRUIT</span></div>
+                <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">65 XP to next level</span>
+            </div>
+            <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
+            <div class="flex items-center gap-3 mt-2.5">
+                <span id="hq-streak" class="text-[10px] font-bold text-orange-100">0 Day Streak</span>
+                <span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span>
+            </div>
+        </div>
+
+        <div class="scroll-buffer"></div>
+    </div>
 </div>
 
 <!-- STEP 1: PRE-FLIGHT -->
@@ -1701,13 +1770,23 @@
                 </div>
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Do the Recovery Protocol</p>
-                    <p>The Big Four and pelvic floor work on rest days is what separates gainers from plateauers. Hip flexibility directly affects pelvic function. Tight adductors keep the hang retracted. These exercises are not optional extras.</p>
+                    <p>The Big Four and pelvic floor work on rest days are part of the programme, not optional extras. Hip and groin mobility is worth keeping on top of in its own right, and the adductors sit close to the pelvic floor and commonly get tight from sitting.</p>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Trust the tier locks</p>
                     <p>The 4-week locks on Advanced and Elite are not obstacles — they are the protocol. Your tissue adapts in layers. Jumping tiers before the minimum time causes injury, not faster gains.</p>
                 </div>
             </div>
+        </div>
+
+        <div class="px-5 py-4 space-y-2">
+            <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Data Management</p>
+        <div class="export-row">
+            <button id="export-btn"><i class="fas fa-download mr-1"></i>Export</button>
+            <button id="import-btn"><i class="fas fa-upload mr-1"></i>Import</button>
+
+        </div>
+        <input type="file" id="import-file-input" accept=".json" class="hidden">
         </div>
 
         <!-- CHAPTER 10: PRIVACY -->
@@ -2571,8 +2650,10 @@ function _writeLocalBackup(){
     }
 }
 function _showStorageFullBanner(){
-    const el=document.getElementById('hq-storage-full-banner');
-    if(el) el.classList.remove('hidden');
+    // The band decides what is on screen; this only records that the
+    // condition is live. See ATTENTION_BAND.
+    _storageFull=true;
+    renderAttentionBand();
 }
 // bp_hydration_/bp_sleep_/bp_soreness_ write one key per day per user and were
 // never cleaned up, so a long-tenured member accumulates thousands of dead keys.
@@ -4299,6 +4380,285 @@ function maybeShowUpdateNotice(){
     document.getElementById('update-notice-modal').classList.remove('hidden');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// HQ: one decision, one message, one progress number
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Build the resolver's input from whatever the app currently knows.
+ *
+ * This is the whole adapter. Every table the resolver needs is handed to it
+ * rather than reached for, so there is one GOALS, one DAY_TYPES and one
+ * CONTRACTION_RECOVERY_IDX, and the resolver stays testable without a DOM.
+ *
+ * Readiness (sleep, soreness) is per device and per day and stays in
+ * localStorage. Nothing here writes.
+ */
+function buildResolverInput(){
+    const draftKey='bp_session_draft_'+(currentUser?.id||'');
+    let draft=null;
+    try{
+        const raw=localStorage.getItem(draftKey);
+        const parsed=raw?JSON.parse(raw):null;
+        // A draft older than a day is not an unfinished session, it is litter.
+        // Same 24h window the resume banner has always used.
+        if(parsed&&(Date.now()-parsed.savedAt<24*60*60*1000)) draft=parsed;
+        else if(parsed) localStorage.removeItem(draftKey);
+    }catch(e){}
+
+    return {
+        dataLoaded:_persistedLoaded,
+        now:new Date(),
+        goals:GOALS,
+        goalKey:persisted.primaryGoal,
+        dayTypes:DAY_TYPES,
+        schedule:persisted.schedule,
+        completedDays:persisted.completedDays,
+        sessionDraft:draft,
+        soreness:localStorage.getItem(getTodaySorenessKey())||'',
+        pelvicProfile:persisted.pelvicProfile,
+        firstSessionDate:persisted.firstSessionDate,
+        recoveryPlan:getDailyRecommendedUnfiltered(),
+        contractionIndices:CONTRACTION_RECOVERY_IDX,
+        estimateMinutes:(mission,opts)=>window.BP.estimateSessionMinutes(mission,{
+            routines:ROUTINES, difficulties:DIFFICULTIES, girthCircuit:GIRTH_CIRCUIT,
+            difficulty:getDiff().id, ...opts,
+        }),
+    };
+}
+
+/**
+ * The time-of-day recovery picks BEFORE the screener filter.
+ *
+ * getDailyRecommended() filters blocked exercises out itself. The resolver
+ * needs the unfiltered list, because "would this prescription have involved
+ * contraction work?" is exactly the question the screener gate asks, and a
+ * pre-filtered list always answers no.
+ */
+function getDailyRecommendedUnfiltered(){
+    const hour=new Date().getHours();
+    const tod=hour<11?'morning':hour<17?'afternoon':'night';
+    return ROUTINES.recovery.map((_,i)=>i).filter(i=>RECOVERY_META[i]&&RECOVERY_META[i].tod.includes(tod));
+}
+
+/** Cached so the band, the week line and the card all describe the same moment. */
+let _today=null;
+function currentPrescription(){ return _today; }
+
+/**
+ * The attention band, in priority order. First live condition wins and
+ * everything else is hidden.
+ *
+ * The rule for what belongs here: a message is a band message only if it is
+ * about something OTHER than today's prescription. Rest, deload, an
+ * unfinished session and the soreness response are all part of the
+ * prescription, so the Today card says them and the band stays quiet. That
+ * is why three of the old banners are listed as never promoted.
+ *
+ * Order is worst-consequence-first. Losing data beats a questionnaire.
+ */
+const ATTENTION_BAND=[
+    {id:'hq-load-failed-banner',  live:()=>!_persistedLoaded&&!!currentUser},
+    {id:'hq-storage-full-banner', live:()=>!!_storageFull},
+    {id:'hq-pass-used-banner',    live:()=>!!_passUsedThisRender},
+    {id:'hq-coach-nudge',         live:()=>!!_coachNudgeLive},
+    // Last of the live ones on purpose. This is a standing invitation rather
+    // than news: it is true every day until it is answered, so above the
+    // transient messages it would starve them permanently.
+    {id:'hq-pelvic-prompt',       live:()=>!!currentUser&&!hasPelvicScreen()},
+    // Never promoted: the Today card owns these three.
+    {id:'deload-banner',          live:()=>false},
+    {id:'hq-rest-banner',         live:()=>false},
+    {id:'resume-banner',          live:()=>false},
+];
+let _storageFull=false, _passUsedThisRender=false, _coachNudgeLive=false;
+
+function renderAttentionBand(){
+    let shown=false;
+    for(const entry of ATTENTION_BAND){
+        const el=document.getElementById(entry.id);
+        if(!el) continue;
+        let live=false;
+        try{ live=!shown&&entry.live(); }catch(e){ live=false; }
+        el.classList.toggle('hidden',!live);
+        if(live) shown=true;
+    }
+}
+
+/**
+ * Week completion: the primary progress signal.
+ *
+ * Scheduled non-rest sessions are the denominator, so a rest day taken as
+ * written reads as the programme being followed rather than as a gap.
+ */
+function renderWeekProgress(){
+    if(!window.BP) return;
+    const w=window.BP.weekCompletion(persisted.schedule,persisted.completedDays);
+    const dots=document.getElementById('hq-week-dots');
+    const label=document.getElementById('hq-week-label');
+    if(dots){
+        dots.innerHTML='';
+        for(let i=0;i<w.target;i++){
+            const d=document.createElement('span');
+            d.className='week-dot'+(i<w.completed?' done':'');
+            dots.appendChild(d);
+        }
+    }
+    if(label) label.textContent=w.target?`${w.completed} of ${w.target} this week`:'No sessions scheduled';
+}
+
+/** Copy for each state. Kept here so the renderer stays shape, not prose. */
+const TODAY_COPY={
+    TRAIN:    {eyebrow:'Today', cta:t=>`START ${t.toUpperCase()} SESSION`},
+    MODIFIED: {eyebrow:'Today', headline:'Modified Session', cta:()=>'START MODIFIED SESSION'},
+    RECOVER:  {eyebrow:'Today', headline:'Recovery',         cta:()=>'START RECOVERY'},
+    REST:     {eyebrow:'Today', headline:'Rest Day'},
+    COMPLETE: {eyebrow:'',      headline:'Today Is Done'},
+    RESUME:   {eyebrow:'Unfinished', headline:'Pick Up Where You Left Off'},
+    PREPARE:  {eyebrow:'Before you start'},
+};
+const PREPARE_COPY={
+    'loading':            {headline:'Loading',          cta:'' },
+    'goal':               {headline:'Set Your Goal',    cta:'CHOOSE A GOAL'},
+    'pelvic-screen':      {headline:'One Quick Check',  cta:'TAKE THE CHECK'},
+    'schedule-unresolved':{headline:'Your Week Needs A Quick Reset', cta:'FIX MY WEEK'},
+};
+
+/**
+ * Render today's prescription.
+ *
+ * Reads the resolver and nothing else. Every branch here is presentation: if
+ * a decision appears to be needed, it belongs in nextBestAction(), not in
+ * this function.
+ */
+function renderToday(){
+    if(!window.BP) return;
+    const r=window.BP.nextBestAction(buildResolverInput());
+    _today=r;
+
+    const set=(id,text,show)=>{
+        const el=document.getElementById(id);
+        if(!el) return;
+        if(text!==undefined) el.textContent=text;
+        if(show!==undefined) el.classList.toggle('hidden',!show);
+    };
+    const copy=TODAY_COPY[r.state]||{};
+    const prep=r.state==='PREPARE'?(PREPARE_COPY[r.prepare]||PREPARE_COPY.loading):null;
+
+    let headline=copy.headline||'';
+    if(r.state==='TRAIN') headline=`${dayTypeLabel(r.mission)} Day`;
+    if(r.state==='PREPARE') headline=prep.headline;
+    set('today-eyebrow',prep?TODAY_COPY.PREPARE.eyebrow:copy.eyebrow);
+    set('today-headline',headline);
+
+    // Outcome before mechanism: what this session is for, then why today.
+    const subs={
+        TRAIN:()=>`Today's focus: your ${dayTypeLabel(r.mission).toLowerCase()} protocol.`,
+        MODIFIED:()=>`${dayTypeLabel(r.mission)} training, reduced today.`,
+        RECOVER:()=>'Pelvic floor and mobility work, no mechanical load.',
+        REST:()=>'',
+        RESUME:()=>r.mission?`${dayTypeLabel(r.mission)} session`:'Session',
+        COMPLETE:()=>'',
+        PREPARE:()=>'',
+    };
+    const sub=(subs[r.state]||(()=>''))();
+    set('today-sub',sub,!!sub);
+    // COMPLETE's reason and its headline are the same sentence. Saying it
+    // twice in two sizes is not emphasis, it is clutter.
+    const norm=t=>t.trim().toLowerCase().replace(/[.!]+$/,'');
+    const echoes=!!headline&&norm(r.reason)===norm(headline);
+    set('today-why',r.reason,!!r.reason&&!echoes);
+
+    // Duration only when the resolver gives one. RESUME returns null until
+    // remaining-time exists, and a whole-session number would overstate it.
+    const meta=document.getElementById('today-meta');
+    if(meta){
+        const warm=(r.mission==='length'||r.mission==='girth')?' · includes warmup':'';
+        meta.textContent=r.duration?`~${r.duration} min${warm}`:'';
+        meta.classList.toggle('hidden',!r.duration);
+    }
+
+    // The unfinished session we are deliberately not offering.
+    const withheld=document.getElementById('today-withheld');
+    if(withheld){
+        const w=r.withheldSession;
+        withheld.textContent=w?`Your unfinished ${dayTypeLabel(w.mission)} session is paused, not deleted.`:'';
+        withheld.classList.toggle('hidden',!w);
+    }
+
+    const changes=document.getElementById('today-changes');
+    if(changes){
+        changes.innerHTML=r.changes.map(c=>
+            `<li class="text-[11px] text-slate-400 leading-relaxed flex gap-2"><span class="text-slate-600">&bull;</span><span>${c}</span></li>`).join('');
+        changes.classList.add('hidden');     // revealed by "Why this today?"
+    }
+    set('today-why-btn',undefined,r.changes.length>0);
+    const whyBtn=document.getElementById('today-why-btn');
+    if(whyBtn) whyBtn.textContent='Why this today?';
+
+    // Buttons. Exactly one primary, and COMPLETE gets none.
+    const launch=document.getElementById('launch-btn');
+    const resume=document.getElementById('resume-btn');
+    const prepBtn=document.getElementById('today-prepare-btn');
+    const opt=document.getElementById('today-optional-btn');
+    const showLaunch=r.state==='TRAIN'||r.state==='MODIFIED'||r.state==='RECOVER';
+    if(launch){
+        launch.classList.toggle('hidden',!showLaunch);
+        if(showLaunch) launch.textContent=(copy.cta||(()=>'BEGIN SESSION'))(dayTypeLabel(r.mission));
+    }
+    if(resume) resume.classList.toggle('hidden',r.state!=='RESUME');
+    if(prepBtn){
+        const show=r.state==='PREPARE'&&!!prep.cta;
+        prepBtn.classList.toggle('hidden',!show);
+        if(show) prepBtn.textContent=prep.cta;
+        prepBtn.dataset.prepare=r.prepare||'';
+    }
+    // Quiet, never a second dominant call to action.
+    if(opt){
+        const o=r.optional;
+        opt.classList.toggle('hidden',!o);
+        if(o) opt.textContent=o.duration?`${o.label} · ~${o.duration} min`:o.label;
+    }
+    set('today-alt-note',undefined,r.state==='TRAIN'||r.state==='MODIFIED');
+
+    // COMPLETE: closure, not a queue. What was done, and what is next.
+    const summary=document.getElementById('today-complete-summary');
+    if(summary){
+        if(r.state==='COMPLETE'){
+            summary.innerHTML=completeSummaryHtml();
+            summary.classList.remove('hidden');
+        } else summary.classList.add('hidden');
+    }
+
+    const card=document.getElementById('hq-today-card');
+    if(card) card.dataset.state=r.state;
+}
+
+/** Today's finished session, the week, and what is next. */
+function completeSummaryHtml(){
+    const todayKey=new Date().toISOString().split('T')[0];
+    const log=(persisted.sessionLog||[]).filter(e=>(e.date||'').startsWith(todayKey));
+    const last=log.length?log[log.length-1]:null;
+    const w=window.BP.weekCompletion(persisted.schedule,persisted.completedDays);
+    const cell=(label,value)=>`<div class="stat-chip"><p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">${label}</p><p class="text-base font-black text-white">${value}</p></div>`;
+    const out=[];
+    if(last&&last.type) out.push(cell('Completed',dayTypeLabel(last.type)));
+    if(last&&last.duration) out.push(cell('Duration',`${Math.round(last.duration/60)} min`));
+    if(last&&last.eq) out.push(cell('EQ',`${last.eq}/10`));
+    if(last&&last.rpe) out.push(cell('RPE',`${last.rpe}/10`));
+    out.push(cell('This week',w.target?`${w.completed} of ${w.target}`:'—'));
+    // Next scheduled session, so closure still points somewhere.
+    const sched=persisted.schedule||[];
+    for(let i=1;i<=7;i++){
+        const idx=(new Date().getDay()+i)%7;
+        if(DAY_TYPES[sched[idx]]&&sched[idx]!=='rest'){
+            out.push(cell('Next up',`${DAY_NAMES[idx]} · ${dayTypeLabel(sched[idx])}`));
+            break;
+        }
+    }
+    return out.join('');
+}
+
 function renderDashboard(){
     // Stagger-animate HQ sections on each render
     document.querySelectorAll('#step-0 .hq-anim').forEach((el,i)=>{
@@ -4314,21 +4674,14 @@ function renderDashboard(){
     maybeShowUpdateNotice();
     // Flag a rest day up front so the member knows before entering the funnel.
     // Mission Select also enforces it, now ahead of any warmup.
-    const _rest=isBlackoutDay();
-    // Unscreened members get the pelvic check offered up top rather than only
-    // buried in the Manual or behind a locked card in the Recovery picker.
+    // Rest, deload, the button label and any unfinished session are all part
+    // of today's prescription, so renderToday says them. renderCoachNudge
+    // still picks a nudge; the band decides whether it is what gets shown.
     renderCoachNudge();
-    const _pelvicPrompt=document.getElementById('hq-pelvic-prompt');
-    if(_pelvicPrompt) _pelvicPrompt.classList.toggle('hidden',hasPelvicScreen());
-    const _restBanner=document.getElementById('hq-rest-banner');
-    if(_restBanner) _restBanner.classList.toggle('hidden',!_rest);
-    const _launch=document.getElementById('launch-btn');
-    // Name today's focus so the calendar is not just decoration.
-    if(_launch){
-        const _t=getScheduledType();
-        _launch.textContent=_rest?'BEGIN RECOVERY SESSION'
-            :DAY_TYPES[_t]?`BEGIN ${DAY_TYPES[_t].label.toUpperCase()} SESSION`:'BEGIN SESSION';
-    }
+    renderToday();
+    renderWeekProgress();
+    renderAttentionBand();
+    window._bpHqRendered=true;
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
         const d=document.createElement('div');
@@ -4347,7 +4700,6 @@ function renderDashboard(){
     document.getElementById('hq-level-name').innerText=lvl.displayName;
     document.getElementById('hq-level-bar').style.width=`${lvl.pct}%`;
     document.getElementById('hq-level-next').innerText=lvl.isMax?'MAX LEVEL':`${lvl.xpToNext} XP to next level`;
-    document.getElementById('deload-banner').classList.toggle('hidden',!isDeloadWeek());
     const meas=persisted.measurements||[];
     const last=meas.length?meas[meas.length-1]:null;
     document.getElementById('last-bpel').innerText=last?.bpel?`${last.bpel}"`:'—';
@@ -4375,20 +4727,6 @@ function renderDashboard(){
     renderRecords();
     renderDailyTip();
     renderSleepSoreness();
-    // Resume banner
-    const draftKey='bp_session_draft_'+(currentUser?.id||'');
-    const draftRaw=localStorage.getItem(draftKey);
-    const draft=draftRaw?JSON.parse(draftRaw):null;
-    const resumeBanner=document.getElementById('resume-banner');
-    if(draft&&(Date.now()-draft.savedAt<24*60*60*1000)){
-        const exList=ROUTINES[draft.routineType]||[];
-        const exName=exList[draft.exerciseIndex]?.name||`Exercise ${draft.exerciseIndex+1}`;
-        document.getElementById('resume-banner-label').innerText=`${draft.routineType} · ${exName} · Set ${draft.setIndex}`;
-        resumeBanner.classList.remove('hidden');
-    }else{
-        resumeBanner.classList.add('hidden');
-        if(draft)localStorage.removeItem(draftKey);
-    }
 }
 function resumeSession(){
     const draftKey='bp_session_draft_'+(currentUser?.id||'');
@@ -4588,10 +4926,9 @@ async function retryLoadPersisted(){
     if(btn){btn.disabled=false;btn.textContent='Retry';}
 }
 function _showPassUsedBanner(){
-    const el=document.getElementById('hq-pass-used-banner');
-    if(!el) return;
-    el.classList.remove('hidden');
-    setTimeout(()=>el.classList.add('hidden'),12000);
+    _passUsedThisRender=true;
+    renderAttentionBand();
+    setTimeout(()=>{ _passUsedThisRender=false; renderAttentionBand(); },12000);
 }
 function _dayKey(offset){
     const d=new Date(); d.setDate(d.getDate()-(offset||0));
@@ -4958,14 +5295,12 @@ function finishOnboarding(){
 // getBoundingClientRect() already returns viewport coordinates and the fixed
 // positioned hole/card need no scroll offset math.
 const TOUR_STOPS=[
-    {sel:'#hq-stat-chips',    title:'Your progress',    body:'Every session you finish adds XP and extends your streak. This is the quickest read on how consistent you have been.'},
-    {sel:'#hq-calendar-card', title:'Your training week',body:'Tap any day to change what it is: Length, Girth, Stamina or Rest. Rest days are part of the plan, not a gap in it.'},
-    {sel:'#hq-tip-card',      title:'Coach Tee tip',    body:'A new coaching tip lands here every day. Short, practical, and worth ten seconds of your time.'},
-    {sel:'#hq-hydration-card',title:'Log your water',   body:'Tap the amount as you drink. 3L is the daily target. Staying hydrated is basic upkeep for everything else here.'},
-    {sel:'#hq-checkin-card',  title:'Daily check-in',   body:'Log last night’s sleep and how sore you are. It takes two taps and it is what tells you when to back off.'},
-    {sel:'#launch-btn',       title:'Start training',   body:'This runs your session start to finish: warmup, timed sets, and coaching cues at every step. Just follow it.'},
-    {sel:'#hq-coach-row',     title:'Ask Coach Tee',    body:'Your advisor, any hour. Ask about soreness, technique, or why something works and get a straight answer.'},
-    {sel:'#hq-tools-row',     title:'Track your gains', body:'Progress holds your measurement charts, Week is your summary, and Photos is your before and after. The Manual explains everything in depth.'},
+    {sel:'#hq-today-card',    title:'Start here',       body:'This card is the app. It tells you what to do today, why, and how long it takes. If you only ever read one thing on this screen, read this.'},
+    {sel:'#today-actions',    title:'Then do it',       body:'One button, already pointed at whatever today calls for. You do not have to decide anything first.'},
+    {sel:'#hq-stat-chips',    title:'Your week',        body:'Sessions done out of sessions scheduled. Rest days are part of the plan, so they are not counted against you.'},
+    {sel:'#hq-calendar-card', title:'Change the plan',  body:'Tap any day to set it to Length, Girth, Stamina or Rest. Today\'s card follows whatever you put here.'},
+    {sel:'#hq-tools-row',     title:'See it add up',    body:'Progress holds your charts and photos. Week is your summary. This is where the long view lives.'},
+    {sel:'#hq-coach-row',     title:'When you need it', body:'Coach Tee answers questions any hour, and the Manual explains every exercise in depth. Neither is something you have to read first.'},
 ];
 let _tourStops=[], _tourIdx=0, _tourIsTip=false;
 
@@ -5276,7 +5611,7 @@ function renderCoachNudge(){
     const card=document.getElementById('hq-coach-nudge');
     if(!card) return;
     _activeNudge=pickCoachNudge();
-    card.classList.toggle('hidden',!_activeNudge);
+    _coachNudgeLive=!!_activeNudge;
     if(!_activeNudge){ _nudgeTracked=null; return; }
     document.getElementById('hq-coach-nudge-text').textContent=_activeNudge.text;
     // renderDashboard runs on eight different state changes, so count the
@@ -5285,8 +5620,8 @@ function renderCoachNudge(){
 }
 function dismissCoachNudge(){
     if(_activeNudge){ _suppressNudge(_activeNudge.id); track('nudge_dismissed',{nudge:_activeNudge.id}); }
-    document.getElementById('hq-coach-nudge').classList.add('hidden');
-    _activeNudge=null;_nudgeTracked=null;
+    _activeNudge=null;_nudgeTracked=null;_coachNudgeLive=false;
+    renderAttentionBand();
 }
 function actOnCoachNudge(){
     if(!_activeNudge) return;
@@ -5891,6 +6226,46 @@ function init(){
     // HQ
     document.getElementById('launch-btn').addEventListener('click',()=>{track('session_started',{scheduled:getScheduledType()});goToStep(1);});
     document.getElementById('resume-btn').addEventListener('click',resumeSession);
+    // Hydration is a log, not a decision, so it opens on request.
+    const _hyToggle=document.getElementById('hydration-toggle');
+    if(_hyToggle) _hyToggle.addEventListener('click',()=>{
+        const body=document.getElementById('hydration-body');
+        const chev=document.getElementById('hydration-chevron');
+        const open=body.classList.toggle('hidden')===false;
+        if(chev) chev.style.transform=open?'rotate(180deg)':'';
+    });
+    // "Why this today?" reveals what the resolver already decided. It does
+    // not ask Coach Tee anything; contextual explanations are a later phase.
+    const _whyBtn=document.getElementById('today-why-btn');
+    if(_whyBtn) _whyBtn.addEventListener('click',()=>{
+        const list=document.getElementById('today-changes');
+        if(!list) return;
+        const open=list.classList.toggle('hidden')===false;
+        _whyBtn.textContent=open?'Hide':'Why this today?';
+    });
+    // Optional work never counts toward the weekly target, so it goes
+    // straight to the Recovery picker rather than through Mission Select.
+    const _optBtn=document.getElementById('today-optional-btn');
+    if(_optBtn) _optBtn.addEventListener('click',()=>{
+        session.routineType='recovery';
+        track('mission_selected',{mission:'recovery',source:'optional'});
+        goToRecoveryPicker();
+    });
+    // PREPARE routes to whichever gate the resolver named.
+    const _prepBtn=document.getElementById('today-prepare-btn');
+    if(_prepBtn) _prepBtn.addEventListener('click',()=>{
+        const which=_prepBtn.dataset.prepare;
+        track('prepare_cta',{gate:which});
+        if(which==='pelvic-screen') openPelvicScreen();
+        else if(which==='goal') openGoalPicker();
+        else if(which==='schedule-unresolved'){
+            // The repair interaction is the existing day-type picker, opened
+            // on today. A dedicated reset-my-week flow is flagged for the
+            // next subphase; this at least makes the state fixable now.
+            session.selectedDayIdx=new Date().getDay();
+            document.getElementById('type-modal').classList.remove('hidden');
+        }
+    });
     document.getElementById('weekly-report-btn').addEventListener('click',showWeeklyReport);
     document.getElementById('weekly-report-close-btn').addEventListener('click',closeWeeklyReport);
     document.getElementById('summary-close-btn').addEventListener('click',closeSessionSummary);
@@ -6187,6 +6562,31 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         else _syncWakeLock(); // wake lock is auto-released on hide; reclaim it if a timer is still running
     });
 });
+</script>
+
+<!-- ───────────────────────────────────────────────────────────────────────
+     The decision modules, as modules.
+
+     Phase 2A.1 moved "what should this member do now?" out of the DOM and
+     into three pure files with 130 tests behind them. This is where the page
+     picks them up. They are imported rather than copied so there is exactly
+     one definition of the precedence and nothing to keep in sync.
+
+     Ordering is not a coincidence: a module script is deferred, so this runs
+     after the classic script above has defined everything and before
+     DOMContentLoaded fires init(). By the time anything renders, window.BP
+     exists. The e2e server and the Worker both serve the repository root, so
+     ../src resolves in the harness and in production alike.
+     ─────────────────────────────────────────────────────────────────────── -->
+<script type="module">
+import { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED } from '../src/nextBestAction.js';
+import { estimateSessionMinutes } from '../src/sessionDuration.js';
+import { weekCompletion } from '../src/weekCompletion.js';
+window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
+              estimateSessionMinutes, weekCompletion };
+// The HQ may already have rendered once before this landed; re-render so the
+// Today card is never left on its placeholder.
+if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();
 </script>
 
 </body>

@@ -204,19 +204,26 @@ describe('the nudge does not nag', () => {
     }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    test('it shows on the HQ, above the calendar', async () => {
+    test('it is the message the attention band chooses, and it sits above the decision', async () => {
+        // Phase 2A.2: the nudge is one entry in a priority list and at most
+        // one band message is ever on screen. Being visible is therefore a
+        // statement about priority, not just about the nudge.
         const r = await app.page.evaluate(() => {
             const card = document.getElementById('hq-coach-nudge');
-            const cal = document.getElementById('hq-calendar-card');
+            const today = document.getElementById('hq-today-card');
+            const band = document.getElementById('hq-attention-band');
+            const shownInBand = [...band.children].filter(c => !c.classList.contains('hidden'));
             return {
                 shown: !card.classList.contains('hidden'),
                 text: document.getElementById('hq-coach-nudge-text').textContent,
-                aboveCalendar: !!(card.compareDocumentPosition(cal) & Node.DOCUMENT_POSITION_FOLLOWING),
+                aboveToday: !!(card.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING),
+                bandCount: shownInBand.length,
             };
         });
         expect(r.shown).toBe(true);
         expect(r.text).toMatch(/maximum effort/i);
-        expect(r.aboveCalendar).toBe(true);
+        expect(r.aboveToday).toBe(true);
+        expect(r.bandCount).toBe(1);
     }, 30_000);
 
     test('dismissing hides it and it does not come back', async () => {

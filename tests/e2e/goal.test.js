@@ -96,22 +96,27 @@ describe('stamina as a fourth calendar day type', () => {
         expect(r.known).toBe(false);
     });
 
-    test('the HQ button names each day type', async () => {
-        const labels = {};
+    test('the Today card names each day type', async () => {
+        const seen = {};
         for (const t of ['length', 'girth', 'stamina', 'rest']) {
-            labels[t] = await app.page.evaluate(ty => {
+            seen[t] = await app.page.evaluate(ty => {
                 const d = new Date().getDay();
                 persisted.schedule[d] = ty;
+                persisted.primaryGoal = 'all';
                 renderDashboard();
-                return document.getElementById('launch-btn').textContent;
+                const btn = document.getElementById('launch-btn');
+                return {
+                    headline: document.getElementById('today-headline').textContent,
+                    cta: btn.classList.contains('hidden') ? null : btn.textContent,
+                };
             }, t);
         }
-        expect(labels).toEqual({
-            length: 'BEGIN LENGTH SESSION',
-            girth: 'BEGIN GIRTH SESSION',
-            stamina: 'BEGIN STAMINA SESSION',
-            rest: 'BEGIN RECOVERY SESSION',
-        });
+        expect(seen.length).toEqual({ headline: 'Length Day', cta: 'START LENGTH SESSION' });
+        expect(seen.girth).toEqual({ headline: 'Girth Day', cta: 'START GIRTH SESSION' });
+        expect(seen.stamina).toEqual({ headline: 'Stamina Day', cta: 'START STAMINA SESSION' });
+        // Rest is a prescription, not a session to begin, so there is no
+        // primary call to action pushing the member into one.
+        expect(seen.rest).toEqual({ headline: 'Rest Day', cta: null });
     }, 30_000);
 });
 

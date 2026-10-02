@@ -41,7 +41,7 @@ describe('tour lifecycle', () => {
 
     test('a one-time tip shows once, with no dots', async () => {
         await app.page.evaluate(() => localStorage.removeItem('bp_tour_done_u1'));
-        await app.page.evaluate(() => oneTimeTip('demo', '#launch-btn', 'Tip', 'Body text'));
+        await app.page.evaluate(() => oneTimeTip('demo', '#today-actions', 'Tip', 'Body text'));
         await app.page.waitForTimeout(600);
         const r = await app.page.evaluate(() => ({
             shown: document.getElementById('tour-layer').classList.contains('show'),
@@ -57,7 +57,7 @@ describe('tour lifecycle', () => {
     });
 
     test('the same tip never shows twice', async () => {
-        await app.page.evaluate(() => oneTimeTip('demo', '#launch-btn', 'Tip', 'Body text'));
+        await app.page.evaluate(() => oneTimeTip('demo', '#today-actions', 'Tip', 'Body text'));
         await app.page.waitForTimeout(400);
         expect(await shown()).toBe(false);
         expect(app.errors).toEqual([]);

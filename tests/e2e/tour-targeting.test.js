@@ -23,7 +23,7 @@ import { openApp, signIn } from './harness.js';
  * These assert what a user sees, not what the code says.
  */
 
-const STOP_COUNT = 8;
+const STOP_COUNT = 6;
 
 describe('the tour starts at all', () => {
     let app;
