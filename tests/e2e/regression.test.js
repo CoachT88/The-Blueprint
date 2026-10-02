@@ -44,7 +44,13 @@ const ELEMENT_IDS = [
     'hydration-over', 'hydration-undo-btn', 'hydration-entry-note',
     'modal-stamina-btn', 'warmup-back-btn', 'notif-modal', 'export-btn', 'import-btn',
     'hq-stat-chips', 'hq-level-badge', 'hq-calendar-card', 'hq-tip-card', 'hq-hydration-card',
-    'hq-checkin-card', 'hq-records-card', 'hq-tools-row', 'hq-coach-row',
+    'hq-records-card', 'hq-tools-row', 'hq-coach-row',
+    // Phase 2A.3: the daily check-in moved off the HQ into the Ready screen,
+    // where the answer actually changes the prescription. hq-checkin-card is
+    // gone on purpose; these are its replacements.
+    'ready-cta', 'ready-planned', 'ready-response', 'ready-response-title',
+    'ready-response-body', 'ready-response-withheld', 'ready-safety',
+    'ready-safety-short', 'ready-safety-long', 'soreness-btns', 'sleep-btns',
 ];
 
 describe('app wiring', () => {

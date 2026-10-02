@@ -27,17 +27,41 @@ describe('warmup routing', () => {
         await app.page.waitForTimeout(200);
         await app.page.evaluate(() => document.getElementById('launch-btn').click());
         await app.page.waitForTimeout(200);
-        await app.page.evaluate(() => document.getElementById('primed-btn').click());
+        await app.page.evaluate(() => {
+            document.querySelector('[data-soreness="none"]').click();
+            document.getElementById('ready-cta').click();
+        });
         await app.page.waitForTimeout(300);
     };
 
-    test('pre-flight now leads to mission select, not the warmup', async () => {
-        await app.page.evaluate(() => goToStep(0));
+    test('Ready leads to mission select, and will not move until soreness is answered', async () => {
+        // Phase 2A.3: Pre-Flight became Ready. The button that used to say
+        // I AM PRIMED and collect nothing now collects the one input that
+        // changes the prescription, and stays disabled until it has it.
+        await app.page.evaluate(() => {
+            persisted.primaryGoal = 'all';
+            persisted.schedule[new Date().getDay()] = 'length';
+            localStorage.removeItem('bp_soreness_u1_' + new Date().toISOString().split('T')[0]);
+            goToStep(0);
+        });
         await app.page.waitForTimeout(250);
         await app.page.evaluate(() => document.getElementById('launch-btn').click());
         await app.page.waitForTimeout(250);
         expect(await visibleStep(app.page)).toBe('step-1');
-        await app.page.evaluate(() => document.getElementById('primed-btn').click());
+
+        const gated = await app.page.evaluate(() => {
+            const b = document.getElementById('ready-cta');
+            b.click();
+            return { disabled: b.disabled, label: b.textContent };
+        });
+        expect(gated.disabled).toBe(true);
+        expect(gated.label).toMatch(/soreness/i);
+        expect(await visibleStep(app.page)).toBe('step-1');
+
+        await app.page.evaluate(() => {
+            document.querySelector('[data-soreness="none"]').click();
+            document.getElementById('ready-cta').click();
+        });
         await app.page.waitForTimeout(300);
         expect(await visibleStep(app.page)).toBe('step-3');
     }, 30_000);
@@ -111,19 +135,47 @@ describe('warmup routing', () => {
         expect(await visibleStep(app.page)).toBe('step-4');
     }, 30_000);
 
-    test('a rest day is blocked at mission select, before any warmup', async () => {
+    test('a rest day is blocked twice: no way in, and still blocked if reached', async () => {
+        // Before Phase 2A.2 the only guard was at mission select. Now the HQ
+        // does not offer a session on a rest day at all, so the funnel is
+        // never entered. The mission-select guard stays as the backstop for
+        // anything that reaches step 3 another way.
         await app.page.evaluate(() => {
             const d = new Date().getDay();
             persisted.schedule = persisted.schedule.slice();
             persisted.schedule[d] = 'rest';
+            persisted.primaryGoal = 'all';
+            // Leaving the engine writes a draft, so the clear has to come
+            // after the navigation, not before it. An unfinished session
+            // legitimately outranks a rest day, which is not what this case
+            // is about.
+            goToStep(0);
+            Object.keys(localStorage).filter(k => k.startsWith('bp_session_draft_'))
+                .forEach(k => localStorage.removeItem(k));
+            renderDashboard();
         });
-        await toMissionSelect();
+        await app.page.waitForTimeout(250);
+
+        const hq = await app.page.evaluate(() => ({
+            state: document.getElementById('hq-today-card').dataset.state,
+            launchHidden: document.getElementById('launch-btn').classList.contains('hidden'),
+        }));
+        expect(hq.state).toBe('REST');
+        expect(hq.launchHidden).toBe(true);
+
+        // Reached directly, the original enforcement is untouched.
+        await app.page.evaluate(() => goToStep(3));
+        await app.page.waitForTimeout(250);
         const r = await app.page.evaluate(() => ({
             lengthDisabled: document.getElementById('mission-length-btn').disabled,
+            girthDisabled: document.getElementById('mission-girth-btn').disabled,
+            staminaDisabled: document.getElementById('mission-stamina-btn').disabled,
             bannerShown: !document.getElementById('blackout-banner').classList.contains('hidden'),
         }));
         expect(await visibleStep(app.page)).toBe('step-3');
         expect(r.lengthDisabled).toBe(true);
+        expect(r.girthDisabled).toBe(true);
+        expect(r.staminaDisabled).toBe(true);
         expect(r.bannerShown).toBe(true);
     }, 40_000);
 
