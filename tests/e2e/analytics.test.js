@@ -202,7 +202,7 @@ describe('funnel correctness', () => {
         await clear(app.page);
         await app.page.evaluate(() => {
             try { localStorage.removeItem('bp_tip_x_fun'); } catch (e) {}
-            oneTimeTip('x', '#launch-btn', 'T', 'B');
+            oneTimeTip('x', '#today-actions', 'T', 'B');
         });
         await app.page.waitForTimeout(400);
         await app.page.evaluate(() => document.getElementById('tour-skip').click());

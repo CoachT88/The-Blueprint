@@ -204,19 +204,28 @@ describe('the nudge does not nag', () => {
     }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    test('it shows on the HQ, above the calendar', async () => {
+    test('it is the message the nudge band chooses, and it sits below the decision', async () => {
+        // Phase 2A.2: the nudge is one entry in a priority list and at most
+        // one message per band is on screen. It lives below the Today card
+        // on purpose, because a nudge is useful rather than urgent and
+        // nothing useful-but-not-urgent should outrank today's prescription.
         const r = await app.page.evaluate(() => {
             const card = document.getElementById('hq-coach-nudge');
-            const cal = document.getElementById('hq-calendar-card');
+            const today = document.getElementById('hq-today-card');
+            const band = document.getElementById('hq-nudge-band');
             return {
                 shown: !card.classList.contains('hidden'),
                 text: document.getElementById('hq-coach-nudge-text').textContent,
-                aboveCalendar: !!(card.compareDocumentPosition(cal) & Node.DOCUMENT_POSITION_FOLLOWING),
+                belowToday: !!(today.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING),
+                inNudgeBand: band.contains(card),
+                bandCount: [...band.children].filter(c => !c.classList.contains('hidden')).length,
             };
         });
         expect(r.shown).toBe(true);
         expect(r.text).toMatch(/maximum effort/i);
-        expect(r.aboveCalendar).toBe(true);
+        expect(r.belowToday).toBe(true);
+        expect(r.inNudgeBand).toBe(true);
+        expect(r.bandCount).toBe(1);
     }, 30_000);
 
     test('dismissing hides it and it does not come back', async () => {

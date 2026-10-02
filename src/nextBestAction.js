@@ -119,7 +119,7 @@ const REASONS = {
     highSoreness: 'Mechanical training is on hold today because you reported high muscle soreness.',
     rest: 'Rest is on the schedule today, and it is part of the programme.',
     moderateSoreness: 'Reduced today because you reported moderate muscle soreness.',
-    scheduleUnresolved: 'Your training week could not be read, so there is nothing to prescribe until it is set again.',
+    scheduleUnresolved: "We couldn't determine today's session from your current schedule.",
 };
 
 const CHANGES = {
@@ -291,13 +291,11 @@ export function nextBestAction(input) {
        rather than silent, and the member still has something to do today.
 
        Flagged for reviewer sign off before 2A.2. */
-    /* REST and COMPLETE prescribe no mission of their own, but both offer
-       Active Recovery, and that offer is where contraction work would appear.
-       So the gate is evaluated against what is on the screen, not only
-       against `mission`. */
-    const pelvicCandidate = mission || ((state === 'REST' || state === 'COMPLETE') ? 'recovery' : null);
+    /* Against the actual prescription, and nothing else. REST and COMPLETE
+       prescribe no work at all now, so there is nothing for the screener to
+       gate on those days and no reason to raise it. */
     const prescriptionIsPelvic = isPelvicSpecific(
-        pelvicCandidate, i.recoveryPlan, i.contractionIndices, i.pelvicMissions);
+        mission, i.recoveryPlan, i.contractionIndices, i.pelvicMissions);
     if (!screened && prescriptionIsPelvic) {
         modifiers.pelvicScreenRequired = true;
         if (state === 'TRAIN' || state === 'MODIFIED') {
@@ -312,7 +310,7 @@ export function nextBestAction(input) {
     if (resumeBlockedBySoreness) changes.push(CHANGES.withheldSession);
     if (modifiers.moderateSoreness) changes.push(CHANGES.moderateSoreness);
     if (modifiers.deload && mission && mission !== 'recovery') changes.push(CHANGES.deload);
-    if (modifiers.tightFloor && pelvicCandidate === 'recovery') changes.push(CHANGES.tightFloor);
+    if (modifiers.tightFloor && mission === 'recovery') changes.push(CHANGES.tightFloor);
     if (modifiers.pelvicScreenRequired && state !== 'PREPARE') changes.push(CHANGES.pelvicScreenRequired);
 
     return {
@@ -335,8 +333,7 @@ export function nextBestAction(input) {
         /* Which recovery exercises this prescription may actually use. Null
            when nothing recovery shaped is on offer. Narrowed rather than
            silently filtered downstream, so the UI can name what is missing. */
-        recoveryPlan: (mission === 'recovery' || state === 'REST' || state === 'COMPLETE')
-            ? recoveryPlan : null,
+        recoveryPlan: mission === 'recovery' ? recoveryPlan : null,
         /* High soreness is the one prescription with no way around it. Making
            a safety recommendation and then offering a prominent button to
            ignore it is not a recommendation. PREPARE has no override either:
@@ -346,10 +343,17 @@ export function nextBestAction(input) {
            the only thing an override could mean here is resuming it. */
         overrideAllowed: !(state === 'RECOVER' && soreness === 'high')
             && state !== 'PREPARE' && state !== 'REST' && !resumeBlockedBySoreness,
-        /* Quiet, never a second dominant call to action. Rest days and
-           finished days both stay finished; this is an offer, not a task, and
-           taking it changes neither side of the weekly count. */
-        optional: optionalFor(state, minutes, recoveryPlan, Array.isArray(i.recoveryPlan)),
+        /* Always null, deliberately.
+           REST and COMPLETE were the only two states that offered Active
+           Recovery, and in both the offer worked against the thing the state
+           exists to say. "Today is done" followed by a suggestion is not
+           done. "Rest is the prescription" followed by four minutes of work
+           teaches that rest is the lesser option and that following the
+           programme is never quite enough.
+           The field stays on the result because the shape is part of the
+           API, and because a later state may legitimately carry a quiet
+           secondary offer. Neither of these two does. */
+        optional: null,
         changes,
         prepare,
         intendedMission,
@@ -365,23 +369,3 @@ export function nextBestAction(input) {
 /** Display names for the three training missions, used only inside reasons. */
 const DEFAULT_MISSION_LABELS = { length: 'Length', girth: 'Girth', stamina: 'Stamina' };
 
-/**
- * The secondary offer, on the days where there is no required work.
- *
- * Called Active Recovery, never "Bonus Work": a rest day followed as written
- * is the programme being followed, and labelling extra work as a bonus makes
- * the correct choice look like the lesser one.
- */
-function optionalFor(state, minutes, plan, planWasGiven) {
-    if (state !== 'REST' && state !== 'COMPLETE') return null;
-    // A plan that narrowed to nothing is not an offer. A plan the caller never
-    // supplied is unknown, which is not the same as empty.
-    if (planWasGiven && plan.length === 0) return null;
-    return {
-        mission: 'recovery',
-        label: 'Active Recovery',
-        duration: minutes('recovery', {}),
-        exercises: planWasGiven ? plan : null,
-        countsTowardWeek: false,
-    };
-}

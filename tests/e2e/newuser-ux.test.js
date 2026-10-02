@@ -37,19 +37,24 @@ describe('HQ rest-day warning', () => {
     afterAll(async () => { await app?.close(); });
 
     test.each([
-        ['a training day', 'length', true, 'BEGIN LENGTH SESSION'],
-        ['a rest day', 'rest', false, 'BEGIN RECOVERY SESSION'],
-    ])('on %s the banner and button match', async (_label, type, bannerHidden, launchLabel) => {
+        ['a training day', 'length', 'TRAIN', 'Length Day'],
+        ['a rest day', 'rest', 'REST', 'Rest Day'],
+    ])('on %s the Today card says so before the member enters the funnel', async (_label, type, state, headline) => {
+        // Was two coupled surfaces, a banner and a button label, which could
+        // and did disagree. Now one card states it once.
         const r = await app.page.evaluate(t => {
             persisted.schedule[new Date().getDay()] = t;
+            persisted.primaryGoal = 'all';
             goToStep(0);
             return {
-                bannerHidden: document.getElementById('hq-rest-banner').classList.contains('hidden'),
-                launch: document.getElementById('launch-btn').textContent,
+                state: document.getElementById('hq-today-card').dataset.state,
+                headline: document.getElementById('today-headline').textContent,
+                why: document.getElementById('today-why').textContent,
             };
         }, type);
-        expect(r.bannerHidden).toBe(bannerHidden);
-        expect(r.launch).toBe(launchLabel);
+        expect(r.state).toBe(state);
+        expect(r.headline).toBe(headline);
+        expect(r.why).not.toMatch(/locked/i);
     }, 30_000);
 });
 

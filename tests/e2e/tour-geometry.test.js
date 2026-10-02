@@ -24,10 +24,10 @@ describe('tour geometry', () => {
     }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    test('resolves all eight stops', () => {
+    test('resolves all six stops, in the order the new hierarchy teaches', () => {
         expect(stops).toEqual([
-            '#hq-stat-chips', '#hq-calendar-card', '#hq-tip-card', '#hq-hydration-card',
-            '#hq-checkin-card', '#launch-btn', '#hq-coach-row', '#hq-tools-row',
+            '#hq-today-card', '#today-actions', '#hq-stat-chips', '#hq-calendar-card',
+            '#hq-tools-row', '#hq-coach-row',
         ]);
     });
 
