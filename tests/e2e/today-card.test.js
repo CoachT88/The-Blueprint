@@ -198,7 +198,7 @@ describe('the Today card', () => {
         // around it. "You can still pick a different session" would be one.
         const r = await render(app.page, { type: 'length', soreness: 'high' });
         const alt = await app.page.evaluate(() =>
-            !document.getElementById('today-alt-note').classList.contains('hidden'));
+            !document.getElementById('today-alt-btn').classList.contains('hidden'));
         expect(r.state).toBe('RECOVER');
         expect(alt).toBe(false);
     });
