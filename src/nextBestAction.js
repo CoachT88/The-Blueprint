@@ -23,11 +23,32 @@ import { getISOWeek } from './weekUtils.js';
 /** The seven states. OPTIONAL is not one of them: see `optional` on the result. */
 export const STATES = ['PREPARE', 'RESUME', 'TRAIN', 'MODIFIED', 'RECOVER', 'REST', 'COMPLETE'];
 
-/** Missions that are mechanical training. */
+/** Missions that are mechanical training. Overridable per call via `trainingMissions`. */
 export const TRAINING_MISSIONS = ['length', 'girth', 'stamina'];
 
+/**
+ * Missions that prescribe pelvic floor specific work, and so sit behind the
+ * screener. Overridable per call via `pelvicMissions`.
+ *
+ * Only Recovery contains contraction exercises today. Phase 2B adds pelvic
+ * specific training days, and this is the single place that has to know.
+ */
+export const PELVIC_MISSIONS = ['recovery'];
+
+/**
+ * The schedule could not be read.
+ *
+ * Expressed as a PREPARE reason rather than an eighth top-level state. PREPARE
+ * already means "something has to be answered before anything can be
+ * prescribed", already returns a null mission and a null duration, and already
+ * refuses an override. An unreadable schedule is exactly that, and the locked
+ * state list is seven. Promoting it to its own state is a one-line change if
+ * the reviewer prefers it; see the correction report.
+ */
+export const SCHEDULE_UNRESOLVED = 'schedule-unresolved';
+
 /** Why a PREPARE was returned. The UI must be able to explain which gate it hit. */
-export const PREPARE_REASONS = ['loading', 'goal', 'pelvic-screen'];
+export const PREPARE_REASONS = ['loading', 'goal', 'pelvic-screen', SCHEDULE_UNRESOLVED];
 
 /** Weeks of history before deload applies, mirroring isDeloadWeek(). */
 const DELOAD_MIN_WEEKS = 4;
@@ -59,8 +80,13 @@ export function hasPelvicScreen(profile) {
  * the exercise indices rather than the mission name so that it stays correct
  * when the library changes.
  */
-export function isPelvicSpecific(mission, recoveryIndices, contractionIndices) {
-    if (mission !== 'recovery') return false;
+export function isPelvicSpecific(mission, recoveryIndices, contractionIndices, pelvicMissions) {
+    const pelvic = Array.isArray(pelvicMissions) ? pelvicMissions : PELVIC_MISSIONS;
+    if (!pelvic.includes(mission)) return false;
+    /* Recovery is only pelvic specific when the plan actually reaches the
+       contraction exercises; a morning hip set is not. A dedicated pelvic
+       mission, which is what 2B adds, is pelvic specific by definition. */
+    if (mission !== 'recovery') return true;
     const plan = Array.isArray(recoveryIndices) ? recoveryIndices : [];
     const contraction = Array.isArray(contractionIndices) ? contractionIndices : [];
     return plan.some(i => contraction.includes(i));
@@ -93,7 +119,7 @@ const REASONS = {
     highSoreness: 'Mechanical training is on hold today because you reported high muscle soreness.',
     rest: 'Rest is on the schedule today, and it is part of the programme.',
     moderateSoreness: 'Reduced today because you reported moderate muscle soreness.',
-    unscheduled: 'Nothing is scheduled for today, so this follows your goal.',
+    scheduleUnresolved: 'Your training week could not be read, so there is nothing to prescribe until it is set again.',
 };
 
 const CHANGES = {
@@ -101,6 +127,7 @@ const CHANGES = {
     tightFloor: 'Contraction work is left out because your screener flagged a tight floor.',
     moderateSoreness: 'One set fewer and shorter holds than a normal session.',
     pelvicScreenRequired: 'Take the pelvic floor check to unlock contraction work.',
+    withheldSession: 'Your unfinished session is on hold while you are reporting high muscle soreness.',
 };
 
 /**
@@ -121,6 +148,8 @@ const CHANGES = {
  *   dayTypes          the DAY_TYPES table, for labels inside reasons
  *   recoveryPlan      recovery exercise indices a Recovery prescription would use
  *   contractionIndices  CONTRACTION_RECOVERY_IDX
+ *   trainingMissions  optional, defaults to TRAINING_MISSIONS
+ *   pelvicMissions    optional, defaults to PELVIC_MISSIONS
  *   estimateMinutes   optional (mission, opts) => number, usually sessionDuration's
  *
  * OUTPUT. Enough for the UI to say what to do, why, how long, what changed and
@@ -136,6 +165,8 @@ const CHANGES = {
  *   changes           short sentences naming what is different from a normal day
  *   prepare           which gate a PREPARE hit, else null
  *   intendedMission   what was going to be prescribed before a gate intervened
+ *   withheldSession   an unfinished session deliberately not offered, else null
+ *   recoveryPlan      the recovery indices this prescription may actually use
  */
 export function nextBestAction(input) {
     const i = input || {};
@@ -149,6 +180,16 @@ export function nextBestAction(input) {
     const scheduled = schedule[today];
     const screened = hasPelvicScreen(i.pelvicProfile);
     const estimate = typeof i.estimateMinutes === 'function' ? i.estimateMinutes : null;
+    const trainingMissions = Array.isArray(i.trainingMissions) ? i.trainingMissions : TRAINING_MISSIONS;
+
+    /* An unfinished session is normally the best thing to do next. It is not,
+       when it is mechanical work and the member has just reported high
+       soreness: resuming would walk straight through the one rule that has no
+       override. A draft whose type we cannot read counts as mechanical, so an
+       unreadable draft is withheld rather than waved through. */
+    const draftMission = i.sessionDraft ? (i.sessionDraft.routineType || null) : null;
+    const draftIsMechanical = !!i.sessionDraft && draftMission !== 'recovery';
+    const resumeBlockedBySoreness = draftIsMechanical && soreness === 'high';
 
     const modifiers = {
         deload: isDeloadWeek(i.firstSessionDate, now),
@@ -178,23 +219,37 @@ export function nextBestAction(input) {
        programming above preference, and nothing below an unanswered question
        the app needs the answer to.
 
-         1  no data            we do not know anything yet, so prescribe nothing
-         2  unfinished session finishing it beats starting something else
-         3  no goal            every prescription below depends on this
-         4  already complete   never manufacture a second task
-         5  high soreness      withheld, and not overridable
-         6  scheduled rest     rest is a prescription, not an absence of one
-         7  moderate soreness  reduced, still trained
-         8  scheduled mission  the ordinary case
-         9  no usable schedule fall back to the goal rather than to nothing      */
+         1  no data             we do not know anything yet, so prescribe nothing
+         2  unfinished session  finishing it beats starting something else,
+                                UNLESS it is mechanical and soreness is high
+         3  no goal             every prescription below depends on this
+         4  already complete    never manufacture a second task
+         5  high soreness       withheld, and not overridable
+         6  scheduled rest      rest is a prescription, not an absence of one
+         7  unreadable schedule we cannot know what today is, so prescribe nothing
+         8  moderate soreness   reduced, still trained
+         9  scheduled mission   the ordinary case
+
+       Rules 5 and 2 are the one place where "first match wins" is not the
+       whole story. High soreness has no override, so letting an unfinished
+       mechanical session resume above it would route straight around the only
+       rule in the ladder that cannot be argued with. The guard lives on rule 2
+       rather than moving rule 5 up, because moving it would also put soreness
+       above a finished day and above a missing goal, neither of which was the
+       problem.
+
+       Rule 7 sits above moderate soreness and above the ordinary case on
+       purpose: once it has passed, `scheduled` is a known-good mission, so
+       nothing below it has to guess, and no branch invents a mission from the
+       goal. A corrupt schedule produces no required work at all.            */
 
     let state, mission = null, reason = '', prepare = null, intendedMission = null;
 
     if (!i.dataLoaded) {
         state = 'PREPARE'; prepare = 'loading'; reason = REASONS.loading;
-    } else if (i.sessionDraft) {
+    } else if (i.sessionDraft && !resumeBlockedBySoreness) {
         state = 'RESUME';
-        mission = i.sessionDraft.routineType || null;
+        mission = draftMission;
         reason = REASONS.resume;
     } else if (!goal) {
         state = 'PREPARE'; prepare = 'goal'; reason = REASONS.goal;
@@ -204,21 +259,20 @@ export function nextBestAction(input) {
         state = 'RECOVER'; mission = 'recovery'; reason = REASONS.highSoreness;
     } else if (scheduled === 'rest') {
         state = 'REST'; reason = REASONS.rest;
+    } else if (!trainingMissions.includes(scheduled)) {
+        /* Missing, empty or unrecognised. getScheduledType() returns 'rest'
+           here, which quietly turns a corrupt array into a week off; the
+           earlier version of this file fell back to the goal's mission, which
+           invented required training out of broken state. Neither is honest.
+           Say the schedule could not be read and let the UI offer a repair. */
+        state = 'PREPARE'; prepare = SCHEDULE_UNRESOLVED; reason = REASONS.scheduleUnresolved;
     } else if (soreness === 'moderate') {
-        state = 'MODIFIED';
-        mission = TRAINING_MISSIONS.includes(scheduled) ? scheduled : goal.mission;
+        state = 'MODIFIED'; mission = scheduled;
         modifiers.moderateSoreness = true;
         reason = REASONS.moderateSoreness;
-    } else if (TRAINING_MISSIONS.includes(scheduled)) {
+    } else {
         state = 'TRAIN'; mission = scheduled;
         reason = `Today is a ${labelFor(scheduled)} day on your schedule.`;
-    } else {
-        /* Unrecognised or missing. getScheduledType() treats this as a rest
-           day, which quietly turns a corrupt array into a week off. Falling
-           back to the goal's own mission keeps the member training while the
-           schedule is repaired. */
-        state = 'TRAIN'; mission = goal.mission;
-        reason = REASONS.unscheduled;
     }
 
     /* ── The pelvic screener gate ──────────────────────────────────────────
@@ -242,7 +296,8 @@ export function nextBestAction(input) {
        So the gate is evaluated against what is on the screen, not only
        against `mission`. */
     const pelvicCandidate = mission || ((state === 'REST' || state === 'COMPLETE') ? 'recovery' : null);
-    const prescriptionIsPelvic = isPelvicSpecific(pelvicCandidate, i.recoveryPlan, i.contractionIndices);
+    const prescriptionIsPelvic = isPelvicSpecific(
+        pelvicCandidate, i.recoveryPlan, i.contractionIndices, i.pelvicMissions);
     if (!screened && prescriptionIsPelvic) {
         modifiers.pelvicScreenRequired = true;
         if (state === 'TRAIN' || state === 'MODIFIED') {
@@ -254,6 +309,7 @@ export function nextBestAction(input) {
     }
 
     const changes = [];
+    if (resumeBlockedBySoreness) changes.push(CHANGES.withheldSession);
     if (modifiers.moderateSoreness) changes.push(CHANGES.moderateSoreness);
     if (modifiers.deload && mission && mission !== 'recovery') changes.push(CHANGES.deload);
     if (modifiers.tightFloor && pelvicCandidate === 'recovery') changes.push(CHANGES.tightFloor);
@@ -263,8 +319,19 @@ export function nextBestAction(input) {
         state,
         mission,
         reason,
-        duration: minutes(mission, { moderateSoreness: modifiers.moderateSoreness }),
+        /* RESUME knows the mission but not how much of it is left. The draft
+           carries exerciseIndex and setIndex, so a remaining-time estimate is
+           possible, and until it exists a whole-session number would overstate
+           what is in front of the member. Null is the honest answer. */
+        duration: state === 'RESUME'
+            ? null
+            : minutes(mission, { moderateSoreness: modifiers.moderateSoreness }),
         modifiers,
+        /* The unfinished session we are deliberately not offering, so the UI
+           can say it exists and why it is on hold rather than losing it. */
+        withheldSession: resumeBlockedBySoreness
+            ? { mission: draftMission, why: 'high-soreness' }
+            : null,
         /* Which recovery exercises this prescription may actually use. Null
            when nothing recovery shaped is on offer. Narrowed rather than
            silently filtered downstream, so the UI can name what is missing. */
@@ -273,8 +340,12 @@ export function nextBestAction(input) {
         /* High soreness is the one prescription with no way around it. Making
            a safety recommendation and then offering a prominent button to
            ignore it is not a recommendation. PREPARE has no override either:
-           the gate is the point. */
-        overrideAllowed: !(state === 'RECOVER' && soreness === 'high') && state !== 'PREPARE' && state !== 'REST',
+           the gate is the point.
+           The last clause closes the back door: if a mechanical session is
+           being withheld, no override may be offered from any state, because
+           the only thing an override could mean here is resuming it. */
+        overrideAllowed: !(state === 'RECOVER' && soreness === 'high')
+            && state !== 'PREPARE' && state !== 'REST' && !resumeBlockedBySoreness,
         /* Quiet, never a second dominant call to action. Rest days and
            finished days both stay finished; this is an offer, not a task, and
            taking it changes neither side of the weekly count. */

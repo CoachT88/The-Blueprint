@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import {
     nextBestAction, isDeloadWeek, hasPelvicScreen, isPelvicSpecific, allowedRecoveryPlan,
-    STATES, TRAINING_MISSIONS,
+    STATES, TRAINING_MISSIONS, PREPARE_REASONS, SCHEDULE_UNRESOLVED,
 } from '../src/nextBestAction.js';
 import { estimateSessionMinutes } from '../src/sessionDuration.js';
 
@@ -140,21 +140,48 @@ describe('nextBestAction: the required cases', () => {
     });
 
     test('pelvic specific prescription and an unscreened member', () => {
-        // Reachable once a goal prescribes pelvic work directly. Today no
-        // scheduled day does, so this uses a goal whose mission is recovery
-        // and a day the schedule does not describe.
+        // No shipped day type is pelvic specific, so this is the Phase 2B
+        // shape: a scheduled pelvic training day. Both lists are inputs
+        // precisely so this branch is reachable and provable before 2B ships,
+        // rather than sitting there untested until it matters.
         const r = nextBestAction(input({
-            goals: { ...GOALS, floor: { label: 'Pelvic health', mission: 'recovery' } },
-            goalKey: 'floor',
-            schedule: [],
+            trainingMissions: ['length', 'girth', 'stamina', 'pelvic'],
+            pelvicMissions: ['recovery', 'pelvic'],
+            schedule: ['rest', 'pelvic', 'rest', 'rest', 'rest', 'rest', 'rest'],
             pelvicProfile: '',
         }));
         expect(r.state).toBe('PREPARE');
         expect(r.prepare).toBe('pelvic-screen');
-        expect(r.intendedMission).toBe('recovery');
+        expect(r.intendedMission).toBe('pelvic');
+        expect(r.mission).toBeNull();
         expect(r.modifiers.pelvicScreenRequired).toBe(true);
         expect(r.reason).toContain('whether your floor tends to stay tight');
         expect(r.overrideAllowed).toBe(false);
+    });
+
+    test('a screened member is sent straight into the pelvic training day', () => {
+        const r = nextBestAction(input({
+            trainingMissions: ['length', 'girth', 'stamina', 'pelvic'],
+            pelvicMissions: ['recovery', 'pelvic'],
+            schedule: ['rest', 'pelvic', 'rest', 'rest', 'rest', 'rest', 'rest'],
+            pelvicProfile: 'standard',
+        }));
+        expect(r.state).toBe('TRAIN');
+        expect(r.mission).toBe('pelvic');
+    });
+
+    test('moderate soreness on a pelvic day still hits the screener first', () => {
+        const r = nextBestAction(input({
+            trainingMissions: ['length', 'girth', 'stamina', 'pelvic'],
+            pelvicMissions: ['recovery', 'pelvic'],
+            schedule: ['rest', 'pelvic', 'rest', 'rest', 'rest', 'rest', 'rest'],
+            pelvicProfile: '',
+            soreness: 'moderate',
+        }));
+        expect(r.state).toBe('PREPARE');
+        expect(r.prepare).toBe('pelvic-screen');
+        // The reduction is not announced for a session that is not happening.
+        expect(r.modifiers.moderateSoreness).toBe(false);
     });
 
     test('today is already complete', () => {
@@ -248,20 +275,220 @@ describe('nextBestAction: the required cases', () => {
         expect(r.changes.join(' ')).toMatch(/deload/i);
     });
 
-    test('an unknown or malformed schedule falls back to the goal mission', () => {
+    test('an unknown or malformed schedule prescribes nothing', () => {
         for (const schedule of [null, [], ['mystery'], [undefined], 'length']) {
             const r = nextBestAction(input({ now: SUN, schedule, goalKey: 'stamina' }));
-            expect(r.state, JSON.stringify(schedule)).toBe('TRAIN');
-            expect(r.mission).toBe('stamina');
-            expect(r.reason).toBe('Nothing is scheduled for today, so this follows your goal.');
+            expect(r.state, JSON.stringify(schedule)).toBe('PREPARE');
+            expect(r.prepare).toBe(SCHEDULE_UNRESOLVED);
         }
     });
 
-    test('an explicit rest is a rest, but an unreadable slot is not', () => {
+    test('an explicit rest is a rest, and an unreadable slot is neither rest nor training', () => {
         // getScheduledType() returns 'rest' for both, which turns a corrupt
-        // array into a week off. Only the explicit value rests here.
+        // array into a week off. Only the explicit value rests here, and the
+        // unreadable one does not become training either.
         expect(nextBestAction(input({ now: TUE })).state).toBe('REST');
-        expect(nextBestAction(input({ now: TUE, schedule: ['length', 'girth', 'mystery'] })).state).toBe('TRAIN');
+        const broken = nextBestAction(input({ now: TUE, schedule: ['length', 'girth', 'mystery'] }));
+        expect(broken.state).toBe('PREPARE');
+        expect(broken.prepare).toBe(SCHEDULE_UNRESOLVED);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Correction 1: high soreness must outrank an unfinished mechanical session
+// ---------------------------------------------------------------------------
+describe('nextBestAction: an unfinished session under high soreness', () => {
+    const draft = (routineType) => ({ routineType, exerciseIndex: 1, setIndex: 2 });
+
+    test('REGRESSION: unfinished mechanical session plus high soreness must not RESUME', () => {
+        // The failure this guards: leave a Girth session half done, report
+        // high soreness later, and the resolver hands back the Girth session.
+        // That walks straight through the one rule with no override.
+        for (const mission of TRAINING_MISSIONS) {
+            const r = nextBestAction(input({ sessionDraft: draft(mission), soreness: 'high' }));
+            expect(r.state, mission).not.toBe('RESUME');
+            expect(r.state).toBe('RECOVER');
+            expect(r.mission).toBe('recovery');
+        }
+    });
+
+    test('no override may re-enable the withheld session', () => {
+        const r = nextBestAction(input({ sessionDraft: draft('length'), soreness: 'high' }));
+        expect(r.overrideAllowed).toBe(false);
+    });
+
+    test('the withheld session is reported, not lost', () => {
+        const r = nextBestAction(input({ sessionDraft: draft('girth'), soreness: 'high' }));
+        expect(r.withheldSession).toEqual({ mission: 'girth', why: 'high-soreness' });
+        expect(r.changes.join(' ')).toMatch(/unfinished session is on hold/i);
+    });
+
+    test('a draft whose type cannot be read is treated as mechanical and withheld', () => {
+        for (const d of [{}, { routineType: null }, { routineType: 'mystery' }]) {
+            const r = nextBestAction(input({ sessionDraft: d, soreness: 'high' }));
+            expect(r.state, JSON.stringify(d)).toBe('RECOVER');
+            expect(r.overrideAllowed).toBe(false);
+        }
+    });
+
+    test('a recovery draft is safe to resume under high soreness', () => {
+        // Withholding here would leave a sore member with nothing to finish
+        // and nothing to do. The rule is about mechanical work.
+        const r = nextBestAction(input({ sessionDraft: draft('recovery'), soreness: 'high' }));
+        expect(r.state).toBe('RESUME');
+        expect(r.mission).toBe('recovery');
+        expect(r.withheldSession).toBeNull();
+    });
+
+    test('moderate and mild soreness do not withhold an unfinished session', () => {
+        for (const soreness of ['', 'none', 'mild', 'moderate']) {
+            const r = nextBestAction(input({ sessionDraft: draft('length'), soreness }));
+            expect(r.state, soreness).toBe('RESUME');
+            expect(r.withheldSession).toBeNull();
+        }
+    });
+
+    test('a finished day still outranks high soreness, and still reports the withheld draft', () => {
+        const r = nextBestAction(input({
+            sessionDraft: draft('length'), soreness: 'high',
+            completedDays: [false, true, false, false, false, false, false],
+        }));
+        expect(r.state).toBe('COMPLETE');
+        expect(r.withheldSession).toEqual({ mission: 'length', why: 'high-soreness' });
+        // Even here, nothing may offer the mechanical session back.
+        expect(r.overrideAllowed).toBe(false);
+    });
+
+    test('unloaded data still outranks everything', () => {
+        const r = nextBestAction(input({ dataLoaded: false, sessionDraft: draft('length'), soreness: 'high' }));
+        expect(r.state).toBe('PREPARE');
+        expect(r.prepare).toBe('loading');
+    });
+
+    test('a withheld draft plus a broken schedule still routes to Recovery', () => {
+        // Rule 5 is above rule 7, so soreness answers before the schedule does.
+        const r = nextBestAction(input({ sessionDraft: draft('girth'), soreness: 'high', schedule: null }));
+        expect(r.state).toBe('RECOVER');
+        expect(r.mission).toBe('recovery');
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Correction 2: an unreadable schedule must not invent training
+// ---------------------------------------------------------------------------
+describe('nextBestAction: unresolved schedule', () => {
+    const unreadable = (schedule) => nextBestAction(input({ now: MON, schedule }));
+
+    test('a missing slot prescribes nothing', () => {
+        const r = unreadable(['length']);          // index 1 is absent
+        expect(r.state).toBe('PREPARE');
+        expect(r.prepare).toBe(SCHEDULE_UNRESOLVED);
+    });
+
+    test('malformed values prescribe nothing', () => {
+        for (const slot of [undefined, null, '', 'mystery', 0, false, 42, {}, []]) {
+            const r = unreadable(['length', slot, 'rest']);
+            expect(r.prepare, JSON.stringify(slot)).toBe(SCHEDULE_UNRESOLVED);
+        }
+    });
+
+    test('a schedule that is not an array at all prescribes nothing', () => {
+        for (const schedule of [null, undefined, 'length', 42, {}]) {
+            expect(unreadable(schedule).prepare, JSON.stringify(schedule)).toBe(SCHEDULE_UNRESOLVED);
+        }
+    });
+
+    test('the output carries zero required volume', () => {
+        const r = nextBestAction(input({ now: MON, schedule: ['length'], estimateMinutes: () => 30 }));
+        expect(r.mission).toBeNull();
+        expect(r.duration).toBeNull();
+        expect(r.optional).toBeNull();
+        expect(r.overrideAllowed).toBe(false);
+        expect(r.intendedMission).toBeNull();
+    });
+
+    test('it says what is wrong without blaming the member', () => {
+        const r = unreadable(['length']);
+        expect(r.reason).toBe(
+            'Your training week could not be read, so there is nothing to prescribe until it is set again.');
+        expect(r.reason).not.toContain('—');
+    });
+
+    test('no mission is invented from the goal', () => {
+        // The goal's mission is length. Nothing may surface it here.
+        const r = nextBestAction(input({ now: MON, schedule: ['length'], goalKey: 'size' }));
+        expect(r.mission).toBeNull();
+        expect(r.intendedMission).toBeNull();
+    });
+
+    test('a valid rest day is still REST', () => {
+        expect(nextBestAction(input({ now: TUE })).state).toBe('REST');
+    });
+
+    test('valid missions still resolve normally', () => {
+        expect(nextBestAction(input({ now: SUN })).mission).toBe('length');
+        expect(nextBestAction(input({ now: MON })).mission).toBe('girth');
+        expect(nextBestAction(input({ now: WED })).mission).toBe('stamina');
+        expect(nextBestAction(input({ now: THU })).mission).toBe('length');
+    });
+
+    test('a broken slot on one day does not break the other days', () => {
+        const schedule = ['length', 'mystery', 'rest', 'stamina', 'length', 'rest', 'rest'];
+        expect(nextBestAction(input({ now: SUN, schedule })).state).toBe('TRAIN');
+        expect(nextBestAction(input({ now: MON, schedule })).prepare).toBe(SCHEDULE_UNRESOLVED);
+        expect(nextBestAction(input({ now: TUE, schedule })).state).toBe('REST');
+        expect(nextBestAction(input({ now: WED, schedule })).state).toBe('TRAIN');
+    });
+
+    test('moderate soreness cannot turn a broken slot into a reduced session', () => {
+        const r = nextBestAction(input({ now: MON, schedule: ['length'], soreness: 'moderate' }));
+        expect(r.state).toBe('PREPARE');
+        expect(r.prepare).toBe(SCHEDULE_UNRESOLVED);
+        expect(r.modifiers.moderateSoreness).toBe(false);
+    });
+
+    test('high soreness outranks an unreadable schedule', () => {
+        const r = nextBestAction(input({ now: MON, schedule: ['length'], soreness: 'high' }));
+        expect(r.state).toBe('RECOVER');
+    });
+
+    test('an unfinished session outranks an unreadable schedule', () => {
+        const r = nextBestAction(input({ now: MON, schedule: null, sessionDraft: { routineType: 'girth' } }));
+        expect(r.state).toBe('RESUME');
+    });
+
+    test('a finished day outranks an unreadable schedule', () => {
+        const r = nextBestAction(input({
+            now: MON, schedule: null,
+            completedDays: [false, true, false, false, false, false, false],
+        }));
+        expect(r.state).toBe('COMPLETE');
+    });
+
+    test('SCHEDULE_UNRESOLVED is a recognised prepare reason', () => {
+        expect(PREPARE_REASONS).toContain(SCHEDULE_UNRESOLVED);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Correction 3: RESUME must not report a whole-session duration
+// ---------------------------------------------------------------------------
+describe('nextBestAction: RESUME duration', () => {
+    test('duration is null even when an estimator is supplied', () => {
+        const r = nextBestAction(input({
+            sessionDraft: { routineType: 'length', exerciseIndex: 1, setIndex: 2 },
+            estimateMinutes: () => 14,
+        }));
+        expect(r.state).toBe('RESUME');
+        expect(r.mission).toBe('length');
+        expect(r.duration).toBeNull();
+    });
+
+    test('a fresh start of the same mission still reports its duration', () => {
+        // Proves the null is specific to RESUME, not a dead estimator.
+        const r = nextBestAction(input({ now: THU, estimateMinutes: () => 14 }));
+        expect(r.state).toBe('TRAIN');
+        expect(r.duration).toBe(14);
     });
 });
 
@@ -317,10 +544,17 @@ describe('nextBestAction: precedence', () => {
         expect(r.mission).toBe('girth');
     });
 
-    test('moderate soreness still uses the goal when the schedule is unreadable', () => {
+    test('7 over 8: an unreadable schedule beats moderate soreness', () => {
+        // Reduced training is still required training, so a broken schedule
+        // must not produce one.
         const r = nextBestAction(input({ now: MON, schedule: ['x'], soreness: 'moderate', goalKey: 'stamina' }));
-        expect(r.state).toBe('MODIFIED');
-        expect(r.mission).toBe('stamina');
+        expect(r.state).toBe('PREPARE');
+        expect(r.prepare).toBe(SCHEDULE_UNRESOLVED);
+    });
+
+    test('2 is guarded by 5: high soreness beats an unfinished mechanical session', () => {
+        const r = nextBestAction(input({ sessionDraft: { routineType: 'girth' }, soreness: 'high' }));
+        expect(r.state).toBe('RECOVER');
     });
 
     test('every condition at once resolves to the highest rule', () => {
@@ -445,7 +679,7 @@ describe('nextBestAction: the returned object', () => {
     test('presentation never has to reverse engineer the decision', () => {
         const r = nextBestAction(input({ now: THU }));
         for (const key of ['state', 'mission', 'reason', 'duration', 'modifiers', 'overrideAllowed',
-            'optional', 'changes', 'prepare', 'intendedMission', 'recoveryPlan']) {
+            'optional', 'changes', 'prepare', 'intendedMission', 'recoveryPlan', 'withheldSession']) {
             expect(Object.hasOwn(r, key), `missing ${key}`).toBe(true);
         }
         expect(Object.keys(r.modifiers).sort())
@@ -464,6 +698,8 @@ describe('nextBestAction: the returned object', () => {
             input({ completedDays: [false, true] }), input({ soreness: 'high' }),
             input({ soreness: 'moderate' }), input({ now: TUE }), input({ now: THU }),
             input({ schedule: null }), input({ pelvicProfile: '', soreness: 'high' }),
+            input({ schedule: ['length'] }),
+            input({ sessionDraft: { routineType: 'girth' }, soreness: 'high' }),
         ];
         for (const c of cases) {
             const r = nextBestAction(c);
