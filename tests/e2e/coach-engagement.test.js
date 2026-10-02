@@ -204,25 +204,27 @@ describe('the nudge does not nag', () => {
     }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    test('it is the message the attention band chooses, and it sits above the decision', async () => {
+    test('it is the message the nudge band chooses, and it sits below the decision', async () => {
         // Phase 2A.2: the nudge is one entry in a priority list and at most
-        // one band message is ever on screen. Being visible is therefore a
-        // statement about priority, not just about the nudge.
+        // one message per band is on screen. It lives below the Today card
+        // on purpose, because a nudge is useful rather than urgent and
+        // nothing useful-but-not-urgent should outrank today's prescription.
         const r = await app.page.evaluate(() => {
             const card = document.getElementById('hq-coach-nudge');
             const today = document.getElementById('hq-today-card');
-            const band = document.getElementById('hq-attention-band');
-            const shownInBand = [...band.children].filter(c => !c.classList.contains('hidden'));
+            const band = document.getElementById('hq-nudge-band');
             return {
                 shown: !card.classList.contains('hidden'),
                 text: document.getElementById('hq-coach-nudge-text').textContent,
-                aboveToday: !!(card.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING),
-                bandCount: shownInBand.length,
+                belowToday: !!(today.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING),
+                inNudgeBand: band.contains(card),
+                bandCount: [...band.children].filter(c => !c.classList.contains('hidden')).length,
             };
         });
         expect(r.shown).toBe(true);
         expect(r.text).toMatch(/maximum effort/i);
-        expect(r.aboveToday).toBe(true);
+        expect(r.belowToday).toBe(true);
+        expect(r.inNudgeBand).toBe(true);
         expect(r.bandCount).toBe(1);
     }, 30_000);
 

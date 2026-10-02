@@ -189,8 +189,10 @@ describe('nextBestAction: the required cases', () => {
         expect(r.state).toBe('COMPLETE');
         expect(r.mission).toBeNull();
         expect(r.reason).toBe('Today is done.');
-        // Quiet secondary offer, never a second required task.
-        expect(r.optional).toMatchObject({ mission: 'recovery', label: 'Active Recovery', countsTowardWeek: false });
+        // No offer of any kind. Completion that immediately suggests more
+        // work is not completion, and the absence of another task is the
+        // reward the state exists to deliver.
+        expect(r.optional).toBeNull();
     });
 
     test('scheduled rest', () => {
@@ -199,9 +201,11 @@ describe('nextBestAction: the required cases', () => {
         expect(r.mission).toBeNull();
         expect(r.reason).toBe('Rest is on the schedule today, and it is part of the programme.');
         expect(r.reason).not.toMatch(/locked/i);
-        expect(r.optional.label).toBe('Active Recovery');
-        expect(r.optional.label).not.toMatch(/bonus/i);
-        expect(r.optional.countsTowardWeek).toBe(false);
+        // Nothing to do, offered as nothing to do. A few minutes of optional
+        // work beside a rest day teaches that rest is never quite enough.
+        expect(r.optional).toBeNull();
+        expect(r.mission).toBeNull();
+        expect(r.duration).toBeNull();
     });
 
     test('a normal scheduled length day', () => {
@@ -251,8 +255,16 @@ describe('nextBestAction: the required cases', () => {
         expect(r.modifiers.moderateSoreness).toBe(false);
     });
 
-    test('a tight pelvic profile', () => {
+    test('a rest day carries no recovery plan, because it prescribes nothing', () => {
         const r = nextBestAction(input({ now: TUE, pelvicProfile: 'tight' }));
+        expect(r.recoveryPlan).toBeNull();
+        expect(r.optional).toBeNull();
+    });
+
+    test('a tight pelvic profile', () => {
+        // Exercised on a day that actually prescribes recovery. A rest day
+        // prescribes nothing, so there is no plan to narrow.
+        const r = nextBestAction(input({ now: THU, soreness: 'high', pelvicProfile: 'tight' }));
         expect(r.modifiers.tightFloor).toBe(true);
         // Contraction work is withheld, and the result says so rather than
         // quietly shortening the list.
@@ -409,8 +421,7 @@ describe('nextBestAction: unresolved schedule', () => {
 
     test('it says what is wrong without blaming the member', () => {
         const r = unreadable(['length']);
-        expect(r.reason).toBe(
-            'Your training week could not be read, so there is nothing to prescribe until it is set again.');
+        expect(r.reason).toBe("We couldn't determine today's session from your current schedule.");
         expect(r.reason).not.toContain('—');
     });
 
@@ -596,11 +607,14 @@ describe('nextBestAction: the pelvic screener gate', () => {
         expect(r.changes.join(' ')).toMatch(/pelvic floor check/i);
     });
 
-    test('a rest day flags the screener for its optional recovery', () => {
+    test('a rest day raises nothing, because it prescribes nothing', () => {
+        // The gate follows the prescription. On a day with no prescription
+        // there is nothing to screen for, and raising it anyway would put a
+        // questionnaire on a screen whose whole message is "nothing today".
         const r = nextBestAction(input({ now: TUE, pelvicProfile: '' }));
         expect(r.state).toBe('REST');
-        expect(r.modifiers.pelvicScreenRequired).toBe(true);
-        expect(r.optional.exercises).toEqual([1, 2]);
+        expect(r.modifiers.pelvicScreenRequired).toBe(false);
+        expect(r.recoveryPlan).toBeNull();
     });
 
     test('a plan with no contraction work does not raise the gate', () => {
@@ -615,9 +629,15 @@ describe('nextBestAction: the pelvic screener gate', () => {
         expect(r.recoveryPlan).toEqual(NIGHT_RECOVERY);
     });
 
-    test('an offer that narrows to nothing is not made', () => {
-        const r = nextBestAction(input({ now: TUE, pelvicProfile: '', recoveryPlan: CONTRACTION }));
-        expect(r.optional).toBeNull();
+    test('no state offers optional work', () => {
+        // The two that used to are the two where an offer undercuts the
+        // message. Asserted across the board so a future state cannot
+        // reintroduce one without a decision.
+        for (const c of [
+            input({ now: TUE }), input({ now: THU }), input({ soreness: 'high' }),
+            input({ soreness: 'moderate' }), input({ completedDays: [false, true] }),
+            input({ sessionDraft: {} }), input({ goalKey: '' }), input({ schedule: null }),
+        ]) expect(nextBestAction(c).optional).toBeNull();
     });
 });
 
@@ -666,9 +686,10 @@ describe('nextBestAction: duration', () => {
         expect(nextBestAction(input({ dataLoaded: false, estimateMinutes })).duration).toBeNull();
     });
 
-    test('the optional offer still carries its own duration', () => {
+    test('a rest day costs nothing, because it asks for nothing', () => {
         const r = nextBestAction(input({ now: TUE, estimateMinutes }));
-        expect(r.optional.duration).toBeGreaterThan(0);
+        expect(r.duration).toBeNull();
+        expect(r.optional).toBeNull();
     });
 });
 

@@ -724,10 +724,6 @@
             <div>
                 <h1 class="text-4xl font-black tracking-tighter uppercase italic leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">The Blueprint</h1>
                 <p id="hq-user-email" class="hidden"></p>
-                <div id="hq-stat-chips" class="flex items-center gap-2 mt-3">
-                    <div id="hq-week-dots" class="flex items-center gap-1.5"></div>
-                    <span id="hq-week-label" class="text-[10px] font-bold text-slate-400">This week</span>
-                </div>
             </div>
             <div class="flex items-center gap-2">
                 <span id="current-date" class="text-[10px] font-black uppercase bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700/50 text-slate-300">-- --</span>
@@ -736,13 +732,14 @@
             </div>
         </div>
 
-        <!-- ── Attention band ──────────────────────────────────────────────
-             Every message that used to stack here still exists and still has
-             its own element, handlers and tests. What changed is that at most
-             one of them is on screen at a time: renderAttentionBand() picks
-             the highest priority live condition and hides the rest. Five
-             coloured cards competing above the decision is five cards nobody
-             reads. Priority order is in ATTENTION_BAND. -->
+        <!-- ── Critical band ───────────────────────────────────────────────
+             Above the decision, so only the things that make the decision
+             unsafe or impossible to act on: data that did not load, storage
+             that cannot hold it. Nothing else earns this position. A nudge or
+             a standing reminder sitting here would visually outrank today's
+             prescription, which is the one thing this screen exists to
+             deliver. Everything else is in the nudge band below.
+             At most one message shows. Priority is in ATTENTION_BAND. -->
         <div id="hq-attention-band" class="px-2 space-y-3">
             <div id="hq-load-failed-banner" class="hidden p-3 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-center gap-3">
                 <i class="fas fa-triangle-exclamation text-red-400 text-lg flex-shrink-0"></i>
@@ -757,39 +754,6 @@
                 <div class="flex-1 min-w-0">
                     <p class="text-[11px] font-black text-orange-300 uppercase tracking-widest">Device Storage Full</p>
                     <p class="text-[10px] text-slate-400 mt-0.5">Your progress is still saving to the cloud, but this device cannot keep an offline copy. Free up some space when you get a chance.</p>
-                </div>
-            </div>
-            <div id="hq-pelvic-prompt" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30">
-                <div class="flex items-start gap-3">
-                    <i class="fas fa-stethoscope text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Pelvic Floor Check</p>
-                        <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">A pelvic floor can be too tight as easily as too weak, and the training for each is the opposite. Thirty seconds, six questions, and your Recovery Protocol adjusts to the answer.</p>
-                        <div class="flex gap-2 mt-2">
-                            <button id="hq-pelvic-start" class="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-amber-500/20 px-3 py-1.5 rounded-xl">Take The Check</button>
-                            <button id="hq-pelvic-learn" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Why?</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div id="hq-pass-used-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
-                <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
-                <div class="flex-1 min-w-0">
-                    <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Your streak is still alive. Get back in today.</p>
-                </div>
-            </div>
-            <div id="hq-coach-nudge" class="hidden p-3 rounded-2xl" style="background:rgba(168,85,247,.09);border:1px solid rgba(168,85,247,.3)">
-                <div class="flex items-start gap-3">
-                    <i class="fas fa-comment-dots text-lg flex-shrink-0 mt-0.5" style="color:#a855f7"></i>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-[11px] font-black uppercase tracking-widest" style="color:#c4b5fd">Coach Tee noticed</p>
-                        <p id="hq-coach-nudge-text" class="text-[11px] text-slate-300 mt-0.5 leading-relaxed"></p>
-                        <div class="flex gap-2 mt-2">
-                            <button id="hq-coach-nudge-ask" class="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl" style="background:rgba(168,85,247,.2);color:#d8b4fe">Ask Coach Tee</button>
-                            <button id="hq-coach-nudge-dismiss" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Not now</button>
-                        </div>
-                    </div>
                 </div>
             </div>
             <!-- Still rendered and still hidden by the same conditions as
@@ -841,6 +805,60 @@
                      identical buttons would be theatre. One honest line
                      instead; see the report. -->
                 <p id="today-alt-note" class="hidden text-[10px] text-slate-600 text-center">You can still pick a different session at the next step.</p>
+            </div>
+        </div>
+
+        <!-- ── Week progress ───────────────────────────────────────────────
+             Directly under the decision: what to do, then how the week is
+             going. Streak is not here; it is in the level block at the
+             bottom, because a streak that breaks on a prescribed rest day
+             cannot share billing with a target that counts that day as
+             success. -->
+        <div id="hq-stat-chips" class="flex items-center gap-2.5 px-3 hq-anim">
+            <div id="hq-week-dots" class="flex items-center gap-1.5"></div>
+            <span id="hq-week-label" class="text-[11px] font-bold text-slate-400">This week</span>
+        </div>
+
+        <!-- ── Nudge band ──────────────────────────────────────────────────
+             Below the decision and below the week, because none of these is
+             urgent and none should compete with what to do today. Same
+             one-at-a-time rule; see NUDGE_BAND. If pelvic screening is
+             actually required for today's prescription, the Today card says
+             so itself as a PREPARE state, and this standing prompt is beside
+             the point. -->
+        <div id="hq-nudge-band" class="px-2 space-y-3 hq-anim">
+            <div id="hq-pelvic-prompt" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-stethoscope text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Pelvic Floor Check</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">A pelvic floor can be too tight as easily as too weak, and the training for each is the opposite. Thirty seconds, six questions, and your Recovery Protocol adjusts to the answer.</p>
+                        <div class="flex gap-2 mt-2">
+                            <button id="hq-pelvic-start" class="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-amber-500/20 px-3 py-1.5 rounded-xl">Take The Check</button>
+                            <button id="hq-pelvic-learn" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Why?</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="hq-pass-used-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
+                <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Your streak is still alive. Get back in today.</p>
+                </div>
+            </div>
+            <div id="hq-coach-nudge" class="hidden p-3 rounded-2xl" style="background:rgba(168,85,247,.09);border:1px solid rgba(168,85,247,.3)">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-comment-dots text-lg flex-shrink-0 mt-0.5" style="color:#a855f7"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] font-black uppercase tracking-widest" style="color:#c4b5fd">Coach Tee noticed</p>
+                        <p id="hq-coach-nudge-text" class="text-[11px] text-slate-300 mt-0.5 leading-relaxed"></p>
+                        <div class="flex gap-2 mt-2">
+                            <button id="hq-coach-nudge-ask" class="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl" style="background:rgba(168,85,247,.2);color:#d8b4fe">Ask Coach Tee</button>
+                            <button id="hq-coach-nudge-dismiss" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Not now</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1770,7 +1788,7 @@
                 </div>
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Do the Recovery Protocol</p>
-                    <p>The Big Four and pelvic floor work on rest days are part of the programme, not optional extras. Hip and groin mobility is worth keeping on top of in its own right, and the adductors sit close to the pelvic floor and commonly get tight from sitting.</p>
+                    <p>The Big Four and pelvic floor work on rest days are part of the programme, not optional extras. Mobility in the surrounding hips and adductors can support comfortable pelvic movement and relaxation, and both commonly get tight from sitting.</p>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Trust the tier locks</p>
@@ -4446,36 +4464,49 @@ let _today=null;
 function currentPrescription(){ return _today; }
 
 /**
- * The attention band, in priority order. First live condition wins and
- * everything else is hidden.
+ * Two bands, and the split is the point.
  *
- * The rule for what belongs here: a message is a band message only if it is
- * about something OTHER than today's prescription. Rest, deload, an
- * unfinished session and the soreness response are all part of the
- * prescription, so the Today card says them and the band stays quiet. That
- * is why three of the old banners are listed as never promoted.
+ * ATTENTION_BAND sits ABOVE the Today card, so the bar for entry is: does
+ * this make today's prescription unsafe or impossible to act on? Data that
+ * did not load and storage that cannot hold it both qualify, because acting
+ * on either is acting on nothing. Nothing else does. Anything else placed
+ * here visually outranks the prescription, and the prescription is the whole
+ * reason the screen exists.
  *
- * Order is worst-consequence-first. Losing data beats a questionnaire.
+ * NUDGE_BAND sits BELOW the Today card and below the week. Useful, not
+ * urgent: a standing invitation to take the screener, a note that a Recovery
+ * Pass covered yesterday, something Coach Tee noticed.
+ *
+ * Within each band, at most one message shows and the first live condition
+ * wins. Nothing was deleted; every element, handler and condition still
+ * exists exactly as before.
+ *
+ * Three of the old banners are never promoted in either band, because the
+ * Today card already says all three: rest, deload and an unfinished session.
  */
 const ATTENTION_BAND=[
     {id:'hq-load-failed-banner',  live:()=>!_persistedLoaded&&!!currentUser},
     {id:'hq-storage-full-banner', live:()=>!!_storageFull},
-    {id:'hq-pass-used-banner',    live:()=>!!_passUsedThisRender},
-    {id:'hq-coach-nudge',         live:()=>!!_coachNudgeLive},
-    // Last of the live ones on purpose. This is a standing invitation rather
-    // than news: it is true every day until it is answered, so above the
-    // transient messages it would starve them permanently.
-    {id:'hq-pelvic-prompt',       live:()=>!!currentUser&&!hasPelvicScreen()},
     // Never promoted: the Today card owns these three.
     {id:'deload-banner',          live:()=>false},
     {id:'hq-rest-banner',         live:()=>false},
     {id:'resume-banner',          live:()=>false},
 ];
+const NUDGE_BAND=[
+    {id:'hq-pass-used-banner',    live:()=>!!_passUsedThisRender},
+    {id:'hq-coach-nudge',         live:()=>!!_coachNudgeLive},
+    // Last on purpose. This is a standing invitation rather than news: it is
+    // true every day until it is answered, so above the transient messages it
+    // would starve them permanently. When the screener actually blocks
+    // today's prescription the Today card raises it as a PREPARE state, so
+    // nothing is lost by it losing here.
+    {id:'hq-pelvic-prompt',       live:()=>!!currentUser&&!hasPelvicScreen()},
+];
 let _storageFull=false, _passUsedThisRender=false, _coachNudgeLive=false;
 
-function renderAttentionBand(){
+function _renderBand(entries){
     let shown=false;
-    for(const entry of ATTENTION_BAND){
+    for(const entry of entries){
         const el=document.getElementById(entry.id);
         if(!el) continue;
         let live=false;
@@ -4484,6 +4515,7 @@ function renderAttentionBand(){
         if(live) shown=true;
     }
 }
+function renderAttentionBand(){ _renderBand(ATTENTION_BAND); _renderBand(NUDGE_BAND); }
 
 /**
  * Week completion: the primary progress signal.
@@ -4521,7 +4553,9 @@ const PREPARE_COPY={
     'loading':            {headline:'Loading',          cta:'' },
     'goal':               {headline:'Set Your Goal',    cta:'CHOOSE A GOAL'},
     'pelvic-screen':      {headline:'One Quick Check',  cta:'TAKE THE CHECK'},
-    'schedule-unresolved':{headline:'Your Week Needs A Quick Reset', cta:'FIX MY WEEK'},
+    // The CTA opens the day-type picker for today, so it promises exactly
+    // that and no more. A real week-reset flow is a later subphase.
+    'schedule-unresolved':{headline:'Your Plan Needs Attention', cta:"FIX TODAY'S PLAN"},
 };
 
 /**
@@ -4613,11 +4647,16 @@ function renderToday(){
         if(show) prepBtn.textContent=prep.cta;
         prepBtn.dataset.prepare=r.prepare||'';
     }
-    // Quiet, never a second dominant call to action.
+    /* No state offers optional work any more. REST and COMPLETE were the
+       only two that did, and in both the offer argued with the message:
+       "today is done" followed by a suggestion is not done, and four minutes
+       of work beside a rest day teaches that following the programme is
+       never quite enough. The element stays so the resolver can carry a
+       quiet secondary offer again if a state ever earns one. */
     if(opt){
         const o=r.optional;
         opt.classList.toggle('hidden',!o);
-        if(o) opt.textContent=o.duration?`${o.label} · ~${o.duration} min`:o.label;
+        opt.textContent=o?(o.duration?`${o.label} · ~${o.duration} min`:o.label):'';
     }
     set('today-alt-note',undefined,r.state==='TRAIN'||r.state==='MODIFIED');
 

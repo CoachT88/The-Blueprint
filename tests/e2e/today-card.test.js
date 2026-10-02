@@ -39,7 +39,9 @@ async function render(page, { type = 'length', patch = {}, soreness = null, draf
 
         const txt = id => document.getElementById(id).textContent.trim();
         const shown = id => !document.getElementById(id).classList.contains('hidden');
-        const band = document.getElementById('hq-attention-band');
+        const crit = document.getElementById('hq-attention-band');
+        const nudges = document.getElementById('hq-nudge-band');
+        const live = el => [...el.children].filter(c => !c.classList.contains('hidden')).map(c => c.id);
         return {
             state: document.getElementById('hq-today-card').dataset.state,
             eyebrow: txt('today-eyebrow'),
@@ -61,7 +63,8 @@ async function render(page, { type = 'length', patch = {}, soreness = null, draf
             weekLabel: txt('hq-week-label'),
             weekDots: document.getElementById('hq-week-dots').children.length,
             weekDone: document.querySelectorAll('#hq-week-dots .week-dot.done').length,
-            bandShown: [...band.children].filter(c => !c.classList.contains('hidden')).map(c => c.id),
+            criticalShown: live(crit),
+            nudgesShown: live(nudges),
         };
     }, { type, patch, soreness, draft, WEEK });
 }
@@ -148,10 +151,12 @@ describe('the Today card', () => {
         expect(r.prepare).toBeNull();
     });
 
-    test('REST offers Active Recovery quietly, and never calls it a bonus', async () => {
+    test('REST offers nothing at all, not even quietly', async () => {
+        // A few minutes of optional work beside a rest day teaches that
+        // following the programme is never quite enough.
         const r = await render(app.page, { type: 'rest' });
-        expect(r.optional).toMatch(/^Active Recovery/);
-        expect(r.optional).not.toMatch(/bonus/i);
+        expect(r.optional).toBeNull();
+        expect(r.meta).toBeNull();
     });
 
     test('COMPLETE is closure: no primary CTA, and it shows what is next', async () => {
@@ -166,7 +171,9 @@ describe('the Today card', () => {
         expect(r.prepare).toBeNull();
         expect(r.summary).toMatch(/This week/);
         expect(r.summary).toMatch(/Next up/);
-        expect(r.optional).toMatch(/^Active Recovery/);
+        // Closure, so nothing follows it. "Today is done" plus a suggestion
+        // is not done.
+        expect(r.optional).toBeNull();
         // The headline already says it; the reason must not repeat it.
         expect(r.why).toBeNull();
     });
@@ -230,9 +237,11 @@ describe('the Today card', () => {
     test('PREPARE: an unresolved schedule shows a repair path and no training', async () => {
         const r = await render(app.page, { type: 'mystery' });
         expect(r.state).toBe('PREPARE');
-        expect(r.headline).toBe('Your Week Needs A Quick Reset');
-        expect(r.why).toBe('Your training week could not be read, so there is nothing to prescribe until it is set again.');
-        expect(r.prepare).toBe('FIX MY WEEK');
+        expect(r.headline).toBe('Your Plan Needs Attention');
+        expect(r.why).toBe("We couldn't determine today's session from your current schedule.");
+        // The CTA opens the day-type picker for today, so it promises that
+        // and not a repair of the whole week.
+        expect(r.prepare).toBe("FIX TODAY'S PLAN");
         // Nothing may be invented from the goal.
         expect(r.launch).toBeNull();
         expect(r.meta).toBeNull();
@@ -267,7 +276,10 @@ describe('the Today card', () => {
     });
 
     test('a tight floor is named as a change rather than silently applied', async () => {
-        const r = await render(app.page, { type: 'rest', patch: { pelvicProfile: 'tight' } });
+        // On a day that actually prescribes recovery. A rest day prescribes
+        // nothing, so there is no plan to narrow and nothing to say.
+        const r = await render(app.page, { type: 'length', soreness: 'high', patch: { pelvicProfile: 'tight' } });
+        expect(r.state).toBe('RECOVER');
         expect(r.changes.join(' ')).toMatch(/tight floor/i);
     });
 
@@ -343,67 +355,110 @@ describe('week completion is the primary progress signal', () => {
     });
 });
 
-describe('the attention band', () => {
+describe('the two bands', () => {
     let app;
     beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'tc3' }); }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    test('never shows more than one message', async () => {
-        // Every condition live at once. Before this phase that was five
-        // stacked cards above the decision.
-        const shown = await app.page.evaluate(() => {
+    const bands = (page) => page.evaluate(() => {
+        const live = id => [...document.getElementById(id).children]
+            .filter(c => !c.classList.contains('hidden')).map(c => c.id);
+        return { critical: live('hq-attention-band'), nudges: live('hq-nudge-band') };
+    });
+
+    test('the hierarchy is header, critical, Today, week, nudges, secondary', async () => {
+        const order = await app.page.evaluate(() => {
+            const ids = ['hq-attention-band', 'hq-today-card', 'hq-stat-chips',
+                         'hq-nudge-band', 'hq-calendar-card', 'hq-level-badge'];
+            const nodes = ids.map(i => document.getElementById(i));
+            const ok = nodes.every((n, k) => k === 0 ||
+                !!(nodes[k - 1].compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING));
+            return { ok, missing: ids.filter((i, k) => !nodes[k]) };
+        });
+        expect(order.missing).toEqual([]);
+        expect(order.ok).toBe(true);
+    });
+
+    test('nothing non-critical can render above the Today card', async () => {
+        // The failure this guards: a standing reminder or a nudge taking the
+        // position that belongs to today's prescription.
+        const above = await app.page.evaluate(() => {
+            const today = document.getElementById('hq-today-card');
+            return ['hq-pelvic-prompt', 'hq-coach-nudge', 'hq-pass-used-banner'].filter(id =>
+                !!(document.getElementById(id).compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING));
+        });
+        expect(above).toEqual([]);
+    });
+
+    test('only data-safety messages are eligible for the critical band', async () => {
+        const ids = await app.page.evaluate(() =>
+            [...document.getElementById('hq-attention-band').children].map(c => c.id));
+        // deload, rest and resume live here historically but are never
+        // promoted; the Today card says all three.
+        expect(ids).toEqual([
+            'hq-load-failed-banner', 'hq-storage-full-banner',
+            'deload-banner', 'hq-rest-banner', 'resume-banner',
+        ]);
+    });
+
+    test('each band shows at most one message, even with everything live', async () => {
+        await app.page.evaluate(() => {
             persisted.schedule = ['length', 'girth', 'rest', 'stamina', 'length', 'rest', 'rest'];
             persisted.primaryGoal = 'all';
             persisted.pelvicProfile = '';
-            _storageFull = true;
-            _passUsedThisRender = true;
-            _coachNudgeLive = true;
+            _storageFull = true; _passUsedThisRender = true; _coachNudgeLive = true;
             renderAttentionBand();
-            const band = document.getElementById('hq-attention-band');
-            return [...band.children].filter(c => !c.classList.contains('hidden')).map(c => c.id);
         });
-        expect(shown).toHaveLength(1);
+        const b = await bands(app.page);
+        expect(b.critical).toHaveLength(1);
+        expect(b.nudges).toHaveLength(1);
     });
 
-    test('the worst consequence wins', async () => {
-        const first = await app.page.evaluate(() => {
+    test('the worst consequence wins in the critical band', async () => {
+        const b = await app.page.evaluate(() => {
             _persistedLoaded = false;
             renderAttentionBand();
-            const band = document.getElementById('hq-attention-band');
-            const out = [...band.children].filter(c => !c.classList.contains('hidden')).map(c => c.id);
+            const live = [...document.getElementById('hq-attention-band').children]
+                .filter(c => !c.classList.contains('hidden')).map(c => c.id);
             _persistedLoaded = true;
-            return out;
+            return live;
         });
-        expect(first).toEqual(['hq-load-failed-banner']);
+        expect(b).toEqual(['hq-load-failed-banner']);
     });
 
-    test('a standing invitation never starves the transient messages', async () => {
+    test('a standing invitation never starves the transient nudges', async () => {
         // The pelvic prompt is true every day until it is answered. Above the
         // nudge it would mean an unscreened member never sees one.
-        const shown = await app.page.evaluate(() => {
-            _storageFull = false;
-            _passUsedThisRender = false;
-            _coachNudgeLive = true;
+        await app.page.evaluate(() => {
+            _storageFull = false; _passUsedThisRender = false; _coachNudgeLive = true;
             persisted.pelvicProfile = '';
             renderAttentionBand();
-            const band = document.getElementById('hq-attention-band');
-            return [...band.children].filter(c => !c.classList.contains('hidden')).map(c => c.id);
         });
-        expect(shown).toEqual(['hq-coach-nudge']);
+        expect((await bands(app.page)).nudges).toEqual(['hq-coach-nudge']);
+    });
+
+    test('the screener prompt appears once nothing more immediate is live', async () => {
+        await app.page.evaluate(() => {
+            _coachNudgeLive = false; persisted.pelvicProfile = '';
+            renderAttentionBand();
+        });
+        expect((await bands(app.page)).nudges).toEqual(['hq-pelvic-prompt']);
     });
 
     test('rest, deload and the unfinished session are never band messages', async () => {
         // The Today card says all three. A banner repeating them is noise.
-        const shown = await app.page.evaluate(() => {
+        const b = await app.page.evaluate(() => {
             _coachNudgeLive = false;
             persisted.pelvicProfile = 'standard';
             persisted.schedule[new Date().getDay()] = 'rest';
             persisted.firstSessionDate = '2020-01-01';
             localStorage.setItem('bp_session_draft_tc3', JSON.stringify({ savedAt: Date.now(), routineType: 'girth', exerciseIndex: 0, setIndex: 1 }));
             renderDashboard();
-            const band = document.getElementById('hq-attention-band');
-            return [...band.children].filter(c => !c.classList.contains('hidden')).map(c => c.id);
+            const live = id => [...document.getElementById(id).children]
+                .filter(c => !c.classList.contains('hidden')).map(c => c.id);
+            return { critical: live('hq-attention-band'), nudges: live('hq-nudge-band') };
         });
-        expect(shown).toEqual([]);
+        expect(b.critical).toEqual([]);
+        expect(b.nudges).toEqual([]);
     });
 });
