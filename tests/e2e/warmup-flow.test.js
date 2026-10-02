@@ -34,7 +34,7 @@ describe('warmup routing', () => {
         await app.page.waitForTimeout(300);
     };
 
-    test('Ready leads to mission select, and will not move until soreness is answered', async () => {
+    test('Ready leads straight to the session, and will not move until soreness is answered', async () => {
         // Phase 2A.3: Pre-Flight became Ready. The button that used to say
         // I AM PRIMED and collect nothing now collects the one input that
         // changes the prescription, and stays disabled until it has it.
@@ -63,7 +63,10 @@ describe('warmup routing', () => {
             document.getElementById('ready-cta').click();
         });
         await app.page.waitForTimeout(300);
-        expect(await visibleStep(app.page)).toBe('step-3');
+        // Phase 2A.4: the prescribed session no longer stops at Mission
+        // Select to be reconfirmed. Length warms up first, so step 2.
+        expect(await visibleStep(app.page)).toBe('step-2');
+        expect(await app.page.evaluate(() => session.routineType)).toBe('length');
     }, 30_000);
 
     test('Length warms up, then skipping lands in the engine', async () => {

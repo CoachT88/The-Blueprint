@@ -209,6 +209,10 @@
         .today-card[data-state="PREPARE"]{border-left-color:#64748b}
         /* COMPLETE is closure, not a prompt. Quieter, not louder. */
         .today-card[data-state="COMPLETE"] #today-headline{color:#6ee7b7}
+        /* A day completed with a session other than the scheduled one. The
+           cell still reads as done, because it was, but it no longer claims
+           the scheduled mission specifically was the thing performed. */
+        .calendar-day[data-substituted="1"]::after{content:'';position:absolute;top:4px;right:4px;width:5px;height:5px;border-radius:999px;background:#f59e0b}
         .week-dot{width:9px;height:9px;border-radius:999px;background:rgba(148,163,184,.22);display:inline-block}
         .week-dot.done{background:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,.18)}
         .tip-card{background:linear-gradient(135deg,rgba(168,85,247,.08) 0%,rgba(15,23,42,.6) 100%);border:1px solid rgba(168,85,247,.2);border-radius:1.25rem;padding:.9rem 1rem}
@@ -795,14 +799,15 @@
                 <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
                 <button id="resume-btn" class="btn-primary hidden" style="background:linear-gradient(135deg,#059669 0%,#047857 100%)">RESUME SESSION</button>
                 <button id="today-prepare-btn" class="btn-primary hidden">GET SET UP</button>
+                <p id="today-prepare-hint" class="hidden text-[10px] text-slate-600 text-center"></p>
                 <button id="today-optional-btn" class="hidden w-full text-[11px] font-black uppercase tracking-widest text-slate-400 py-2.5 rounded-xl" style="background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.2)">Active Recovery</button>
                 <button id="today-why-btn" class="hidden w-full text-[10px] font-bold text-slate-500 py-1.5">Why this today?</button>
-                <!-- The explicit "Something else" path lands in 2A.4, when the
-                     primary CTA starts bypassing Mission Select. Until then
-                     both routes end at the same picker, so offering two
-                     identical buttons would be theatre. One honest line
-                     instead; see the report. -->
-                <p id="today-alt-note" class="hidden text-[10px] text-slate-600 text-center">You can still pick a different session at the next step.</p>
+                <!-- Meaningful now that the primary CTA goes straight to the
+                     prescribed session. Deliberately a text link rather than
+                     a button: this is what we recommend, and you still have
+                     control, in that order. Never shown where choosing
+                     something else would route around a safety block. -->
+                <button id="today-alt-btn" class="hidden w-full text-[11px] font-bold text-slate-500 py-2 underline decoration-slate-700 underline-offset-4">Something else</button>
             </div>
         </div>
 
@@ -1055,7 +1060,12 @@
 
 <div id="step-3" class="step-content hidden-step">
     <div class="inner-step-wrapper min-h-screen justify-center text-center space-y-8">
-        <h2 class="text-4xl font-black italic uppercase text-slate-50">Select Mission</h2>
+        <h2 class="text-4xl font-black italic uppercase text-slate-50">Choose A Different Session</h2>
+        <p id="mission-override-note" class="text-[11px] text-slate-500 -mt-4 px-2"></p>
+        <div id="mission-blocked-note" class="hidden mx-2 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left flex items-start gap-3">
+            <i class="fas fa-circle-info text-amber-400 text-sm flex-shrink-0 mt-0.5"></i>
+            <p id="mission-blocked-text" class="text-[11px] text-amber-200/90 leading-relaxed"></p>
+        </div>
         <div id="deload-mission-note" class="hidden mx-2 deload-banner text-left"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><p class="text-orange-300 text-[11px]">Deload active — reduced volume loaded automatically.</p></div>
 
     <!-- Difficulty selector -->
@@ -1895,6 +1905,25 @@
 <!-- SORENESS WARNING MODAL -->
 
 <!-- PELVIC FLOOR SCREENER -->
+<!-- Why a contraction exercise is locked. The padlock was visible but mute,
+     so an unscreened member saw a dashed card and no reason for it. Short on
+     purpose: the point is the reason and the way to fix it, not a lecture. -->
+<div id="pelvic-lock-modal" class="hidden fixed inset-0 z-[99996] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
+    <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(245,158,11,.3)">
+        <div class="flex items-start gap-3">
+            <i class="fas fa-lock text-amber-400 text-base flex-shrink-0 mt-0.5"></i>
+            <div class="flex-1 min-w-0">
+                <p id="pelvic-lock-title" class="text-[12px] font-black text-amber-300 uppercase tracking-widest">Pelvic Check Required</p>
+                <p id="pelvic-lock-body" class="text-[12px] text-slate-300 mt-1.5 leading-relaxed"></p>
+            </div>
+        </div>
+        <div class="flex flex-col gap-2">
+            <button id="pelvic-lock-take" class="btn-primary py-3.5 text-[12px]">TAKE THE CHECK</button>
+            <button id="pelvic-lock-close" class="btn-outline py-3 text-[11px]">Not now</button>
+        </div>
+    </div>
+</div>
+
 <div id="pelvic-screen-modal" class="hidden fixed inset-0 z-[99994] overflow-y-auto" style="background:rgba(2,6,23,.98)">
     <div class="inner-step-wrapper py-12 space-y-5">
         <div class="px-2 text-center">
@@ -2080,6 +2109,24 @@ function openPelvicScreen(){
     track('pelvic_screen_opened');
 }
 function closePelvicScreen(){ document.getElementById('pelvic-screen-modal').classList.add('hidden'); }
+
+/* Where to come back to once the screener is answered. The screener is
+   reachable from the HQ nudge, from Ready and from a locked exercise, and
+   each of those wants a different thing refreshed afterwards. */
+let _pelvicReturn=null;
+
+function openPelvicLock(){
+    const tight=isFloorTight();
+    document.getElementById('pelvic-lock-title').textContent=
+        tight?'Contraction Work Paused':'Pelvic Check Required';
+    document.getElementById('pelvic-lock-body').textContent=tight
+        ? 'Your check flagged a floor that tends to hold tension, so contraction work is left out for now. Release work is open. You can retake the check any time.'
+        : 'We need your pelvic floor check before prescribing contraction work. Six questions, and it is not a diagnosis.';
+    document.getElementById('pelvic-lock-take').textContent=tight?'RETAKE THE CHECK':'TAKE THE CHECK';
+    document.getElementById('pelvic-lock-modal').classList.remove('hidden');
+    track('pelvic_lock_opened',{profile:persisted.pelvicProfile||'unscreened'});
+}
+function closePelvicLock(){ document.getElementById('pelvic-lock-modal').classList.add('hidden'); }
 function submitPelvicScreen(){
     const {yes,profile}=scorePelvicScreen(_pelvicAnswers);
     persisted.pelvicProfile=profile;
@@ -2089,9 +2136,12 @@ function submitPelvicScreen(){
     closePelvicScreen();
     showPelvicResult(profile,yes);
     renderDashboard();
-    // The screener can be opened from Ready as well as from the HQ, and the
-    // whole point of answering it is that the prescription changes.
-    if(session.step===1) renderReady();
+    /* The screener is reachable from three places and answering it changes
+       what each of them should show, so put the member back where they were
+       with the answer applied rather than on a dashboard nobody asked for. */
+    if(_pelvicReturn==='picker') buildRecoveryPicker();
+    else if(session.step===1) renderReady();
+    _pelvicReturn=null;
 }
 function showPelvicResult(profile,yes){
     const tight=profile==='tight';
@@ -3590,21 +3640,46 @@ function goToStep(step){
     document.getElementById('rest-overlay').classList.add('hidden');
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     const t=document.getElementById(`step-${step}`);t.classList.remove('hidden-step');t.classList.add('active-step');
-    if(step===0)renderDashboard();
+    /* Going home ends the override. It was a choice about one trip
+       through the funnel, and leaving the funnel is the end of that trip. */
+    if(step===0){_manualMission=null;renderDashboard();}
     if(step===1)renderReady();
     if(step===2){resetWarmupUI();buildCarousel();startCarousel()}
     if(step===3){
         document.getElementById('deload-mission-note').classList.toggle('hidden',!isDeloadWeek());
         renderDifficultySelector();
-        // Blackout day enforcement
+        /* Blackout day enforcement, plus the readiness block.
+           This screen is now the manual override, so it is exactly where
+           someone would try to route around a safety state. Mechanical
+           missions are disabled whenever the prescription withholds them,
+           not only on a rest day. */
         const blackout=isBlackoutDay();
+        const _r=window.BP?window.BP.nextBestAction(buildResolverInput()):null;
+        const _sorenessBlocked=!!_r&&_r.state==='RECOVER';
+        const _blocked=blackout||_sorenessBlocked;
         document.getElementById('blackout-banner').classList.toggle('hidden',!blackout);
-        document.getElementById('mission-length-btn').disabled=blackout;
-        document.getElementById('mission-girth-btn').disabled=blackout;
-        document.getElementById('mission-stamina-btn').disabled=blackout;
-        document.getElementById('mission-length-btn').style.opacity=blackout?'0.35':'';
-        document.getElementById('mission-girth-btn').style.opacity=blackout?'0.35':'';
-        document.getElementById('mission-stamina-btn').style.opacity=blackout?'0.35':'';
+        ['mission-length-btn','mission-girth-btn','mission-stamina-btn'].forEach(id=>{
+            const b=document.getElementById(id);
+            b.disabled=_blocked;
+            b.style.opacity=_blocked?'0.35':'';
+        });
+        const _note=document.getElementById('mission-blocked-note');
+        const _noteText=document.getElementById('mission-blocked-text');
+        if(_note&&_noteText){
+            _noteText.textContent=_sorenessBlocked&&!blackout
+                ? 'You reported high muscle soreness, so mechanical work is paused today. Recovery is still available below.'
+                : '';
+            _note.classList.toggle('hidden',!_noteText.textContent);
+        }
+        // Say what today was, so the screen does not read as the app having
+        // no opinion. This is a departure from a recommendation, not a void.
+        const _ov=document.getElementById('mission-override-note');
+        if(_ov){
+            _ov.textContent=_r&&_r.mission&&!_blocked
+                ? `Today's recommendation is ${dayTypeLabel(_r.mission)}. Pick something else if you would rather.`
+                : '';
+            _ov.classList.toggle('hidden',!_ov.textContent);
+        }
         renderMissionGuidance(blackout);
         // Hydration warning
         const hydWarn=getHydrationWarning();
@@ -3767,8 +3842,10 @@ function buildRecoveryPicker(){
 
 function toggleRecoveryEx(idx){
     if(isExerciseBlocked(idx)){
-        // Unscreened: the lock is the prompt. Tight: the card already explains.
-        if(!hasPelvicScreen()) openPelvicScreen();
+        // The lock used to be mute for an unscreened member and open the
+        // screener with no warning for anyone who tapped it. Explain first,
+        // then offer the check.
+        openPelvicLock();
         return;
     }
     const i = selectedRecoveryIndices.indexOf(idx);
@@ -3798,6 +3875,8 @@ function updateRecoveryStartBtn(){
 }
 
 function goToRecoveryPicker(){
+    // A lock sheet left open from a previous visit would sit over the list.
+    closePelvicLock();
     // Default to daily recommended selection
     const rec = getDailyRecommended();
     selectedRecoveryIndices = rec.length ? rec : allowedRecoveryIndices(ROUTINES.recovery.map((_,i)=>i));
@@ -4580,7 +4659,8 @@ const PREPARE_COPY={
     'pelvic-screen':      {headline:'One Quick Check',  cta:'TAKE THE CHECK'},
     // The CTA opens the day-type picker for today, so it promises exactly
     // that and no more. A real week-reset flow is a later subphase.
-    'schedule-unresolved':{headline:'Your Plan Needs Attention', cta:"FIX TODAY'S PLAN"},
+    'schedule-unresolved':{headline:'Your Plan Needs Attention', cta:"FIX TODAY'S PLAN",
+                           hint:'Or tap any day in your week below to change it.'},
 };
 
 /**
@@ -4683,7 +4763,18 @@ function renderToday(){
         opt.classList.toggle('hidden',!o);
         opt.textContent=o?(o.duration?`${o.label} · ~${o.duration} min`:o.label):'';
     }
-    set('today-alt-note',undefined,r.state==='TRAIN'||r.state==='MODIFIED');
+    // Only where a different choice is both safe and meaningful. Never on
+    // RECOVER, REST, COMPLETE or PREPARE: offering an alternative there is
+    // offering a way around the reason the state exists.
+    set('today-alt-btn',undefined,r.state==='TRAIN'||r.state==='MODIFIED');
+    // The repair hint points at the week calendar, which has always been a
+    // full weekly editor. No second scheduling surface was built.
+    const hintEl=document.getElementById('today-prepare-hint');
+    if(hintEl){
+        const hint=prep&&prep.hint?prep.hint:'';
+        hintEl.textContent=hint;
+        hintEl.classList.toggle('hidden',!hint);
+    }
 
     // COMPLETE: closure, not a queue. What was done, and what is next.
     const summary=document.getElementById('today-complete-summary');
@@ -4738,6 +4829,52 @@ function completeSummaryHtml(){
 /** Sessions for which the long stop-signal text is shown in full. */
 const FULL_SAFETY_SESSIONS = 3;
 
+/**
+ * A mission the member picked instead of the prescribed one.
+ *
+ * Held in memory only, for the length of one trip through the funnel. It is
+ * a choice about this session, not a change to the programme, so it never
+ * touches persisted.schedule and never survives a return to the HQ.
+ *
+ * It is applied on top of the resolver rather than inside it: the resolver
+ * prescribes, and a manual choice is a UI-level departure from that. Which
+ * means the resolver's safety states still win, because effectiveMission()
+ * only honours the override where the prescription was a free choice to
+ * begin with.
+ */
+let _manualMission=null;
+
+/** What this trip through the funnel will actually run. */
+function effectiveMission(r){
+    if(!r) return null;
+    if(!_manualMission) return r.mission;
+    // TRAIN and MODIFIED are the only states where the member was choosing.
+    // RECOVER, REST, COMPLETE and PREPARE are the app answering, and an
+    // override there would be a way around the answer.
+    return (r.state==='TRAIN'||r.state==='MODIFIED') ? _manualMission : r.mission;
+}
+
+/**
+ * Start a mission. The single door into the session, used by the prescribed
+ * path and by the manual one, so neither can acquire setup the other lacks.
+ *
+ * Length and Girth run the warmup first. Stamina goes straight to the
+ * engine. Recovery goes to its picker.
+ */
+function startMission(mission,source){
+    if(!mission) return;
+    session.routineType=mission;
+    track('mission_selected',{mission,source:source||'prescribed'});
+    if(mission==='recovery'){ goToRecoveryPicker(); return; }
+    if(mission==='girth'){
+        // resetSession() derives the round count from the tier when the
+        // engine opens; this is so the warmup screen has it first.
+        const cfg=GIRTH_CIRCUIT[getDiff().id]||GIRTH_CIRCUIT.intermediate;
+        session.girthRound=1;session.girthTotalRounds=cfg.rounds;
+    }
+    goToStep(mission==='stamina'?4:2);
+}
+
 /** Has the member answered the one required question today? */
 function readinessAnswered(){
     return !!localStorage.getItem(getTodaySorenessKey());
@@ -4757,10 +4894,18 @@ function readyPlan(r){
             // Only ever a recovery draft by the time it reaches here: the
             // resolver withholds a mechanical one under high soreness.
             return {label:'RESUME SESSION', go:resumeSession};
-        case 'MODIFIED':
-            return {label:'START MODIFIED SESSION', go:()=>goToStep(3)};
-        case 'TRAIN':
-            return {label:`CONTINUE TO ${dayTypeLabel(r.mission).toUpperCase()}`, go:()=>goToStep(3)};
+        case 'MODIFIED': {
+            const m=effectiveMission(r);
+            return {label:'START MODIFIED SESSION', go:()=>startMission(m,_manualMission?'manual':'prescribed')};
+        }
+        case 'TRAIN': {
+            // Straight into the prescribed work. The app already knows what
+            // today is; asking the member to confirm it on another screen
+            // was friction without a decision in it.
+            const m=effectiveMission(r);
+            return {label:`START ${dayTypeLabel(m).toUpperCase()} SESSION`,
+                    go:()=>startMission(m,_manualMission?'manual':'prescribed')};
+        }
         case 'PREPARE':
             if(r.prepare==='pelvic-screen') return {label:'TAKE THE CHECK', go:openPelvicScreen};
             return {label:'Back home', go:()=>goToStep(0)};
@@ -4799,7 +4944,11 @@ function renderReady(){
 
     const planned=el('ready-planned');
     if(planned){
-        planned.textContent=r.mission?`On the plan today: ${dayTypeLabel(r.mission)}.`:'';
+        const eff=effectiveMission(r);
+        const overridden=_manualMission&&eff!==r.mission;
+        planned.textContent=overridden
+            ? `Your choice: ${dayTypeLabel(eff)}. On the plan today: ${dayTypeLabel(r.mission)}.`
+            : (r.mission?`On the plan today: ${dayTypeLabel(r.mission)}.`:'');
         planned.classList.toggle('hidden',!planned.textContent);
     }
 
@@ -4871,6 +5020,20 @@ function renderDashboard(){
     renderWeekProgress();
     renderAttentionBand();
     window._bpHqRendered=true;
+    /* Which weekdays this week were completed with something other than
+       the scheduled mission. Read from the session log, which is the only
+       record of what was actually performed: completedDays has one boolean
+       per weekday and cannot hold the distinction. */
+    const _substituted={};
+    if(window.BP){
+        const _thisWeek=window.BP.weekKey(new Date());
+        for(const e of (persisted.sessionLog||[])){
+            if(!e||!e.date||!e.manualOverride) continue;
+            const when=new Date(e.date);
+            if(isNaN(when.getTime())||window.BP.weekKey(when)!==_thisWeek) continue;
+            _substituted[when.getDay()]=e.routineType;
+        }
+    }
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
         const d=document.createElement('div');
@@ -4878,6 +5041,10 @@ function renderDashboard(){
         const _isToday=i===new Date().getDay();
         d.className=`calendar-day type-${_known?type:'unknown'} ${_isToday?'active':''} ${persisted.completedDays[i]?'completed':''} ${_isToday&&type!=='rest'?'scheduled-focus':''}`;
         d.innerHTML=`<span>${DAY_NAMES[i]}</span><i class="fas ${dayTypeIcon(type)}"></i>`;
+        if(_substituted[i]){
+            d.dataset.substituted='1';
+            d.title=`${dayTypeLabel(_substituted[i])} done instead of ${dayTypeLabel(type)}`;
+        }
         d.addEventListener('click',()=>{session.selectedDayIdx=i;document.getElementById('type-modal').classList.remove('hidden')});
         g.appendChild(d);
     });
@@ -4955,9 +5122,15 @@ function finishSession(){
     persisted.totalXp+=earnedXp;
     persisted.allTimeSessionCount=(persisted.allTimeSessionCount||0)+1;
     persisted.completedDays[new Date().getDay()]=true;
+    _manualMission=null;
     persisted.sessionLog.push({
         date:new Date().toISOString(),
         routineType:session.routineType,
+        /* What the programme asked for, and whether this was a departure
+           from it. Recorded so the history is honest about substitutions
+           even though completedDays still has only one slot per day. */
+        scheduledType:getScheduledType(),
+        manualOverride:session.routineType!==getScheduledType(),
         xpEarned:earnedXp,
         note,
         eq:selectedEQ,
@@ -6518,19 +6691,17 @@ function init(){
     document.getElementById('warmup-skip-btn').addEventListener('click',()=>{track('warmup_skipped',{mission:session.routineType});nextStep();});
     document.getElementById('warmup-back-btn').addEventListener('click',()=>goToStep(3));
     // Mission Select
-    document.getElementById('mission-length-btn').addEventListener('click',()=>{session.routineType='length';track('mission_selected',{mission:'length'});goToStep(2)});
-    document.getElementById('mission-girth-btn').addEventListener('click',()=>{
-        session.routineType='girth';
-        // resetSession() derives the round count from the tier when the engine
-        // opens, so this is just so the warmup screen has it available first.
-        const diffKey=getDiff().id;
-        const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
-        session.girthRound=1;session.girthTotalRounds=cfg.rounds;
-        track('mission_selected',{mission:'girth'});
-        goToStep(2);
+    /* Choosing here records a manual override and then goes through the
+       same gate as the prescribed path. A manual choice is still a session,
+       and a session still needs today's soreness. If it has already been
+       answered Ready has nothing left to ask, so the mission starts. */
+    ['length','girth','stamina'].forEach(m=>{
+        document.getElementById('mission-'+m+'-btn').addEventListener('click',()=>{
+            _manualMission=m;
+            if(readinessAnswered()) startMission(m,'manual');
+            else goToStep(1);
+        });
     });
-    // Stamina and Recovery do not get the warmup.
-    document.getElementById('mission-stamina-btn').addEventListener('click',()=>{session.routineType='stamina';track('mission_selected',{mission:'stamina'});goToStep(4)});
     // Update diff-detail subtext when hovering mission cards (so text updates before tap)
     ['mission-length-btn','mission-girth-btn','mission-stamina-btn'].forEach(id=>{
         const btn=document.getElementById(id);
@@ -6538,7 +6709,16 @@ function init(){
         btn.addEventListener('pointerenter',()=>{const prev=session.routineType;session.routineType=type;renderDifficultySelector();session.routineType=prev;});
         btn.addEventListener('pointerleave',()=>renderDifficultySelector());
     });
-    document.getElementById('mission-recovery-btn').addEventListener('click',()=>{session.routineType='recovery';track('mission_selected',{mission:'recovery'});goToRecoveryPicker()});
+    document.getElementById('mission-recovery-btn').addEventListener('click',()=>{_manualMission='recovery';startMission('recovery','manual')});
+    // The quiet alternative on the Today card. Same screen, now reached on
+    // purpose rather than passed through on the way to everything.
+    document.getElementById('today-alt-btn').addEventListener('click',()=>{track('something_else');goToStep(3)});
+    document.getElementById('pelvic-lock-close').addEventListener('click',closePelvicLock);
+    document.getElementById('pelvic-lock-take').addEventListener('click',()=>{
+        closePelvicLock();
+        _pelvicReturn='picker';
+        openPelvicScreen();
+    });
     document.getElementById('recovery-back-btn').addEventListener('click',()=>goToStep(3));
     document.getElementById('recovery-select-all-btn').addEventListener('click',selectAllRecovery);
     document.getElementById('recovery-select-daily-btn').addEventListener('click',selectDailyRecommended);
@@ -6766,8 +6946,12 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 import { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED } from '../src/nextBestAction.js';
 import { estimateSessionMinutes } from '../src/sessionDuration.js';
 import { weekCompletion } from '../src/weekCompletion.js';
+// The in-page getCurrentWeekKey() reads the clock and takes no argument, so
+// it cannot answer "which week was this log entry in". weekUtils can, and it
+// is the version with the year-boundary tests behind it.
+import { getCurrentWeekKey as weekKey } from '../src/weekUtils.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
-              estimateSessionMinutes, weekCompletion };
+              estimateSessionMinutes, weekCompletion, weekKey };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

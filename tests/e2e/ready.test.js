@@ -87,7 +87,7 @@ describe('Ready: the soreness answer changes the plan', () => {
         const r = await ready(app.page, { soreness: 'none' });
         expect(r.resolverState).toBe('TRAIN');
         expect(r.response).toBeNull();
-        expect(r.cta).toBe('CONTINUE TO LENGTH');
+        expect(r.cta).toBe('START LENGTH SESSION');
         expect(r.ctaDisabled).toBe(false);
     });
 
@@ -95,7 +95,7 @@ describe('Ready: the soreness answer changes the plan', () => {
         const r = await ready(app.page, { soreness: 'mild' });
         expect(r.resolverState).toBe('TRAIN');
         expect(r.response).toBeNull();
-        expect(r.cta).toBe('CONTINUE TO LENGTH');
+        expect(r.cta).toBe('START LENGTH SESSION');
     });
 
     test('Moderate reacts visibly and becomes MODIFIED', async () => {

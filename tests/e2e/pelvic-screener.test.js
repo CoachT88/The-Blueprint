@@ -321,19 +321,43 @@ describe('unscreened members', () => {
         expect(queue).toEqual([1]);
     }, 30_000);
 
-    test('tapping a locked card opens the check that unlocks it', async () => {
+    test('tapping a locked card explains the lock before opening anything', async () => {
+        // Phase 2A.4: the padlock used to be mute, and tapping it opened six
+        // questions with no warning. Now it says why first.
         const r = await app.page.evaluate(() => {
             goToRecoveryPicker();
             toggleRecoveryEx(0);
             return {
+                sheetShown: !document.getElementById('pelvic-lock-modal').classList.contains('hidden'),
                 screenShown: !document.getElementById('pelvic-screen-modal').classList.contains('hidden'),
-                questions: document.querySelectorAll('#pelvic-screen-questions [data-screen-q]').length,
+                title: document.getElementById('pelvic-lock-title').textContent.trim(),
+                body: document.getElementById('pelvic-lock-body').textContent.trim(),
+                cta: document.getElementById('pelvic-lock-take').textContent.trim(),
                 stillUnselected: !selectedRecoveryIndices.includes(0),
             };
         });
+        expect(r.sheetShown).toBe(true);
+        expect(r.screenShown).toBe(false);
+        expect(r.title).toBe('Pelvic Check Required');
+        expect(r.body).toMatch(/pelvic floor check before prescribing contraction work/i);
+        // Brief, and not a diagnosis.
+        expect(r.body).toMatch(/not a diagnosis/i);
+        expect(r.cta).toBe('TAKE THE CHECK');
+        expect(r.stillUnselected).toBe(true);
+    }, 30_000);
+
+    test('the sheet CTA opens the check that unlocks it', async () => {
+        const r = await app.page.evaluate(() => {
+            document.getElementById('pelvic-lock-take').click();
+            return {
+                sheetShown: !document.getElementById('pelvic-lock-modal').classList.contains('hidden'),
+                screenShown: !document.getElementById('pelvic-screen-modal').classList.contains('hidden'),
+                questions: document.querySelectorAll('#pelvic-screen-questions [data-screen-q]').length,
+            };
+        });
+        expect(r.sheetShown).toBe(false);
         expect(r.screenShown).toBe(true);
         expect(r.questions).toBe(6);
-        expect(r.stillUnselected).toBe(true);
     }, 30_000);
 
     test('the submit button stays disabled until every question is answered', async () => {
