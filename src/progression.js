@@ -29,6 +29,11 @@
 import { getCurrentWeekKey } from './weekUtils.js';
 import { PROGRESSION_POLICY } from './progressionPolicy.js';
 
+/* Eligibility, deload and the whole-answer helper live in
+   src/progressionLedger.js, because all three need to know what was
+   SCHEDULED in a past week and the session log cannot say. Applying today's
+   schedule backwards would invent precision that was never recorded. */
+
 /** Missions that load tissue mechanically. Recovery is deliberately absent. */
 export const MECHANICAL_MISSIONS = ['length', 'girth', 'stamina'];
 
@@ -131,68 +136,20 @@ export function qualifyingWeek(target, completed, policy) {
 }
 
 /**
- * Roll the session log up into weeks.
+ * How many distinct days in a given ISO week carried a qualifying session.
  *
- * `weeklyTargets` maps a week key to the number of scheduled mechanical
- * sessions that week. The app does not store schedule history, so in
- * practice the caller supplies today's target for every week. That is an
- * approximation and it is the caller's to make, not this function's: it is
- * recorded in the result as `targetSource` so nothing downstream mistakes it
- * for history.
+ * This is the only week-shaped thing the session log can honestly answer:
+ * what happened. It cannot answer what was scheduled, because no schedule
+ * history is stored. The target comes from the ledger, recorded at the time;
+ * see src/progressionLedger.js.
  */
-export function weeklyRollup(sessionLog, { now, weeklyTargets, defaultTarget, policy } = {}) {
-    const p = policy || PROGRESSION_POLICY;
-    const ref = asDate(now) || new Date();
-    const targets = weeklyTargets || {};
-    const byWeek = new Map();
-
+export function countQualifyingDaysInWeek(sessionLog, weekKey) {
+    let n = 0;
     for (const day of qualifyingSessionDays(sessionLog)) {
         const d = asDate(day + 'T12:00:00');
-        if (!d) continue;
-        const key = getCurrentWeekKey(d);
-        byWeek.set(key, (byWeek.get(key) || 0) + 1);
+        if (d && getCurrentWeekKey(d) === weekKey) n += 1;
     }
-
-    // Walk back week by week from now, so empty weeks appear as themselves
-    // rather than as gaps in a list of weeks that happened to have sessions.
-    const weeks = [];
-    for (let i = 0; i < p.qualifyingWindowWeeks; i++) {
-        const when = new Date(ref.getTime() - i * 7 * DAY_MS);
-        const key = getCurrentWeekKey(when);
-        const target = Number.isFinite(targets[key]) ? targets[key]
-            : (Number.isFinite(defaultTarget) ? defaultTarget : 0);
-        const completed = byWeek.get(key) || 0;
-        weeks.push({ weekKey: key, ...qualifyingWeek(target, completed, p) });
-    }
-    return {
-        weeks,                                   // newest first
-        targetSource: weeklyTargets ? 'provided' : 'current-schedule-assumed',
-    };
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   3. The gate
-   ═══════════════════════════════════════════════════════════════════════ */
-
-/**
- * Eligibility: enough qualifying weeks inside the rolling window.
- *
- * Not consecutive. A member who has a bad fortnight and then three good
- * weeks has done the work; requiring an unbroken run would mean one illness
- * costs them a month.
- */
-export function progressionEligibility(sessionLog, opts) {
-    const p = (opts && opts.policy) || PROGRESSION_POLICY;
-    const rollup = weeklyRollup(sessionLog, { ...opts, policy: p });
-    const qualifying = rollup.weeks.filter(w => w.qualifies);
-    return {
-        eligible: qualifying.length >= p.qualifyingWeeksRequired,
-        qualifyingWeeks: qualifying.length,
-        required: p.qualifyingWeeksRequired,
-        windowWeeks: p.qualifyingWindowWeeks,
-        weeks: rollup.weeks,
-        targetSource: rollup.targetSource,
-    };
+    return n;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -284,86 +241,8 @@ export function toleranceHolds(sessionLog, opts) {
     return { held: active.length > 0, active, rpe, recovery };
 }
 
-/**
- * The whole answer: eligible by work, and nothing holding.
- *
- * `rpeUnknown` is surfaced rather than folded in, so a caller can choose to
- * treat persistent missing RPE differently later without this function
- * having quietly decided for them.
- */
-export function canProgress(sessionLog, opts) {
-    const eligibility = progressionEligibility(sessionLog, opts);
-    const holds = toleranceHolds(sessionLog, opts);
-    return {
-        available: eligibility.eligible && !holds.held,
-        eligible: eligibility.eligible,
-        held: holds.held,
-        activeHolds: holds.active,
-        rpeUnknown: holds.rpe.status === RPE_STATUS.UNKNOWN,
-        eligibility,
-        holds,
-    };
-}
-
 /* ═══════════════════════════════════════════════════════════════════════
-   5. Deload
-   ═══════════════════════════════════════════════════════════════════════ */
-
-/**
- * Deload driven by accumulated exposure instead of the calendar.
- *
- * The old rule was `getISOWeek() % 4 === 0` gated on a date set by a tap, so
- * it fired on members who had not trained and on members mid-absence.
- *
- * Counting rules, each chosen to avoid a specific wrong answer:
- *   qualifying week      advances the counter
- *   non-qualifying week  PAUSES it. Not a reset: making someone re-earn a
- *                        rest because of one bad week punishes absence.
- *                        Not an advance: deloading someone who has not
- *                        trained is backwards.
- *   28 days with no qualifying work  resets. Stops a member returning after
- *                        months and meeting a deload before their first
- *                        session back. This is a product rule, not a claim
- *                        about how fatigue behaves.
- */
-export function deloadState(sessionLog, opts) {
-    const p = (opts && opts.policy) || PROGRESSION_POLICY;
-    const ref = asDate(opts && opts.now) || new Date();
-
-    const days = qualifyingSessionDays(sessionLog);
-    const last = days.length ? asDate(days[days.length - 1] + 'T12:00:00') : null;
-    const daysSince = last ? Math.floor((ref.getTime() - last.getTime()) / DAY_MS) : null;
-
-    if (!days.length || daysSince > p.deloadStaleResetDays) {
-        return {
-            isDeloadWeek: false,
-            accumulated: 0,
-            every: p.deloadEveryQualifyingWeeks,
-            stale: days.length > 0,
-            daysSinceLastQualifying: daysSince,
-        };
-    }
-
-    // Oldest first, so the count is "how many qualifying weeks so far".
-    const weeks = weeklyRollup(sessionLog, { ...opts, policy: p }).weeks.slice().reverse();
-    let accumulated = 0;
-    let isDeloadWeek = false;
-    for (const w of weeks) {
-        if (!w.qualifies) continue;             // pause, neither advance nor reset
-        accumulated += 1;
-        isDeloadWeek = accumulated % p.deloadEveryQualifyingWeeks === 0;
-    }
-    return {
-        isDeloadWeek,
-        accumulated,
-        every: p.deloadEveryQualifyingWeeks,
-        stale: false,
-        daysSinceLastQualifying: daysSince,
-    };
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   6. Programme start
+   5. Programme start
    ═══════════════════════════════════════════════════════════════════════ */
 
 export const PROGRAMME_START_SOURCE = {

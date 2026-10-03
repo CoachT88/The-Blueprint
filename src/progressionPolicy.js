@@ -53,11 +53,13 @@ export const PROGRESSION_POLICY = Object.freeze({
      * conclusion may be drawn.
      *
      * RPE is optional at the success screen, so absence is common and means
-     * nothing. Two samples out of five is thin but is the point at which a
-     * mean stops being a single opinion. Below it the answer is UNKNOWN,
-     * never PASS: missing data must not read as evidence of tolerance.
+     * nothing. Three of five is the agreed floor: enough that one unusual
+     * session cannot carry the mean on its own. Below it the answer is
+     * UNKNOWN, never CLEAR, because missing data must not read as evidence
+     * of tolerance. UNKNOWN is also not a hold, so a member who never fills
+     * the field in is not blocked forever.
      */
-    rpeMinSamples: 2,
+    rpeMinSamples: 3,
 
     /* ── Safety hold ──────────────────────────────────────────────────────
        Recent recovery usage suggests holding the current workload.
@@ -86,6 +88,20 @@ export const PROGRESSION_POLICY = Object.freeze({
      * met with a deload before they have trained.
      */
     deloadStaleResetDays: 28,
+
+    /* ── Weekly progression ledger ────────────────────────────────────────
+       How many weeks of ledger history to retain. */
+
+    /**
+     * Retained ledger weeks. The rolling window is 8; this keeps roughly six
+     * months so the record is useful beyond the gate without growing without
+     * bound. At about 90 bytes an entry that is a couple of kilobytes.
+     *
+     * Pruning cannot lose the deload count, because each entry carries the
+     * running cumulative total rather than it being recomputed from the
+     * surviving rows.
+     */
+    ledgerMaxWeeks: 26,
 });
 
 /** Shallow override, for tests and any future remote configuration. */

@@ -2,9 +2,9 @@ import { describe, test, expect } from 'vitest';
 import {
     MECHANICAL_MISSIONS, RPE_STATUS, PROGRAMME_START_SOURCE,
     isQualifyingSession, isRecoverySession, qualifyingSessionDays, lifetimeVolume,
-    qualifyingWeek, weeklyRollup, progressionEligibility,
-    rpeTolerance, recoverySafety, toleranceHolds, canProgress,
-    deloadState, programmeStartBackfill, programmeStartOnCompletion,
+    qualifyingWeek, countQualifyingDaysInWeek,
+    rpeTolerance, recoverySafety, toleranceHolds,
+    programmeStartBackfill, programmeStartOnCompletion,
 } from '../src/progression.js';
 import { PROGRESSION_POLICY, withPolicy } from '../src/progressionPolicy.js';
 
@@ -57,12 +57,16 @@ describe('the policy object', () => {
     });
 
     test('every rule reads the policy rather than a hard-coded number', () => {
-        // Move every knob and assert the behaviour moves with it. This is
-        // what stops a literal creeping back into a rule.
-        const loose = withPolicy({ qualifyingWeeksRequired: 1, qualifyingWeekMinSessions: 1, qualifyingWeekMaxMissed: 3 });
-        const log = week(0, 1);
-        expect(progressionEligibility(log, { now: NOW, defaultTarget: 4 }).eligible).toBe(false);
-        expect(progressionEligibility(log, { now: NOW, defaultTarget: 4, policy: loose }).eligible).toBe(true);
+        // Move a knob and assert the behaviour moves with it. This is what
+        // stops a literal creeping back into a rule.
+        const loose = withPolicy({ qualifyingWeekMinSessions: 1, qualifyingWeekMaxMissed: 3 });
+        expect(qualifyingWeek(4, 1).qualifies).toBe(false);
+        expect(qualifyingWeek(4, 1, loose).qualifies).toBe(true);
+
+        const strict = withPolicy({ rpeHoldThreshold: 4 });
+        const easy = [S(3, 'length', { rpe: 5 }), S(2, 'length', { rpe: 5 }), S(1, 'length', { rpe: 5 })];
+        expect(rpeTolerance(easy).status).toBe(RPE_STATUS.CLEAR);
+        expect(rpeTolerance(easy, strict).status).toBe(RPE_STATUS.HOLD);
     });
 });
 
@@ -168,67 +172,6 @@ describe('qualifying week: miss at most one, complete at least two', () => {
 // ---------------------------------------------------------------------------
 // The gate
 // ---------------------------------------------------------------------------
-describe('the 4-of-8 rolling gate', () => {
-    const fourGoodWeeks = [...week(0, 3), ...week(1, 3), ...week(2, 3), ...week(3, 3)];
-
-    test('four qualifying weeks inside the window opens it', () => {
-        const r = progressionEligibility(fourGoodWeeks, { now: NOW, defaultTarget: 4 });
-        expect(r.qualifyingWeeks).toBeGreaterThanOrEqual(4);
-        expect(r.eligible).toBe(true);
-    });
-
-    test('three does not', () => {
-        const r = progressionEligibility([...week(0, 3), ...week(1, 3), ...week(2, 3)], { now: NOW, defaultTarget: 4 });
-        expect(r.qualifyingWeeks).toBe(3);
-        expect(r.eligible).toBe(false);
-    });
-
-    test('the weeks need not be consecutive', () => {
-        // One bad fortnight should not cost a month of work.
-        const gapped = [...week(0, 3), ...week(1, 3), ...week(3, 3), ...week(5, 3)];
-        expect(progressionEligibility(gapped, { now: NOW, defaultTarget: 4 }).eligible).toBe(true);
-    });
-
-    test('old qualifying weeks age out of the window', () => {
-        // Four good weeks, all older than the 8-week window.
-        const ancient = [...week(9, 3), ...week(10, 3), ...week(11, 3), ...week(12, 3)];
-        const r = progressionEligibility(ancient, { now: NOW, defaultTarget: 4 });
-        expect(r.qualifyingWeeks).toBe(0);
-        expect(r.eligible).toBe(false);
-    });
-
-    test('the window is exactly the policy length, newest first', () => {
-        const r = progressionEligibility([], { now: NOW, defaultTarget: 4 });
-        expect(r.weeks).toHaveLength(PROGRESSION_POLICY.qualifyingWindowWeeks);
-        expect(r.windowWeeks).toBe(8);
-    });
-
-    test('recovery sessions never earn a qualifying week', () => {
-        const allRecovery = [...week(0, 4, 'recovery'), ...week(1, 4, 'recovery'),
-            ...week(2, 4, 'recovery'), ...week(3, 4, 'recovery')];
-        expect(progressionEligibility(allRecovery, { now: NOW, defaultTarget: 4 }).eligible).toBe(false);
-    });
-
-    test('substitutions earn qualifying weeks exactly like scheduled work', () => {
-        const subbed = [0, 1, 2, 3].flatMap(w => week(w, 3, 'girth', { scheduledType: 'length', manualOverride: true }));
-        expect(progressionEligibility(subbed, { now: NOW, defaultTarget: 4 }).eligible).toBe(true);
-    });
-
-    test('it reports that the weekly target was assumed, not remembered', () => {
-        // The app stores no schedule history, so this must never be mistaken
-        // for a record of what was actually prescribed each week.
-        const r = progressionEligibility(fourGoodWeeks, { now: NOW, defaultTarget: 4 });
-        expect(r.targetSource).toBe('current-schedule-assumed');
-        const withHistory = progressionEligibility(fourGoodWeeks, { now: NOW, weeklyTargets: { x: 4 } });
-        expect(withHistory.targetSource).toBe('provided');
-    });
-
-    test('an empty log is simply not eligible', () => {
-        expect(progressionEligibility([], { now: NOW, defaultTarget: 4 }).eligible).toBe(false);
-        expect(progressionEligibility(null, { now: NOW, defaultTarget: 4 }).eligible).toBe(false);
-    });
-});
-
 // ---------------------------------------------------------------------------
 // Holds
 // ---------------------------------------------------------------------------
@@ -262,7 +205,7 @@ describe('RPE tolerance', () => {
         expect(r.status).not.toBe(RPE_STATUS.CLEAR);
         expect(r.mean).toBeNull();
         expect(r.samples).toBe(1);
-        expect(r.minSamples).toBe(2);
+        expect(r.minSamples).toBe(3);
     });
 
     test('no RPE at all is UNKNOWN', () => {
@@ -270,12 +213,20 @@ describe('RPE tolerance', () => {
         expect(rpeTolerance([]).status).toBe(RPE_STATUS.UNKNOWN);
     });
 
-    test('UNKNOWN does not block forever: it is not a hold', () => {
-        const log = [...week(0, 3), ...week(1, 3), ...week(2, 3), ...week(3, 3)];   // no RPE anywhere
-        const r = canProgress(log, { now: NOW, defaultTarget: 4 });
-        expect(r.rpeUnknown).toBe(true);
-        expect(r.held).toBe(false);
-        expect(r.available).toBe(true);
+    test('UNKNOWN does not block: it is not a hold', () => {
+        const log = [...week(0, 3), ...week(1, 3)];                 // no RPE anywhere
+        const holds = toleranceHolds(log, { now: NOW });
+        expect(holds.rpe.status).toBe(RPE_STATUS.UNKNOWN);
+        expect(holds.held).toBe(false);
+        expect(holds.active).toEqual([]);
+    });
+
+    test('exactly one short of the minimum is still UNKNOWN', () => {
+        // rpeMinSamples is 3, so two valid values is not enough.
+        const log = [S(3, 'length', { rpe: 10 }), S(2, 'length', { rpe: 10 }), S(1)];
+        const r = rpeTolerance(log);
+        expect(r.samples).toBe(2);
+        expect(r.status).toBe(RPE_STATUS.UNKNOWN);
     });
 
     test('only the recent window is considered', () => {
@@ -287,9 +238,14 @@ describe('RPE tolerance', () => {
     });
 
     test('recovery sessions are not part of the RPE window', () => {
-        const log = [S(5, 'recovery', { rpe: 10 }), S(4, 'recovery', { rpe: 10 }), S(3, 'length', { rpe: 4 }), S(2, 'length', { rpe: 4 })];
+        // Three brutal recovery ratings and three easy mechanical ones: only
+        // the mechanical three are considered, so this clears.
+        const log = [
+            S(6, 'recovery', { rpe: 10 }), S(5, 'recovery', { rpe: 10 }), S(4, 'recovery', { rpe: 10 }),
+            S(3, 'length', { rpe: 4 }), S(2, 'length', { rpe: 4 }), S(1, 'length', { rpe: 4 }),
+        ];
         const r = rpeTolerance(log);
-        expect(r.samples).toBe(2);
+        expect(r.samples).toBe(3);
         expect(r.status).toBe(RPE_STATUS.CLEAR);
     });
 
@@ -331,109 +287,30 @@ describe('recovery safety hold', () => {
 });
 
 describe('holds combine without a score', () => {
-    const goodWork = [...week(0, 3), ...week(1, 3), ...week(2, 3), ...week(3, 3)];
-
-    test('eligible and unheld means available', () => {
-        expect(canProgress(goodWork, { now: NOW, defaultTarget: 4 }).available).toBe(true);
+    // Whether a hold BLOCKS is decided in progressionLedger.canProgress(),
+    // which is where eligibility lives. This is only about detection.
+    test('no signals means no holds', () => {
+        expect(toleranceHolds([], { now: NOW })).toMatchObject({ held: false, active: [] });
     });
 
-    test('any single hold is enough to stop it', () => {
-        const sore = [...goodWork, S(1, 'length', { rpe: 9 }), S(0, 'length', { rpe: 9 })];
-        const r = canProgress(sore, { now: NOW, defaultTarget: 4 });
-        expect(r.eligible).toBe(true);
-        expect(r.available).toBe(false);
-        expect(r.activeHolds).toContain('rpe');
+    test('an RPE hold is detected and named', () => {
+        const sore = [S(3, 'length', { rpe: 9 }), S(2, 'length', { rpe: 9 }), S(1, 'length', { rpe: 9 })];
+        const h = toleranceHolds(sore, { now: NOW });
+        expect(h.held).toBe(true);
+        expect(h.active).toContain('rpe');
     });
 
-    test('a recovery hold stops it too', () => {
-        const recovering = [...goodWork, S(1, 'recovery'), S(3, 'recovery'), S(6, 'recovery')];
-        const r = canProgress(recovering, { now: NOW, defaultTarget: 4 });
-        expect(r.available).toBe(false);
-        expect(r.activeHolds).toContain('recovery');
+    test('a recovery hold is detected and named', () => {
+        const recovering = [S(1, 'recovery'), S(3, 'recovery'), S(6, 'recovery')];
+        const h = toleranceHolds(recovering, { now: NOW });
+        expect(h.held).toBe(true);
+        expect(h.active).toContain('recovery');
     });
 
-    test('both holds are reported, not averaged away', () => {
-        const both = [...goodWork, S(1, 'length', { rpe: 9 }), S(0, 'length', { rpe: 9 }),
+    test('both are reported separately, never averaged into one number', () => {
+        const both = [S(3, 'length', { rpe: 9 }), S(2, 'length', { rpe: 9 }), S(1, 'length', { rpe: 9 }),
             S(2, 'recovery'), S(4, 'recovery'), S(6, 'recovery')];
-        expect(canProgress(both, { now: NOW, defaultTarget: 4 }).activeHolds.sort()).toEqual(['recovery', 'rpe']);
-    });
-
-    test('a hold without eligibility is still unavailable', () => {
-        const r = canProgress([S(1, 'length', { rpe: 9 }), S(2, 'length', { rpe: 9 })], { now: NOW, defaultTarget: 4 });
-        expect(r.eligible).toBe(false);
-        expect(r.available).toBe(false);
-    });
-});
-
-// ---------------------------------------------------------------------------
-// Deload
-// ---------------------------------------------------------------------------
-describe('deload on accumulated work', () => {
-    const qualifyingWeeks = (n) => Array.from({ length: n }, (_, i) => week(i, 3)).flat();
-
-    test('the fifth qualifying week is the deload week', () => {
-        const r = deloadState(qualifyingWeeks(5), { now: NOW, defaultTarget: 4 });
-        expect(r.accumulated).toBe(5);
-        expect(r.isDeloadWeek).toBe(true);
-    });
-
-    test('four is not', () => {
-        const r = deloadState(qualifyingWeeks(4), { now: NOW, defaultTarget: 4 });
-        expect(r.accumulated).toBe(4);
-        expect(r.isDeloadWeek).toBe(false);
-    });
-
-    test('a non-qualifying week PAUSES the counter rather than resetting it', () => {
-        // weeks 0,1,2 good; week 3 only one session; week 4 good -> 4 total
-        const log = [...week(0, 3), ...week(1, 3), ...week(2, 3), ...week(3, 1), ...week(4, 3)];
-        const r = deloadState(log, { now: NOW, defaultTarget: 4 });
-        expect(r.accumulated).toBe(4);
-        expect(r.isDeloadWeek).toBe(false);
-    });
-
-    test('and does not advance it either', () => {
-        const paused = deloadState([...qualifyingWeeks(4), ...week(5, 0)], { now: NOW, defaultTarget: 4 });
-        expect(paused.accumulated).toBe(4);
-    });
-
-    test('a recovery-heavy week does not advance the counter', () => {
-        const log = [...week(0, 4, 'recovery'), ...week(1, 3), ...week(2, 3)];
-        expect(deloadState(log, { now: NOW, defaultTarget: 4 }).accumulated).toBe(2);
-    });
-
-    test('substitutions advance it normally', () => {
-        const subbed = [0, 1, 2, 3, 4].flatMap(w => week(w, 3, 'girth', { manualOverride: true }));
-        expect(deloadState(subbed, { now: NOW, defaultTarget: 4 }).isDeloadWeek).toBe(true);
-    });
-
-    test('28 days with no qualifying work resets accumulated progress', () => {
-        // Four weeks banked, then a long absence. Returning must not be met
-        // with a deload before a single session back.
-        const log = [40, 41, 42, 47, 48, 49, 54, 55, 56, 61, 62, 63].map(d => S(d));
-        const r = deloadState(log, { now: NOW, defaultTarget: 4 });
-        expect(r.stale).toBe(true);
-        expect(r.accumulated).toBe(0);
-        expect(r.isDeloadWeek).toBe(false);
-        expect(r.daysSinceLastQualifying).toBeGreaterThan(PROGRESSION_POLICY.deloadStaleResetDays);
-    });
-
-    test('an absence shorter than the stale window does not reset', () => {
-        const log = [...week(2, 3), ...week(3, 3)];
-        const r = deloadState(log, { now: NOW, defaultTarget: 4 });
-        expect(r.stale).toBe(false);
-        expect(r.accumulated).toBe(2);
-    });
-
-    test('a member who has never trained is not stale, just at zero', () => {
-        const r = deloadState([], { now: NOW, defaultTarget: 4 });
-        expect(r.accumulated).toBe(0);
-        expect(r.stale).toBe(false);
-        expect(r.daysSinceLastQualifying).toBeNull();
-    });
-
-    test('recovery-only history does not keep the counter alive', () => {
-        const log = [S(40, 'recovery'), S(2, 'recovery')];
-        expect(deloadState(log, { now: NOW, defaultTarget: 4 }).accumulated).toBe(0);
+        expect(toleranceHolds(both, { now: NOW }).active.sort()).toEqual(['recovery', 'rpe']);
     });
 });
 
