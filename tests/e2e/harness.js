@@ -13,6 +13,26 @@
  *
  * See README.md in this directory for the constraints worth knowing before
  * writing new assertions.
+ *
+ * ── TEST POLICY, locked in Phase 2B.1 ──────────────────────────────────────
+ *
+ * Critical integration and browser tests must exercise the REAL production
+ * orchestration path. Do not recreate business logic inside a test helper
+ * when the production function can be called.
+ *
+ *   GOOD   invoke finishSession(), then assert the resulting state
+ *   BAD    push a fake sessionLog entry, call a progression helper by hand,
+ *          and claim the completion flow was tested
+ *
+ * Pure unit tests may call the pure modules in src/ directly. Integration
+ * tests have to verify the actual wiring.
+ *
+ * This is not a style preference. An earlier version of the Phase 2B.1
+ * helper reimplemented the programme-start and reconcile calls itself, and
+ * every mutation of the real call sites in app/index.html then passed,
+ * because nothing in the suite ever reached them. Seeding STATE is fine and
+ * often unavoidable in a browser suite that cannot move the clock. Seeding
+ * the ANSWER is not.
  */
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';

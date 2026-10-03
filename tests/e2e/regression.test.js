@@ -19,10 +19,11 @@ const FUNCTIONS = [
     'normaliseSchedule', 'maybeApplyGoalSchedule',
     // sessions and progress
     'finishSession', 'resetSession', 'getCurrentStreak', 'updateRecords', 'checkMilestones',
+    'maybeEarnRecoveryPass', 'ownsTier', 'eliteEqConditionMet', 'currentProgression', 'syncProgression',
     'renderProgressChart', 'renderEqChart', 'drawLine', 'drawEmpty', 'getEqSummary',
     'showWeeklyReport', 'showSessionHistory', 'closeSessionSummary',
     // streak passes
-    'maybeEarnStreakPass', 'maybeConsumeStreakPass', '_dayKey',
+    'maybeConsumeStreakPass', '_dayKey',
     // coach, membership, misc
     '_coachContext', 'askCoach', 'checkMembership', '_friendlyAuthError', 'setAuthErrorHTML',
     'maybePromptPush', 'isBlackoutDay', 'getDiff', 'getLevelInfo', 'getHydration',

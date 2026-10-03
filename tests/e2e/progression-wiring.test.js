@@ -183,9 +183,21 @@ describe('the ledger tracks the real week', () => {
     });
 
     test('a MODIFIED session counts', async () => {
-        await reset(app.page);
+        // Reported moderate soreness, so the resolver really is in MODIFIED
+        // and the session that follows is the reduced one. Reduced mechanical
+        // work is still mechanical work.
+        // Every day is a training day here, so the fixture does not depend
+        // on which weekday the suite runs on. REST outranks MODIFIED.
+        await reset(app.page, { schedule: ['length', 'length', 'length', 'length', 'length', 'length', 'length'] });
+        const state = await app.page.evaluate(() => {
+            localStorage.setItem(getTodaySorenessKey(), 'moderate');
+            renderDashboard();
+            return window.BP.nextBestAction(buildResolverInput()).state;
+        });
+        expect(state).toBe('MODIFIED');
         const r = await finish(app.page, 'length', {});
         expect(r.ledger[r.ledger.length - 1].qualifyingSessions).toBe(1);
+        await app.page.evaluate(() => { localStorage.removeItem(getTodaySorenessKey()); renderDashboard(); });
     });
 
     test('Recovery does not count toward mechanical qualification', async () => {
@@ -388,22 +400,146 @@ describe('the progression gate', () => {
     }, 30_000);
 });
 
-describe('nothing has been granted or taken away yet', () => {
+/**
+ * Seed a run of FINISHED weeks and leave the member sitting on them.
+ *
+ * Each spec is one week: `weeksAgo` (1 is last week), `q` qualifying
+ * mechanical days, `recovery` Recovery days, `type` to substitute a
+ * different mission, `rpe` on those sessions, `rest: true` for a week whose
+ * schedule was all rest, and `away: true` to train nothing and write no row,
+ * so reconcile has to fill the slot itself.
+ *
+ * Rows go in through the same reconcileLedger the app calls, because the
+ * ledger is only ever written while a week is current and a browser suite
+ * cannot wind the page's clock back.
+ *
+ * Every week seeded here has already finished, deliberately. The current
+ * week cannot be made to qualify on an arbitrary weekday: qualifying needs
+ * at least two distinct training days, and on a Monday there has only been
+ * one. Anchoring to finished weeks is what makes these fixtures give the
+ * same answer whichever day the suite runs on.
+ */
+const seedWeeks = (page, specs, patch = {}) => page.evaluate(({ specs, patch, SCHEDULE }) => {
+    persisted.primaryGoal = 'all';
+    persisted.schedule = [...SCHEDULE];
+    persisted.completedDays = [false, false, false, false, false, false, false];
+    persisted.sessionLog = [];
+    persisted.progressionLedger = [];
+    persisted.difficulty = 'intermediate';
+    persisted.diffUnlockedDate = {};
+    persisted.allTimeSessionCount = 0;
+    Object.assign(persisted, patch);
+
+    const ALL_REST = ['rest', 'rest', 'rest', 'rest', 'rest', 'rest', 'rest'];
+    const mondayOf = (d) => { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+
+    for (const s of [...specs].sort((a, b) => b.weeksAgo - a.weeksAgo)) {
+        const monday = mondayOf(new Date(Date.now() - s.weeksAgo * 7 * 86400000));
+        const type = s.recovery ? 'recovery' : (s.type || 'length');
+        for (let i = 0; i < (s.recovery || s.q || 0); i++) {
+            const d = new Date(monday); d.setDate(d.getDate() + i);
+            persisted.sessionLog.push({ date: d.toISOString(), routineType: type, ...(s.rpe ? { rpe: s.rpe } : {}) });
+        }
+        if (s.away) continue;
+        persisted.progressionLedger = window.BP.reconcileLedger(persisted.progressionLedger, {
+            weekKey: window.BP.weekKey(monday),
+            schedule: s.rest ? ALL_REST : persisted.schedule,
+            sessionLog: persisted.sessionLog,
+            now: monday,
+        });
+    }
+    const p = currentProgression();
+    return {
+        state: p.state, qualifying: p.eligibility.qualifyingWeeks, unknownWeeks: p.unknownWeeks,
+        deload: isDeloadWeek(), ledger: persisted.progressionLedger,
+    };
+}, { specs, patch, SCHEDULE });
+
+/** `n` consecutive qualifying weeks, the newest finishing `from` weeks ago. */
+const qWeeks = (n, from = 1) => Array.from({ length: n }, (_, i) => ({ weeksAgo: from + i, q: 3 }));
+
+/** Fixtures that put the page in each of the four progression states. */
+const STATE_FIXTURES = {
+    not_eligible: qWeeks(2),
+    eligible:     qWeeks(4),
+    // Earned, then braked: the most recent week's sessions were all at 9.
+    hold:         [{ weeksAgo: 1, q: 3, rpe: 9 }, ...qWeeks(3, 2)],
+    // Two qualifying weeks, two we cannot judge, and had those two qualified
+    // the member would be through. We genuinely do not know.
+    unknown:      [{ weeksAgo: 1, q: 0 }, { weeksAgo: 2, away: true }, { weeksAgo: 3, away: true }, ...qWeeks(2, 4)],
+};
+
+describe('difficulty access', () => {
     let app;
     beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: UID }); }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    test.each(['beginner', 'intermediate', 'advanced', 'elite'])
-    ('an existing %s member keeps their tier through the wiring', async (tier) => {
-        const after = await app.page.evaluate((t) => {
-            persisted.difficulty = t;
-            persisted.allTimeSessionCount = 300;
-            persisted.sessionLog = [];
-            renderDashboard();
+    const locks = (page) => page.evaluate(() => ({
+        beginner: isTierLocked('beginner'), intermediate: isTierLocked('intermediate'),
+        advanced: isTierLocked('advanced'), elite: isTierLocked('elite'),
+        why: { advanced: getTierUnlockInfo('advanced'), elite: getTierUnlockInfo('elite') },
+    }));
+
+    test.each(Object.keys(STATE_FIXTURES))('the fixture really does produce %s', async (state) => {
+        const r = await seedWeeks(app.page, STATE_FIXTURES[state]);
+        expect(r.state).toBe(state);
+    }, 30_000);
+
+    test.each(Object.keys(STATE_FIXTURES))
+    ('Beginner and Intermediate stay available in %s', async (state) => {
+        await seedWeeks(app.page, STATE_FIXTURES[state]);
+        const l = await locks(app.page);
+        expect(l.beginner).toBe(false);
+        expect(l.intermediate).toBe(false);
+    }, 30_000);
+
+    test('Advanced is locked when NOT_ELIGIBLE, and the reason is about work left', async () => {
+        await seedWeeks(app.page, STATE_FIXTURES.not_eligible);
+        const l = await locks(app.page);
+        expect(l.advanced).toBe(true);
+        expect(l.why.advanced).toMatch(/more solid week/i);
+    }, 30_000);
+
+    test('Advanced is locked when UNKNOWN, and is not described as a failure', async () => {
+        await seedWeeks(app.page, STATE_FIXTURES.unknown);
+        const l = await locks(app.page);
+        expect(l.advanced).toBe(true);
+        expect(l.why.advanced).toMatch(/keep logging/i);
+    }, 30_000);
+
+    test('Advanced is locked when HOLD, framed as a pause rather than a shortfall', async () => {
+        await seedWeeks(app.page, STATE_FIXTURES.hold);
+        const l = await locks(app.page);
+        expect(l.advanced).toBe(true);
+        expect(l.why.advanced).toMatch(/ease off/i);
+    }, 30_000);
+
+    test('Advanced unlocks when ELIGIBLE', async () => {
+        await seedWeeks(app.page, STATE_FIXTURES.eligible);
+        const l = await locks(app.page);
+        expect(l.advanced).toBe(false);
+        expect(l.why.advanced).toBeNull();
+    }, 30_000);
+
+    test('REGRESSION: earning Advanced does not select it', async () => {
+        const after = await app.page.evaluate(() => persisted.difficulty);
+        expect(after).toBe('intermediate');
+    });
+
+    test('REGRESSION: calendar time alone unlocks nothing', async () => {
+        // The retired rule: diffUnlockedDate written four weeks ago by a tap
+        // on Intermediate, and not one session since.
+        const l = await app.page.evaluate(() => {
+            persisted.sessionLog = []; persisted.progressionLedger = [];
+            persisted.difficulty = 'intermediate';
+            persisted.diffUnlockedDate = { intermediate: new Date(Date.now() - 60 * 864e5).toISOString() };
+            persisted.firstSessionDate = new Date(Date.now() - 60 * 864e5).toISOString();
+            persisted.allTimeSessionCount = 0;
             syncProgression('test');
-            return persisted.difficulty;
-        }, tier);
-        expect(after).toBe(tier);
+            return { advanced: isTierLocked('advanced'), elite: isTierLocked('elite') };
+        });
+        expect(l.advanced).toBe(true);
+        expect(l.elite).toBe(true);
     }, 30_000);
 
     test('REGRESSION: a huge lifetime session count grants nothing', async () => {
@@ -412,23 +548,279 @@ describe('nothing has been granted or taken away yet', () => {
             persisted.allTimeSessionCount = 1000;
             persisted.sessionLog = [];
             persisted.progressionLedger = [];
+            persisted.diffUnlockedDate = {};
             syncProgression('test');
-            return { tier: persisted.difficulty, state: currentProgression().state };
+            return { tier: persisted.difficulty, advanced: isTierLocked('advanced'), state: currentProgression().state };
         });
         expect(r.tier).toBe('beginner');
+        expect(r.advanced).toBe(true);
         expect(r.state).not.toBe('eligible');
     });
 
-    test('the tier gate is still the old logic; progression is read-only so far', async () => {
-        // isTierLocked must not yet consult the new engine. Changing that
-        // is a later checkpoint.
-        const r = await app.page.evaluate(() => {
-            persisted.diffUnlockedDate = { intermediate: new Date().toISOString() };
-            return { advancedLocked: isTierLocked('advanced'), hasState: !!currentProgression() };
+    test.each(['advanced', 'elite'])
+    ('an existing %s member keeps their tier whatever the engine now says', async (tier) => {
+        // Grandfathering is absolute: nothing in this phase may demote anyone.
+        const r = await seedWeeks(app.page, STATE_FIXTURES.not_eligible, {
+            difficulty: tier, diffUnlockedDate: { [tier]: '2024-01-01T00:00:00.000Z' }, allTimeSessionCount: 300,
         });
-        expect(r.advancedLocked).toBe(true);     // four calendar weeks still required
-        expect(r.hasState).toBe(true);           // but the new state is readable
+        const l = await locks(app.page);
+        expect(r.state).toBe('not_eligible');
+        expect(await app.page.evaluate(() => persisted.difficulty)).toBe(tier);
+        expect(l[tier]).toBe(false);
+    }, 30_000);
+
+    test('a tier once owned survives moving down off it', async () => {
+        const r = await app.page.evaluate(() => {
+            persisted.progressionLedger = []; persisted.sessionLog = [];
+            persisted.difficulty = 'advanced';
+            persisted.diffUnlockedDate = { advanced: '2024-01-01T00:00:00.000Z' };
+            setDifficulty('beginner');                       // the real production call
+            return { now: persisted.difficulty, advancedStillOpen: !isTierLocked('advanced') };
+        });
+        expect(r.now).toBe('beginner');
+        expect(r.advancedStillOpen).toBe(true);
     });
+
+    test.each([['elite', 'advanced'], ['advanced', 'intermediate'], ['intermediate', 'beginner']])
+    ('moving down from %s to %s never needs permission', async (from, to) => {
+        const after = await app.page.evaluate(({ from, to }) => {
+            persisted.progressionLedger = []; persisted.sessionLog = [];
+            persisted.difficulty = from;
+            persisted.diffUnlockedDate = {};                 // no ownership record at all
+            setDifficulty(to);
+            return persisted.difficulty;
+        }, { from, to });
+        expect(after).toBe(to);
+    }, 30_000);
+
+    test('no unlock message leaks the engine vocabulary', async () => {
+        const messages = [];
+        for (const state of Object.keys(STATE_FIXTURES)) {
+            await seedWeeks(app.page, STATE_FIXTURES[state]);
+            const l = await locks(app.page);
+            messages.push(l.why.advanced, l.why.elite);
+        }
+        const joined = messages.filter(Boolean).join(' | ');
+        expect(joined.length).toBeGreaterThan(0);
+        expect(joined).not.toMatch(/ledger|verdict|UNKNOWN|NOT_ELIGIBLE|HOLD|denominator|sample|window|qualifying week/i);
+    }, 60_000);
+});
+
+describe('elite', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: UID }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    /** Recent sessions carrying EQ ratings, newest last. */
+    const withEq = (page, eqs) => page.evaluate((eqs) => {
+        eqs.forEach((eq, i) => {
+            const d = new Date(); d.setDate(d.getDate() - (eqs.length - i));
+            persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length', eq });
+        });
+        return { elite: isTierLocked('elite'), why: getTierUnlockInfo('elite') };
+    }, eqs);
+
+    test('eligibility alone does not open it: Advanced has to have been reached', async () => {
+        await seedWeeks(app.page, qWeeks(4));
+        const r = await withEq(app.page, [10, 10, 10, 10]);
+        expect(r.elite).toBe(true);
+        expect(r.why).toMatch(/reach advanced first/i);
+    }, 30_000);
+
+    test('owning Advanced is not enough on its own without eligibility', async () => {
+        await seedWeeks(app.page, qWeeks(2), { diffUnlockedDate: { advanced: '2024-01-01T00:00:00.000Z' } });
+        const r = await withEq(app.page, [10, 10, 10, 10]);
+        expect(r.elite).toBe(true);
+    }, 30_000);
+
+    test('REGRESSION: calendar time on Advanced does not open it', async () => {
+        const r = await app.page.evaluate(() => {
+            persisted.sessionLog = []; persisted.progressionLedger = [];
+            persisted.difficulty = 'advanced';
+            persisted.diffUnlockedDate = { advanced: new Date(Date.now() - 365 * 864e5).toISOString() };
+            return isTierLocked('elite');
+        });
+        expect(r).toBe(true);
+    });
+
+    test('Advanced plus eligibility still needs the EQ condition', async () => {
+        await seedWeeks(app.page, qWeeks(4), { diffUnlockedDate: { advanced: '2024-01-01T00:00:00.000Z' } });
+        const r = await withEq(app.page, [6, 6, 6, 6]);
+        expect(r.elite).toBe(true);
+        expect(r.why).toMatch(/average EQ/i);
+    }, 30_000);
+
+    test('REGRESSION: too little EQ data is not a pass', async () => {
+        await seedWeeks(app.page, qWeeks(4), { diffUnlockedDate: { advanced: '2024-01-01T00:00:00.000Z' } });
+        const r = await withEq(app.page, [10, 10]);          // two ratings, minimum is three
+        expect(r.elite).toBe(true);
+    }, 30_000);
+
+    test('all three conditions together open it', async () => {
+        await seedWeeks(app.page, qWeeks(4), { diffUnlockedDate: { advanced: '2024-01-01T00:00:00.000Z' } });
+        const r = await withEq(app.page, [10, 10, 9]);
+        expect(r.elite).toBe(false);
+        expect(r.why).toBeNull();
+    }, 30_000);
+
+    test('an existing Elite member is never revoked, even with no EQ data at all', async () => {
+        await seedWeeks(app.page, STATE_FIXTURES.not_eligible, {
+            difficulty: 'elite', diffUnlockedDate: { elite: '2024-01-01T00:00:00.000Z' },
+        });
+        const r = await app.page.evaluate(() => ({ locked: isTierLocked('elite'), tier: persisted.difficulty }));
+        expect(r.locked).toBe(false);
+        expect(r.tier).toBe('elite');
+    }, 30_000);
+});
+
+describe('deload follows accumulated work, not the calendar', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: UID }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('a member with no history is not in a deload week', async () => {
+        expect((await seedWeeks(app.page, [])).deload).toBe(false);
+    }, 30_000);
+
+    test('the fifth qualifying week is the deload week and the fourth is not', async () => {
+        // Both run inside the same real ISO week, so the only thing that
+        // changed between them is accumulated qualifying work. That is the
+        // regression against `getISOWeek() % 4 === 0`.
+        expect((await seedWeeks(app.page, qWeeks(4))).deload).toBe(false);
+        expect((await seedWeeks(app.page, qWeeks(5))).deload).toBe(true);
+    }, 60_000);
+
+    test('a poor week pauses the count rather than resetting it', async () => {
+        // Four qualifying, one week of a single session, one qualifying.
+        // Paused gives five and a deload. Reset would give one, counted
+        // would give six, and neither is a deload week.
+        const r = await seedWeeks(app.page, [
+            ...qWeeks(4, 3), { weeksAgo: 2, q: 1 }, { weeksAgo: 1, q: 3 },
+        ]);
+        expect(r.deload).toBe(true);
+    }, 30_000);
+
+    test('a neutral all-rest week does not advance it', async () => {
+        const r = await seedWeeks(app.page, [
+            ...qWeeks(4, 3), { weeksAgo: 2, rest: true }, { weeksAgo: 1, q: 3 },
+        ]);
+        expect(r.deload).toBe(true);                 // five, not six
+    }, 30_000);
+
+    test('a week we cannot judge does not advance it', async () => {
+        const r = await seedWeeks(app.page, [
+            ...qWeeks(4, 3), { weeksAgo: 2, away: true }, { weeksAgo: 1, q: 3 },
+        ]);
+        expect(r.ledger.some(w => w.verdict === 'unknown')).toBe(true);
+        expect(r.deload).toBe(true);
+    }, 30_000);
+
+    test('REGRESSION: a week of Recovery does not advance it', async () => {
+        const r = await seedWeeks(app.page, [
+            ...qWeeks(4, 3), { weeksAgo: 2, recovery: 3 }, { weeksAgo: 1, q: 3 },
+        ]);
+        expect(r.deload).toBe(true);                 // five, not six
+    }, 30_000);
+
+    test('a substituted mission still advances it', async () => {
+        const r = await seedWeeks(app.page, [
+            ...qWeeks(4, 2), { weeksAgo: 1, q: 3, type: 'girth' },
+        ]);
+        expect(r.deload).toBe(true);
+    }, 30_000);
+
+    test("REGRESSION: the brief's stale case, four weeks then a long gap", async () => {
+        // Four qualifying weeks, more than 28 days of nothing, then a
+        // qualifying week on return. Accumulation restarts at one, so the
+        // returning week is not a deload week.
+        const r = await seedWeeks(app.page, [...qWeeks(4, 11), { weeksAgo: 1, q: 3 }]);
+        expect(r.deload).toBe(false);
+        expect(await app.page.evaluate(() =>
+            window.BP.deloadState(persisted.progressionLedger, persisted.sessionLog, { now: new Date() }).accumulated)).toBe(1);
+    }, 30_000);
+
+    test('and after the reset it takes five fresh weeks, not one', async () => {
+        const r = await seedWeeks(app.page, [...qWeeks(4, 11), ...qWeeks(5)]);
+        expect(r.deload).toBe(true);
+    }, 30_000);
+
+    test('KNOWN GAP: the deload week has not begun until that week qualifies', async () => {
+        // Five qualifying weeks banked, and the most recent recorded week
+        // managed one session. deloadState requires the latest row to be a
+        // qualifying week, so no deload applies. The same rule means that in
+        // the live week the reduction only switches on once that week has
+        // itself qualified, which is reported rather than changed here: the
+        // module and its thresholds were approved as they stand.
+        const r = await seedWeeks(app.page, [...qWeeks(5, 2), { weeksAgo: 1, q: 1 }]);
+        expect(r.deload).toBe(false);
+    }, 30_000);
+
+    test('when it is on, it reaches the prescription', async () => {
+        await seedWeeks(app.page, qWeeks(5));
+        const r = await app.page.evaluate(() => applyDeload({ sets: 4, duration: 60 }));
+        expect(r.sets).toBe(3);
+        expect(r.duration).toBe(36);
+    }, 30_000);
+
+    test('when it is off, the prescription is untouched', async () => {
+        await seedWeeks(app.page, qWeeks(4));
+        const r = await app.page.evaluate(() => applyDeload({ sets: 4, duration: 60 }));
+        expect(r).toMatchObject({ sets: 4, duration: 60 });
+    }, 30_000);
+});
+
+describe('the streak no longer decides anything', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: UID }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('REGRESSION: a long daily run grants no tier and no deload', async () => {
+        const r = await app.page.evaluate(() => {
+            persisted.progressionLedger = []; persisted.difficulty = 'intermediate';
+            persisted.diffUnlockedDate = {};
+            persisted.sessionLog = Array.from({ length: 30 }, (_, i) => {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                return { date: d.toISOString(), routineType: 'length' };
+            }).reverse();
+            return { streak: getCurrentStreak(persisted.sessionLog), advanced: isTierLocked('advanced'), deload: isDeloadWeek() };
+        });
+        expect(r.streak).toBeGreaterThanOrEqual(30);     // the streak is real
+        expect(r.advanced).toBe(true);                   // and buys nothing
+        expect(r.deload).toBe(false);
+    }, 30_000);
+
+    test('getCurrentStreak has no callers left in the page', async () => {
+        // It stays only as the parity anchor for notifyRules.js currentStreak(),
+        // which the server still uses to send streak warnings. See the comment
+        // on the function and tests/e2e/notify-parity.test.js.
+        const callers = await app.page.evaluate(() => {
+            const src = [...document.querySelectorAll('script')].map(s => s.textContent).join('\n');
+            return (src.match(/getCurrentStreak\s*\(/g) || []).length;
+        });
+        expect(callers).toBe(1);                         // the declaration, nothing else
+    });
+
+    test('records.longestStreak is frozen across a real completion', async () => {
+        const r = await reset(app.page, { records: { longestStreak: 11, bestWeekXp: 0, bestSessionXp: 0 } });
+        expect(r).toBeTruthy();
+        await finish(app.page, 'length', { eq: 8, rpe: 5 });
+        expect(await app.page.evaluate(() => persisted.records.longestStreak)).toBe(11);
+    }, 30_000);
+
+    test('the Full Week milestone is earned by a qualifying week, not by seven days', async () => {
+        const daily = await app.page.evaluate(() => {
+            persisted.progressionLedger = [];
+            persisted.sessionLog = Array.from({ length: 9 }, (_, i) => {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                return { date: d.toISOString(), routineType: 'length' };
+            }).reverse();
+            return MILESTONES.find(m => m.id === 'streak_7').trigger(persisted);
+        });
+        expect(daily).toBe(false);
+        await seedWeeks(app.page, qWeeks(1));
+        const earned = await app.page.evaluate(() => MILESTONES.find(m => m.id === 'streak_7').trigger(persisted));
+        expect(earned).toBe(true);
+    }, 30_000);
 
     test('the page threw nothing throughout', () => {
         expect(app.errors).toEqual([]);
