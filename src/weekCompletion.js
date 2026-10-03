@@ -98,7 +98,15 @@ function logByDate(sessionLog, mechanicalTypes) {
 
 /**
  * weekCompletion(schedule, completedDays, options)
- *   -> { completed, target, remaining, allDone, label }
+ *   -> { completed, target, remaining, allDone, label, satisfied }
+ *
+ * `satisfied` is seven booleans, one per weekday index, true when that day's
+ * SCHEDULED MECHANICAL work was satisfied by the rules above. It is the same
+ * array the counts are summed from, returned rather than recomputed, so the
+ * calendar tick and the weekly headline cannot say different things about
+ * the same day. A rest day is never satisfied: it has no scheduled
+ * mechanical work to satisfy, which is also why it is in neither the
+ * numerator nor the denominator.
  *
  * schedule      persisted.schedule, seven entries indexed by Date#getDay()
  * completedDays persisted.completedDays, seven booleans, same indexing
@@ -123,7 +131,7 @@ export function weekCompletion(schedule, completedDays, options) {
     const byDate = crossCheck ? logByDate(opts.sessionLog, mechanicalTypes) : null;
     const ref = opts.now instanceof Date && !isNaN(opts.now.getTime()) ? opts.now : new Date();
 
-    const satisfied = (i) => {
+    const isSatisfied = (i) => {
         if (!crossCheck) return done[i] === true;
         const logged = byDate.get(dateKeyForWeekday(ref, i));
         if (logged && logged.mechanical) return true;          // the real thing
@@ -131,8 +139,14 @@ export function weekCompletion(schedule, completedDays, options) {
         return done[i] === true;                               // a manual tick
     };
 
+    /* One pass, one array, and everything else is derived from it. The
+       calendar used to ask completedDays directly and so could show a tick
+       on a day the headline did not count. */
+    const perDay = Array.from({ length: 7 }, (_, i) =>
+        isScheduledSession(sched[i], restTypes) && isSatisfied(i));
+
     const target = sched.filter(t => isScheduledSession(t, restTypes)).length;
-    const completed = sched.filter((t, i) => isScheduledSession(t, restTypes) && satisfied(i)).length;
+    const completed = perDay.filter(Boolean).length;
 
     return {
         completed,
@@ -140,5 +154,6 @@ export function weekCompletion(schedule, completedDays, options) {
         remaining: Math.max(0, target - completed),
         allDone: target > 0 && completed >= target,
         label: target > 0 ? `${completed} of ${target} this week` : 'No sessions scheduled this week',
+        satisfied: perDay,
     };
 }

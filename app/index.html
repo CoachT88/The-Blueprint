@@ -5363,12 +5363,29 @@ function renderDashboard(){
             _substituted[when.getDay()]=e.routineType;
         }
     }
+    /* THE TICK MEANS ONE THING: the scheduled mechanical work for that day
+       was satisfied. It reads the per-day array returned by the same
+       currentWeekCompletion() call the weekly headline and Week Complete
+       use, rather than persisted.completedDays, so the calendar and the
+       headline cannot disagree about a day.
+
+       The visible consequence is that Recovery on a scheduled mechanical day
+       no longer draws a tick, even though completedDays stays true for it.
+       That boolean is accepted legacy debt and is still written; it is
+       simply no longer what the member is shown. A scheduled rest day never
+       ticks either: there is no mechanical work scheduled to satisfy, which
+       is the same reason it is in neither side of the weekly fraction.
+
+       Recovery deliberately gets no icon of its own in this phase. The tick
+       is reserved for satisfied mechanical work; acknowledging Recovery is
+       a later design question, not a thing to improvise here. */
+    const _satisfied=currentWeekCompletion().satisfied;
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
         const d=document.createElement('div');
         const _known=!!DAY_TYPES[type];
         const _isToday=i===new Date().getDay();
-        d.className=`calendar-day type-${_known?type:'unknown'} ${_isToday?'active':''} ${persisted.completedDays[i]?'completed':''} ${_isToday&&type!=='rest'?'scheduled-focus':''}`;
+        d.className=`calendar-day type-${_known?type:'unknown'} ${_isToday?'active':''} ${_satisfied[i]?'completed':''} ${_isToday&&type!=='rest'?'scheduled-focus':''}`;
         d.innerHTML=`<span>${DAY_NAMES[i]}</span><i class="fas ${dayTypeIcon(type)}"></i>`;
         if(_substituted[i]){
             d.dataset.substituted='1';

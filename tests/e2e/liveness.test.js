@@ -672,3 +672,167 @@ describe('what makes a scheduled day count', () => {
         expect(app.errors).toEqual([]);
     });
 });
+
+/**
+ * The calendar tick, Phase 2B.2.
+ *
+ * It means exactly one thing: the scheduled mechanical work for that day was
+ * satisfied. It reads the per-day array returned by the same
+ * currentWeekCompletion() call the weekly headline uses, so the two cannot
+ * disagree about a day. completedDays is still written as before and is
+ * simply no longer what the member is shown.
+ */
+describe('the calendar tick', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'cal' }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    /** Length scheduled on every elapsed day, nothing done yet. */
+    const blankWeek = (page) => page.evaluate(() => {
+        const n = ((new Date().getDay() + 6) % 7) + 1;
+        persisted.primaryGoal = 'all';
+        persisted.pelvicProfile = 'standard';
+        persisted.schedule = Array.from({ length: 7 }, (_, i) => ((i + 6) % 7) < n ? 'length' : 'rest');
+        persisted.completedDays = [false, false, false, false, false, false, false];
+        persisted.sessionLog = [];
+        persisted.progressionLedger = [];
+        try { localStorage.removeItem(getTodaySorenessKey()); } catch (e) {}
+        renderDashboard();
+    });
+
+    /** What the member can actually see on today's calendar cell. */
+    const todayCell = (page) => page.evaluate(() => {
+        renderDashboard();
+        const i = new Date().getDay();
+        const cells = document.getElementById('dashboard-grid').children;
+        const w = currentWeekCompletion();
+        return {
+            ticked: cells[i].classList.contains('completed'),
+            rawCompletedDays: persisted.completedDays[i] === true,
+            satisfied: w.satisfied[i],
+            weekCompleted: w.completed,
+            // No Recovery-specific icon was introduced in this phase.
+            icon: cells[i].querySelector('i').className,
+        };
+    });
+
+    test('1. a mechanical completion ticks the day', async () => {
+        await blankWeek(app.page);
+        await finish(app.page, 'length');
+        const c = await todayCell(app.page);
+        expect(c.ticked).toBe(true);
+        expect(c.satisfied).toBe(true);
+    }, 30_000);
+
+    test('2. a manual mechanical substitution ticks the day', async () => {
+        await blankWeek(app.page);
+        await finish(app.page, 'girth');
+        expect((await todayCell(app.page)).ticked).toBe(true);
+    }, 30_000);
+
+    test('3. a MODIFIED mechanical session ticks the day', async () => {
+        await blankWeek(app.page);
+        const state = await app.page.evaluate(() => {
+            localStorage.setItem(getTodaySorenessKey(), 'moderate');
+            renderDashboard();
+            return window.BP.nextBestAction(buildResolverInput()).state;
+        });
+        expect(state).toBe('MODIFIED');
+        await finish(app.page, 'length');
+        const c = await todayCell(app.page);
+        await app.page.evaluate(() => { localStorage.removeItem(getTodaySorenessKey()); renderDashboard(); });
+        expect(c.ticked).toBe(true);
+    }, 30_000);
+
+    test('4. Recovery on a scheduled mechanical day draws no tick', async () => {
+        await blankWeek(app.page);
+        await finish(app.page, 'recovery');
+        const c = await todayCell(app.page);
+        expect(c.ticked).toBe(false);
+        expect(c.satisfied).toBe(false);
+        expect(c.weekCompleted).toBe(0);
+    }, 30_000);
+
+    test('5. and completedDays stays true underneath it, unchanged', async () => {
+        // The writer is untouched by design. The debt is still there; it is
+        // just no longer rendered as mechanical completion.
+        await blankWeek(app.page);
+        await finish(app.page, 'recovery');
+        const c = await todayCell(app.page);
+        expect(c.rawCompletedDays).toBe(true);        // still written
+        expect(c.ticked).toBe(false);                 // and no longer shown
+    }, 30_000);
+
+    test('6. a manual tick with nothing logged ticks the day', async () => {
+        await blankWeek(app.page);
+        await app.page.evaluate(() => {
+            session.selectedDayIdx = new Date().getDay();
+            toggleDayCompletion();
+        });
+        const c = await todayCell(app.page);
+        expect(c.ticked).toBe(true);
+        expect(c.satisfied).toBe(true);
+    }, 30_000);
+
+    test('7. the calendar and the weekly headline read one truth', async () => {
+        // Not "they agree on this fixture" but "they come from the same
+        // array", asserted across a week of mixed shapes.
+        const r = await app.page.evaluate(() => {
+            const monday = new Date(); monday.setHours(12, 0, 0, 0);
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+            persisted.primaryGoal = 'all';
+            persisted.schedule = Array.from({ length: 7 }, (_, i) => ((i + 6) % 7) < 4 ? 'length' : 'rest');
+            persisted.completedDays = [true, true, true, true, true, true, true];
+            persisted.sessionLog = [];
+            ['length', 'recovery', 'girth'].forEach((type, i) => {
+                const d = new Date(monday); d.setDate(d.getDate() + i);
+                persisted.sessionLog.push({ date: d.toISOString(), routineType: type, duration: 30 });
+            });
+            renderDashboard();
+            const w = currentWeekCompletion();
+            const cells = [...document.getElementById('dashboard-grid').children];
+            return {
+                ticks: cells.map(c => c.classList.contains('completed')),
+                satisfied: w.satisfied,
+                completed: w.completed,
+                strip: document.getElementById('hq-week-label').textContent.trim(),
+            };
+        });
+        // Every tick is exactly the shared array, element for element.
+        expect(r.ticks).toEqual(r.satisfied);
+        // And the headline is that array's count.
+        expect(r.ticks.filter(Boolean).length).toBe(r.completed);
+        // Mon mechanical, Tue Recovery, Wed substitution, Thu hand-ticked.
+        expect(r.completed).toBe(3);
+        expect(r.strip).toContain('3 of 4');
+    }, 30_000);
+
+    test('a scheduled rest day never ticks, even when trained on', async () => {
+        // There is no scheduled mechanical work to satisfy, which is the
+        // same reason a rest day is in neither side of the fraction.
+        const r = await app.page.evaluate(() => {
+            const monday = new Date(); monday.setHours(12, 0, 0, 0);
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+            persisted.schedule = ['rest', 'rest', 'rest', 'rest', 'rest', 'rest', 'rest'];
+            persisted.completedDays = [true, true, true, true, true, true, true];
+            persisted.sessionLog = [{ date: monday.toISOString(), routineType: 'length', duration: 30 }];
+            renderDashboard();
+            return [...document.getElementById('dashboard-grid').children]
+                .map(c => c.classList.contains('completed'));
+        });
+        expect(r.every(t => t === false)).toBe(true);
+    }, 30_000);
+
+    test('no Recovery-specific icon was introduced', async () => {
+        await blankWeek(app.page);
+        await finish(app.page, 'recovery');
+        const c = await todayCell(app.page);
+        // The cell still shows the SCHEDULED mission's icon, not a new one.
+        expect(c.icon).toContain(await app.page.evaluate(() => dayTypeIcon('length')));
+        expect(c.icon).not.toMatch(/recovery|heart|leaf|spa/i);
+    }, 30_000);
+
+    test('the page threw nothing throughout', () => {
+        expect(app.errors).toEqual([]);
+    });
+});
