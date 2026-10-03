@@ -16,14 +16,28 @@
  *
  * ROW SHAPE — immutable weekly facts, nothing derived
  *
- *   { weekKey, targetSessions, qualifyingSessions, qualified }
+ *   { weekKey, targetSessions, qualifyingSessions, verdict }
  *
  * oldest first, bounded to policy.ledgerMaxWeeks.
  *
- * `targetSessions` is null for a week the app was never opened in. We know
- * the member completed nothing that week, and nothing can never qualify
- * whatever the target was, so the verdict is sound without inventing a
- * target. See reconcileLedger.
+ * A CALENDAR SLOT IS NOT A QUALIFICATION VERDICT, and conflating the two
+ * was the bug. Every recorded week occupies one chronological position in
+ * the rolling window, because the window measures the density of qualifying
+ * work across real calendar time. Whether a week can be JUDGED is a
+ * separate question, and `qualified: boolean` could not express it: two
+ * values for four situations.
+ *
+ *   'qualified'  target known, rule met. Earns progression credit.
+ *   'missed'     target known, rule not met. A real shortfall.
+ *   'neutral'    target known and below the minimum, so only 0 or 1
+ *                sessions were ever asked for. Cannot qualify, not a
+ *                failure.
+ *   'unknown'    the target for that week cannot be reconstructed. Occupies
+ *                calendar time, earns nothing, and must never be shown to
+ *                the member as a missed week, because we do not know what
+ *                was asked of them.
+ *
+ * All four consume a slot. Only 'qualified' counts toward the gate.
  *
  * NO cumulativeQualified, DELIBERATELY
  *
@@ -150,26 +164,60 @@ export function reconcileLedger(ledger, { weekKey, schedule, sessionLog, now, re
         } else if (existing) {
             out.push(existing);          // final, and never reinterpreted
             started = true;
-        } else if (started && done === 0) {
-            // A week nobody opened the app in. Zero sessions cannot reach
-            // the minimum, so the verdict holds without a known target.
+        } else if (started) {
+            /* No row for this week. Either nobody opened the app, or the
+               row was pruned or lost while the log still shows work. The
+               target cannot be reconstructed either way, so the verdict is
+               UNKNOWN and the session count is recorded as the fact it is.
+               The slot IS taken: omitting it would stretch the rolling
+               window across the absence and keep four old good weeks
+               reading as recent months later. */
             out.push(row(key, null, done, p));
         }
-        /* A week with sessions but no row was pruned, not skipped. Its
-           target is genuinely unknown and it plainly was not inactive, so
-           re-adding it as a failure would invent a verdict. It is left out:
-           the window is shorter, which is honest, rather than wrong. */
     }
     return pruneLedger(out, p);
 }
 
+/** The four verdicts. Only QUALIFIED earns credit; all four take a slot. */
+export const WEEK_VERDICT = {
+    QUALIFIED: 'qualified',
+    MISSED: 'missed',
+    NEUTRAL: 'neutral',
+    UNKNOWN: 'unknown',
+};
+
 function row(weekKey, targetSessions, qualifyingSessions, p) {
-    // A null target means "we never saw this week". Zero sessions cannot
-    // reach the minimum, so the verdict is sound without a target.
-    const qualified = targetSessions === null
-        ? false
-        : qualifyingWeek(targetSessions, qualifyingSessions, p).qualifies;
-    return { weekKey, targetSessions, qualifyingSessions, qualified };
+    let verdict;
+    if (targetSessions === null) {
+        /* No recorded target. Covers both a week nobody opened the app in
+           and a week whose row was pruned or lost while the session log
+           still proves work happened. Neither can be judged, and calling
+           either a missed week would penalise the member for a gap in our
+           own records rather than in their training. */
+        verdict = WEEK_VERDICT.UNKNOWN;
+    } else if (targetSessions < p.qualifyingWeekMinSessions) {
+        verdict = WEEK_VERDICT.NEUTRAL;
+    } else {
+        verdict = qualifyingWeek(targetSessions, qualifyingSessions, p).qualifies
+            ? WEEK_VERDICT.QUALIFIED : WEEK_VERDICT.MISSED;
+    }
+    return { weekKey, targetSessions, qualifyingSessions, verdict };
+}
+
+/** Did this week earn progression credit? The only question the gate asks. */
+export function weekQualified(week) {
+    return !!week && week.verdict === WEEK_VERDICT.QUALIFIED;
+}
+
+/**
+ * May this week be described to the member as one they missed?
+ *
+ * Only when the target was actually recorded. An unknown week is a hole in
+ * our data, not a shortfall in their training, and a neutral week is one we
+ * never asked much of.
+ */
+export function weekIsMemberFacingMiss(week) {
+    return !!week && week.verdict === WEEK_VERDICT.MISSED;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -191,15 +239,14 @@ export function recentWeeks(ledger, n) {
  */
 export function progressionEligibility(ledger, policy) {
     const p = policy || PROGRESSION_POLICY;
-    /* A week scheduled for 0 or 1 sessions is neutral: it can neither
-       qualify nor fail, so letting it occupy a window slot would quietly
-       penalise a legitimately light week. Derived rather than stored; a
-       gap week has a null target and is NOT neutral, because zero sessions
-       against an unknown target is still a week with no training in it. */
-    const countable = sane(ledger).filter(
-        w => !(typeof w.targetSessions === 'number' && w.targetSessions < p.qualifyingWeekMinSessions));
-    const window = recentWeeks(countable, p.qualifyingWindowWeeks);
-    const qualifying = window.filter(w => w.qualified).length;
+    /* Every recorded week takes a slot, whatever its verdict. The window
+       measures how dense qualifying work has been across real calendar
+       time, so excusing light or unknown weeks from it would stretch the
+       window and leave four good weeks reading as recent months after the
+       member stopped. Occupying a slot is not a penalty; it is simply not
+       a credit. */
+    const window = recentWeeks(ledger, p.qualifyingWindowWeeks);
+    const qualifying = window.filter(weekQualified).length;
     return {
         eligible: qualifying >= p.qualifyingWeeksRequired,
         qualifyingWeeks: qualifying,
@@ -261,14 +308,14 @@ export function deloadState(ledger, sessionLog, { now, policy } = {}) {
     let accumulated = 0;
     rows.forEach((w, i) => {
         if (resetIdx >= 0 && i < resetIdx) return;      // before the reset
-        if (w.qualified) accumulated += 1;
+        if (weekQualified(w)) accumulated += 1;         // every other verdict pauses
     });
 
     const latest = rows[rows.length - 1];
     return {
         // Only a qualifying week can BE the deload week; a poor week that
         // happens to follow the fifth has had no exposure to deload from.
-        isDeloadWeek: !!latest.qualified && accumulated > 0
+        isDeloadWeek: weekQualified(latest) && accumulated > 0
             && accumulated % p.deloadEveryQualifyingWeeks === 0,
         accumulated,
         every: p.deloadEveryQualifyingWeeks,

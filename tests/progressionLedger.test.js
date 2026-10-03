@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import {
     reconcileLedger, pruneLedger, recentWeeks, requiredLedgerWeeks,
     progressionEligibility, deloadState, canProgress,
+    WEEK_VERDICT, weekQualified, weekIsMemberFacingMiss,
 } from '../src/progressionLedger.js';
 import { toleranceHolds } from '../src/progression.js';
 import { getCurrentWeekKey } from '../src/weekUtils.js';
@@ -56,7 +57,7 @@ describe('the ledger row holds immutable weekly facts only', () => {
     test('exactly four fields, and no running total', () => {
         const { ledger } = simulate([{ weeksBack: 0, sessions: 3 }]);
         expect(Object.keys(ledger[0]).sort())
-            .toEqual(['qualified', 'qualifyingSessions', 'targetSessions', 'weekKey']);
+            .toEqual(['qualifyingSessions', 'targetSessions', 'verdict', 'weekKey']);
         // cumulativeQualified counted lifetime weeks while deload needs
         // weeks since the last reset, so a 60-day absence could not clear
         // it. Derived instead; see deloadState.
@@ -65,7 +66,7 @@ describe('the ledger row holds immutable weekly facts only', () => {
 
     test('it records the target that was true at the time', () => {
         const { ledger } = simulate([{ weeksBack: 0, sessions: 2, schedule: SCHEDULE_3 }]);
-        expect(ledger[ledger.length - 1]).toMatchObject({ targetSessions: 3, qualifyingSessions: 2, qualified: true });
+        expect(ledger[ledger.length - 1]).toMatchObject({ targetSessions: 3, qualifyingSessions: 2, verdict: WEEK_VERDICT.QUALIFIED });
     });
 });
 
@@ -83,16 +84,16 @@ describe('finalisation: a week is final once it stops being the current week', (
             { weeksBack: 0, sessions: 3, schedule: SCHEDULE_4 },
         ]);
         const wk2 = ledger.find(r => r.weekKey === key(14));
-        expect(wk2).toMatchObject({ targetSessions: 3, qualified: true });
+        expect(wk2).toMatchObject({ targetSessions: 3, verdict: WEEK_VERDICT.QUALIFIED });
     });
 
     test('the live week is re-recorded as it fills', () => {
         const wk = getCurrentWeekKey(NOW);
         let ledger = reconcileLedger([], { weekKey: wk, schedule: SCHEDULE_4, sessionLog: [S(0)], now: NOW });
-        expect(ledger[ledger.length - 1]).toMatchObject({ qualifyingSessions: 1, qualified: false });
+        expect(ledger[ledger.length - 1]).toMatchObject({ qualifyingSessions: 1, verdict: WEEK_VERDICT.MISSED });
 
         ledger = reconcileLedger(ledger, { weekKey: wk, schedule: SCHEDULE_4, sessionLog: [S(0), S(1), S(2)], now: NOW });
-        expect(ledger[ledger.length - 1]).toMatchObject({ qualifyingSessions: 3, qualified: true });
+        expect(ledger[ledger.length - 1]).toMatchObject({ qualifyingSessions: 3, verdict: WEEK_VERDICT.QUALIFIED });
         expect(ledger.filter(r => r.weekKey === wk)).toHaveLength(1);
     });
 
@@ -101,15 +102,15 @@ describe('finalisation: a week is final once it stops being the current week', (
         // qualified when it qualified; later inactivity does not revoke it.
         const wk = getCurrentWeekKey(NOW);
         const ledger = reconcileLedger([], { weekKey: wk, schedule: SCHEDULE_4, sessionLog: [S(4), S(5), S(6)], now: NOW });
-        expect(ledger[ledger.length - 1].qualified).toBe(true);
+        expect(weekQualified(ledger[ledger.length - 1])).toBe(true);
     });
 
     test('a schedule changed mid-week takes the target as of the last save that week', () => {
         const wk = getCurrentWeekKey(NOW);
         let ledger = reconcileLedger([], { weekKey: wk, schedule: SCHEDULE_4, sessionLog: [S(0), S(1)], now: NOW });
-        expect(ledger[ledger.length - 1]).toMatchObject({ targetSessions: 4, qualified: false });
+        expect(ledger[ledger.length - 1]).toMatchObject({ targetSessions: 4, verdict: WEEK_VERDICT.MISSED });
         ledger = reconcileLedger(ledger, { weekKey: wk, schedule: SCHEDULE_3, sessionLog: [S(0), S(1)], now: NOW });
-        expect(ledger[ledger.length - 1]).toMatchObject({ targetSessions: 3, qualified: true });
+        expect(ledger[ledger.length - 1]).toMatchObject({ targetSessions: 3, verdict: WEEK_VERDICT.QUALIFIED });
     });
 
     test('there is no separate finalise step that can be missed', () => {
@@ -129,17 +130,34 @@ describe('finalisation: a week is final once it stops being the current week', (
 // Weeks away
 // ---------------------------------------------------------------------------
 describe('weeks the app was never opened in', () => {
-    test('they are recorded as not qualifying, with an unknown target', () => {
-        // A week with any completed session always has a row, because
-        // completing one writes persisted state. So a missing week had none.
+    test('they take a calendar slot without being judged', () => {
         const { ledger } = simulate([{ weeksBack: 3, sessions: 3 }, { weeksBack: 0, sessions: 3 }]);
         const gap = ledger.filter(r => r.weekKey === key(14) || r.weekKey === key(7));
         expect(gap).toHaveLength(2);
         for (const g of gap) {
-            expect(g.targetSessions).toBeNull();      // not invented
+            expect(g.targetSessions).toBeNull();          // never invented
             expect(g.qualifyingSessions).toBe(0);
-            expect(g.qualified).toBe(false);
+            expect(g.verdict).toBe(WEEK_VERDICT.UNKNOWN);
+            expect(weekQualified(g)).toBe(false);         // earns nothing
         }
+    });
+
+    test('REGRESSION: a gap week is never a member-facing missed week', () => {
+        // We do not know what was asked of them that week, so calling it a
+        // miss would penalise a hole in our records, not their training.
+        const { ledger } = simulate([{ weeksBack: 3, sessions: 3 }, { weeksBack: 0, sessions: 3 }]);
+        const gaps = ledger.filter(r => r.verdict === WEEK_VERDICT.UNKNOWN);
+        expect(gaps.length).toBeGreaterThan(0);
+        for (const g of gaps) expect(weekIsMemberFacingMiss(g)).toBe(false);
+    });
+
+    test('a genuinely missed week against a known target IS one', () => {
+        // The complement: when the target was recorded, a shortfall is real
+        // and may be shown as such.
+        const { ledger } = simulate([{ weeksBack: 0, sessions: 1 }]);
+        const wk = ledger[ledger.length - 1];
+        expect(wk.verdict).toBe(WEEK_VERDICT.MISSED);
+        expect(weekIsMemberFacingMiss(wk)).toBe(true);
     });
 
     test('REGRESSION: absent weeks cannot be skipped to assemble eligibility', () => {
@@ -259,42 +277,42 @@ describe('deload counting', () => {
         const r = deloadState(ledger, log, { now: NOW });
         // Everything retained qualified, and no gap was long enough to
         // reset, so the counter equals the retained rows.
-        expect(ledger.every(w => w.qualified)).toBe(true);
+        expect(ledger.every(weekQualified)).toBe(true);
         expect(r.accumulated).toBe(ledger.length);
         expect(r.stale).toBe(false);
     });
 
-    test('REGRESSION: a week with sessions but no row is omitted, not failed', () => {
+    test('REGRESSION: a trained week whose row was lost keeps its slot but no verdict', () => {
         // A row can go missing through pruning or a restored backup while
-        // the session log still proves the member trained that week. Its
-        // target is unknown and it plainly was not inactive, so inventing a
-        // failing verdict would quietly destroy earned progress. The honest
-        // answer is to leave it out.
+        // the log still proves the member trained. The target is unknown,
+        // so the week is neither credited nor called a failure, but it
+        // keeps its place in calendar time.
         const log = [...sessionsInWeek(2, 3), ...sessionsInWeek(1, 3), ...sessionsInWeek(0, 3)];
         const partial = [
-            { weekKey: key(14), targetSessions: 4, qualifyingSessions: 3, qualified: true },
+            { weekKey: key(14), targetSessions: 4, qualifyingSessions: 3, verdict: WEEK_VERDICT.QUALIFIED },
             // the week at key(7) is missing, though the log has three sessions in it
         ];
         const out = reconcileLedger(partial, {
             weekKey: getCurrentWeekKey(NOW), schedule: SCHEDULE_4, sessionLog: log, now: NOW,
         });
-        expect(out.some(w => w.weekKey === key(7))).toBe(false);
-        // and nothing was recorded as a failure on its behalf
-        expect(out.some(w => w.targetSessions === null && w.qualifyingSessions > 0)).toBe(false);
-        expect(out.find(w => w.weekKey === key(14)).qualified).toBe(true);
+        const lost = out.find(w => w.weekKey === key(7));
+        expect(lost).toBeDefined();                            // slot kept
+        expect(lost.verdict).toBe(WEEK_VERDICT.UNKNOWN);
+        expect(lost.qualifyingSessions).toBe(3);               // the fact we do have
+        expect(weekQualified(lost)).toBe(false);               // earns nothing
+        expect(weekIsMemberFacingMiss(lost)).toBe(false);      // and is not a miss
+        expect(weekQualified(out.find(w => w.weekKey === key(14)))).toBe(true);
     });
 
-    test('a week with no sessions and no row IS recorded as not qualifying', () => {
-        // The complement of the case above: zero sessions is a trustworthy
-        // verdict without a target, and omitting it would reopen the hole
-        // where absent weeks are skipped.
+    test('a week with no sessions and no row is also UNKNOWN, not a miss', () => {
         const log = [...sessionsInWeek(2, 3), ...sessionsInWeek(0, 3)];
-        const partial = [{ weekKey: key(14), targetSessions: 4, qualifyingSessions: 3, qualified: true }];
+        const partial = [{ weekKey: key(14), targetSessions: 4, qualifyingSessions: 3, verdict: WEEK_VERDICT.QUALIFIED }];
         const out = reconcileLedger(partial, {
             weekKey: getCurrentWeekKey(NOW), schedule: SCHEDULE_4, sessionLog: log, now: NOW,
         });
         const gap = out.find(w => w.weekKey === key(7));
-        expect(gap).toMatchObject({ targetSessions: null, qualifyingSessions: 0, qualified: false });
+        expect(gap).toMatchObject({ targetSessions: null, qualifyingSessions: 0, verdict: WEEK_VERDICT.UNKNOWN });
+        expect(weekIsMemberFacingMiss(gap)).toBe(false);
     });
 });
 
@@ -381,18 +399,39 @@ describe('the 4-of-8 gate', () => {
         expect(progressionEligibility(ledger).weeks).toHaveLength(8);
     });
 
-    test('a light week neither qualifies nor costs a window slot', () => {
-        // Target 0 or 1 is neutral by the locked rule, so it must not
-        // silently consume one of the eight.
+    test('REGRESSION: a light week takes a slot, and is not a failure', () => {
+        // Target 0 or 1 cannot qualify and is not a miss, but the window is
+        // calendar-based: excusing it from a slot would stretch the window
+        // and keep older weeks reading as recent.
         const allRest = ['rest', 'rest', 'rest', 'rest', 'rest', 'rest', 'rest'];
         const { ledger } = simulate([
             { weeksBack: 4, sessions: 3 }, { weeksBack: 3, sessions: 3 },
             { weeksBack: 2, sessions: 0, schedule: allRest },
             { weeksBack: 1, sessions: 3 }, { weeksBack: 0, sessions: 3 },
         ]);
+        const light = ledger.find(w => w.targetSessions === 0);
+        expect(light.verdict).toBe(WEEK_VERDICT.NEUTRAL);
+        expect(weekQualified(light)).toBe(false);
+        expect(weekIsMemberFacingMiss(light)).toBe(false);
+        // It is inside the window, occupying one of the eight.
         const r = progressionEligibility(ledger);
-        expect(r.weeks.some(w => w.targetSessions === 0)).toBe(false);
+        expect(r.weeks.some(w => w.weekKey === light.weekKey)).toBe(true);
+        expect(r.qualifyingWeeks).toBe(4);
         expect(r.eligible).toBe(true);
+    });
+
+    test('REGRESSION: the window never stretches past eight calendar weeks', () => {
+        // Four good weeks, then a long absence. They must age out on
+        // schedule rather than being kept alive by excluded weeks.
+        const { ledger } = simulate([
+            { weeksBack: 12, sessions: 3 }, { weeksBack: 11, sessions: 3 },
+            { weeksBack: 10, sessions: 3 }, { weeksBack: 9, sessions: 3 },
+            { weeksBack: 0, sessions: 1 },
+        ]);
+        const r = progressionEligibility(ledger);
+        expect(r.weeks).toHaveLength(8);
+        expect(r.qualifyingWeeks).toBe(0);
+        expect(r.eligible).toBe(false);
     });
 
     test('recentWeeks returns newest first', () => {
