@@ -10,30 +10,48 @@
  * is worth doing, but it is not one of the four, and inflating the numerator
  * for it would turn a fixed target into a moving one.
  *
- * WHAT A SCHEDULED DAY COUNTS FOR (Phase 2B.2)
+ * WHAT A SCHEDULED DAY COUNTS FOR (Phase 2B.2, locked)
  *
  * completedDays is one boolean per weekday and finishSession() sets it for
  * ANY completed session, Recovery included. On its own it therefore cannot
  * answer "was the scheduled mechanical work done", and a member who did
  * Recovery on a scheduled Length day used to read as having completed it.
- * With Week Complete now built on this number, that mattered.
+ * With Week Complete built on this number, that mattered.
  *
- * So a scheduled day counts when:
+ * THE SESSION LOG IS THE TRUTH WHEN A LOG EXISTS. The tick is the fallback
+ * only when there is nothing logged for that day at all. In precedence:
  *
- *   a MECHANICAL session was logged on that date                     counts
- *   the day was ticked by hand and NOTHING was logged that date      counts
- *   only Recovery was logged on that date                            does not
+ *   1  mechanical session logged that day            counts
+ *   2  safe manual mechanical substitution logged    counts
+ *   3  MODIFIED mechanical session logged            counts
+ *   4  Recovery logged that day                      does NOT count, even
+ *                                                    though completedDays
+ *                                                    is true for it
+ *   5  nothing logged, member ticked the day         counts, self-reported
+ *   6  nothing logged, no tick                       does not count
  *
- * The second case preserves the manual tick, which is the member telling us
- * about work the app did not time. The third is the correction.
+ * Rules 1 to 3 are one check, not three: an approved MECHANICAL routineType
+ * on the day. It deliberately does NOT compare routineType to the scheduled
+ * type, because that would break the approved manual substitution behaviour
+ * where Girth is done on a day Length was scheduled. Reduced sessions log a
+ * mechanical routineType too, so MODIFIED needs no special case either.
  *
- * Substitutions and reduced sessions are unaffected: both log a mechanical
- * routineType, so both still count, which is the locked rule.
+ * Rule 5 keeps toggleDayCompletion() meaningful. It is the member telling us
+ * about work the app did not time, and it is accepted as self-reported
+ * mechanical completion. Rule 4 outranks it: once a Recovery session is on
+ * record for that day, the day has an answer and the tick cannot overrule it.
  *
- * LEGACY DEBT, deliberately not fixed here: finishSession() still marks
- * completedDays for Recovery. It feeds the calendar tick UI and the
- * substitution behaviour, so the mechanical question is answered at this
- * read boundary instead of by changing that writer.
+ * An abandoned session needs no rule. Only finishSession() writes to the
+ * log, so an abandoned one leaves no entry and, on its own, no tick.
+ *
+ * ACCEPTED LEGACY DEBT, deliberately not fixed here: finishSession() still
+ * marks completedDays for Recovery, so completedDays[today] can be true
+ * after a Recovery session. That is tolerated. What is NOT tolerated is that
+ * boolean alone creating mechanical weekly completion, which is exactly what
+ * rule 4 prevents. completedDays is not authoritative whenever a session log
+ * exists for the day. The writer feeds the calendar tick UI and the
+ * substitution behaviour, so the question is answered at this read boundary
+ * instead of by changing it.
  *
  * Also unresolved, and older: completedDays has one slot per weekday, so two
  * sessions on one day collapse and a session on a scheduled rest day cannot

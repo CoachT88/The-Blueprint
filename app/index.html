@@ -4803,11 +4803,17 @@ function renderAttentionBand(){ _renderBand(ATTENTION_BAND); _renderBand(NUDGE_B
  * is prescribed, and the browser suite asserts the prescription is
  * byte-identical with and without them.
  */
-function currentWeekComplete(){
-    if(!window.BP) return false;
+function currentWeekCompletion(){
+    if(!window.BP) return {completed:0,target:0,remaining:0,allDone:false,label:''};
     return window.BP.weekCompletion(persisted.schedule,persisted.completedDays,
-        {sessionLog:persisted.sessionLog,now:new Date()}).allDone;
+        {sessionLog:persisted.sessionLog,now:new Date()});
 }
+/* Everything that speaks about the week reads the line above. The strip and
+   the Week Complete treatment used to call weekCompletion() separately with
+   identical arguments, which agreed by coincidence rather than by
+   construction. One derivation means "4 of 4" and weekComplete can never
+   disagree, and a test asserts that property. */
+function currentWeekComplete(){ return currentWeekCompletion().allDone; }
 function currentReturnContext(){
     if(!window.BP) return null;
     return window.BP.returnContext(persisted.sessionLog,{now:new Date()});
@@ -4826,7 +4832,7 @@ function currentMissedWeek(){
  */
 function renderWeekProgress(){
     if(!window.BP) return;
-    const w=window.BP.weekCompletion(persisted.schedule,persisted.completedDays,{sessionLog:persisted.sessionLog,now:new Date()});
+    const w=currentWeekCompletion();
     const dots=document.getElementById('hq-week-dots');
     const label=document.getElementById('hq-week-label');
     if(dots){
@@ -5003,8 +5009,7 @@ function renderToday(){
        outranks the rest because there is no work left to orient toward. */
     const live=document.getElementById('today-liveness');
     if(live){
-        const w=window.BP.weekCompletion(persisted.schedule,persisted.completedDays,
-            {sessionLog:persisted.sessionLog,now:new Date()});
+        const w=currentWeekCompletion();
         const key=window.BP.livenessContext({
             weekComplete:r.weekComplete,
             returnContext:r.returnContext,
@@ -5034,7 +5039,7 @@ function completeSummaryHtml(){
     const todayKey=new Date().toISOString().split('T')[0];
     const log=(persisted.sessionLog||[]).filter(e=>(e.date||'').startsWith(todayKey));
     const last=log.length?log[log.length-1]:null;
-    const w=window.BP.weekCompletion(persisted.schedule,persisted.completedDays,{sessionLog:persisted.sessionLog,now:new Date()});
+    const w=currentWeekCompletion();
     const cell=(label,value)=>`<div class="stat-chip"><p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">${label}</p><p class="text-base font-black text-white">${value}</p></div>`;
     const out=[];
     /* finishSession() writes `routineType`, and `duration` in MINUTES. This

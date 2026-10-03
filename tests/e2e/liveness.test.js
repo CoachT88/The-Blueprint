@@ -427,3 +427,248 @@ describe('precedence: one message, and never over the prescription', () => {
         expect(app.errors).toEqual([]);
     });
 });
+
+/**
+ * The locked Week Complete source-of-truth rules, each driven through the
+ * real finishSession().
+ *
+ *   1 mechanical logged                      counts
+ *   2 safe manual mechanical substitution    counts
+ *   3 MODIFIED mechanical                    counts
+ *   4 Recovery logged                        does not, even with
+ *                                            completedDays true
+ *   5 nothing logged + manual tick           counts, self-reported
+ *   6 nothing logged, no tick                does not
+ *
+ * sessionLog wins whenever a log exists for the day; the tick is only the
+ * fallback when there is nothing logged at all.
+ */
+describe('what makes a scheduled day count', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'wc' }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    /** A week scheduling Length on every elapsed day, nothing done yet. */
+    const blankWeek = (page) => page.evaluate(() => {
+        const n = ((new Date().getDay() + 6) % 7) + 1;
+        persisted.primaryGoal = 'all';
+        persisted.pelvicProfile = 'standard';
+        persisted.schedule = Array.from({ length: 7 }, (_, i) => ((i + 6) % 7) < n ? 'length' : 'rest');
+        persisted.completedDays = [false, false, false, false, false, false, false];
+        persisted.sessionLog = [];
+        persisted.progressionLedger = [];
+        try { localStorage.removeItem(getTodaySorenessKey()); } catch (e) {}
+        renderDashboard();
+        const w = currentWeekCompletion();
+        return { target: w.target, completed: w.completed, elapsed: n };
+    });
+
+    /** Read the single derivation plus what the member actually sees. */
+    const read = (page) => page.evaluate(() => {
+        renderDashboard();
+        const w = currentWeekCompletion();
+        return {
+            completed: w.completed, target: w.target, allDone: w.allDone,
+            strip: document.getElementById('hq-week-label').textContent.trim(),
+            weekComplete: window.BP.nextBestAction(buildResolverInput()).weekComplete,
+            tickedToday: persisted.completedDays[new Date().getDay()] === true,
+        };
+    });
+
+    test('1. the scheduled mechanical session counts', async () => {
+        const before = await blankWeek(app.page);
+        await finish(app.page, 'length');
+        const after = await read(app.page);
+        expect(after.completed).toBe(before.completed + 1);
+    }, 30_000);
+
+    test('2. a safe manual mechanical substitution counts', async () => {
+        // Girth completed on a day Length was scheduled. The rule must not
+        // compare routineType to the scheduled type.
+        const before = await blankWeek(app.page);
+        await finish(app.page, 'girth');
+        const after = await read(app.page);
+        expect(after.completed).toBe(before.completed + 1);
+    }, 30_000);
+
+    test('3. a MODIFIED mechanical session counts', async () => {
+        const before = await blankWeek(app.page);
+        const state = await app.page.evaluate(() => {
+            localStorage.setItem(getTodaySorenessKey(), 'moderate');
+            renderDashboard();
+            return window.BP.nextBestAction(buildResolverInput()).state;
+        });
+        expect(state).toBe('MODIFIED');          // genuinely in MODIFIED
+        await finish(app.page, 'length');
+        const after = await read(app.page);
+        await app.page.evaluate(() => { localStorage.removeItem(getTodaySorenessKey()); renderDashboard(); });
+        expect(after.completed).toBe(before.completed + 1);
+    }, 30_000);
+
+    test('4. Recovery does not count, though completedDays is true for it', async () => {
+        // The accepted legacy debt, pinned: the boolean flips and changes
+        // nothing about the mechanical target.
+        const before = await blankWeek(app.page);
+        await finish(app.page, 'recovery');
+        const after = await read(app.page);
+        expect(after.tickedToday).toBe(true);            // the debt is real
+        expect(after.completed).toBe(before.completed);  // and it buys nothing
+    }, 30_000);
+
+    test('5. a manual tick with nothing logged counts', async () => {
+        await blankWeek(app.page);
+        const after = await app.page.evaluate(() => {
+            // The member telling us about work the app did not time, through
+            // the real toggleDayCompletion() path.
+            session.selectedDayIdx = new Date().getDay();
+            toggleDayCompletion();
+            renderDashboard();
+            const w = currentWeekCompletion();
+            return { completed: w.completed, logged: persisted.sessionLog.length };
+        });
+        expect(after.logged).toBe(0);
+        expect(after.completed).toBe(1);
+    }, 30_000);
+
+    test('REGRESSION: a Recovery log blocks the manual-tick fallback', async () => {
+        await blankWeek(app.page);
+        const after = await app.page.evaluate(async () => {
+            session.routineType = 'recovery';
+            _sessionStartTime = Date.now() - 20 * 60000;
+            selectedEQ = null; selectedRPE = null;
+            document.getElementById('input-bpel').value = '';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = '';
+            finishSession();
+            closeSessionSummary();
+            // Now tick the same day by hand. The log already has an answer.
+            persisted.completedDays[new Date().getDay()] = true;
+            renderDashboard();
+            return currentWeekCompletion().completed;
+        });
+        expect(after).toBe(0);
+    }, 30_000);
+
+    test('6. nothing logged and no tick does not count', async () => {
+        const r = await blankWeek(app.page);
+        expect(r.completed).toBe(0);
+    }, 30_000);
+
+    test('ACCEPTANCE: two mechanical and two Recovery on a four session week', async () => {
+        const r = await app.page.evaluate(() => {
+            // Mon to Thu scheduled, all four days already elapsed or not,
+            // seeded directly so the shape is exact: two mechanical, two
+            // Recovery, and every day ticked as finishSession() would.
+            const monday = new Date(); monday.setHours(12, 0, 0, 0);
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+            persisted.primaryGoal = 'all';
+            persisted.schedule = Array.from({ length: 7 }, (_, i) => ((i + 6) % 7) < 4 ? 'length' : 'rest');
+            persisted.completedDays = [false, false, false, false, false, false, false];
+            persisted.sessionLog = [];
+            ['length', 'length', 'recovery', 'recovery'].forEach((type, i) => {
+                const d = new Date(monday); d.setDate(d.getDate() + i);
+                persisted.sessionLog.push({ date: d.toISOString(), routineType: type, duration: 30 });
+                persisted.completedDays[d.getDay()] = true;      // as the writer does
+            });
+            renderDashboard();
+            const w = currentWeekCompletion();
+            return { completed: w.completed, target: w.target, allDone: w.allDone,
+                     strip: document.getElementById('hq-week-label').textContent.trim(),
+                     weekComplete: window.BP.nextBestAction(buildResolverInput()).weekComplete,
+                     allTicked: persisted.completedDays.filter(Boolean).length };
+        });
+        expect(r.allTicked).toBe(4);             // every day ticked
+        expect(r.completed).toBe(2);
+        expect(r.target).toBe(4);
+        expect(r.strip).toContain('2 of 4');
+        expect(r.allDone).toBe(false);
+        expect(r.weekComplete).toBe(false);
+    }, 30_000);
+
+    test('ACCEPTANCE: three scheduled plus one substitution is a complete week', async () => {
+        const r = await app.page.evaluate(() => {
+            const monday = new Date(); monday.setHours(12, 0, 0, 0);
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+            persisted.primaryGoal = 'all';
+            persisted.schedule = Array.from({ length: 7 }, (_, i) => ((i + 6) % 7) < 4 ? 'length' : 'rest');
+            persisted.completedDays = [false, false, false, false, false, false, false];
+            persisted.sessionLog = [];
+            ['length', 'length', 'length', 'girth'].forEach((type, i) => {
+                const d = new Date(monday); d.setDate(d.getDate() + i);
+                persisted.sessionLog.push({ date: d.toISOString(), routineType: type, duration: 30 });
+                persisted.completedDays[d.getDay()] = true;
+            });
+            renderDashboard();
+            const w = currentWeekCompletion();
+            return { completed: w.completed, target: w.target, allDone: w.allDone,
+                     strip: document.getElementById('hq-week-label').textContent.trim(),
+                     weekComplete: window.BP.nextBestAction(buildResolverInput()).weekComplete };
+        });
+        expect(r.completed).toBe(4);
+        expect(r.target).toBe(4);
+        expect(r.strip).toContain('4 of 4');
+        expect(r.allDone).toBe(true);
+        expect(r.weekComplete).toBe(true);
+    }, 30_000);
+
+    test('7. the strip and Week Complete can never disagree', async () => {
+        // A property across fixtures rather than a single case, and the page
+        // now has exactly one derivation for both, so it holds by
+        // construction instead of by luck.
+        const SHAPES = [
+            [], ['length'], ['length', 'length'], ['length', 'recovery'],
+            ['length', 'length', 'length'], ['length', 'length', 'length', 'girth'],
+            ['recovery', 'recovery', 'recovery', 'recovery'],
+        ];
+        for (const shape of SHAPES) {
+            const r = await app.page.evaluate((shape) => {
+                const monday = new Date(); monday.setHours(12, 0, 0, 0);
+                monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+                persisted.primaryGoal = 'all';
+                persisted.schedule = Array.from({ length: 7 }, (_, i) => ((i + 6) % 7) < 4 ? 'length' : 'rest');
+                persisted.completedDays = [false, false, false, false, false, false, false];
+                persisted.sessionLog = [];
+                shape.forEach((type, i) => {
+                    const d = new Date(monday); d.setDate(d.getDate() + i);
+                    persisted.sessionLog.push({ date: d.toISOString(), routineType: type, duration: 30 });
+                    persisted.completedDays[d.getDay()] = true;
+                });
+                renderDashboard();
+                return { strip: document.getElementById('hq-week-label').textContent.trim(),
+                         weekComplete: window.BP.nextBestAction(buildResolverInput()).weekComplete,
+                         w: currentWeekCompletion() };
+            }, shape);
+            const complete = r.w.target > 0 && r.w.completed === r.w.target;
+            expect(r.weekComplete).toBe(complete);
+            expect(r.strip).toContain(complete ? 'Week complete' : `${r.w.completed} of ${r.w.target}`);
+        }
+    }, 60_000);
+
+    test('8. a legacy fixture cannot move the week', async () => {
+        // {type, durationSeconds} is not a payload finishSession() writes, so
+        // it has no routineType and cannot be mechanical. The manual-tick
+        // fallback must not rescue it either: something WAS logged that day.
+        const r = await app.page.evaluate(() => {
+            const monday = new Date(); monday.setHours(12, 0, 0, 0);
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+            persisted.primaryGoal = 'all';
+            persisted.schedule = Array.from({ length: 7 }, (_, i) => ((i + 6) % 7) < 4 ? 'length' : 'rest');
+            persisted.completedDays = [true, true, true, true, true, true, true];
+            persisted.sessionLog = [0, 1, 2, 3].map(i => {
+                const d = new Date(monday); d.setDate(d.getDate() + i);
+                return { date: d.toISOString(), type: 'length', durationSeconds: 2700 };
+            });
+            renderDashboard();
+            const w = currentWeekCompletion();
+            return { completed: w.completed, allDone: w.allDone,
+                     weekComplete: window.BP.nextBestAction(buildResolverInput()).weekComplete };
+        });
+        expect(r.completed).toBe(0);
+        expect(r.allDone).toBe(false);
+        expect(r.weekComplete).toBe(false);
+    }, 30_000);
+
+    test('the page threw nothing throughout', () => {
+        expect(app.errors).toEqual([]);
+    });
+});
