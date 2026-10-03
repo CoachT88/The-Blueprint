@@ -2097,7 +2097,16 @@ const DAY_TYPES={
 // rest day while the app still treats it as a training day.
 const UNKNOWN_DAY_ICON='fa-circle-question';
 function dayTypeIcon(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].icon)||UNKNOWN_DAY_ICON; }
-function dayTypeLabel(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].label)||'Unset'; }
+/* DAY_TYPES describes SCHEDULE day types, and recovery is never one: it is
+   a routine type a session can have. Labelling it here rather than adding a
+   key keeps it out of every schedule picker that iterates DAY_TYPES, and
+   stops 'Unset' appearing wherever a completed Recovery session is named.
+   That was invisible until COMPLETE began reading routineType, and it also
+   reached the calendar's substitution tooltip. */
+function dayTypeLabel(t){
+    if(DAY_TYPES[t]) return DAY_TYPES[t].label;
+    return t==='recovery'?'Recovery':'Unset';
+}
 
 // ── Primary goal ───────────────────────────────────────────────────────────
 // '' means never answered and behaves exactly as 'all', so skipping the
@@ -4818,6 +4827,33 @@ function currentReturnContext(){
     if(!window.BP) return null;
     return window.BP.returnContext(persisted.sessionLog,{now:new Date()});
 }
+/**
+ * WHAT was completed today, for the COMPLETE card's wording.
+ *
+ * TODAY COMPLETE and WEEKLY MECHANICAL COMPLETION are different questions.
+ * "Did the member finish the session they did today" is answered by
+ * completedDays and stays that way: a prescribed Recovery session really
+ * does complete the day, and the app must not respond to it by offering
+ * another mechanical session, which would undercut the safety hierarchy
+ * that prescribed Recovery in the first place.
+ *
+ * "Did the scheduled mechanical work get done" is a separate question, and
+ * the week strip is authoritative about it.
+ *
+ * So the state stays as it is and only the WORDING becomes context aware,
+ * from the log rather than from the flag. Recovery closes the day without
+ * ever implying it satisfied a mechanical target.
+ *
+ * Uses window.BP.isQualifyingSession, the single definition of mechanical,
+ * rather than restating the condition here.
+ */
+function todayCompletionKind(){
+    const key=_dayKey(0);
+    const today=(persisted.sessionLog||[]).filter(e=>e&&typeof e.date==='string'&&e.date.split('T')[0]===key);
+    if(!today.length) return 'unlogged';          // hand-ticked, nothing timed
+    return today.some(e=>window.BP.isQualifyingSession(e))?'mechanical':'recovery';
+}
+
 /** The previous finished week, if it is honest to say it did not go to plan. */
 function currentMissedWeek(){
     if(!window.BP) return null;
@@ -4914,6 +4950,11 @@ function renderToday(){
     let headline=copy.headline||'';
     if(r.state==='TRAIN') headline=`${dayTypeLabel(r.mission)} Day`;
     if(r.state==='PREPARE') headline=prep.headline;
+    /* COMPLETE says what was actually finished. "Today Is Done" after a
+       Recovery session is true about the day and would be read as the
+       scheduled session being done, which it was not. */
+    const completedKind=r.state==='COMPLETE'?todayCompletionKind():null;
+    if(completedKind==='recovery') headline='Recovery Complete';
     set('today-eyebrow',prep?TODAY_COPY.PREPARE.eyebrow:copy.eyebrow);
     set('today-headline',headline);
 
@@ -4924,15 +4965,21 @@ function renderToday(){
         RECOVER:()=>'Pelvic floor and mobility work, no mechanical load.',
         REST:()=>'',
         RESUME:()=>r.mission?`${dayTypeLabel(r.mission)} session`:'Session',
-        COMPLETE:()=>'',
+        /* Recovery closes the day and says nothing about the week. The
+           strip below is where mechanical progress is reported, and it is
+           unchanged by this session. */
+        COMPLETE:()=>completedKind==='recovery'?"You're done for today.":'',
         PREPARE:()=>'',
     };
     const sub=(subs[r.state]||(()=>''))();
     set('today-sub',sub,!!sub);
-    // COMPLETE's reason and its headline are the same sentence. Saying it
-    // twice in two sizes is not emphasis, it is clutter.
+    /* COMPLETE's reason repeats its headline and sub. Saying it three times
+       in three sizes is not emphasis, it is clutter. Suppressed by state
+       rather than by comparing strings: the string comparison stopped
+       matching the moment the headline became context aware, and the reason
+       reappeared underneath "Recovery Complete". */
     const norm=t=>t.trim().toLowerCase().replace(/[.!]+$/,'');
-    const echoes=!!headline&&norm(r.reason)===norm(headline);
+    const echoes=r.state==='COMPLETE'||(!!headline&&norm(r.reason)===norm(headline));
     set('today-why',r.reason,!!r.reason&&!echoes);
 
     // Duration only when the resolver gives one. RESUME returns null until

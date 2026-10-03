@@ -836,3 +836,153 @@ describe('the calendar tick', () => {
         expect(app.errors).toEqual([]);
     });
 });
+
+/**
+ * TODAY COMPLETE and WEEKLY MECHANICAL COMPLETION are different questions,
+ * and the app now answers each one honestly without the other.
+ *
+ * A prescribed Recovery session completes the DAY. It must not be answered
+ * with another mechanical CTA, because that would undercut the safety
+ * hierarchy that prescribed Recovery. It also must not be worded as though
+ * the scheduled session happened.
+ */
+describe('today complete versus weekly mechanical completion', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'tc' }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    const blankWeek = (page) => page.evaluate(() => {
+        const n = ((new Date().getDay() + 6) % 7) + 1;
+        persisted.primaryGoal = 'all';
+        persisted.pelvicProfile = 'standard';
+        persisted.schedule = Array.from({ length: 7 }, (_, i) => ((i + 6) % 7) < n ? 'length' : 'rest');
+        persisted.completedDays = [false, false, false, false, false, false, false];
+        persisted.sessionLog = [];
+        persisted.progressionLedger = [];
+        try { localStorage.removeItem(getTodaySorenessKey()); } catch (e) {}
+        renderDashboard();
+    });
+
+    /** Everything the member can see after today is finished. */
+    const card = (page) => page.evaluate(() => {
+        renderDashboard();
+        const i = new Date().getDay();
+        const shown = id => !document.getElementById(id).classList.contains('hidden');
+        const w = currentWeekCompletion();
+        const r = window.BP.nextBestAction(buildResolverInput());
+        return {
+            state: r.state,
+            headline: document.getElementById('today-headline').textContent.trim(),
+            sub: shown('today-sub') ? document.getElementById('today-sub').textContent.trim() : '',
+            why: shown('today-why') ? document.getElementById('today-why').textContent.trim() : '',
+            summary: document.getElementById('today-complete-summary').textContent,
+            launch: shown('launch-btn'),
+            optional: shown('today-optional-btn'),
+            alt: shown('today-alt-btn'),
+            resume: shown('resume-btn'),
+            ticked: [...document.getElementById('dashboard-grid').children][i].classList.contains('completed'),
+            weekCompleted: w.completed,
+            weekComplete: r.weekComplete,
+        };
+    });
+
+    test('1. scheduled Length completed: today done, tick, counter up', async () => {
+        await blankWeek(app.page);
+        await finish(app.page, 'length');
+        const c = await card(app.page);
+        expect(c.state).toBe('COMPLETE');
+        expect(c.headline).toBe('Today Is Done');
+        expect(c.ticked).toBe(true);
+        expect(c.weekCompleted).toBe(1);
+    }, 30_000);
+
+    test('2. prescribed Recovery completed: today done, no tick, counter flat', async () => {
+        await blankWeek(app.page);
+        await app.page.evaluate(() => {
+            // High soreness, so Recovery is what the app itself prescribed.
+            localStorage.setItem(getTodaySorenessKey(), 'high');
+            renderDashboard();
+        });
+        const prescribed = await app.page.evaluate(() =>
+            window.BP.nextBestAction(buildResolverInput()).state);
+        expect(prescribed).toBe('RECOVER');
+        await finish(app.page, 'recovery');
+        const c = await card(app.page);
+        await app.page.evaluate(() => { localStorage.removeItem(getTodaySorenessKey()); renderDashboard(); });
+        expect(c.state).toBe('COMPLETE');          // the DAY is complete
+        expect(c.ticked).toBe(false);              // the mechanical day is not
+        expect(c.weekCompleted).toBe(0);
+        expect(c.weekComplete).toBe(false);
+    }, 30_000);
+
+    test('3. the copy names Recovery and closes the day', async () => {
+        await blankWeek(app.page);
+        await finish(app.page, 'recovery');
+        const c = await card(app.page);
+        expect(c.headline).toBe('Recovery Complete');
+        expect(`${c.sub} ${c.why}`).toMatch(/done for today/i);
+        expect(c.summary).toMatch(/Recovery/);     // the chip says what it was
+    }, 30_000);
+
+    test('4. and it offers no further mechanical work that day', async () => {
+        // Answering a prescribed Recovery with another START button would
+        // undercut the hierarchy that prescribed it.
+        await blankWeek(app.page);
+        await finish(app.page, 'recovery');
+        const c = await card(app.page);
+        expect(c.launch).toBe(false);
+        expect(c.optional).toBe(false);
+        expect(c.alt).toBe(false);
+        expect(c.resume).toBe(false);
+    }, 30_000);
+
+    test('5. Week Complete stays false until the mechanical target is met', async () => {
+        const r = await app.page.evaluate(() => {
+            const monday = new Date(); monday.setHours(12, 0, 0, 0);
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+            persisted.primaryGoal = 'all';
+            persisted.schedule = Array.from({ length: 7 }, (_, i) => ((i + 6) % 7) < 4 ? 'length' : 'rest');
+            persisted.completedDays = [true, true, true, true, true, true, true];
+            persisted.sessionLog = [];
+            // Four Recovery sessions: every day "complete", no mechanical work.
+            [0, 1, 2, 3].forEach(i => {
+                const d = new Date(monday); d.setDate(d.getDate() + i);
+                persisted.sessionLog.push({ date: d.toISOString(), routineType: 'recovery', duration: 20 });
+            });
+            renderDashboard();
+            return { weekComplete: window.BP.nextBestAction(buildResolverInput()).weekComplete,
+                     strip: document.getElementById('hq-week-label').textContent.trim() };
+        });
+        expect(r.weekComplete).toBe(false);
+        expect(r.strip).toContain('0 of 4');
+    }, 30_000);
+
+    test('6. REGRESSION: mechanical wording cannot render after Recovery only', async () => {
+        await blankWeek(app.page);
+        await finish(app.page, 'recovery');
+        const c = await card(app.page);
+        const all = `${c.headline} ${c.sub} ${c.why}`;
+        // The generic mechanical headline must not be what a Recovery day
+        // shows, and nothing on the card may claim the week moved.
+        expect(c.headline).not.toBe('Today Is Done');
+        expect(all).not.toMatch(/session complete|scheduled session|target met|week complete/i);
+        expect(all).not.toMatch(/\b(length|girth|stamina)\b/i);
+        expect(c.summary).not.toMatch(/Unset/);
+    }, 30_000);
+
+    test('a hand-ticked day with nothing logged keeps the neutral wording', async () => {
+        await blankWeek(app.page);
+        await app.page.evaluate(() => {
+            session.selectedDayIdx = new Date().getDay();
+            toggleDayCompletion();
+        });
+        const c = await card(app.page);
+        expect(c.state).toBe('COMPLETE');
+        expect(c.headline).toBe('Today Is Done');
+        expect(c.ticked).toBe(true);               // the approved self-report
+    }, 30_000);
+
+    test('the page threw nothing throughout', () => {
+        expect(app.errors).toEqual([]);
+    });
+});
