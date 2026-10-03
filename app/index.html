@@ -5051,6 +5051,80 @@ function onReadyContinue(){
     readyPlan(r).go();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PROGRESSION
+//
+// Wiring only. The ledger is kept current and the gate can be read, but
+// nothing yet consumes either: difficulty tiers, deload and the Recovery
+// Pass are all still the old logic. Those are separate checkpoints.
+//
+// Every rule lives in src/progression*.js, where vitest can execute it.
+// This file supplies state and writes results back, and decides nothing.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Bring the ledger and the programme start date up to date.
+ *
+ * Runs after load and after a completed session, which is every moment
+ * either can change. Saves only when something actually moved, so it does
+ * not add a write to every render.
+ */
+function syncProgression(reason){
+    if(!window.BP || !_persistedLoaded || !currentUser) return false;
+    let changed=false;
+
+    /* Programme start, for members who predate the column. Conservative by
+       design: it is only filled in when the retained history can support
+       it, and a long-tenured member whose early sessions were pruned stays
+       null, which together with allTimeSessionCount > 0 is how
+       "established, start unknown" is expressed. No second column. */
+    if(!persisted.programmeStartDate){
+        const back=window.BP.programmeStartBackfill({
+            programmeStartDate:persisted.programmeStartDate,
+            sessionLog:persisted.sessionLog,
+            firstSessionDate:persisted.firstSessionDate,
+            allTimeSessionCount:persisted.allTimeSessionCount,
+            /* Deliberately not supplied. sessionLog.length against
+               allTimeSessionCount is not proof of completeness: imports,
+               older app versions, recovery entries and past schema changes
+               all break it. Without a trustworthy completeness signal the
+               honest answer is "established, start unknown", so no date is
+               invented. */
+            historyComplete:undefined,
+            now:new Date(),
+        });
+        if(back.date && back.date!==persisted.programmeStartDate){
+            persisted.programmeStartDate=back.date;
+            changed=true;
+        }
+    }
+
+    const before=JSON.stringify(persisted.progressionLedger||[]);
+    persisted.progressionLedger=window.BP.reconcileLedger(persisted.progressionLedger,{
+        weekKey:getCurrentWeekKey(),
+        schedule:persisted.schedule,
+        sessionLog:persisted.sessionLog,
+        now:new Date(),
+    });
+    if(JSON.stringify(persisted.progressionLedger)!==before) changed=true;
+
+    if(changed) savePersisted();
+    return changed;
+}
+
+/**
+ * Today's progression answer. Read-only; nothing acts on it yet.
+ *
+ * Returns ELIGIBLE, HOLD, NOT_ELIGIBLE or UNKNOWN. None of those is
+ * produced by an absence of data: missing optional RPE is reported
+ * separately as rpeUnknown and never blocks.
+ */
+function currentProgression(){
+    if(!window.BP) return null;
+    const holds=window.BP.toleranceHolds(persisted.sessionLog,{now:new Date()});
+    return window.BP.progressionState(persisted.progressionLedger,holds);
+}
+
 function renderDashboard(){
     // Stagger-animate HQ sections on each render
     document.querySelectorAll('#step-0 .hq-anim').forEach((el,i)=>{
@@ -5074,6 +5148,9 @@ function renderDashboard(){
     renderWeekProgress();
     renderAttentionBand();
     window._bpHqRendered=true;
+    /* Keeps the current week's row current and fills any weeks the app was
+       not opened in. Cheap: it only writes when something moved. */
+    syncProgression('render');
     /* Which weekdays this week were completed with something other than
        the scheduled mission. Read from the session log, which is the only
        record of what was actually performed: completedDays has one boolean
@@ -5190,8 +5267,26 @@ function finishSession(){
         duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):null,
     });
     persisted.sessionLog=trimToByteBudget(persisted.sessionLog,SESSION_LOG_BUDGET_BYTES);
+
+    /* The programme starts on the first completed mechanical session, and
+       on nothing else: not sign-up, not choosing a goal, not opening
+       Mission Select, not picking a difficulty, and not completing
+       Recovery. The old firstSessionDate was set by a difficulty tap,
+       which is why it cannot be trusted as a start.
+       Set once and never moved. */
+    if(window.BP){
+        const _entry=persisted.sessionLog[persisted.sessionLog.length-1];
+        const _start=window.BP.programmeStartOnCompletion({
+            programmeStartDate:persisted.programmeStartDate,
+            completedEntry:_entry,
+            now:new Date(),
+        });
+        if(_start) persisted.programmeStartDate=_start;
+    }
     if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
     updateRecords(earnedXp);
+    // The ledger's current-week row is now out of date by one session.
+    syncProgression('session-completed');
     track('session_completed',{
         mission:session.routineType, xp:earnedXp,
         duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0,
@@ -6999,9 +7094,17 @@ import { weekCompletion } from '../src/weekCompletion.js';
 import { getCurrentWeekKey as weekKey } from '../src/weekUtils.js';
 // Phase 2B.1. Only the normaliser is wired so far: the ledger round-trips
 // through the save payload, and nothing reads it for a decision yet.
-import { normaliseLedger } from '../src/progressionLedger.js';
+import { normaliseLedger, reconcileLedger, progressionState, PROGRESSION_STATE,
+         WEEK_VERDICT, weekQualified, weekIsMemberFacingMiss } from '../src/progressionLedger.js';
+import { toleranceHolds, programmeStartBackfill, programmeStartOnCompletion,
+         isQualifyingSession } from '../src/progression.js';
+import { PROGRESSION_POLICY } from '../src/progressionPolicy.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
-              estimateSessionMinutes, weekCompletion, weekKey, normaliseLedger };
+              estimateSessionMinutes, weekCompletion, weekKey, normaliseLedger,
+              reconcileLedger, progressionState, PROGRESSION_STATE, WEEK_VERDICT,
+              weekQualified, weekIsMemberFacingMiss, toleranceHolds,
+              programmeStartBackfill, programmeStartOnCompletion, isQualifyingSession,
+              PROGRESSION_POLICY };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

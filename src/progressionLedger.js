@@ -262,7 +262,7 @@ export function reconcileLedger(ledger, { weekKey, schedule, sessionLog, now, re
         } else if (existing) {
             out.push(existing);          // final, and never reinterpreted
             started = true;
-        } else if (started) {
+        } else if (started || done > 0) {
             /* No row for this week. Either nobody opened the app, or the
                row was pruned or lost while the log still shows work. The
                target cannot be reconstructed either way, so the verdict is
@@ -271,6 +271,12 @@ export function reconcileLedger(ledger, { weekKey, schedule, sessionLog, now, re
                window across the absence and keep four old good weeks
                reading as recent months later. */
             out.push(row(key, null, done, p));
+            /* Sessions in a week are proof the member existed and trained
+               then, even with no row to show for it. Without this the
+               leading-empties guard would also swallow every week of a
+               member whose ledger is empty but whose log is not, and their
+               entire history would vanish from the window. */
+            started = true;
         }
     }
     return pruneLedger(out, p);
@@ -319,9 +325,21 @@ export function weekQualified(week) {
  * Only when the target was actually recorded. An unknown week is a hole in
  * our data, not a shortfall in their training, and a neutral week is one we
  * never asked much of.
+ *
+ * And never the week currently in progress. The live row is recomputed as
+ * the week fills, so a four-session week reads as `missed` from Monday
+ * morning until the third session lands. That verdict is correct for the
+ * gate, which only ever asks "has this qualified yet", and badly wrong as
+ * copy: nobody has missed a week they are still in. Pass the current week
+ * key and this returns false for it.
+ *
+ * The row shape is locked at four fields, so this is derived at the
+ * boundary rather than stored.
  */
-export function weekIsMemberFacingMiss(week) {
-    return !!week && week.verdict === WEEK_VERDICT.MISSED;
+export function weekIsMemberFacingMiss(week, currentWeekKey) {
+    if (!week || week.verdict !== WEEK_VERDICT.MISSED) return false;
+    if (currentWeekKey && week.weekKey === currentWeekKey) return false;
+    return true;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -450,5 +468,66 @@ export function canProgress(ledger, holds, policy) {
         rpeUnknown: !!(holds && holds.rpe && holds.rpe.status === 'unknown'),
         eligibility,
         holds: holds || null,
+    };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   The explicit state
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Four states, and none of them is produced by an absence of data.
+ *
+ *   ELIGIBLE      enough qualifying weeks, nothing holding
+ *   HOLD          enough qualifying weeks, but a confirmed hold is active
+ *   NOT_ELIGIBLE  not enough qualifying weeks, and the gap is real
+ *   UNKNOWN       not enough qualifying weeks, but the window contains
+ *                 weeks we could not judge, and had they qualified the
+ *                 member would be eligible. We genuinely cannot tell.
+ */
+export const PROGRESSION_STATE = {
+    ELIGIBLE: 'eligible',
+    HOLD: 'hold',
+    NOT_ELIGIBLE: 'not_eligible',
+    UNKNOWN: 'unknown',
+};
+
+/**
+ * The single question the app asks: may this member be offered more load?
+ *
+ * Holds only decide the state once eligibility is earned. A brake on
+ * someone who has not reached the gate is moot, and reporting HOLD then
+ * would imply they were otherwise ready.
+ *
+ * UNKNOWN exists so that gaps in our own records cannot be read as a
+ * verdict on the member. It is not a pass and not a failure, and it never
+ * arises from missing optional RPE, which is reported separately and is
+ * deliberately non-blocking.
+ */
+export function progressionState(ledger, holds, policy) {
+    const p = policy || PROGRESSION_POLICY;
+    const eligibility = progressionEligibility(ledger, p);
+    const held = !!(holds && holds.held);
+    const unknownWeeks = eligibility.weeks.filter(w => w.verdict === WEEK_VERDICT.UNKNOWN).length;
+
+    let state;
+    if (eligibility.eligible) {
+        state = held ? PROGRESSION_STATE.HOLD : PROGRESSION_STATE.ELIGIBLE;
+    } else if (eligibility.qualifyingWeeks + unknownWeeks >= p.qualifyingWeeksRequired) {
+        // Unjudgeable weeks could account for the shortfall.
+        state = PROGRESSION_STATE.UNKNOWN;
+    } else {
+        state = PROGRESSION_STATE.NOT_ELIGIBLE;
+    }
+
+    return {
+        state,
+        available: state === PROGRESSION_STATE.ELIGIBLE,
+        eligibility,
+        holds: holds || null,
+        activeHolds: (holds && holds.active) || [],
+        // Surfaced, never folded in. Missing optional data is not a verdict.
+        rpeUnknown: !!(holds && holds.rpe && holds.rpe.status === 'unknown'),
+        unknownWeeks,
     };
 }

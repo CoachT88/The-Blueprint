@@ -308,10 +308,18 @@ export function programmeStartBackfill({
         return { date: earliest, source: PROGRAMME_START_SOURCE.EARLIEST_SESSION, established: true };
     }
 
+    /* The legacy field needs CORROBORATION, not merely an absence of
+       contradiction. With no retained sessions there is nothing for it to
+       contradict, and accepting it there would mean trusting a date written
+       by a difficulty tap for a member whose history we plainly cannot see.
+       That is inventing a start. Requiring retained history to compare
+       against is what keeps "prefer unknown when confidence is
+       questionable" true in the case where confidence is lowest. */
     const legacy = asDate(firstSessionDate);
     const legacyUsable = legacy
+        && earliest
         && legacy.getTime() <= ref.getTime()
-        && (!earliest || legacy.getTime() <= asDate(earliest + 'T23:59:59').getTime());
+        && legacy.getTime() <= asDate(earliest + 'T23:59:59').getTime();
     if (legacyUsable && hasHistory) {
         return { date: dayKey(legacy), source: PROGRAMME_START_SOURCE.LEGACY_FIELD, established: true };
     }

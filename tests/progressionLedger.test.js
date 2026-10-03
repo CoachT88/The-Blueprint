@@ -154,10 +154,24 @@ describe('weeks the app was never opened in', () => {
     test('a genuinely missed week against a known target IS one', () => {
         // The complement: when the target was recorded, a shortfall is real
         // and may be shown as such.
-        const { ledger } = simulate([{ weeksBack: 0, sessions: 1 }]);
-        const wk = ledger[ledger.length - 1];
+        const { ledger } = simulate([{ weeksBack: 1, sessions: 1 }]);
+        const wk = ledger.find(w => w.weekKey === key(7));
         expect(wk.verdict).toBe(WEEK_VERDICT.MISSED);
-        expect(weekIsMemberFacingMiss(wk)).toBe(true);
+        expect(weekIsMemberFacingMiss(wk, getCurrentWeekKey(NOW))).toBe(true);
+    });
+
+    test('REGRESSION: the week in progress is never a missed week', () => {
+        // The live row is recomputed as the week fills, so a four-session
+        // week reads as `missed` from Monday until the third session lands.
+        // Right for the gate, wrong as copy: nobody has missed a week they
+        // are still in.
+        const { ledger } = simulate([{ weeksBack: 0, sessions: 1 }]);
+        const live = ledger[ledger.length - 1];
+        expect(live.weekKey).toBe(getCurrentWeekKey(NOW));
+        expect(live.verdict).toBe(WEEK_VERDICT.MISSED);          // correct for the gate
+        expect(weekIsMemberFacingMiss(live, getCurrentWeekKey(NOW))).toBe(false);
+        // and it still earns nothing, which is the gate's business
+        expect(weekQualified(live)).toBe(false);
     });
 
     test('REGRESSION: absent weeks cannot be skipped to assemble eligibility', () => {
