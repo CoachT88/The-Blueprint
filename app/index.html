@@ -307,6 +307,32 @@
         /* HQ sections stagger */
         @keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
         .hq-anim{opacity:0;animation:fadeInUp .4s cubic-bezier(.2,.8,.2,1) forwards}
+
+        /* ── Reduced motion ───────────────────────────────────────────────
+           Honours prefers-reduced-motion. This is accessibility debt being
+           paid, not a visual change: nothing moves position, nothing changes
+           colour, and every end state is identical.
+
+           Durations are collapsed rather than animations removed, because
+           several animations here carry their own end state via `forwards`.
+           `animation: none` would discard that end state, and .hq-anim is the
+           proof: it starts at opacity 0 and is made visible only by
+           fadeInUp. Blanket-disabling animation would leave every section of
+           the HQ permanently invisible. The explicit override below is a
+           second line of defence in case a future rule reintroduces that
+           shape, and tests/e2e/reduced-motion.test.js holds the line. */
+        @media (prefers-reduced-motion: reduce){
+            *,*::before,*::after{
+                animation-duration:.01ms !important;
+                animation-delay:0ms !important;
+                animation-iteration-count:1 !important;
+                transition-duration:.01ms !important;
+                transition-delay:0ms !important;
+            }
+            html,body,#step-0{scroll-behavior:auto !important}
+            /* Anything that is invisible until an animation reveals it. */
+            .hq-anim{opacity:1 !important}
+        }
     </style>
 </head>
 <body>
@@ -498,7 +524,6 @@
     <div id="hq-records-card" class="px-2 space-y-2 hq-anim">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Personal Records</p>
         <div class="flex gap-2">
-            <div class="record-chip"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Best Streak</p><p id="record-streak" class="text-lg font-black text-white">0d</p></div>
             <div class="record-chip"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">Best Session</p><p id="record-session-xp" class="text-lg font-black text-white">0 XP</p></div>
             <div class="record-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Best Week</p><p id="record-week-xp" class="text-lg font-black text-white">0 XP</p></div>
         </div>
@@ -847,7 +872,7 @@
                 <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
                     <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Your streak is still alive. Get back in today.</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Get back in today.</p>
                 </div>
             </div>
             <div id="hq-coach-nudge" class="hidden p-3 rounded-2xl" style="background:rgba(168,85,247,.09);border:1px solid rgba(168,85,247,.3)">
@@ -949,8 +974,15 @@
                 <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">65 XP to next level</span>
             </div>
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
+            <!-- Phase 2B.1 step 2: the daily streak is no longer displayed.
+     It contradicted the weekly target by construction, because
+     getCurrentStreak() breaks on any day without a session including a
+     prescribed rest day. A member who follows the programme exactly loses
+     their streak twice a week while the week counter calls them on track.
+     DISPLAY ONLY. getCurrentStreak(), Recovery Passes, passProtectedDates,
+     records.longestStreak and the server notification dependency are all
+     untouched; see the Step 8 plan. -->
             <div class="flex items-center gap-3 mt-2.5">
-                <span id="hq-streak" class="text-[10px] font-bold text-orange-100">0 Day Streak</span>
                 <span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span>
             </div>
         </div>
@@ -1348,7 +1380,6 @@
         <div class="grid grid-cols-2 gap-3">
             <div class="summary-stat"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">XP Earned</p><p id="summary-xp" class="text-2xl font-black text-white">+0</p></div>
             <div class="summary-stat"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Duration</p><p id="summary-duration" class="text-2xl font-black text-white">--</p></div>
-            <div class="summary-stat"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Current Streak</p><p id="summary-streak" class="text-2xl font-black text-white">--</p></div>
             <div class="summary-stat"><p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">Total XP</p><p id="summary-total-xp" class="text-2xl font-black text-white">--</p></div>
         </div>
         <div id="summary-records" class="space-y-2"></div>
@@ -5049,8 +5080,6 @@ function renderDashboard(){
         g.appendChild(d);
     });
     document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
-    const _passes=persisted.streakPasses||0;
-    document.getElementById('hq-streak').innerText=`${getCurrentStreak()} Day Streak`+(_passes?` · 🛡️×${_passes}`:'');
     document.getElementById('hq-xp').innerText=`${persisted.totalXp} XP`;
     const lvl=getLevelInfo(persisted.totalXp);
     document.getElementById('hq-level-name').innerText=lvl.displayName;
@@ -5331,10 +5360,8 @@ function updateRecords(sessionXp){
 }
 function renderRecords(){
     const r=persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0};
-    const rs=document.getElementById('record-streak');
     const rx=document.getElementById('record-session-xp');
     const rw=document.getElementById('record-week-xp');
-    if(rs)rs.innerText=r.longestStreak+'d';
     if(rx)rx.innerText=r.bestSessionXp+' XP';
     if(rw)rw.innerText=r.bestWeekXp+' XP';
 }
@@ -5348,20 +5375,17 @@ let _rememberMe=false;
 function showSessionSummary(xp){
     const modal=document.getElementById('session-summary-modal');
     const duration=_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0;
-    const streak=getCurrentStreak();
     const taglines=['Tissue is adapting. Recovery starts now.','Consistent operator. The protocol is working.','Another session banked. Results compound.','Strong work. Let the tissue integrate.','That\'s how gains are built. Rest well.'];
     document.getElementById('summary-icon').innerText=['🔥','⚡','💪','🎯','🏆'][Math.floor(Math.random()*5)];
     document.getElementById('summary-tagline').innerText=taglines[Math.floor(Math.random()*taglines.length)];
     document.getElementById('summary-xp').innerText='+'+xp;
     document.getElementById('summary-duration').innerText=duration+'min';
-    document.getElementById('summary-streak').innerText=streak+'d';
     document.getElementById('summary-total-xp').innerText=persisted.totalXp+' XP';
     // Personal records broken?
     const r=persisted.records||{};
     const records=[];
-    if(streak>=r.longestStreak&&streak>0) records.push('🏆 New streak record: '+streak+' days');
     if(xp>=r.bestSessionXp&&xp>0) records.push('⚡ New session XP record: '+xp+' XP');
-    if(_passEarnedThisSession) records.push('🛡️ Recovery Pass earned — one missed day will not break your streak');
+    if(_passEarnedThisSession) records.push('🛡️ Recovery Pass earned — covers a missed day');
     const recordsEl=document.getElementById('summary-records');
     recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
     modal.classList.add('show');

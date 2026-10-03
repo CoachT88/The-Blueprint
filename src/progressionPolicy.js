@@ -1,0 +1,94 @@
+/**
+ * Every tunable number in the progression system, in one place.
+ *
+ * These are PRODUCT POLICY DEFAULTS. Not one of them is a medical constant,
+ * a physiological threshold, or a finding from any literature. They are
+ * starting values chosen to be conservative and explainable, and they are
+ * expected to be tuned once there is real adherence data to tune them
+ * against.
+ *
+ * Nothing downstream may hard-code any of these. A number that appears in a
+ * rule and not here is a bug, and tests assert that.
+ *
+ * Why one object rather than named exports: a single frozen object can be
+ * shallow-overridden in a test or a future remote-config read without
+ * touching a call site, and it makes "what are all the knobs" answerable by
+ * reading twenty lines.
+ */
+export const PROGRESSION_POLICY = Object.freeze({
+    /* ── Adherence gate ───────────────────────────────────────────────────
+       How much work earns the right to be offered more work. */
+
+    /** Qualifying weeks needed before advancement is offered. */
+    qualifyingWeeksRequired: 4,
+
+    /** The rolling window those weeks are counted over. Not consecutive. */
+    qualifyingWindowWeeks: 8,
+
+    /**
+     * A qualifying week: miss at most this many scheduled mechanical
+     * sessions. One, so "miss at most one" is the whole rule.
+     *
+     * Deliberately an absolute allowance rather than a percentage. At the
+     * real schedule sizes a percentage misbehaves: 75% of a 3-session week
+     * rounds to 3, which demands perfection, while 75% of a 4-session week
+     * asks for 3. The same sentence should not mean two different standards.
+     */
+    qualifyingWeekMaxMissed: 1,
+
+    /** And complete at least this many, whatever the target was. */
+    qualifyingWeekMinSessions: 2,
+
+    /* ── Tolerance hold ───────────────────────────────────────────────────
+       Signals that say "hold at this workload" rather than "go up". */
+
+    /** How many recent qualifying sessions the RPE hold looks at. */
+    rpeWindowSessions: 5,
+
+    /** Mean RPE at or above this within that window holds advancement. */
+    rpeHoldThreshold: 8,
+
+    /**
+     * How many of those sessions must actually carry an RPE before any RPE
+     * conclusion may be drawn.
+     *
+     * RPE is optional at the success screen, so absence is common and means
+     * nothing. Two samples out of five is thin but is the point at which a
+     * mean stops being a single opinion. Below it the answer is UNKNOWN,
+     * never PASS: missing data must not read as evidence of tolerance.
+     */
+    rpeMinSamples: 2,
+
+    /* ── Safety hold ──────────────────────────────────────────────────────
+       Recent recovery usage suggests holding the current workload.
+
+       Counts COMPLETED recovery sessions, because RECOVER routing is not
+       persisted anywhere. See the Gate 0 report. */
+
+    /** The window completed recovery sessions are counted over. */
+    recoverySafetyWindowDays: 14,
+
+    /** This many completed recovery sessions in that window holds advancement. */
+    recoveryCompletedHoldCount: 3,
+
+    /* ── Deload ───────────────────────────────────────────────────────────
+       Exposure-driven, not calendar-driven. */
+
+    /** Every Nth qualifying week is the deload week. */
+    deloadEveryQualifyingWeeks: 5,
+
+    /**
+     * Zero qualifying mechanical work for this long resets accumulated
+     * deload progress.
+     *
+     * Not a claim that fatigue clears in this time. It exists so a member
+     * who stops at four accumulated weeks and returns months later is not
+     * met with a deload before they have trained.
+     */
+    deloadStaleResetDays: 28,
+});
+
+/** Shallow override, for tests and any future remote configuration. */
+export function withPolicy(overrides) {
+    return Object.freeze({ ...PROGRESSION_POLICY, ...(overrides || {}) });
+}

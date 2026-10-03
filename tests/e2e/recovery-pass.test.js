@@ -120,14 +120,27 @@ describe('recovery pass', () => {
         expect(p.last_pass_earned_date).toBe('2026-01-02');
     });
 
-    test('the HQ streak chip shows banked passes', async () => {
+    test('banked passes still exist, and are no longer displayed', async () => {
+        // Phase 2B.1 step 2 removed the streak chip, which was the only place
+        // the banked pass count appeared. The mechanic is untouched and still
+        // persists; it simply has no display surface until step 8 re-points
+        // the Pass at qualifying weeks and gives it a purpose the member can
+        // see. Flagged in the step 2 report rather than papered over with a
+        // new widget.
         await seed([2, 1, 0]);
-        const chip = await app.page.evaluate(() => {
+        const r = await app.page.evaluate(() => {
             persisted.streakPasses = 2; goToStep(0);
-            return document.getElementById('hq-streak').innerText;
+            return {
+                chipGone: !document.getElementById('hq-streak'),
+                banked: persisted.streakPasses,
+                earnFnExists: typeof maybeEarnStreakPass === 'function',
+                consumeFnExists: typeof maybeConsumeStreakPass === 'function',
+            };
         });
-        expect(chip).toMatch(/3 Day Streak/);
-        expect(chip).toMatch(/2/);
+        expect(r.chipGone).toBe(true);
+        expect(r.banked).toBe(2);
+        expect(r.earnFnExists).toBe(true);
+        expect(r.consumeFnExists).toBe(true);
         expect(app.errors).toEqual([]);
     }, 30_000);
 });

@@ -331,27 +331,40 @@ describe('week completion is the primary progress signal', () => {
         expect(r.weekDone).toBeLessThanOrEqual(n);
     });
 
-    test('streak is no longer shown beside it', async () => {
-        // Two counters disagreeing about the same week is the contradiction
-        // this phase was meant to remove. Streak still exists; it is just not
-        // sharing the headline while its own logic treats a prescribed rest
-        // day as a miss.
-        const r = await app.page.evaluate(() => {
-            const chips = document.getElementById('hq-stat-chips');
-            const streak = document.getElementById('hq-streak');
-            const level = document.getElementById('hq-level-badge');
-            return {
-                streakInChips: chips.contains(streak),
-                streakInLevel: level.contains(streak),
-                streakStillRendered: streak.textContent.trim().length > 0,
-                levelBelowToday: !!(document.getElementById('hq-today-card')
-                    .compareDocumentPosition(level) & Node.DOCUMENT_POSITION_FOLLOWING),
-            };
-        });
-        expect(r.streakInChips).toBe(false);
-        expect(r.streakInLevel).toBe(true);
-        expect(r.streakStillRendered).toBe(true);
+    test('streak is not displayed anywhere', async () => {
+        // Phase 2A.2 demoted it to the level block. Phase 2B.1 step 2 removes
+        // the display entirely: getCurrentStreak() breaks on any day without
+        // a session, including a prescribed rest day, so it contradicts the
+        // weekly target by construction.
+        //
+        // DISPLAY ONLY. The calculation, Recovery Passes, passProtectedDates
+        // and records.longestStreak all still exist; see the step 8 plan.
+        const r = await app.page.evaluate(() => ({
+            hqChip: !!document.getElementById('hq-streak'),
+            recordChip: !!document.getElementById('record-streak'),
+            summaryStat: !!document.getElementById('summary-streak'),
+            // The mechanics are deliberately still here.
+            calcExists: typeof getCurrentStreak === 'function',
+            recordStillStored: typeof (persisted.records || {}).longestStreak === 'number',
+            levelBelowToday: !!(document.getElementById('hq-today-card')
+                .compareDocumentPosition(document.getElementById('hq-level-badge'))
+                & Node.DOCUMENT_POSITION_FOLLOWING),
+        }));
+        expect(r.hqChip).toBe(false);
+        expect(r.recordChip).toBe(false);
+        expect(r.summaryStat).toBe(false);
+        expect(r.calcExists).toBe(true);
+        expect(r.recordStillStored).toBe(true);
         expect(r.levelBelowToday).toBe(true);
+    });
+
+    test('no visible surface still says "streak"', async () => {
+        const hits = await app.page.evaluate(() =>
+            [...document.querySelectorAll('#step-0, #step-5, #session-summary-modal, #chart-modal')]
+                .flatMap(root => [...root.querySelectorAll('*')])
+                .filter(el => el.children.length === 0 && /streak/i.test(el.textContent))
+                .map(el => el.textContent.trim().slice(0, 60)));
+        expect(hits).toEqual([]);
     });
 });
 
