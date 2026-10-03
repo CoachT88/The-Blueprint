@@ -744,16 +744,59 @@ describe('deload follows accumulated work, not the calendar', () => {
         expect(r.deload).toBe(true);
     }, 30_000);
 
-    test('the deload week banks like any other and opens the next cycle', async () => {
+    test('the deload week discharges the cycle as it elapses', async () => {
         const r = await seedWeeks(app.page, qWeeks(5), {}, { live: 0 });
-        expect(r.accumulated).toBe(5);
+        expect(r.accumulated).toBe(0);
         expect(r.deload).toBe(false);
     }, 30_000);
 
-    test('a pending deload survives a poor week rather than expiring', async () => {
-        // Four banked, then a week with one session. The reduction is still
-        // owed; a bad week does not cancel it.
-        const r = await seedWeeks(app.page, [...qWeeks(4, 2), { weeksAgo: 1, q: 1 }]);
+    /**
+     * DISCHARGE. A deload week is one calendar week and is spent by
+     * elapsing, not by being trained well. These are the three cases the
+     * product rule names, each driven through the page's own isDeloadWeek().
+     */
+    test.each([
+        ['one mechanical session', 1],
+        ['no sessions at all', 0],
+        ['a full qualifying week', 3],
+    ])('DISCHARGE: a deload week with %s does not repeat', async (_label, sessions) => {
+        const r = await seedWeeks(app.page, [
+            ...qWeeks(4, 2),
+            { weeksAgo: 1, q: sessions },        // the deload week, now elapsed
+        ], {}, { live: 0 });
+        expect(r.accumulated).toBe(0);
+        expect(r.deload).toBe(false);
+    }, 30_000);
+
+    test('REGRESSION: a quiet deload week does not reduce the following weeks too', async () => {
+        // The retired behaviour. Pausing alone left the count at four, so
+        // every later week read as a deload until one qualified, which is a
+        // reduced-workload loop a member could not get out of by resting.
+        const r = await seedWeeks(app.page, [
+            ...qWeeks(4, 3),
+            { weeksAgo: 2, q: 0 },               // deload week, untrained
+            { weeksAgo: 1, q: 0 },               // and another quiet week
+        ], {}, { live: 0 });
+        expect(r.deload).toBe(false);
+        expect(await app.page.evaluate(() => applyDeload({ sets: 4, duration: 60 })))
+            .toMatchObject({ sets: 4, duration: 60 });
+    }, 30_000);
+
+    test('and the cycle then builds again from zero', async () => {
+        // Discharged, then four fresh qualifying weeks, and the reduction
+        // comes back round. It is a cycle, not a one-off.
+        const r = await seedWeeks(app.page, [
+            ...qWeeks(4, 6), { weeksAgo: 5, q: 0 }, ...qWeeks(4),
+        ], {}, { live: 0 });
+        expect(r.accumulated).toBe(4);
+        expect(r.deload).toBe(true);
+    }, 30_000);
+
+    test('a poor week before the trigger still only pauses', async () => {
+        // Discharge applies to the deload week, not to every bad week.
+        const r = await seedWeeks(app.page, [
+            ...qWeeks(3, 3), { weeksAgo: 2, q: 1 }, { weeksAgo: 1, q: 3 },
+        ], {}, { live: 0 });
         expect(r.accumulated).toBe(4);
         expect(r.deload).toBe(true);
     }, 30_000);
@@ -867,6 +910,103 @@ describe('deload follows accumulated work, not the calendar', () => {
         const r = await app.page.evaluate(() => applyDeload({ sets: 4, duration: 60 }));
         expect(r).toMatchObject({ sets: 4, duration: 60 });
     }, 30_000);
+});
+
+describe('one deload answer, read by everything that mentions it', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: UID }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    /**
+     * nextBestAction() used to carry its own copy of the retired
+     * `getISOWeek % 4` rule, gated on firstSessionDate. It decided what the
+     * Today card SAID and what duration it showed, while the ledger decided
+     * what the session actually DID, and the two disagreed most weeks. The
+     * resolver now takes the answer as an input.
+     */
+    const readAll = (page) => page.evaluate(() => {
+        renderDashboard();
+        const r = window.BP.nextBestAction(buildResolverInput());
+        return {
+            engine: isDeloadWeek(),
+            resolver: r.modifiers.deload,
+            saysSo: r.changes.join(' '),
+            duration: r.duration,
+            banner: !document.getElementById('deload-banner').classList.contains('hidden'),
+            prescription: applyDeload({ sets: 4, duration: 60 }),
+        };
+    });
+
+    /* Every day is a training day, so the fixture does not depend on the
+       weekday the suite runs on. That makes the target seven and the bar to
+       qualify six, so these weeks are seeded full rather than with the three
+       that qualify against the usual four-session schedule. */
+    const EVERY_DAY = { schedule: ['length', 'length', 'length', 'length', 'length', 'length', 'length'] };
+    const fullWeeks = (n, from = 1) => Array.from({ length: n }, (_, i) => ({ weeksAgo: from + i, q: 7 }));
+
+    test('on a deload week they all agree it is on', async () => {
+        await seedWeeks(app.page, fullWeeks(4), EVERY_DAY, { live: 0 });
+        const r = await readAll(app.page);
+        expect(r.engine).toBe(true);
+        expect(r.resolver).toBe(true);
+        expect(r.saysSo).toMatch(/deload/i);
+        expect(r.prescription).toMatchObject({ sets: 3, duration: 36 });
+        expect(r.banner).toBe(true);
+    }, 30_000);
+
+    test('on an ordinary week they all agree it is off', async () => {
+        await seedWeeks(app.page, fullWeeks(3), EVERY_DAY, { live: 0 });
+        const r = await readAll(app.page);
+        expect(r.engine).toBe(false);
+        expect(r.resolver).toBe(false);
+        expect(r.saysSo).not.toMatch(/deload/i);
+        expect(r.prescription).toMatchObject({ sets: 4, duration: 60 });
+        expect(r.banner).toBe(false);
+    }, 30_000);
+
+    test('the duration the member is shown moves with it', async () => {
+        await seedWeeks(app.page, fullWeeks(3), EVERY_DAY, { live: 0 });
+        const normal = (await readAll(app.page)).duration;
+        await seedWeeks(app.page, fullWeeks(4), EVERY_DAY, { live: 0 });
+        const reduced = (await readAll(app.page)).duration;
+        expect(normal).toBeGreaterThan(0);
+        expect(reduced).toBeLessThan(normal);
+    }, 60_000);
+
+    test('REGRESSION: the resolver no longer computes it from the calendar', async () => {
+        // firstSessionDate was the old gate's input. It must now change
+        // nothing, on a week the retired rule would have called a deload.
+        const r = await app.page.evaluate(() => {
+            persisted.firstSessionDate = '2020-01-01T00:00:00.000Z';   // years of history
+            const input = buildResolverInput();
+            return {
+                passesFirstSession: 'firstSessionDate' in input,
+                deloadInInput: input.deload,
+                resolver: window.BP.nextBestAction(input).modifiers.deload,
+                engine: isDeloadWeek(),
+            };
+        });
+        expect(r.passesFirstSession).toBe(false);
+        expect(r.deloadInInput).toBe(r.engine);
+        expect(r.resolver).toBe(r.engine);
+    }, 30_000);
+
+    test('the banner says it is planned, not that something is wrong', async () => {
+        await seedWeeks(app.page, fullWeeks(4), EVERY_DAY, { live: 0 });
+        const copy = await app.page.evaluate(() => {
+            renderDashboard();
+            return document.getElementById('deload-banner').textContent;
+        });
+        expect(copy).toMatch(/on purpose/i);
+        expect(copy).toMatch(/back to normal next week/i);
+        // No fatigue, injury or decline framing, and no engine vocabulary.
+        expect(copy).not.toMatch(/fatigue|injur|overtrain|recover(y|ed)|decline|damage/i);
+        expect(copy).not.toMatch(/\b(ledger|verdict|denominator|qualifying week)\b/i);
+    }, 30_000);
+
+    test('the page threw nothing throughout', () => {
+        expect(app.errors).toEqual([]);
+    });
 });
 
 describe('the streak no longer decides anything', () => {

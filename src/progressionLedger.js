@@ -387,33 +387,51 @@ export function progressionEligibility(ledger, policy) {
  *     day rule rather than being rounded to whole weeks;
  *   the LEDGER supplies the qualified verdicts, which only it can state.
  *
- * Counting. Only FINISHED weeks are banked; the week in progress is
- * deliberately excluded. With a cycle of five that gives
+ * THE CYCLE. Only FINISHED weeks are banked; the week in progress is
+ * deliberately excluded, so the answer is the same on Monday morning as it
+ * is on Sunday night. The reduction has to be knowable BEFORE the week's
+ * first mechanical session, and an earlier version could not do that: it
+ * read the live row, which only reaches a qualifying verdict partway
+ * through the week, so the first sessions ran at full load and a member
+ * doing exactly the minimum got no deload at all.
  *
  *     weeks 1 to 4   banked, normal training
- *     week 5         accumulated is 4, so this whole week is the deload
- *     week 6         the deload week banked as the fifth, count back to 0
+ *     week 5         four are banked, so the whole of this week is reduced
+ *     week 6         week 5 has elapsed, the cycle is discharged, normal
  *
- * and the answer is therefore the same from Monday morning as it is on
- * Sunday night. That matters: the reduction has to be knowable BEFORE the
- * week's first mechanical session, and the previous version could not do
- * that. It read the current row, which only becomes `qualified` partway
- * through the week, so the first sessions of a deload week ran at full
- * load and a member doing exactly the minimum got no deload at all.
- *
- *   qualifying week       banks one, once it has finished
+ *   qualifying week       banks one
  *   non-qualifying week   PAUSES. Not a reset, which would make someone
  *                         re-earn a rest after one bad week, and not an
  *                         advance, which would deload someone who has not
- *                         trained. A pending deload therefore stays pending
- *                         until a qualifying week actually completes.
+ *                         trained.
+ *   the deload week       DISCHARGES the cycle the moment it elapses,
+ *                         whatever happened inside it, and banks nothing.
  *   >28 days with no qualifying session
- *                         resets to zero, both historically and live. A
- *                         programme policy, not a claim about fatigue.
+ *                         resets to zero, both historically and live.
  *
- * No cycle counter is stored and none is reset: `accumulated % every` is
- * self-maintaining, so a completed deload week starts the next cycle
- * simply by being banked.
+ * All of it is programme policy about planned workload, not a claim about
+ * what is happening in anyone's body.
+ *
+ * DISCHARGE, AND WHY IT NEEDS NO STORED STATE. A deload week must not
+ * repeat because it happened to be a quiet week. Pausing alone would do
+ * exactly that: the count would sit at four and every following week would
+ * read as a deload until one qualified, which is a reduced-workload loop
+ * nobody asked for.
+ *
+ * So the counter is not a sum, it is a fold over the finished weeks in
+ * order. Each week either banks one, pauses, or IS the deload week, and a
+ * deload week sets the count back to zero as it passes. That makes the
+ * three facts the rule needs all derivable from the rows themselves:
+ *
+ *   the four qualifying weeks that triggered it   the run before the reset
+ *   the one calendar week that followed them      where the fold reset
+ *   whether that week has elapsed                 it is a finished row
+ *
+ * The ledger always has a row for every calendar week up to the current one,
+ * including weeks nobody opened the app in, because reconcileLedger fills
+ * the gaps. A wholly absent deload week therefore still discharges. And the
+ * fold only has to reach back to the last discharge or stale reset, which
+ * requiredLedgerWeeks() bounds at 21 of the 26 retained weeks.
  */
 export function deloadState(ledger, sessionLog, { now, policy } = {}) {
     const p = policy || PROGRESSION_POLICY;
@@ -423,7 +441,8 @@ export function deloadState(ledger, sessionLog, { now, policy } = {}) {
 
     const none = (extra) => ({
         isDeloadWeek: false, accumulated: 0, every: p.deloadEveryQualifyingWeeks,
-        stale: false, daysSinceLastQualifying: null, resetAtWeek: null, ...extra,
+        stale: false, daysSinceLastQualifying: null, resetAtWeek: null,
+        lastDeloadWeek: null, ...extra,
     });
     if (!days.length || !rows.length) return none();
 
@@ -446,23 +465,35 @@ export function deloadState(ledger, sessionLog, { now, policy } = {}) {
     const resetIdx = resetWeek ? rows.findIndex(r => r.weekKey === resetWeek) : -1;
 
     const liveWeek = getCurrentWeekKey(ref);
+    const trigger = p.deloadEveryQualifyingWeeks - 1;
+
     let accumulated = 0;
+    let lastDeloadWeek = null;
     rows.forEach((w, i) => {
         if (resetIdx >= 0 && i < resetIdx) return;      // before the reset
         if (w.weekKey === liveWeek) return;             // still in progress, not banked
+        if (accumulated === trigger) {
+            // This finished week WAS the deload week. It has now elapsed, so
+            // the cycle is discharged whether or not it qualified, and it
+            // banks nothing toward the next one.
+            lastDeloadWeek = w.weekKey;
+            accumulated = 0;
+            return;
+        }
         if (weekQualified(w)) accumulated += 1;         // every other verdict pauses
     });
 
     return {
-        // The week after the last banked training week of the cycle, start
-        // to finish, whatever happens inside it.
-        isDeloadWeek: accumulated % p.deloadEveryQualifyingWeeks
-            === p.deloadEveryQualifyingWeeks - 1,
+        // Exactly one calendar week, start to finish, once the trigger run is
+        // banked. Never two in a row.
+        isDeloadWeek: accumulated === trigger,
         accumulated,
         every: p.deloadEveryQualifyingWeeks,
         stale: false,
         daysSinceLastQualifying: daysSince,
         resetAtWeek: resetWeek,
+        /** The most recent elapsed deload week, derived. Nothing stores it. */
+        lastDeloadWeek,
     };
 }
 

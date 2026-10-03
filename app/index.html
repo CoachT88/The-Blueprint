@@ -772,11 +772,13 @@
                     <p class="text-[10px] text-slate-400 mt-0.5">Your progress is still saving to the cloud, but this device cannot keep an offline copy. Free up some space when you get a chance.</p>
                 </div>
             </div>
-            <!-- Still rendered and still hidden by the same conditions as
-                 before, but the Today card is now where rest, deload and an
-                 unfinished session are communicated, so the band never
-                 promotes these three. Kept so nothing that reads them breaks. -->
-            <div id="deload-banner" class="deload-banner hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
+            <!-- Rest and an unfinished session are said by the Today card, so
+                 the band never promotes those two. The deload banner is
+                 different and IS promoted: a deload runs for a whole week,
+                 it starts before the member opens a session, and the Today
+                 card only mentions it as one line among the day's changes.
+                 A week-long change to the plan is worth a banner. -->
+            <div id="deload-banner" class="deload-banner hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week</p><p id="deload-banner-text" class="text-slate-400 text-[11px] mt-0.5">Lighter on purpose this week. Sets drop by one and durations come down. Same sessions, less volume, and back to normal next week.</p></div></div>
             <div id="hq-rest-banner" class="hidden p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-3">
                 <i class="fas fa-bed text-indigo-400 text-lg flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
@@ -1096,7 +1098,7 @@
             <i class="fas fa-circle-info text-amber-400 text-sm flex-shrink-0 mt-0.5"></i>
             <p id="mission-blocked-text" class="text-[11px] text-amber-200/90 leading-relaxed"></p>
         </div>
-        <div id="deload-mission-note" class="hidden mx-2 deload-banner text-left"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><p class="text-orange-300 text-[11px]">Deload active — reduced volume loaded automatically.</p></div>
+        <div id="deload-mission-note" class="hidden mx-2 deload-banner text-left"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><p class="text-orange-300 text-[11px]">Deload week. Reduced volume is already loaded for you.</p></div>
 
     <!-- Difficulty selector -->
     <div class="px-2 space-y-2">
@@ -1665,24 +1667,24 @@
                 <div class="space-y-2">
                     <div class="p-3 rounded-xl bg-emerald-500/05 border border-emerald-500/20">
                         <p class="text-emerald-300 font-bold text-xs mb-1"><i class="fas fa-seedling mr-1.5"></i>Beginner</p>
-                        <p>Default starting tier. Shorter durations, fewer sets. Designed to condition the tissue before increasing load. Everyone starts here.</p>
+                        <p>Shorter durations, fewer sets. Always available, to anyone, at any time. Dropping to it never needs permission and never costs you anything you have earned.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-blue-500/05 border border-blue-500/20">
                         <p class="text-blue-300 font-bold text-xs mb-1"><i class="fas fa-dumbbell mr-1.5"></i>Intermediate</p>
-                        <p>Standard working tier for most users. Unlocks immediately. This is where the majority of your training will happen.</p>
+                        <p>The default, and the standard working tier. Always available. This is where the majority of your training will happen.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-purple-500/05 border border-purple-500/20">
                         <p class="text-purple-300 font-bold text-xs mb-1"><i class="fas fa-bolt mr-1.5"></i>Advanced</p>
-                        <p>Requires 4 weeks at Intermediate before unlocking. The timer starts from the moment you first select Intermediate. This 4-week lock is not arbitrary — collagen remodeling takes a minimum of 3–4 weeks. Rushing this stage is the number one cause of injuries in this protocol.</p>
+                        <p>Earned, not waited out. It opens once you have put together four solid training weeks out of your last eight, and it stays open once you have it. If your recent sessions have been very hard going, or there is not enough history to judge yet, it stays shut for now and the app tells you which. Time served at Intermediate counts for nothing on its own, because sitting at a tier is not training.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-red-500/05 border border-red-500/20">
                         <p class="text-red-300 font-bold text-xs mb-1"><i class="fas fa-skull-crossbones mr-1.5"></i>Elite</p>
-                        <p>Requires 4 weeks at Advanced AND a sustained average EQ of 9+ across your last 10 sessions. Both requirements must be met simultaneously. Tapping the locked Elite button shows you exactly what is needed.</p>
+                        <p>Three things at once: you have reached Advanced, you have the same four solid weeks behind you, and your average EQ across your recent sessions is 9 or above. Fewer than three rated sessions is not enough to judge, and it is not treated as a pass. Tapping the locked Elite button tells you which part is missing.</p>
                     </div>
                 </div>
                 <div class="p-3 rounded-xl bg-orange-500/05 border border-orange-500/20">
                     <p class="text-orange-300 font-bold text-xs mb-1"><i class="fas fa-battery-quarter mr-1.5"></i>Deload Weeks</p>
-                    <p>Every 4th calendar week is automatically a deload week. Volume reduces slightly and the app flags it with an orange banner. Deload weeks are when most of your gains actually consolidate — do not skip them or try to override them.</p>
+                    <p>Once you have put together four solid training weeks, the week that follows is a deload week. Sets drop by one and durations come down, from that week's first session to its last, and the app flags it with an orange banner. It is one week only. Whatever you manage inside it, the next week goes back to normal and the count starts again. This is how the programme is planned rather than a verdict on how your week went, and the session count stays the same, so a deload week can still be a full week of training.</p>
                 </div>
             </div>
         </div>
@@ -1964,7 +1966,7 @@
             <div class="flex-1 min-w-0">
                 <p class="text-[12px] font-black text-amber-300 uppercase tracking-widest">Recovery Passes</p>
                 <p id="pass-info-bank" class="text-[11px] font-bold text-slate-300 mt-1.5">You have 0 of 2 banked.</p>
-                <p class="text-[12px] text-slate-400 mt-2 leading-relaxed">You earn one for each week you complete the training your schedule asked for, and you can have two at a time.</p>
+                <p class="text-[12px] text-slate-400 mt-2 leading-relaxed">You earn one when you put in enough training to keep your week on track, and you can have two at a time.</p>
                 <p class="text-[12px] text-slate-400 mt-2 leading-relaxed">If you miss a day, a banked Pass is spent automatically to cover it. That stops the reminders treating the gap as if you had dropped off, and the app will not chase you about it.</p>
                 <p class="text-[12px] text-slate-500 mt-2 leading-relaxed">A Pass does not count as a session and it does not move you closer to the next tier. It only changes how the app talks to you about a day you missed.</p>
             </div>
@@ -4689,7 +4691,11 @@ function buildResolverInput(){
         sessionDraft:draft,
         soreness:localStorage.getItem(getTodaySorenessKey())||'',
         pelvicProfile:persisted.pelvicProfile,
-        firstSessionDate:persisted.firstSessionDate,
+        /* The authoritative deload answer, computed once here and passed in.
+           The resolver used to work it out again from firstSessionDate with
+           the retired calendar rule, so the Today card and the duration
+           estimate could both disagree with the session the member then got. */
+        deload:isDeloadWeek(),
         recoveryPlan:getDailyRecommendedUnfiltered(),
         contractionIndices:CONTRACTION_RECOVERY_IDX,
         estimateMinutes:(mission,opts)=>window.BP.estimateSessionMinutes(mission,{
@@ -4741,8 +4747,8 @@ function currentPrescription(){ return _today; }
 const ATTENTION_BAND=[
     {id:'hq-load-failed-banner',  live:()=>!_persistedLoaded&&!!currentUser},
     {id:'hq-storage-full-banner', live:()=>!!_storageFull},
-    // Never promoted: the Today card owns these three.
-    {id:'deload-banner',          live:()=>false},
+    {id:'deload-banner',          live:()=>typeof isDeloadWeek==='function'&&isDeloadWeek()},
+    // Never promoted: the Today card owns these two.
     {id:'hq-rest-banner',         live:()=>false},
     {id:'resume-banner',          live:()=>false},
 ];
@@ -5656,7 +5662,7 @@ function showSessionSummary(xp){
     const r=persisted.records||{};
     const records=[];
     if(xp>=r.bestSessionXp&&xp>0) records.push('⚡ New session XP record: '+xp+' XP');
-    if(_passEarnedThisSession) records.push('🛡️ You earned a Recovery Pass for completing a qualifying week');
+    if(_passEarnedThisSession) records.push('🛡️ You earned a Recovery Pass for a solid week of training');
     const recordsEl=document.getElementById('summary-records');
     recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
     modal.classList.add('show');

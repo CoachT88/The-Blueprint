@@ -354,7 +354,8 @@ describe('recovery pass', () => {
         expect(r.before).toBe('Recovery Passes: 0 / 2');
         expect(r.banked).toBe(1);
         expect(r.after).toBe('Recovery Passes: 1 / 2');
-        expect(r.summary).toContain('You earned a Recovery Pass for completing a qualifying week');
+        expect(r.summary).toContain('You earned a Recovery Pass for a solid week of training');
+        expect(r.summary).not.toMatch(/qualifying/i);
     }, 30_000);
 
     test('what a Pass does is explained before one is ever spent', async () => {
@@ -371,7 +372,11 @@ describe('recovery pass', () => {
         expect(r.closed).toBe(true);
         expect(r.text).toContain('You have 2 of 2 banked.');
         // Earned for training, spent on a missed day, and not training credit.
-        expect(r.text).toMatch(/each week you complete the training/i);
+        // The wording must not imply a perfect week: a four-session schedule
+        // needs three, so "complete the training your schedule asked for"
+        // asked more of the member than the mechanic does.
+        expect(r.text).toMatch(/enough training to keep your week on track/i);
+        expect(r.text).not.toMatch(/complete the training your schedule/i);
         expect(r.text).toMatch(/if you miss a day/i);
         expect(r.text).toMatch(/does not count as a session/i);
         expect(r.text).toMatch(/does not move you closer to the next tier/i);

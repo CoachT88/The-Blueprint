@@ -301,11 +301,12 @@ describe('deload counting', () => {
         expect(deloadState(ledger, log, { now: NOW }).isDeloadWeek).toBe(true);
     });
 
-    test('the deload week banks like any other and opens the next cycle', () => {
+    test('the deload week discharges the cycle as it elapses', () => {
         const { ledger, log } = banked(5);
         const r = deloadState(ledger, log, { now: NOW });
-        expect(r.accumulated).toBe(5);
+        expect(r.accumulated).toBe(0);           // discharged, not carried
         expect(r.isDeloadWeek).toBe(false);
+        expect(r.lastDeloadWeek).toBe(key(7));   // the week that was reduced
     });
 
     test('the cycle lands on every fifth week and nowhere else', () => {
@@ -317,12 +318,50 @@ describe('deload counting', () => {
         expect(on).toEqual([4, 9]);          // 14 would need more retained weeks
     });
 
-    test('a pending deload stays pending until a qualifying week completes', () => {
-        // Four banked, then a poor week. The reduction does not expire
-        // because the member had a bad week; it is still owed.
+    /**
+     * Discharge. A deload week is one calendar week and is spent by
+     * elapsing, not by being trained well. These three are the cases the
+     * product rule names, and together they rule out consecutive deloads.
+     */
+    test.each([
+        ['one session in the deload week', 1],
+        ['no sessions at all in the deload week', 0],
+        ['a full qualifying deload week', 3],
+    ])('DISCHARGE: %s still ends the cycle', (_label, sessions) => {
         const { ledger, log } = simulate([
             ...Array.from({ length: 4 }, (_, i) => ({ weeksBack: i + 2, sessions: 3 })),
-            { weeksBack: 1, sessions: 1 },                       // poor, banks nothing
+            { weeksBack: 1, sessions },          // the deload week, now elapsed
+            { weeksBack: 0, sessions: 0 },
+        ]);
+        const r = deloadState(ledger, log, { now: NOW });
+        expect(r.lastDeloadWeek).toBe(key(7));
+        expect(r.accumulated).toBe(0);
+        expect(r.isDeloadWeek).toBe(false);      // never two in a row
+    });
+
+    test('REGRESSION: a quiet deload week does not reduce the next one too', () => {
+        // The retired behaviour: pausing alone left the count at four, so
+        // every following week read as a deload until one qualified. That is
+        // a reduced-workload loop, and it is what discharge removes.
+        const quiet = simulate([
+            ...Array.from({ length: 4 }, (_, i) => ({ weeksBack: i + 3, sessions: 3 })),
+            { weeksBack: 2, sessions: 0 },       // deload week, untrained
+            { weeksBack: 1, sessions: 0 },       // and another quiet week
+            { weeksBack: 0, sessions: 0 },
+        ]);
+        const r = deloadState(quiet.ledger, quiet.log, { now: NOW });
+        expect(r.isDeloadWeek).toBe(false);
+        expect(r.accumulated).toBe(0);
+    });
+
+    test('a poor week before the trigger still only pauses', () => {
+        // Discharge applies to the deload week, not to every bad week. Three
+        // banked, a poor week, then a fourth banked: the count reaches four
+        // and the live week is the deload.
+        const { ledger, log } = simulate([
+            ...Array.from({ length: 3 }, (_, i) => ({ weeksBack: i + 3, sessions: 3 })),
+            { weeksBack: 2, sessions: 1 },                       // poor, banks nothing
+            { weeksBack: 1, sessions: 3 },
             { weeksBack: 0, sessions: 0 },
         ]);
         const r = deloadState(ledger, log, { now: NOW });
@@ -342,14 +381,28 @@ describe('deload counting', () => {
     });
 
     test('it survives pruning, because it is derived not stored', () => {
+        // Thirty unbroken qualifying weeks, pruned to the retained window.
+        // The fold discharges every fifth week, so the count is a cycle
+        // position rather than a lifetime total and can never run away.
         const { ledger, log } = banked(30);
         const r = deloadState(ledger, log, { now: NOW });
-        const bankedRows = ledger.filter(w => w.weekKey !== getCurrentWeekKey(NOW));
-        // No gap was long enough to reset, so the counter equals every
-        // retained week that qualified, the live one excluded.
-        expect(r.accumulated).toBe(bankedRows.filter(weekQualified).length);
-        expect(r.accumulated).toBeGreaterThan(20);
+        expect(ledger.length).toBe(PROGRESSION_POLICY.ledgerMaxWeeks);
+        expect(r.accumulated).toBeGreaterThanOrEqual(0);
+        expect(r.accumulated).toBeLessThan(r.every);
+        expect(r.lastDeloadWeek).not.toBeNull();
         expect(r.stale).toBe(false);
+    });
+
+    test('REGRESSION: the fold only needs the weeks the policy guarantees', () => {
+        // A cycle spans at most requiredLedgerWeeks(), so truncating the
+        // ledger to that many rows cannot change the answer. If a policy
+        // change broke that, this would fail rather than quietly miscount.
+        const { ledger, log } = banked(30);
+        const full = deloadState(ledger, log, { now: NOW });
+        const trimmed = ledger.slice(ledger.length - requiredLedgerWeeks());
+        const short = deloadState(trimmed, log, { now: NOW });
+        expect(short.accumulated).toBe(full.accumulated);
+        expect(short.isDeloadWeek).toBe(full.isDeloadWeek);
     });
 
     test('REGRESSION: a trained week whose row was lost keeps its slot but no verdict', () => {
