@@ -551,7 +551,7 @@
         </div>
         <div id="notif-supported">
             <div class="space-y-4">
-                <p class="text-[11px] text-slate-400 leading-relaxed">One reminder a day at the time you choose, and a warning before a streak breaks. Nothing on a rest day, and nothing once you've trained.</p>
+                <p class="text-[11px] text-slate-400 leading-relaxed">One reminder a day at the time you choose. Nothing on a rest day, nothing once you've trained, and nothing on a day a Recovery Pass is covering.</p>
                 <p class="text-[10px] text-slate-600 leading-relaxed">Notifications only ever say The Blueprint. Nothing about what you train appears on your lock screen.</p>
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
@@ -560,17 +560,6 @@
                             <p class="text-[10px] text-slate-600">Sent if you haven't trained that day</p>
                         </div>
                         <input type="time" id="notif-time" value="19:00" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 font-bold">
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-[11px] font-bold text-slate-300">Streak warnings</p>
-                            <p class="text-[10px] text-slate-600">Alert before you lose a streak ≥ 3 days</p>
-                        </div>
-                        <label id="streak-warn-toggle-label" class="flex items-center cursor-pointer">
-                            <div id="streak-warn-toggle" class="w-9 h-5 rounded-full bg-slate-700 border border-slate-600 relative transition-colors">
-                                <div id="streak-warn-thumb" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-400 transition-all"></div>
-                            </div>
-                        </label>
                     </div>
                 </div>
                 <button id="notif-enable-btn" class="btn-primary py-3 text-sm w-full">Enable Notifications</button>
@@ -973,19 +962,26 @@
                 <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">65 XP to next level</span>
             </div>
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
-            <!-- Phase 2B.1 step 2: the daily streak is no longer displayed.
-     It contradicted the weekly target by construction, because
-     getCurrentStreak() breaks on any day without a session including a
-     prescribed rest day. A member who follows the programme exactly loses
-     their streak twice a week while the week counter calls them on track.
-     Since then the mechanics have been retired too: Recovery Passes earn
-     per qualifying week, the milestones count sessions and qualifying
-     weeks, and records.longestStreak is frozen. getCurrentStreak() remains
-     caller-free as the parity anchor for the server's streak warning, which
-     is the one streak surface a member can still be sent and is reported as
-     outstanding notification work. -->
+            <!-- The daily streak used to sit here. It contradicted the weekly
+     target by construction: it broke on any day without a session, a
+     prescribed rest day included, so a member following the programme
+     exactly lost their streak twice a week while the week counter called
+     them on track. Display went first, then the mechanics, and in Phase
+     2B.2 the last of it: the server's streak warning and the calculation
+     behind it are gone, so no streak is computed, stored, shown or sent
+     anywhere. Only records.longestStreak remains, frozen, as history. -->
+            <!-- Recovery Passes. Here rather than anywhere louder because a
+                 banked Pass is useful to know about and not urgent, and the
+                 mechanic is small on purpose. Tapping it explains what a
+                 Pass does, which the member needs before one is spent for
+                 them rather than after. -->
             <div class="flex items-center gap-3 mt-2.5">
                 <span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span>
+                <button id="hq-pass-chip" class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-200">
+                    <i class="fas fa-shield-halved text-amber-400/80"></i>
+                    <span id="hq-pass-count">Recovery Passes: 0 / 2</span>
+                    <i class="fas fa-circle-info text-[8px] text-slate-600"></i>
+                </button>
             </div>
         </div>
 
@@ -1954,6 +1950,26 @@
             <button id="pelvic-lock-take" class="btn-primary py-3.5 text-[12px]">TAKE THE CHECK</button>
             <button id="pelvic-lock-close" class="btn-outline py-3 text-[11px]">Not now</button>
         </div>
+    </div>
+</div>
+
+<!-- What a Recovery Pass is, in plain words. Reachable from the HQ chip, so
+     the member can read it before one is ever spent. No mention of how a
+     Pass is earned beyond "a week where you did the training", because the
+     machinery behind that is not something they should have to learn. -->
+<div id="pass-info-modal" class="hidden fixed inset-0 z-[99996] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
+    <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(245,158,11,.3)">
+        <div class="flex items-start gap-3">
+            <i class="fas fa-shield-halved text-amber-400 text-base flex-shrink-0 mt-0.5"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[12px] font-black text-amber-300 uppercase tracking-widest">Recovery Passes</p>
+                <p id="pass-info-bank" class="text-[11px] font-bold text-slate-300 mt-1.5">You have 0 of 2 banked.</p>
+                <p class="text-[12px] text-slate-400 mt-2 leading-relaxed">You earn one for each week you complete the training your schedule asked for, and you can have two at a time.</p>
+                <p class="text-[12px] text-slate-400 mt-2 leading-relaxed">If you miss a day, a banked Pass is spent automatically to cover it. That stops the reminders treating the gap as if you had dropped off, and the app will not chase you about it.</p>
+                <p class="text-[12px] text-slate-500 mt-2 leading-relaxed">A Pass does not count as a session and it does not move you closer to the next tier. It only changes how the app talks to you about a day you missed.</p>
+            </div>
+        </div>
+        <button id="pass-info-close" class="btn-outline w-full py-3 text-[11px]">Got it</button>
     </div>
 </div>
 
@@ -5261,6 +5277,7 @@ function renderDashboard(){
     });
     document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
     document.getElementById('hq-xp').innerText=`${persisted.totalXp} XP`;
+    renderPassChip();
     const lvl=getLevelInfo(persisted.totalXp);
     document.getElementById('hq-level-name').innerText=lvl.displayName;
     document.getElementById('hq-level-bar').style.width=`${lvl.pct}%`;
@@ -5501,47 +5518,24 @@ function selectRPE(val){
 // PERSONAL RECORDS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * The daily streak. NOT USED BY ANYTHING IN THIS APP ANY MORE.
- *
- * Returns the number of consecutive days, ending today or yesterday, with at
- * least one logged session. Reads sessionLog dates rather than completedDays
- * so it is correct across week boundaries.
- *
- * Every product dependency has been re-pointed: Recovery Passes earn per
- * qualifying week, the milestones count sessions and qualifying weeks,
- * Coach Tee is given weeks of work, records.longestStreak is frozen rather
- * than recomputed, and nothing displays it. A grep for callers finds none.
- *
- * It stays because it is one half of a cross-system guarantee. The
- * notification sender still computes a streak of its own, in
- * notifyRules.js currentStreak(), to decide whether to warn a member that
- * theirs is about to break, and tests/e2e/notify-parity.test.js asserts the
- * two implementations agree. Deleting this side would not remove the
- * concept, it would remove the check that the two agree about it, while
- * the server carried on sending streak warnings.
- *
- * The honest order is: retire the notification's streak warning first,
- * then delete both. That is a notification change and was not in scope for
- * this checkpoint, so this is left in place and reported rather than
- * quietly removed. See the report.
- */
-function getCurrentStreak(log){
-    const sessions=log||(persisted.sessionLog||[]);
-    if(!sessions.length) return 0;
-    const days=new Set(sessions.map(s=>s.date.split('T')[0]));
-    const protectedDays=new Set(persisted.passProtectedDates||[]);
-    const today=new Date();
-    let streak=0;
-    for(let i=0;i<365;i++){
-        const d=new Date(today);d.setDate(d.getDate()-i);
-        const key=d.toISOString().split('T')[0];
-        // A day counts if it was trained, or if a Recovery Pass is covering it.
-        if(days.has(key)||protectedDays.has(key)){streak++;}
-        else if(i>0){break;} // allow today to not yet have a session without snapping streak
-    }
-    return streak;
-}
+/* The daily streak calculation was deleted in Phase 2B.2.
+
+   It was a function named getCurrentStreak, spelled out here so a search
+   for the old name lands on the reason rather than on nothing.
+
+   It had already lost every caller in this app: Recovery Passes earn per
+   qualifying week, the milestones count sessions and qualifying weeks,
+   Coach Tee is given weeks of work, records.longestStreak is frozen, and
+   nothing displays a streak. It was kept one checkpoint longer only as the
+   parity anchor for the port in notifyRules.js, which the notification
+   sender used to warn members about a streak they could no longer see. That
+   warning has now been retired, so the port is gone, the parity check it
+   existed for is gone, and there is nothing left for this to anchor.
+
+   persisted.records.longestStreak and the records.longest_streak column are
+   NOT removed. They hold real history, nothing reads them for a decision,
+   and dropping them would destroy data to no end. */
+
 function _showLoadFailedBanner(){
     const el=document.getElementById('hq-load-failed-banner');
     if(el) el.classList.remove('hidden');
@@ -5560,6 +5554,29 @@ function _showPassUsedBanner(){
     _passUsedThisRender=true;
     renderAttentionBand();
     setTimeout(()=>{ _passUsedThisRender=false; renderAttentionBand(); },12000);
+}
+/**
+ * The banked Pass count on the HQ.
+ *
+ * The only place the member can see it. Reads straight off persisted so it
+ * cannot drift from the number the mechanic actually uses, and it is on the
+ * HQ rather than behind a session because a Pass is spent on a day the
+ * member did NOT open a session.
+ */
+function renderPassChip(){
+    const n=Math.max(0,persisted.streakPasses||0);
+    const label=document.getElementById('hq-pass-count');
+    if(label) label.innerText=`Recovery Passes: ${n} / ${RECOVERY_PASS_CAP}`;
+    const bank=document.getElementById('pass-info-bank');
+    if(bank) bank.innerText=`You have ${n} of ${RECOVERY_PASS_CAP} banked.`;
+}
+function openPassInfo(){
+    renderPassChip();
+    document.getElementById('pass-info-modal').classList.remove('hidden');
+    track('pass_info_opened',{banked:Math.max(0,persisted.streakPasses||0)});
+}
+function closePassInfo(){
+    document.getElementById('pass-info-modal').classList.add('hidden');
 }
 function _dayKey(offset){
     const d=new Date(); d.setDate(d.getDate()-(offset||0));
@@ -5639,7 +5656,7 @@ function showSessionSummary(xp){
     const r=persisted.records||{};
     const records=[];
     if(xp>=r.bestSessionXp&&xp>0) records.push('⚡ New session XP record: '+xp+' XP');
-    if(_passEarnedThisSession) records.push('🛡️ Recovery Pass earned — covers a missed day');
+    if(_passEarnedThisSession) records.push('🛡️ You earned a Recovery Pass for completing a qualifying week');
     const recordsEl=document.getElementById('summary-records');
     recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
     modal.classList.add('show');
@@ -6662,8 +6679,6 @@ async function _refreshNotifUI(){
         :'';
     const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
     if(prefs.time) document.getElementById('notif-time').value=prefs.time;
-    const streakOn=prefs.streakWarn!==false;
-    _setToggleUI('streak-warn-toggle','streak-warn-thumb',streakOn);
 }
 async function enableNotifications(){
     const btn=document.getElementById('notif-enable-btn');
@@ -6735,7 +6750,6 @@ async function _savePushSubscription(sub){
         p256dh:j.keys.p256dh,
         auth:j.keys.auth,
         reminder_time:prefs.time||'19:00',
-        streak_warn:prefs.streakWarn!==false,
         timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         updated_at:new Date().toISOString(),
     },{onConflict:'user_id'});
@@ -6806,27 +6820,20 @@ async function _ensureCurrentPushSubscription(){
         await _savePushSubscription(fresh);
     }catch(e){/* same rule as the timezone refresh: never fail a sign-in over this */}
 }
-function _setToggleUI(trackId,thumbId,on){
-    const track=document.getElementById(trackId);
-    const thumb=document.getElementById(thumbId);
-    if(!track||!thumb)return;
-    track.style.background=on?'rgb(59,130,246)':'';
-    track.style.borderColor=on?'rgba(59,130,246,.4)':'';
-    thumb.style.transform=on?'translateX(16px)':'';
-    thumb.style.background=on?'#fff':'';
-}
+/* The toggle-rendering helper went with the streak-warning switch, which was
+   the only toggle in the notification settings and its only caller. */
 async function saveNotifPrefs(){
     const time=document.getElementById('notif-time').value;
-    const streakWarn=document.getElementById('streak-warn-toggle').style.background==='rgb(59, 130, 246)';
-    const prefs={time,streakWarn};
+    const prefs={time};
     localStorage.setItem('bp_notif_prefs',JSON.stringify(prefs));
-    // The server reads these columns, so this write is the only thing that
-    // makes the picker and the toggle mean anything.
+    /* The server reads reminder_time, so this write is the only thing that
+       makes the picker mean anything. streak_warn is deliberately no longer
+       written: the column still exists for backward compatibility but
+       nothing reads it, because the streak warning it gated is retired. */
     if(currentUser&&_swRegistration&&'PushManager' in window){
         const sub=await _swRegistration.pushManager.getSubscription().catch(()=>null);
         if(sub) await sb.from('push_subscriptions').update({
             reminder_time:time,
-            streak_warn:streakWarn,
             timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         }).eq('user_id',currentUser.id).catch(()=>{});
     }
@@ -6993,6 +7000,8 @@ function init(){
     // purpose rather than passed through on the way to everything.
     document.getElementById('today-alt-btn').addEventListener('click',()=>{track('something_else');goToStep(3)});
     document.getElementById('pelvic-lock-close').addEventListener('click',closePelvicLock);
+    document.getElementById('hq-pass-chip').addEventListener('click',openPassInfo);
+    document.getElementById('pass-info-close').addEventListener('click',closePassInfo);
     document.getElementById('pelvic-lock-take').addEventListener('click',()=>{
         closePelvicLock();
         _pelvicReturn='picker';
@@ -7152,11 +7161,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     document.getElementById('notif-enable-btn').addEventListener('click',enableNotifications);
     document.getElementById('notif-disable-btn').addEventListener('click',disableNotifications);
     document.getElementById('notif-time').addEventListener('change',saveNotifPrefs);
-    document.getElementById('streak-warn-toggle-label').addEventListener('click',()=>{
-        const on=document.getElementById('streak-warn-toggle').style.background!=='rgb(59, 130, 246)';
-        _setToggleUI('streak-warn-toggle','streak-warn-thumb',on);
-        saveNotifPrefs();
-    });
     initServiceWorker();
     // Safety net: if auth + membership check + data load don't complete in 12 s,
     // drop to the login screen so the user isn't stuck on a blank loading screen.

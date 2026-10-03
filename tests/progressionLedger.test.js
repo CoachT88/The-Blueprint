@@ -253,18 +253,81 @@ describe('deload is derivable from the bounded ledger', () => {
 });
 
 describe('deload counting', () => {
-    const consecutive = (n) => simulate(Array.from({ length: n }, (_, i) => ({ weeksBack: i, sessions: 3 })));
+    /**
+     * `n` FINISHED qualifying weeks, then the live week with `today`
+     * sessions in it. Only the finished weeks bank, so `today` must make no
+     * difference to the answer, and several of these tests exist to prove
+     * exactly that.
+     */
+    const banked = (n, today = 0) => simulate([
+        ...Array.from({ length: n }, (_, i) => ({ weeksBack: i + 1, sessions: 3 })),
+        { weeksBack: 0, sessions: today },
+    ]);
 
-    test('the fifth qualifying week is the deload week', () => {
-        const { ledger, log } = consecutive(5);
+    test('four banked weeks make the live week the deload week', () => {
+        const { ledger, log } = banked(4);
         const r = deloadState(ledger, log, { now: NOW });
-        expect(r.accumulated).toBe(5);
+        expect(r.accumulated).toBe(4);
         expect(r.isDeloadWeek).toBe(true);
     });
 
-    test('the fourth is not', () => {
-        const { ledger, log } = consecutive(4);
-        expect(deloadState(ledger, log, { now: NOW }).isDeloadWeek).toBe(false);
+    test('three banked weeks do not', () => {
+        const { ledger, log } = banked(3);
+        const r = deloadState(ledger, log, { now: NOW });
+        expect(r.accumulated).toBe(3);
+        expect(r.isDeloadWeek).toBe(false);
+    });
+
+    test.each([0, 1, 2, 3, 4])
+    ('ACCEPTANCE: with four banked it is a deload week after %i sessions this week', (today) => {
+        // The answer must not move as the live week fills. Nothing may be
+        // required of the member before the reduction applies, which is the
+        // whole correction: the old rule read the live row and so switched
+        // on partway through, or never, for anyone doing the minimum.
+        const { ledger, log } = banked(4, today);
+        expect(deloadState(ledger, log, { now: NOW }).isDeloadWeek).toBe(true);
+    });
+
+    test('a member doing exactly the minimum still earns the full week', () => {
+        // SCHEDULE_4 targets four sessions, so three is the minimum that
+        // qualifies. Four such weeks bank four, and the next week is reduced
+        // from its first session.
+        const { ledger, log } = banked(4, 0);
+        expect(ledger.filter(weekQualified)).toHaveLength(4);
+        for (const w of ledger.filter(weekQualified)) {
+            expect(w.qualifyingSessions).toBe(3);
+            expect(w.targetSessions).toBe(4);
+        }
+        expect(deloadState(ledger, log, { now: NOW }).isDeloadWeek).toBe(true);
+    });
+
+    test('the deload week banks like any other and opens the next cycle', () => {
+        const { ledger, log } = banked(5);
+        const r = deloadState(ledger, log, { now: NOW });
+        expect(r.accumulated).toBe(5);
+        expect(r.isDeloadWeek).toBe(false);
+    });
+
+    test('the cycle lands on every fifth week and nowhere else', () => {
+        const on = [];
+        for (let n = 0; n <= 12; n++) {
+            const { ledger, log } = banked(n);
+            if (deloadState(ledger, log, { now: NOW }).isDeloadWeek) on.push(n);
+        }
+        expect(on).toEqual([4, 9]);          // 14 would need more retained weeks
+    });
+
+    test('a pending deload stays pending until a qualifying week completes', () => {
+        // Four banked, then a poor week. The reduction does not expire
+        // because the member had a bad week; it is still owed.
+        const { ledger, log } = simulate([
+            ...Array.from({ length: 4 }, (_, i) => ({ weeksBack: i + 2, sessions: 3 })),
+            { weeksBack: 1, sessions: 1 },                       // poor, banks nothing
+            { weeksBack: 0, sessions: 0 },
+        ]);
+        const r = deloadState(ledger, log, { now: NOW });
+        expect(r.accumulated).toBe(4);
+        expect(r.isDeloadWeek).toBe(true);
     });
 
     test('a non-qualifying week pauses rather than resetting', () => {
@@ -273,26 +336,19 @@ describe('deload counting', () => {
             { weeksBack: 2, sessions: 1 },                       // poor week
             { weeksBack: 1, sessions: 3 }, { weeksBack: 0, sessions: 3 },
         ]);
-        expect(deloadState(ledger, log, { now: NOW }).accumulated).toBe(4);
-    });
-
-    test('the deload week itself must be a qualifying week', () => {
-        const { ledger, log } = simulate([
-            ...Array.from({ length: 5 }, (_, i) => ({ weeksBack: i + 1, sessions: 3 })),
-            { weeksBack: 0, sessions: 1 },
-        ]);
-        const r = deloadState(ledger, log, { now: NOW });
-        expect(r.accumulated).toBe(5);
-        expect(r.isDeloadWeek).toBe(false);
+        // Paused gives three. A reset would give one, counting it would
+        // give four, and both would be wrong.
+        expect(deloadState(ledger, log, { now: NOW }).accumulated).toBe(3);
     });
 
     test('it survives pruning, because it is derived not stored', () => {
-        const { ledger, log } = consecutive(30);
+        const { ledger, log } = banked(30);
         const r = deloadState(ledger, log, { now: NOW });
-        // Everything retained qualified, and no gap was long enough to
-        // reset, so the counter equals the retained rows.
-        expect(ledger.every(weekQualified)).toBe(true);
-        expect(r.accumulated).toBe(ledger.length);
+        const bankedRows = ledger.filter(w => w.weekKey !== getCurrentWeekKey(NOW));
+        // No gap was long enough to reset, so the counter equals every
+        // retained week that qualified, the live one excluded.
+        expect(r.accumulated).toBe(bankedRows.filter(weekQualified).length);
+        expect(r.accumulated).toBeGreaterThan(20);
         expect(r.stale).toBe(false);
     });
 
@@ -332,15 +388,27 @@ describe('deload counting', () => {
 
 describe('the stale reset', () => {
     test('REGRESSION: a long absence truly clears accumulated progress', () => {
-        // 14 qualifying weeks, then 60 days away, then one qualifying week.
-        // A stored running total would have said 15 and deloaded them on
-        // their way back in. Derived, it says 1.
+        // 14 qualifying weeks, then 60 days away, then one qualifying week
+        // which is still in progress. A stored running total would have said
+        // 15 and deloaded them on their way back in.
         const old = Array.from({ length: 14 }, (_, i) => ({ weeksBack: i + 10, sessions: 3 }));
         const { ledger, log } = simulate([...old, { weeksBack: 0, sessions: 3 }]);
         const r = deloadState(ledger, log, { now: NOW });
-        expect(r.accumulated).toBe(1);
+        expect(r.accumulated).toBe(0);         // the returning week has not banked yet
         expect(r.isDeloadWeek).toBe(false);
         expect(r.resetAtWeek).toBe(getCurrentWeekKey(NOW));
+    });
+
+    test("REGRESSION: the brief's stale case, counted once the week has banked", () => {
+        // Four qualifying weeks, more than 28 days away, then a qualifying
+        // week that has now finished. One banked, not five, so the week
+        // after the return is an ordinary training week.
+        const old = Array.from({ length: 4 }, (_, i) => ({ weeksBack: i + 8, sessions: 3 }));
+        const { ledger, log } = simulate([...old, { weeksBack: 1, sessions: 3 }, { weeksBack: 0, sessions: 0 }]);
+        const r = deloadState(ledger, log, { now: NOW });
+        expect(r.accumulated).toBe(1);
+        expect(r.isDeloadWeek).toBe(false);
+        expect(r.resetAtWeek).toBe(getCurrentWeekKey(at(7)));
     });
 
     test('currently stale means nothing is accumulated at all', () => {
@@ -357,7 +425,7 @@ describe('the stale reset', () => {
         ]);
         const r = deloadState(ledger, log, { now: NOW });
         expect(r.stale).toBe(false);
-        expect(r.accumulated).toBe(3);
+        expect(r.accumulated).toBe(2);         // the live week is not banked
         expect(r.resetAtWeek).toBeNull();
     });
 

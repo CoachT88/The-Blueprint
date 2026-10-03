@@ -11,23 +11,23 @@
  * A file in src/ would pass its tests here and then fail to deploy, which is
  * the worst of both. tests/notifyRules.test.js imports it from this path.
  *
- * The settings screen promises a daily reminder at a chosen time and a warning
- * before a streak breaks. This file is the whole of that promise. Anything not
- * expressed here does not get sent.
+ * The settings screen promises one reminder a day at a chosen time. This file
+ * is the whole of that promise. Anything not expressed here does not get sent.
  *
- * Two rules that are not obvious and are load-bearing:
+ * WHAT WAS REMOVED, AND WHY. Until Phase 2B.2 this also sent a warning before
+ * a daily streak broke, and carried its own port of the app's streak
+ * calculation to decide when. The app has since retired the streak: it broke
+ * on prescribed rest days, so following the programme exactly cost you one
+ * twice a week. Nothing in the app computes, uses or shows a streak any more.
+ * A push telling someone their 6 day streak was at risk was then the single
+ * remaining place the concept existed, arriving on a lock screen about a
+ * number they could not find anywhere in the product. It is gone, along with
+ * currentStreak(), STREAK_WARN_MIN and the streak_warning message.
  *
- *   1. Streak days are keyed by UTC date, matching getCurrentStreak() in
- *      index.html exactly. It is arguably wrong, but it is what every screen in
- *      the app already shows, and a warning that disagrees with the number on
- *      the member's own HQ is worse than no warning at all.
- *
- *   2. Nothing here mentions erections, EQ, the pelvic floor or anatomy. These
- *      land on a lock screen that other people can read.
+ * The one rule left that is not obvious and is load-bearing: nothing here
+ * mentions erections, EQ, the pelvic floor or anatomy. These land on a lock
+ * screen that other people can read.
  */
-
-/** A streak has to be worth protecting before we interrupt someone about it. */
-export const STREAK_WARN_MIN = 3;
 
 /** Hours a reminder is allowed to land in, member's local time. */
 export const EARLIEST_HOUR = 5;
@@ -94,27 +94,6 @@ export function trainedOn(sessionLog, dayKey) {
     return (sessionLog || []).some(s => s && typeof s.date === 'string' && s.date.split('T')[0] === dayKey);
 }
 
-/**
- * Port of getCurrentStreak() in index.html. Kept structurally identical rather
- * than tidied, so a reader can diff the two by eye. tests/e2e/notify-parity
- * asserts they agree on real inputs.
- */
-export function currentStreak(sessionLog, passProtectedDates, now = new Date()) {
-    const sessions = sessionLog || [];
-    if (!sessions.length) return 0;
-    const days = new Set(sessions.filter(s => s && typeof s.date === 'string').map(s => s.date.split('T')[0]));
-    const protectedDays = new Set(passProtectedDates || []);
-    const today = new Date(now);
-    let streak = 0;
-    for (let i = 0; i < 365; i++) {
-        const d = new Date(today); d.setDate(d.getDate() - i);
-        const key = d.toISOString().split('T')[0];
-        if (days.has(key) || protectedDays.has(key)) { streak++; }
-        else if (i > 0) { break; }   // today may not be trained yet without breaking it
-    }
-    return streak;
-}
-
 /** '19:00' -> 19. Anything unparseable falls back to the app's own default. */
 export function reminderHour(reminderTime) {
     const m = /^(\d{1,2}):(\d{2})$/.exec(String(reminderTime || '').trim());
@@ -136,11 +115,6 @@ export const MESSAGES = {
         body: "Time to train. Open when you're ready.",
         tag: 'bp-reminder',
     }),
-    streak_warning: (streak) => ({
-        title: 'The Blueprint',
-        body: `Your ${streak} day streak is still going. One session today keeps it.`,
-        tag: 'bp-streak',
-    }),
 };
 
 /**
@@ -154,7 +128,6 @@ export function decideNotification({
     passProtectedDates = [],
     schedule = null,
     reminderTime = '19:00',
-    streakWarn = true,
     timezone = 'UTC',
     lastNotifiedDate = null,
     now = new Date(),
@@ -176,9 +149,11 @@ export function decideNotification({
     // 3. They already did the work. Saying nothing is the correct behaviour.
     if (trainedOn(sessionLog, todayKey)) return null;
 
-    // 4. A Recovery Pass is covering today, so they chose to rest and their
-    //    streak is not at risk. Nagging someone who spent a pass is worse than
-    //    silence.
+    // 4. A Recovery Pass is covering today. The member has a banked Pass and
+    //    this is the day it is spent on, so the gap is already accounted for.
+    //    Chasing someone whose Pass covered the day is worse than silence.
+    //    This is the only thing passProtectedDates is read for here, and it
+    //    outlives the streak warning it was first written alongside.
     if ((passProtectedDates || []).includes(todayKey)) return null;
 
     // 5. Today is a scheduled rest day. "Time to train" on a rest day teaches
@@ -187,9 +162,5 @@ export function decideNotification({
         if (schedule[localWeekdayFor(now, timezone)] === 'rest') return null;
     }
 
-    const streak = currentStreak(sessionLog, passProtectedDates, now);
-    const kind = (streakWarn && streak >= STREAK_WARN_MIN) ? 'streak_warning' : 'daily_reminder';
-    const msg = kind === 'streak_warning' ? MESSAGES.streak_warning(streak) : MESSAGES.daily_reminder();
-
-    return { kind, ...msg, url: '/app/' };
+    return { kind: 'daily_reminder', ...MESSAGES.daily_reminder(), url: '/app/' };
 }

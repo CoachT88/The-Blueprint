@@ -331,20 +331,20 @@ describe('week completion is the primary progress signal', () => {
         expect(r.weekDone).toBeLessThanOrEqual(n);
     });
 
-    test('streak is not displayed anywhere', async () => {
-        // Phase 2A.2 demoted it to the level block. Phase 2B.1 step 2 removes
-        // the display entirely: getCurrentStreak() breaks on any day without
-        // a session, including a prescribed rest day, so it contradicts the
-        // weekly target by construction.
+    test('the streak is gone, not merely hidden', async () => {
+        // Phase 2A.2 demoted it to the level block, 2B.1 removed the display
+        // and the mechanics, and 2B.2 removed the calculation along with the
+        // server warning that was its last consumer. It broke on any day
+        // without a session, a prescribed rest day included, so it
+        // contradicted the weekly target by construction.
         //
-        // DISPLAY ONLY. The calculation, Recovery Passes, passProtectedDates
-        // and records.longestStreak all still exist; see the step 8 plan.
+        // records.longestStreak stays. It is frozen history, nothing reads it
+        // for a decision, and deleting it would destroy data for no gain.
         const r = await app.page.evaluate(() => ({
             hqChip: !!document.getElementById('hq-streak'),
             recordChip: !!document.getElementById('record-streak'),
             summaryStat: !!document.getElementById('summary-streak'),
-            // The mechanics are deliberately still here.
-            calcExists: typeof getCurrentStreak === 'function',
+            calcExists: typeof getCurrentStreak !== 'undefined',
             recordStillStored: typeof (persisted.records || {}).longestStreak === 'number',
             levelBelowToday: !!(document.getElementById('hq-today-card')
                 .compareDocumentPosition(document.getElementById('hq-level-badge'))
@@ -353,7 +353,7 @@ describe('week completion is the primary progress signal', () => {
         expect(r.hqChip).toBe(false);
         expect(r.recordChip).toBe(false);
         expect(r.summaryStat).toBe(false);
-        expect(r.calcExists).toBe(true);
+        expect(r.calcExists).toBe(false);
         expect(r.recordStillStored).toBe(true);
         expect(r.levelBelowToday).toBe(true);
     });

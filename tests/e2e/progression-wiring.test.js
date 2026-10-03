@@ -413,13 +413,18 @@ describe('the progression gate', () => {
  * ledger is only ever written while a week is current and a browser suite
  * cannot wind the page's clock back.
  *
- * Every week seeded here has already finished, deliberately. The current
+ * Every week in `specs` has already finished, deliberately. The current
  * week cannot be made to qualify on an arbitrary weekday: qualifying needs
  * at least two distinct training days, and on a Monday there has only been
  * one. Anchoring to finished weeks is what makes these fixtures give the
  * same answer whichever day the suite runs on.
+ *
+ * `opts.live` adds that many sessions to the week in progress and writes
+ * its row, capped at the days that have actually elapsed. It exists to
+ * prove the answers that must NOT depend on how far into the week the
+ * member is, so the tests assert on the result rather than the count.
  */
-const seedWeeks = (page, specs, patch = {}) => page.evaluate(({ specs, patch, SCHEDULE }) => {
+const seedWeeks = (page, specs, patch = {}, opts = {}) => page.evaluate(({ specs, patch, SCHEDULE, opts }) => {
     persisted.primaryGoal = 'all';
     persisted.schedule = [...SCHEDULE];
     persisted.completedDays = [false, false, false, false, false, false, false];
@@ -448,12 +453,29 @@ const seedWeeks = (page, specs, patch = {}) => page.evaluate(({ specs, patch, SC
             now: monday,
         });
     }
+
+    let liveDays = 0;
+    if (opts.live != null) {
+        const monday = mondayOf(new Date());
+        const elapsed = ((new Date().getDay() + 6) % 7) + 1;      // days so far, today included
+        liveDays = Math.min(opts.live, elapsed);
+        for (let i = 0; i < liveDays; i++) {
+            const d = new Date(monday); d.setDate(d.getDate() + i);
+            persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length' });
+        }
+        persisted.progressionLedger = window.BP.reconcileLedger(persisted.progressionLedger, {
+            weekKey: getCurrentWeekKey(), schedule: persisted.schedule,
+            sessionLog: persisted.sessionLog, now: new Date(),
+        });
+    }
+
     const p = currentProgression();
     return {
         state: p.state, qualifying: p.eligibility.qualifyingWeeks, unknownWeeks: p.unknownWeeks,
-        deload: isDeloadWeek(), ledger: persisted.progressionLedger,
+        deload: isDeloadWeek(), ledger: persisted.progressionLedger, liveDays,
+        accumulated: window.BP.deloadState(persisted.progressionLedger, persisted.sessionLog, { now: new Date() }).accumulated,
     };
-}, { specs, patch, SCHEDULE });
+}, { specs, patch, SCHEDULE, opts });
 
 /** `n` consecutive qualifying weeks, the newest finishing `from` weeks ago. */
 const qWeeks = (n, from = 1) => Array.from({ length: n }, (_, i) => ({ weeksAgo: from + i, q: 3 }));
@@ -602,7 +624,9 @@ describe('difficulty access', () => {
         }
         const joined = messages.filter(Boolean).join(' | ');
         expect(joined.length).toBeGreaterThan(0);
-        expect(joined).not.toMatch(/ledger|verdict|UNKNOWN|NOT_ELIGIBLE|HOLD|denominator|sample|window|qualifying week/i);
+        // The engine's own words, not ordinary English ones.
+        expect(joined).not.toMatch(/\b(ledger|verdict|denominator|qualifying week|rolling window)\b/i);
+        expect(joined).not.toMatch(/\b(UNKNOWN|NOT_ELIGIBLE|ELIGIBLE|HOLD)\b/);
     }, 60_000);
 });
 
@@ -682,34 +706,87 @@ describe('deload follows accumulated work, not the calendar', () => {
         expect((await seedWeeks(app.page, [])).deload).toBe(false);
     }, 30_000);
 
-    test('the fifth qualifying week is the deload week and the fourth is not', async () => {
-        // Both run inside the same real ISO week, so the only thing that
-        // changed between them is accumulated qualifying work. That is the
+    test('ACCEPTANCE: four banked weeks, and the next week is a deload week from day one', async () => {
+        // The whole point of the Phase 2B.2 correction. The member opens the
+        // app on the first day of the fifth week, before any session, and
+        // the reduction is already in force.
+        const fresh = await seedWeeks(app.page, qWeeks(4), {}, { live: 0 });
+        expect(fresh.accumulated).toBe(4);
+        expect(fresh.deload).toBe(true);
+        expect(await app.page.evaluate(() => applyDeload({ sets: 4, duration: 60 })))
+            .toMatchObject({ sets: 3, duration: 36 });
+
+        // And it does not change as that week fills.
+        const partway = await seedWeeks(app.page, qWeeks(4), {}, { live: 3 });
+        expect(partway.liveDays).toBeGreaterThanOrEqual(1);
+        expect(partway.accumulated).toBe(4);
+        expect(partway.deload).toBe(true);
+    }, 60_000);
+
+    test('three banked weeks are not a deload week', async () => {
+        const r = await seedWeeks(app.page, qWeeks(3), {}, { live: 0 });
+        expect(r.accumulated).toBe(3);
+        expect(r.deload).toBe(false);
+    }, 30_000);
+
+    test('a member doing exactly the minimum still gets the whole following week', async () => {
+        // The schedule targets four sessions, so three is the minimum that
+        // qualifies. Under the old rule this member got no deload at all,
+        // because the live week never reached a qualifying verdict before
+        // their last session of it.
+        const r = await seedWeeks(app.page, qWeeks(4), {}, { live: 0 });
+        const banked = r.ledger.filter(w => w.verdict === 'qualified');
+        expect(banked).toHaveLength(4);
+        for (const w of banked) {
+            expect(w.qualifyingSessions).toBe(3);
+            expect(w.targetSessions).toBe(4);
+        }
+        expect(r.deload).toBe(true);
+    }, 30_000);
+
+    test('the deload week banks like any other and opens the next cycle', async () => {
+        const r = await seedWeeks(app.page, qWeeks(5), {}, { live: 0 });
+        expect(r.accumulated).toBe(5);
+        expect(r.deload).toBe(false);
+    }, 30_000);
+
+    test('a pending deload survives a poor week rather than expiring', async () => {
+        // Four banked, then a week with one session. The reduction is still
+        // owed; a bad week does not cancel it.
+        const r = await seedWeeks(app.page, [...qWeeks(4, 2), { weeksAgo: 1, q: 1 }]);
+        expect(r.accumulated).toBe(4);
+        expect(r.deload).toBe(true);
+    }, 30_000);
+
+    test('REGRESSION: the ISO calendar week does not decide it', async () => {
+        // Both of these run inside the same real calendar week, so the only
+        // thing that differs is accumulated qualifying work. That is the
         // regression against `getISOWeek() % 4 === 0`.
-        expect((await seedWeeks(app.page, qWeeks(4))).deload).toBe(false);
-        expect((await seedWeeks(app.page, qWeeks(5))).deload).toBe(true);
+        expect((await seedWeeks(app.page, qWeeks(3))).deload).toBe(false);
+        expect((await seedWeeks(app.page, qWeeks(4))).deload).toBe(true);
     }, 60_000);
 
     test('a poor week pauses the count rather than resetting it', async () => {
-        // Four qualifying, one week of a single session, one qualifying.
-        // Paused gives five and a deload. Reset would give one, counted
-        // would give six, and neither is a deload week.
+        // Three qualifying, a week of one session, then a qualifying week.
+        // Paused banks four and is a deload week. A reset would bank one and
+        // counting the poor week would bank five, and neither is one.
         const r = await seedWeeks(app.page, [
-            ...qWeeks(4, 3), { weeksAgo: 2, q: 1 }, { weeksAgo: 1, q: 3 },
+            ...qWeeks(3, 3), { weeksAgo: 2, q: 1 }, { weeksAgo: 1, q: 3 },
         ]);
         expect(r.deload).toBe(true);
     }, 30_000);
 
     test('a neutral all-rest week does not advance it', async () => {
         const r = await seedWeeks(app.page, [
-            ...qWeeks(4, 3), { weeksAgo: 2, rest: true }, { weeksAgo: 1, q: 3 },
+            ...qWeeks(3, 3), { weeksAgo: 2, rest: true }, { weeksAgo: 1, q: 3 },
         ]);
-        expect(r.deload).toBe(true);                 // five, not six
+        expect(r.ledger.some(w => w.verdict === 'neutral')).toBe(true);
+        expect(r.deload).toBe(true);                 // four, not five
     }, 30_000);
 
     test('a week we cannot judge does not advance it', async () => {
         const r = await seedWeeks(app.page, [
-            ...qWeeks(4, 3), { weeksAgo: 2, away: true }, { weeksAgo: 1, q: 3 },
+            ...qWeeks(3, 3), { weeksAgo: 2, away: true }, { weeksAgo: 1, q: 3 },
         ]);
         expect(r.ledger.some(w => w.verdict === 'unknown')).toBe(true);
         expect(r.deload).toBe(true);
@@ -717,53 +794,76 @@ describe('deload follows accumulated work, not the calendar', () => {
 
     test('REGRESSION: a week of Recovery does not advance it', async () => {
         const r = await seedWeeks(app.page, [
-            ...qWeeks(4, 3), { weeksAgo: 2, recovery: 3 }, { weeksAgo: 1, q: 3 },
+            ...qWeeks(3, 3), { weeksAgo: 2, recovery: 3 }, { weeksAgo: 1, q: 3 },
         ]);
-        expect(r.deload).toBe(true);                 // five, not six
+        expect(r.deload).toBe(true);                 // four, not five
     }, 30_000);
 
     test('a substituted mission still advances it', async () => {
         const r = await seedWeeks(app.page, [
-            ...qWeeks(4, 2), { weeksAgo: 1, q: 3, type: 'girth' },
+            ...qWeeks(3, 2), { weeksAgo: 1, q: 3, type: 'girth' },
         ]);
+        expect(r.accumulated).toBe(4);
         expect(r.deload).toBe(true);
     }, 30_000);
 
     test("REGRESSION: the brief's stale case, four weeks then a long gap", async () => {
-        // Four qualifying weeks, more than 28 days of nothing, then a
-        // qualifying week on return. Accumulation restarts at one, so the
-        // returning week is not a deload week.
+        // Four qualifying weeks, well over 28 days of nothing, then one
+        // qualifying week back. Accumulation restarts, so the week after
+        // the return is an ordinary training week.
         const r = await seedWeeks(app.page, [...qWeeks(4, 11), { weeksAgo: 1, q: 3 }]);
+        expect(r.accumulated).toBe(1);
         expect(r.deload).toBe(false);
-        expect(await app.page.evaluate(() =>
-            window.BP.deloadState(persisted.progressionLedger, persisted.sessionLog, { now: new Date() }).accumulated)).toBe(1);
     }, 30_000);
 
-    test('and after the reset it takes five fresh weeks, not one', async () => {
-        const r = await seedWeeks(app.page, [...qWeeks(4, 11), ...qWeeks(5)]);
+    test('and after the reset it takes four fresh weeks, not one', async () => {
+        const r = await seedWeeks(app.page, [...qWeeks(4, 11), ...qWeeks(4)]);
+        expect(r.accumulated).toBe(4);
         expect(r.deload).toBe(true);
     }, 30_000);
 
-    test('KNOWN GAP: the deload week has not begun until that week qualifies', async () => {
-        // Five qualifying weeks banked, and the most recent recorded week
-        // managed one session. deloadState requires the latest row to be a
-        // qualifying week, so no deload applies. The same rule means that in
-        // the live week the reduction only switches on once that week has
-        // itself qualified, which is reported rather than changed here: the
-        // module and its thresholds were approved as they stand.
-        const r = await seedWeeks(app.page, [...qWeeks(5, 2), { weeksAgo: 1, q: 1 }]);
+    test('someone currently away is not in a deload week', async () => {
+        const r = await seedWeeks(app.page, qWeeks(4, 11));
+        expect(r.accumulated).toBe(0);
         expect(r.deload).toBe(false);
     }, 30_000);
 
-    test('when it is on, it reaches the prescription', async () => {
-        await seedWeeks(app.page, qWeeks(5));
-        const r = await app.page.evaluate(() => applyDeload({ sets: 4, duration: 60 }));
-        expect(r.sets).toBe(3);
-        expect(r.duration).toBe(36);
-    }, 30_000);
+    test('REGRESSION: spending a Recovery Pass does not move deload timing', async () => {
+        // A Pass covers a missed day for reminders and messaging. It may not
+        // bring the reduction forward, nor push it back.
+        const before = await seedWeeks(app.page, qWeeks(3), {}, { live: 1 });
+        expect(before.deload).toBe(false);
+        const after = await app.page.evaluate(() => {
+            persisted.streakPasses = 2;
+            persisted.passProtectedDates = [];
+            // Yesterday untrained, the day before trained, so a Pass applies.
+            const d = new Date(); d.setDate(d.getDate() - 2);
+            persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length' });
+            const consumed = maybeConsumeStreakPass();
+            syncProgression('test');
+            return { consumed, protectedDays: persisted.passProtectedDates.length, deload: isDeloadWeek(),
+                     accumulated: window.BP.deloadState(persisted.progressionLedger, persisted.sessionLog, { now: new Date() }).accumulated };
+        });
+        expect(after.consumed).toBe(true);
+        expect(after.protectedDays).toBe(1);
+        expect(after.accumulated).toBe(3);
+        expect(after.deload).toBe(false);
+
+        // And it cannot delay one that is due either.
+        const due = await seedWeeks(app.page, qWeeks(4), {}, { live: 1 });
+        expect(due.deload).toBe(true);
+        expect(await app.page.evaluate(() => {
+            persisted.streakPasses = 2; persisted.passProtectedDates = [];
+            const d = new Date(); d.setDate(d.getDate() - 2);
+            persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length' });
+            maybeConsumeStreakPass();
+            syncProgression('test');
+            return isDeloadWeek();
+        })).toBe(true);
+    }, 60_000);
 
     test('when it is off, the prescription is untouched', async () => {
-        await seedWeeks(app.page, qWeeks(4));
+        await seedWeeks(app.page, qWeeks(3));
         const r = await app.page.evaluate(() => applyDeload({ sets: 4, duration: 60 }));
         expect(r).toMatchObject({ sets: 4, duration: 60 });
     }, 30_000);
@@ -782,22 +882,31 @@ describe('the streak no longer decides anything', () => {
                 const d = new Date(); d.setDate(d.getDate() - i);
                 return { date: d.toISOString(), routineType: 'length' };
             }).reverse();
-            return { streak: getCurrentStreak(persisted.sessionLog), advanced: isTierLocked('advanced'), deload: isDeloadWeek() };
+            // Thirty consecutive days of training, which under the retired
+            // rule was a 30 day streak and a tier nudge. It buys nothing.
+            return { days: new Set(persisted.sessionLog.map(e => e.date.split('T')[0])).size,
+                     advanced: isTierLocked('advanced'), deload: isDeloadWeek() };
         });
-        expect(r.streak).toBeGreaterThanOrEqual(30);     // the streak is real
-        expect(r.advanced).toBe(true);                   // and buys nothing
+        expect(r.days).toBeGreaterThanOrEqual(30);
+        expect(r.advanced).toBe(true);
         expect(r.deload).toBe(false);
     }, 30_000);
 
-    test('getCurrentStreak has no callers left in the page', async () => {
-        // It stays only as the parity anchor for notifyRules.js currentStreak(),
-        // which the server still uses to send streak warnings. See the comment
-        // on the function and tests/e2e/notify-parity.test.js.
-        const callers = await app.page.evaluate(() => {
+    test('the streak calculation is gone from the page entirely', async () => {
+        // Phase 2B.2. It had no callers after 2B.1 and was kept only as the
+        // parity anchor for the server's streak warning. That warning is
+        // retired, so both sides of the parity are deleted.
+        const found = await app.page.evaluate(() => {
             const src = [...document.querySelectorAll('script')].map(s => s.textContent).join('\n');
-            return (src.match(/getCurrentStreak\s*\(/g) || []).length;
+            return {
+                decl: /function\s+getCurrentStreak/.test(src),
+                calls: (src.match(/getCurrentStreak\s*\(/g) || []).length,
+                defined: typeof window.getCurrentStreak,
+            };
         });
-        expect(callers).toBe(1);                         // the declaration, nothing else
+        expect(found.decl).toBe(false);
+        expect(found.calls).toBe(0);
+        expect(found.defined).toBe('undefined');
     });
 
     test('records.longestStreak is frozen across a real completion', async () => {

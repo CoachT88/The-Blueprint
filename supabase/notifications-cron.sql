@@ -164,7 +164,6 @@ limit 20;
 
 -- 3. How many members could receive anything at all.
 select count(*) as subscriptions,
-       count(*) filter (where streak_warn) as want_streak_warnings,
        count(*) filter (where last_notified_date = current_date) as notified_today
 from public.push_subscriptions;
 

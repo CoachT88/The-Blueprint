@@ -18,12 +18,12 @@ const FUNCTIONS = [
     'savePersisted', '_flushSaveNow', '_buildSavePayload', '_upsertPayload', 'loadPersisted',
     'normaliseSchedule', 'maybeApplyGoalSchedule',
     // sessions and progress
-    'finishSession', 'resetSession', 'getCurrentStreak', 'updateRecords', 'checkMilestones',
+    'finishSession', 'resetSession', 'updateRecords', 'checkMilestones',
     'maybeEarnRecoveryPass', 'ownsTier', 'eliteEqConditionMet', 'currentProgression', 'syncProgression',
     'renderProgressChart', 'renderEqChart', 'drawLine', 'drawEmpty', 'getEqSummary',
     'showWeeklyReport', 'showSessionHistory', 'closeSessionSummary',
-    // streak passes
-    'maybeConsumeStreakPass', '_dayKey',
+    // recovery passes
+    'maybeConsumeStreakPass', 'renderPassChip', 'openPassInfo', 'closePassInfo', '_dayKey',
     // coach, membership, misc
     '_coachContext', 'askCoach', 'checkMembership', '_friendlyAuthError', 'setAuthErrorHTML',
     'maybePromptPush', 'isBlackoutDay', 'getDiff', 'getLevelInfo', 'getHydration',

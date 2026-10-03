@@ -1,8 +1,8 @@
 import { describe, test, expect } from 'vitest';
 import {
-    STREAK_WARN_MIN, MESSAGES,
+    MESSAGES,
     localHourFor, localDateFor, localWeekdayFor,
-    utcDayKey, trainedOn, currentStreak, reminderHour, decideNotification,
+    utcDayKey, trainedOn, reminderHour, decideNotification,
 } from '../supabase/functions/_shared/notifyRules.js';
 
 /**
@@ -109,41 +109,6 @@ describe('trainedOn', () => {
     });
 });
 
-describe('currentStreak', () => {
-    const now = new Date('2025-06-15T12:00:00Z');
-
-    test('no sessions is no streak', () => {
-        expect(currentStreak([], [], now)).toBe(0);
-    });
-
-    test('counts back from today when today is trained', () => {
-        expect(currentStreak(runEnding('2025-06-15', 4), [], now)).toBe(4);
-    });
-
-    test('today not yet trained does not break the streak', () => {
-        // The member still has the rest of the day. This is the case the
-        // warning exists for.
-        expect(currentStreak(runEnding('2025-06-14', 3), [], now)).toBe(3);
-    });
-
-    test('a gap ends the streak', () => {
-        const log = [...runEnding('2025-06-10', 5), at('2025-06-14')];
-        expect(currentStreak(log, [], now)).toBe(1);
-    });
-
-    test('a Recovery Pass holds the streak across a missed day', () => {
-        const log = [at('2025-06-11'), at('2025-06-12'), at('2025-06-14')];
-        expect(currentStreak(log, [], now)).toBe(1);           // 13th missing
-        expect(currentStreak(log, ['2025-06-13'], now)).toBe(4); // pass covers it
-    });
-
-    test('two days missing needs two passes', () => {
-        const log = [at('2025-06-11'), at('2025-06-14')];
-        expect(currentStreak(log, ['2025-06-13'], now)).toBe(2);
-        expect(currentStreak(log, ['2025-06-12', '2025-06-13'], now)).toBe(4);
-    });
-});
-
 describe('reminderHour', () => {
     test('reads the hour the member picked', () => {
         expect(reminderHour('07:00')).toBe(7);
@@ -170,7 +135,6 @@ describe('decideNotification', () => {
         schedule: ['length', 'girth', 'length', 'girth', 'length', 'girth', 'rest'],
         sessionLog: [],
         passProtectedDates: [],
-        streakWarn: true,
         lastNotifiedDate: null,
     };
     const decide = (over = {}) => decideNotification({ ...base, ...over });
@@ -225,26 +189,28 @@ describe('decideNotification', () => {
         expect(decide({ schedule: ['rest'] })).not.toBeNull();
     });
 
-    test('warns instead when a streak worth keeping is at risk', () => {
-        const r = decide({ sessionLog: runEnding('2025-06-16', STREAK_WARN_MIN) });
-        expect(r.kind).toBe('streak_warning');
-        expect(r.body).toMatch(/3 day streak/);
+    test('REGRESSION: a long run of training days still sends the plain reminder', () => {
+        // This used to become a streak warning naming the number of days.
+        // Phase 2B.2 retired the streak, so there is exactly one message and
+        // nothing on a lock screen refers to a count the member cannot see.
+        for (const n of [2, 3, 9, 30]) {
+            const r = decide({ sessionLog: runEnding('2025-06-16', n) });
+            expect(r.kind).toBe('daily_reminder');
+            expect(r.body).not.toMatch(/streak|day run|\bdays\b/i);
+        }
     });
 
-    test('a shorter run is not worth interrupting someone about', () => {
-        const r = decide({ sessionLog: runEnding('2025-06-16', STREAK_WARN_MIN - 1) });
-        expect(r.kind).toBe('daily_reminder');
+    test('REGRESSION: a streakWarn flag left in a caller changes nothing', () => {
+        // The column still exists for backward compatibility. An old caller
+        // still passing it must not resurrect the behaviour.
+        expect(decide({ sessionLog: runEnding('2025-06-16', 10), streakWarn: true }).kind)
+            .toBe('daily_reminder');
+        expect(decide({ sessionLog: runEnding('2025-06-16', 10), streakWarn: false }).kind)
+            .toBe('daily_reminder');
     });
 
-    test('turning streak warnings off leaves the daily reminder alone', () => {
-        const r = decide({ sessionLog: runEnding('2025-06-16', 10), streakWarn: false });
-        expect(r).not.toBeNull();
-        expect(r.kind).toBe('daily_reminder');
-    });
-
-    test('the streak in the message matches the streak that is at risk', () => {
-        const r = decide({ sessionLog: runEnding('2025-06-16', 9) });
-        expect(r.body).toContain('9 day streak');
+    test('there is only one message to send', () => {
+        expect(Object.keys(MESSAGES)).toEqual(['daily_reminder']);
     });
 
     test('never fires in the middle of the night, even if asked to', () => {
@@ -266,10 +232,7 @@ describe('what a lock screen reveals', () => {
     // picks up their phone. Everything below has to stay sayable in public.
     const FORBIDDEN = /erection|erectile|\beq\b|pelvic|kegel|penis|girth|length|semen|ejacul|arousal|orgasm|sexual/i;
 
-    const everyMessage = [
-        MESSAGES.daily_reminder(),
-        ...[1, 3, 10, 100].map(n => MESSAGES.streak_warning(n)),
-    ];
+    const everyMessage = Object.values(MESSAGES).map(m => m());
 
     test('no message names the subject matter', () => {
         for (const m of everyMessage) {

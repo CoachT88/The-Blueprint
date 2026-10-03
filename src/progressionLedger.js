@@ -387,15 +387,33 @@ export function progressionEligibility(ledger, policy) {
  *     day rule rather than being rounded to whole weeks;
  *   the LEDGER supplies the qualified verdicts, which only it can state.
  *
- * Counting:
- *   qualifying week       advances the counter
- *   non-qualifying week   PAUSES it. Not a reset, which would make someone
+ * Counting. Only FINISHED weeks are banked; the week in progress is
+ * deliberately excluded. With a cycle of five that gives
+ *
+ *     weeks 1 to 4   banked, normal training
+ *     week 5         accumulated is 4, so this whole week is the deload
+ *     week 6         the deload week banked as the fifth, count back to 0
+ *
+ * and the answer is therefore the same from Monday morning as it is on
+ * Sunday night. That matters: the reduction has to be knowable BEFORE the
+ * week's first mechanical session, and the previous version could not do
+ * that. It read the current row, which only becomes `qualified` partway
+ * through the week, so the first sessions of a deload week ran at full
+ * load and a member doing exactly the minimum got no deload at all.
+ *
+ *   qualifying week       banks one, once it has finished
+ *   non-qualifying week   PAUSES. Not a reset, which would make someone
  *                         re-earn a rest after one bad week, and not an
  *                         advance, which would deload someone who has not
- *                         trained.
+ *                         trained. A pending deload therefore stays pending
+ *                         until a qualifying week actually completes.
  *   >28 days with no qualifying session
  *                         resets to zero, both historically and live. A
  *                         programme policy, not a claim about fatigue.
+ *
+ * No cycle counter is stored and none is reset: `accumulated % every` is
+ * self-maintaining, so a completed deload week starts the next cycle
+ * simply by being banked.
  */
 export function deloadState(ledger, sessionLog, { now, policy } = {}) {
     const p = policy || PROGRESSION_POLICY;
@@ -427,18 +445,19 @@ export function deloadState(ledger, sessionLog, { now, policy } = {}) {
     const resetWeek = resetAfter ? getCurrentWeekKey(dayAt(resetAfter)) : null;
     const resetIdx = resetWeek ? rows.findIndex(r => r.weekKey === resetWeek) : -1;
 
+    const liveWeek = getCurrentWeekKey(ref);
     let accumulated = 0;
     rows.forEach((w, i) => {
         if (resetIdx >= 0 && i < resetIdx) return;      // before the reset
+        if (w.weekKey === liveWeek) return;             // still in progress, not banked
         if (weekQualified(w)) accumulated += 1;         // every other verdict pauses
     });
 
-    const latest = rows[rows.length - 1];
     return {
-        // Only a qualifying week can BE the deload week; a poor week that
-        // happens to follow the fifth has had no exposure to deload from.
-        isDeloadWeek: weekQualified(latest) && accumulated > 0
-            && accumulated % p.deloadEveryQualifyingWeeks === 0,
+        // The week after the last banked training week of the cycle, start
+        // to finish, whatever happens inside it.
+        isDeloadWeek: accumulated % p.deloadEveryQualifyingWeeks
+            === p.deloadEveryQualifyingWeeks - 1,
         accumulated,
         every: p.deloadEveryQualifyingWeeks,
         stale: false,

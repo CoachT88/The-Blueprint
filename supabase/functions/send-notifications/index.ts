@@ -63,7 +63,6 @@ interface Subscription {
     p256dh: string;
     auth: string;
     reminder_time: string | null;
-    streak_warn: boolean | null;
     timezone: string | null;
     last_notified_date: string | null;
 }
@@ -184,7 +183,7 @@ Deno.serve(async (req) => {
         for (let page = 0; ; page++) {
             const { data: subs, error } = await supabase
                 .from('push_subscriptions')
-                .select('user_id, endpoint, p256dh, auth, reminder_time, streak_warn, timezone, last_notified_date')
+                .select('user_id, endpoint, p256dh, auth, reminder_time, timezone, last_notified_date')
                 .order('user_id')
                 .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
@@ -228,7 +227,6 @@ Deno.serve(async (req) => {
                     passProtectedDates: row?.pass_protected_dates || [],
                     schedule: row?.schedule || null,
                     reminderTime: sub.reminder_time || '19:00',
-                    streakWarn: sub.streak_warn !== false,
                     timezone: sub.timezone || 'UTC',
                     lastNotifiedDate: sub.last_notified_date,
                     now,

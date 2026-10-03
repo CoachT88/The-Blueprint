@@ -76,7 +76,10 @@ export const PROGRESSION_POLICY = Object.freeze({
     /* ── Deload ───────────────────────────────────────────────────────────
        Exposure-driven, not calendar-driven. */
 
-    /** Every Nth qualifying week is the deload week. */
+    /** Cycle length in weeks: N-1 banked training weeks, then the deload
+     *  week. At 5 that is four qualifying weeks followed by a fifth week
+     *  which is reduced from its first session, whatever happens inside it.
+     *  The deload week banks like any other, so it starts the next cycle. */
     deloadEveryQualifyingWeeks: 5,
 
     /**

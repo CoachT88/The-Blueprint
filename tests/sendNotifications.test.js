@@ -131,7 +131,11 @@ describe('the setup SQL', () => {
         expect(schemaSql).toMatch(/create table if not exists public\.push_subscriptions/i);
     });
 
-    test('PART A covers every column the code touches', () => {
+    test('PART A covers every column the table holds', () => {
+        /* streak_warn is in this list but is no longer read or written by
+           anything: Phase 2B.2 retired the streak warning it gated. The
+           column is kept so an older client still sending it does not break,
+           and so no migration is needed to drop a harmless boolean. */
         for (const col of ['endpoint', 'p256dh', 'auth', 'reminder_time',
                            'streak_warn', 'timezone', 'last_notified_date', 'updated_at']) {
             expect(schemaSql, col).toMatch(new RegExp(`add column if not exists\\s+${col}\\b`, 'i'));

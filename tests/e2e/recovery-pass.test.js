@@ -39,12 +39,17 @@ describe('recovery pass', () => {
         persisted.streakPasses = 0;
         persisted.lastPassEarnedDate = '';
         persisted.passProtectedDates = [];
-        // Spread across distinct days inside this week so they are distinct
-        // qualifying days rather than a same-day run.
-        const base = persisted.sessionLog;
+        /* Distinct days inside THIS week, anchored forward from Monday so a
+           run never spills into last week and gets counted against the wrong
+           row. A week cannot qualify before its third training day, so a
+           Pass cannot be earned on a Monday or a Tuesday at all. That is the
+           real behaviour, not a test artefact, and it is why these fixtures
+           cap at the days that have actually elapsed. */
+        const monday = new Date(); monday.setHours(12, 0, 0, 0);
+        monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
         for (let i = 0; i < n; i++) {
-            const d = new Date(); d.setDate(d.getDate() - i);
-            base.push({ date: d.toISOString(), routineType: 'length', xpEarned: 15 });
+            const d = new Date(monday); d.setDate(d.getDate() + i);
+            persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length', xpEarned: 15 });
         }
         syncProgression('test');
         return { earned: maybeEarnRecoveryPass(), passes: persisted.streakPasses,
@@ -137,7 +142,7 @@ describe('recovery pass', () => {
         expect(r.after).toBe(1);
     }, 30_000);
 
-    test('a missed day is covered and the streak survives', async () => {
+    test('a missed day is covered and a Pass is spent on it', async () => {
         const r = await app.page.evaluate(() => {
             // Trained 4, 3 and 2 days ago. Yesterday missed.
             persisted.sessionLog = [4, 3, 2].map(d => ({
@@ -146,14 +151,14 @@ describe('recovery pass', () => {
             }));
             persisted.streakPasses = 1;
             persisted.passProtectedDates = [];
-            const before = getCurrentStreak();
             const consumed = maybeConsumeStreakPass();
-            return { before, consumed, after: getCurrentStreak(), passes: persisted.streakPasses };
+            const yest = new Date(Date.now() - 864e5).toISOString().split('T')[0];
+            return { consumed, passes: persisted.streakPasses,
+                     covers: persisted.passProtectedDates.includes(yest) };
         });
-        expect(r.before).toBe(0);        // streak already broken
         expect(r.consumed).toBe(true);
-        expect(r.after).toBe(4);         // rescued
-        expect(r.passes).toBe(0);
+        expect(r.covers).toBe(true);     // the missed day is the one covered
+        expect(r.passes).toBe(0);        // and the Pass is spent
     });
 
     test.each([
@@ -231,9 +236,11 @@ describe('recovery pass', () => {
     }, 30_000);
 
     test('a protected date stays in the shape the notification sender reads', async () => {
-        // notifyRules.js currentStreak() and decide() both take
-        // passProtectedDates as plain YYYY-MM-DD strings and test them with
-        // Set.has and Array.includes. Anything else silently stops matching.
+        // notifyRules.js decideNotification() reads passProtectedDates as
+        // plain YYYY-MM-DD strings and tests them with Array.includes, to
+        // stay quiet on a day a Pass is covering. Anything else silently
+        // stops matching. This survived the streak retirement because it was
+        // never about the streak.
         const dates = await app.page.evaluate(() => {
             persisted.sessionLog = [4, 3, 2].map(d => {
                 const x = new Date(); x.setDate(x.getDate() - d);
@@ -250,6 +257,31 @@ describe('recovery pass', () => {
         expect(dates[0]).toBe(yesterday);
     }, 30_000);
 
+    test('REGRESSION: earning a Pass does not inflate the week it was earned for', async () => {
+        /* The hole a mutation found: earning writes streakPasses, and must
+           write nothing else. If it also nudged the ledger row it would be
+           manufacturing mechanical exposure out of a reward for having
+           already done the work, and the next week could inherit it. */
+        const r = await trainThisWeek(3);
+        const after = await app.page.evaluate(() => {
+            const row = persisted.progressionLedger[persisted.progressionLedger.length - 1];
+            const live = getCurrentWeekKey();
+            const distinctDays = new Set(persisted.sessionLog
+                .filter(e => window.BP.isQualifyingSession(e) && window.BP.weekKey(new Date(e.date)) === live)
+                .map(e => e.date.split('T')[0])).size;
+            return { qualifying: row.qualifyingSessions, target: row.targetSessions,
+                     verdict: row.verdict, distinctDays };
+        });
+        expect(r.earned).toBe(true);
+        expect(r.passes).toBe(1);
+        // The row still says exactly what the log says, and no more.
+        expect(after.distinctDays).toBe(3);
+        expect(after.qualifying).toBe(3);
+        expect(after.qualifying).toBe(after.distinctDays);
+        expect(after.target).toBe(4);
+        expect(after.verdict).toBe('qualified');
+    }, 30_000);
+
     test('the fields round-trip into the save payload', async () => {
         const p = await app.page.evaluate(() => {
             persisted.streakPasses = 2;
@@ -262,27 +294,117 @@ describe('recovery pass', () => {
         expect(p.last_pass_earned_date).toBe('2026-01-02');
     });
 
-    test('banked passes still exist, and are no longer displayed', async () => {
-        // Phase 2B.1 step 2 removed the streak chip, which was the only place
-        // the banked pass count appeared. The mechanic is untouched and still
-        // persists, and is now earned per qualifying week, but it still has
-        // no display surface. Giving it one is presentation work this phase
-        // deliberately leaves alone, so it is reported rather than papered
-        // over with a new widget.
+    test('the bank is on the HQ, without entering a session', async () => {
+        // Phase 2B.1 left the mechanic working and invisible: the streak chip
+        // had been its only display. This is the replacement, and it has to
+        // be readable from the HQ, because a Pass is spent on a day the
+        // member did not open a session at all.
         await seed([2, 1, 0]);
         const r = await app.page.evaluate(() => {
-            persisted.streakPasses = 2; goToStep(0);
+            persisted.streakPasses = 1;
+            goToStep(0);
+            const chip = document.getElementById('hq-pass-chip');
             return {
-                chipGone: !document.getElementById('hq-streak'),
-                banked: persisted.streakPasses,
-                earnFnExists: typeof maybeEarnRecoveryPass === 'function',
-                consumeFnExists: typeof maybeConsumeStreakPass === 'function',
+                onHq: !!chip && !!chip.offsetParent,
+                text: document.getElementById('hq-pass-count').textContent,
+                step: session.step,
             };
         });
-        expect(r.chipGone).toBe(true);
-        expect(r.banked).toBe(2);
+        expect(r.step).toBe(0);
+        expect(r.onHq).toBe(true);
+        expect(r.text).toBe('Recovery Passes: 1 / 2');
+    }, 30_000);
+
+    test.each([[0, '0 / 2'], [1, '1 / 2'], [2, '2 / 2']])
+    ('a bank of %i reads as %s', async (banked, shown) => {
+        const text = await app.page.evaluate((n) => {
+            persisted.streakPasses = n;
+            renderDashboard();
+            return document.getElementById('hq-pass-count').textContent;
+        }, banked);
+        expect(text).toContain(shown);
+    }, 30_000);
+
+    test('the count follows a real earn through finishSession', async () => {
+        const r = await app.page.evaluate(() => {
+            persisted.primaryGoal = 'all';
+            persisted.schedule = ['length', 'girth', 'rest', 'stamina', 'length', 'rest', 'rest'];
+            persisted.progressionLedger = [];
+            persisted.streakPasses = 0;
+            persisted.lastPassEarnedDate = '';
+            persisted.sessionLog = [2, 1].map(d => {
+                const x = new Date(); x.setDate(x.getDate() - d);
+                return { date: x.toISOString(), routineType: 'length', xpEarned: 15 };
+            });
+            goToStep(0);
+            const before = document.getElementById('hq-pass-count').textContent;
+
+            session.routineType = 'length';
+            _sessionStartTime = Date.now() - 60000;
+            selectedEQ = 8; selectedRPE = 5;
+            document.getElementById('input-bpel').value = '';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = '';
+            finishSession();
+            const summary = document.getElementById('summary-records').textContent;
+            closeSessionSummary();
+            return { before, summary, after: document.getElementById('hq-pass-count').textContent,
+                     banked: persisted.streakPasses };
+        });
+        expect(r.before).toBe('Recovery Passes: 0 / 2');
+        expect(r.banked).toBe(1);
+        expect(r.after).toBe('Recovery Passes: 1 / 2');
+        expect(r.summary).toContain('You earned a Recovery Pass for completing a qualifying week');
+    }, 30_000);
+
+    test('what a Pass does is explained before one is ever spent', async () => {
+        const r = await app.page.evaluate(() => {
+            persisted.streakPasses = 2;
+            renderDashboard();
+            document.getElementById('hq-pass-chip').click();
+            const modal = document.getElementById('pass-info-modal');
+            const text = modal.textContent;
+            document.getElementById('pass-info-close').click();
+            return { opened: true, closed: modal.classList.contains('hidden'), text };
+        });
+        expect(r.opened).toBe(true);
+        expect(r.closed).toBe(true);
+        expect(r.text).toContain('You have 2 of 2 banked.');
+        // Earned for training, spent on a missed day, and not training credit.
+        expect(r.text).toMatch(/each week you complete the training/i);
+        expect(r.text).toMatch(/if you miss a day/i);
+        expect(r.text).toMatch(/does not count as a session/i);
+        expect(r.text).toMatch(/does not move you closer to the next tier/i);
+    }, 30_000);
+
+    test('no Pass copy leaks the engine vocabulary', async () => {
+        const copy = await app.page.evaluate(() => {
+            persisted.streakPasses = 1;
+            renderDashboard();
+            openPassInfo();
+            const out = document.getElementById('pass-info-modal').textContent
+                + ' ' + document.getElementById('hq-pass-count').textContent
+                + ' ' + document.getElementById('hq-pass-used-banner').textContent;
+            closePassInfo();
+            return out;
+        });
+        // The engine's own words, not ordinary English ones: "hold two at a
+        // time" is fine, the state named HOLD is not.
+        expect(copy).not.toMatch(/\b(ledger|verdict|denominator|qualifying week|rolling window|streak)\b/i);
+        expect(copy).not.toMatch(/\b(UNKNOWN|NOT_ELIGIBLE|ELIGIBLE|HOLD)\b/);
+    }, 30_000);
+
+    test('the mechanic itself is unchanged and the page stayed clean', async () => {
+        const r = await app.page.evaluate(() => ({
+            streakChipGone: !document.getElementById('hq-streak'),
+            earnFnExists: typeof maybeEarnRecoveryPass === 'function',
+            consumeFnExists: typeof maybeConsumeStreakPass === 'function',
+            cap: RECOVERY_PASS_CAP,
+        }));
+        expect(r.streakChipGone).toBe(true);
         expect(r.earnFnExists).toBe(true);
         expect(r.consumeFnExists).toBe(true);
+        expect(r.cap).toBe(2);
         expect(app.errors).toEqual([]);
     }, 30_000);
 });
