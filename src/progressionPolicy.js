@@ -93,6 +93,21 @@ export const PROGRESSION_POLICY = Object.freeze({
      */
     deloadStaleResetDays: 28,
 
+    /* ── Return context ───────────────────────────────────────────────────
+       How long away from qualifying mechanical work before the app says
+       something about it. Phase 2B.2, communication only: neither number
+       changes a single thing about what is prescribed.
+
+       These are product policy about when an acknowledgement is useful. They
+       are NOT claims about the body or the mind, and nothing derived from
+       them may be phrased as one. */
+
+    /** Days away before the app acknowledges a break at all. */
+    returningAfterDays: 7,
+
+    /** Days away before it is acknowledged as a longer absence. */
+    extendedReturnAfterDays: 28,
+
     /* ── Weekly progression ledger ────────────────────────────────────────
        How many weeks of ledger history to retain. */
 

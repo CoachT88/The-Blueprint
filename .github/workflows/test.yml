@@ -3,7 +3,8 @@ name: Tests
 # Two speeds, matching how the suites are actually used:
 #   every push  — unit + syntax, about a second, no browser. Catches a syntax
 #                 break, a stray markdown fence or a duplicate element id at once.
-#   pull request — all 183 including the browser suites, before anything merges.
+#   pull request: the whole suite including the browser files, before
+#                 anything merges.
 #
 # Deliberately no `paths:` filter. index.html is the whole app, so there is no
 # change that should be allowed to skip these.

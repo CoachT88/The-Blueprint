@@ -178,7 +178,74 @@ describe('the Today card', () => {
         expect(r.why).toBeNull();
     });
 
-    test('COMPLETE shows the session that was finished when there is one', async () => {
+    /**
+     * Driven through the real finishSession(), per the Phase 2B test policy.
+     *
+     * The version this replaced seeded `{ type: 'length', duration: 840 }`,
+     * a payload production has never written, and asserted "14 min" against
+     * a reader that divided by 60. It passed for years while the real card
+     * showed no mission at all and a duration 60x too small, because nothing
+     * in it ever touched the writer.
+     */
+    const finishRealSession = (page, { minutes, routineType = 'length', eq = 8, rpe = 6 }) =>
+        page.evaluate(({ minutes, routineType, eq, rpe, WEEK }) => {
+            const d = new Date().getDay();
+            persisted.schedule = [...WEEK];
+            persisted.schedule[d] = routineType;
+            persisted.completedDays = [false, false, false, false, false, false, false];
+            persisted.sessionLog = [];
+            persisted.primaryGoal = 'all';
+            persisted.pelvicProfile = 'standard';
+
+            session.routineType = routineType;
+            _sessionStartTime = Date.now() - minutes * 60000;
+            selectedEQ = eq; selectedRPE = rpe;
+            document.getElementById('input-bpel').value = '';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = '';
+            finishSession();                      // the production path
+            closeSessionSummary();                // which returns to the HQ
+            renderDashboard();
+
+            const entry = persisted.sessionLog[persisted.sessionLog.length - 1];
+            return {
+                summary: document.getElementById('today-complete-summary').textContent,
+                state: document.getElementById('hq-today-card').dataset.state,
+                stored: { routineType: entry.routineType, duration: entry.duration,
+                          hasLegacyType: 'type' in entry },
+            };
+        }, { minutes, routineType, eq, rpe, WEEK });
+
+    test('COMPLETE names the session finished through the real path', async () => {
+        const r = await finishRealSession(app.page, { minutes: 45 });
+        expect(r.state).toBe('COMPLETE');
+        // The writer's shape, asserted so the reader can never drift from it
+        // again without this failing.
+        expect(r.stored.routineType).toBe('length');
+        expect(r.stored.hasLegacyType).toBe(false);
+        expect(r.stored.duration).toBe(45);
+        expect(r.summary).toMatch(/Completed/);
+        expect(r.summary).toMatch(/Length/);
+    }, 30_000);
+
+    test.each([[45, '45 min'], [14, '14 min']])
+    ('a %i minute session renders %s', async (minutes, shown) => {
+        const r = await finishRealSession(app.page, { minutes });
+        expect(r.summary).toContain(shown);
+        // The bug was dividing stored minutes by 60.
+        expect(r.summary).not.toContain(`${Math.round(minutes / 60)} min`);
+    }, 30_000);
+
+    test('EQ and RPE still render alongside', async () => {
+        const r = await finishRealSession(app.page, { minutes: 30, eq: 8, rpe: 6 });
+        expect(r.summary).toMatch(/8\/10/);
+        expect(r.summary).toMatch(/6\/10/);
+        expect(r.summary).toMatch(/This week/);
+    }, 30_000);
+
+    test('REGRESSION: the legacy fixture shape cannot make this pass', async () => {
+        // Exactly what the old test seeded. The card must show no mission
+        // and no duration for it, because production never writes it.
         const r = await render(app.page, {
             type: 'length',
             patch: {
@@ -186,11 +253,13 @@ describe('the Today card', () => {
                 sessionLog: [{ date: new Date().toISOString(), type: 'length', duration: 840, eq: 8, rpe: 6 }],
             },
         });
-        expect(r.summary).toMatch(/Completed/);
-        expect(r.summary).toMatch(/Length/);
-        expect(r.summary).toMatch(/14 min/);
-        expect(r.summary).toMatch(/8\/10/);
-        expect(r.summary).toMatch(/6\/10/);
+        // No mission chip: `type` is not a field production writes.
+        expect(r.summary).not.toMatch(/Completed/);
+        // And 840 is not silently reinterpreted as 14 minutes. It renders as
+        // the 840 minutes it claims to be, which is nonsense in, nonsense
+        // out, and strictly better than a plausible wrong number.
+        expect(r.summary).not.toMatch(/14 min/);
+        expect(r.summary).toMatch(/840 min/);
     });
 
     test('RECOVER does not offer a path to a different session', async () => {

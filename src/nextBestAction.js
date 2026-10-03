@@ -137,6 +137,8 @@ const CHANGES = {
  *   soreness          '' | 'none' | 'mild' | 'moderate' | 'high'
  *   pelvicProfile     '' | 'tight' | 'standard'
  *   deload            boolean, the authoritative deload answer from the caller
+ *   weekComplete      boolean, every scheduled session of this week is done
+ *   returnContext     null | 'returning' | 'extended-return', from the caller
  *   dayTypes          the DAY_TYPES table, for labels inside reasons
  *   recoveryPlan      recovery exercise indices a Recovery prescription would use
  *   contractionIndices  CONTRACTION_RECOVERY_IDX
@@ -152,6 +154,8 @@ const CHANGES = {
  *   reason            one sentence, member facing
  *   duration          minutes, or null when the prescription is not a session
  *   modifiers         { deload, tightFloor, moderateSoreness, pelvicScreenRequired }
+ *   weekComplete      echoed back, so the UI reads one object
+ *   returnContext     echoed back, same reason
  *   overrideAllowed   may the UI offer a path that departs from this prescription
  *   optional          a quiet secondary offer, or null
  *   changes           short sentences naming what is different from a normal day
@@ -309,6 +313,14 @@ export function nextBestAction(input) {
         state,
         mission,
         reason,
+        /* Liveness context, Phase 2B.2. Both are INPUTS, computed by the
+           caller from the authoritative sources and echoed here so the UI
+           reads one object. Neither has touched state, mission, duration or
+           any modifier above: this phase is communication only, and the
+           tests assert that the prescription is identical with and without
+           them. */
+        weekComplete: !!i.weekComplete,
+        returnContext: i.returnContext || null,
         /* RESUME knows the mission but not how much of it is left. The draft
            carries exerciseIndex and setIndex, so a remaining-time estimate is
            possible, and until it exists a whole-session number would overstate
