@@ -145,7 +145,9 @@ describe('turning reminders on actually subscribes', () => {
         // Everything the sender needs to decide when to send.
         expect(upsert.payload.reminder_time).toBeTruthy();
         expect(upsert.payload.timezone).toBeTruthy();
-        expect(typeof upsert.payload.streak_warn).toBe('boolean');
+        // And nothing it does not: streak_warn gated the retired streak
+        // warning and is no longer written, though the column survives.
+        expect(upsert.payload).not.toHaveProperty('streak_warn');
     }, 30_000);
 
     test('it waits for a registration that has not arrived yet', async () => {

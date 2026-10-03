@@ -18,8 +18,6 @@
  * Nothing in index.html calls this yet. Wiring is Phase 2A.2 onward; the shape
  * is deliberately presentation-free so that wiring is a thin adapter.
  */
-import { getISOWeek } from './weekUtils.js';
-
 /** The seven states. OPTIONAL is not one of them: see `optional` on the result. */
 export const STATES = ['PREPARE', 'RESUME', 'TRAIN', 'MODIFIED', 'RECOVER', 'REST', 'COMPLETE'];
 
@@ -50,22 +48,16 @@ export const SCHEDULE_UNRESOLVED = 'schedule-unresolved';
 /** Why a PREPARE was returned. The UI must be able to explain which gate it hit. */
 export const PREPARE_REASONS = ['loading', 'goal', 'pelvic-screen', SCHEDULE_UNRESOLVED];
 
-/** Weeks of history before deload applies, mirroring isDeloadWeek(). */
-const DELOAD_MIN_WEEKS = 4;
+/* This module used to carry its own isDeloadWeek(firstSessionDate, now),
+   a copy of the old `getISOWeek(now) % 4 === 0` rule. When the real deload
+   moved to accumulated qualifying work, that copy stayed behind and kept
+   deciding what the Today card SAID while the ledger decided what the
+   session actually did. The two disagreed most weeks.
 
-/**
- * Deload week, mirrored from isDeloadWeek() in index.html with the clock
- * passed in. Every fourth ISO week, but not until the member has four weeks
- * of history, so a new member does not deload in their first month.
- */
-export function isDeloadWeek(firstSessionDate, now) {
-    if (!firstSessionDate) return false;
-    const started = new Date(firstSessionDate).getTime();
-    if (!Number.isFinite(started)) return false;
-    const weeks = Math.floor((now.getTime() - started) / (7 * 24 * 60 * 60 * 1000));
-    if (weeks < DELOAD_MIN_WEEKS) return false;
-    return getISOWeek(now) % 4 === 0;
-}
+   There is now one source. `deload` is an input: the caller passes the
+   authoritative answer in, exactly as it passes the schedule and the
+   soreness in, and this module never computes it. See deloadState() in
+   src/progressionLedger.js. */
 
 /** A screener answer we recognise. Anything else means not screened. */
 export function hasPelvicScreen(profile) {
@@ -144,7 +136,7 @@ const CHANGES = {
  *   sessionDraft      the unfinished session, or null
  *   soreness          '' | 'none' | 'mild' | 'moderate' | 'high'
  *   pelvicProfile     '' | 'tight' | 'standard'
- *   firstSessionDate  for the deload rule
+ *   deload            boolean, the authoritative deload answer from the caller
  *   dayTypes          the DAY_TYPES table, for labels inside reasons
  *   recoveryPlan      recovery exercise indices a Recovery prescription would use
  *   contractionIndices  CONTRACTION_RECOVERY_IDX
@@ -192,7 +184,7 @@ export function nextBestAction(input) {
     const resumeBlockedBySoreness = draftIsMechanical && soreness === 'high';
 
     const modifiers = {
-        deload: isDeloadWeek(i.firstSessionDate, now),
+        deload: !!i.deload,
         tightFloor: i.pelvicProfile === 'tight',
         moderateSoreness: false,
         pelvicScreenRequired: false,

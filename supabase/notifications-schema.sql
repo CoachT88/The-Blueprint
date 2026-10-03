@@ -102,7 +102,9 @@ create index if not exists push_subscriptions_user_idx
 -- 5. Checks — read-only, run these after the above
 -- ---------------------------------------------------------------------------
 
--- Every column the sender touches must appear here.
+-- Every column the sender touches must appear here, plus streak_warn, which
+-- it no longer reads: the streak warning was retired in Phase 2B.2 and the
+-- column is kept only so an older client writing it does not error.
 -- Expect: user_id, endpoint, p256dh, auth, reminder_time, streak_warn,
 --         timezone, last_notified_date, updated_at
 select column_name, data_type, is_nullable
@@ -121,7 +123,6 @@ where schemaname = 'public' and tablename = 'push_subscriptions';
 -- How many members could receive anything at all. Zero is expected until
 -- someone enables reminders on a device, and is not a fault.
 select count(*) as subscriptions,
-       count(*) filter (where streak_warn) as want_streak_warnings,
        count(*) filter (where last_notified_date = current_date) as notified_today
 from public.push_subscriptions;
 

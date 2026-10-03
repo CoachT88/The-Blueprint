@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import {
-    nextBestAction, isDeloadWeek, hasPelvicScreen, isPelvicSpecific, allowedRecoveryPlan,
+    nextBestAction, hasPelvicScreen, isPelvicSpecific, allowedRecoveryPlan,
     STATES, TRAINING_MISSIONS, PREPARE_REASONS, SCHEDULE_UNRESOLVED,
 } from '../src/nextBestAction.js';
 import { estimateSessionMinutes } from '../src/sessionDuration.js';
@@ -37,7 +37,6 @@ const MON = new Date(2025, 0, 6);        // schedule[1] girth
 const TUE = new Date(2025, 0, 7);        // schedule[2] rest
 const WED = new Date(2025, 0, 8);        // schedule[3] stamina
 const THU = new Date(2025, 0, 9);        // schedule[4] length
-const DELOAD_MON = new Date(2025, 0, 20); // ISO week 4, still schedule[1] girth
 
 const input = (over) => ({
     dataLoaded: true,
@@ -50,7 +49,7 @@ const input = (over) => ({
     sessionDraft: null,
     soreness: '',
     pelvicProfile: 'standard',
-    firstSessionDate: '2024-09-01',
+    deload: false,
     recoveryPlan: NIGHT_RECOVERY,
     contractionIndices: CONTRACTION,
     ...over,
@@ -59,17 +58,33 @@ const input = (over) => ({
 // ---------------------------------------------------------------------------
 // The helpers the ladder is built from
 // ---------------------------------------------------------------------------
-describe('isDeloadWeek', () => {
-    test('every fourth ISO week once there is enough history', () => {
-        expect(isDeloadWeek('2024-09-01', DELOAD_MON)).toBe(true);   // ISO week 4
-        expect(isDeloadWeek('2024-09-01', MON)).toBe(false);          // ISO week 2
+describe('deload is an input, never recomputed here', () => {
+    /* This module used to decide the deload itself, from a copy of the old
+       calendar rule, while the ledger decided what the session actually
+       did. One source now: the caller passes the answer in. */
+    test('it reports exactly what it was given', () => {
+        expect(nextBestAction(input({ deload: true })).modifiers.deload).toBe(true);
+        expect(nextBestAction(input({ deload: false })).modifiers.deload).toBe(false);
     });
-    test('a member with under four weeks of history never deloads', () => {
-        expect(isDeloadWeek('2025-01-14', DELOAD_MON)).toBe(false);
+
+    test('a missing flag is not a deload', () => {
+        expect(nextBestAction(input({ deload: undefined })).modifiers.deload).toBe(false);
     });
-    test('no first session, no deload', () => {
-        expect(isDeloadWeek(null, DELOAD_MON)).toBe(false);
-        expect(isDeloadWeek('not a date', DELOAD_MON)).toBe(false);
+
+    test('REGRESSION: nothing about the date or the history can turn it on', () => {
+        // Every one of these used to matter, and none of them may now.
+        for (const over of [
+            { now: new Date(2025, 0, 20) },               // was ISO week 4
+            { firstSessionDate: '2024-09-01' },           // was "enough history"
+            { now: new Date(2025, 0, 20), firstSessionDate: '2024-09-01' },
+        ]) {
+            expect(nextBestAction(input({ ...over, deload: false })).modifiers.deload).toBe(false);
+        }
+    });
+
+    test('the module no longer exports a deload calculation', async () => {
+        const mod = await import('../src/nextBestAction.js');
+        expect(mod.isDeloadWeek).toBeUndefined();
     });
 });
 
@@ -281,7 +296,7 @@ describe('nextBestAction: the required cases', () => {
     });
 
     test('the deload modifier', () => {
-        const r = nextBestAction(input({ now: DELOAD_MON }));
+        const r = nextBestAction(input({ deload: true }));
         expect(r.state).toBe('TRAIN');
         expect(r.modifiers.deload).toBe(true);
         expect(r.changes.join(' ')).toMatch(/deload/i);

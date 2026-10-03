@@ -307,6 +307,32 @@
         /* HQ sections stagger */
         @keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
         .hq-anim{opacity:0;animation:fadeInUp .4s cubic-bezier(.2,.8,.2,1) forwards}
+
+        /* ── Reduced motion ───────────────────────────────────────────────
+           Honours prefers-reduced-motion. This is accessibility debt being
+           paid, not a visual change: nothing moves position, nothing changes
+           colour, and every end state is identical.
+
+           Durations are collapsed rather than animations removed, because
+           several animations here carry their own end state via `forwards`.
+           `animation: none` would discard that end state, and .hq-anim is the
+           proof: it starts at opacity 0 and is made visible only by
+           fadeInUp. Blanket-disabling animation would leave every section of
+           the HQ permanently invisible. The explicit override below is a
+           second line of defence in case a future rule reintroduces that
+           shape, and tests/e2e/reduced-motion.test.js holds the line. */
+        @media (prefers-reduced-motion: reduce){
+            *,*::before,*::after{
+                animation-duration:.01ms !important;
+                animation-delay:0ms !important;
+                animation-iteration-count:1 !important;
+                transition-duration:.01ms !important;
+                transition-delay:0ms !important;
+            }
+            html,body,#step-0{scroll-behavior:auto !important}
+            /* Anything that is invisible until an animation reveals it. */
+            .hq-anim{opacity:1 !important}
+        }
     </style>
 </head>
 <body>
@@ -498,7 +524,6 @@
     <div id="hq-records-card" class="px-2 space-y-2 hq-anim">
         <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Personal Records</p>
         <div class="flex gap-2">
-            <div class="record-chip"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Best Streak</p><p id="record-streak" class="text-lg font-black text-white">0d</p></div>
             <div class="record-chip"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">Best Session</p><p id="record-session-xp" class="text-lg font-black text-white">0 XP</p></div>
             <div class="record-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Best Week</p><p id="record-week-xp" class="text-lg font-black text-white">0 XP</p></div>
         </div>
@@ -526,7 +551,7 @@
         </div>
         <div id="notif-supported">
             <div class="space-y-4">
-                <p class="text-[11px] text-slate-400 leading-relaxed">One reminder a day at the time you choose, and a warning before a streak breaks. Nothing on a rest day, and nothing once you've trained.</p>
+                <p class="text-[11px] text-slate-400 leading-relaxed">One reminder a day at the time you choose. Nothing on a rest day, nothing once you've trained, and nothing on a day a Recovery Pass is covering.</p>
                 <p class="text-[10px] text-slate-600 leading-relaxed">Notifications only ever say The Blueprint. Nothing about what you train appears on your lock screen.</p>
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
@@ -535,17 +560,6 @@
                             <p class="text-[10px] text-slate-600">Sent if you haven't trained that day</p>
                         </div>
                         <input type="time" id="notif-time" value="19:00" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 font-bold">
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-[11px] font-bold text-slate-300">Streak warnings</p>
-                            <p class="text-[10px] text-slate-600">Alert before you lose a streak ≥ 3 days</p>
-                        </div>
-                        <label id="streak-warn-toggle-label" class="flex items-center cursor-pointer">
-                            <div id="streak-warn-toggle" class="w-9 h-5 rounded-full bg-slate-700 border border-slate-600 relative transition-colors">
-                                <div id="streak-warn-thumb" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-400 transition-all"></div>
-                            </div>
-                        </label>
                     </div>
                 </div>
                 <button id="notif-enable-btn" class="btn-primary py-3 text-sm w-full">Enable Notifications</button>
@@ -680,10 +694,10 @@
             <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-stopwatch text-blue-400 mr-2"></i><span class="font-black text-white">Guided sessions.</span> Every set timed, with technique cues and safety checks as you go.</p>
         </div>
         <div class="instruction-card" style="padding:.8rem 1rem;">
-            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-layer-group text-emerald-400 mr-2"></i><span class="font-black text-white">Four tiers.</span> You start at Beginner. Each one unlocks as your tissue adapts, so you never jump ahead.</p>
+            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-layer-group text-emerald-400 mr-2"></i><span class="font-black text-white">Four tiers.</span> Beginner and Intermediate are open from day one. The two above them open up once you have put the training weeks in.</p>
         </div>
         <div class="instruction-card" style="padding:.8rem 1rem;">
-            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-comment-dots text-purple-400 mr-2"></i><span class="font-black text-white">Coach Tee, plus tracking.</span> A 24/7 advisor, with measurements, photos and streaks all logged for you.</p>
+            <p class="text-[11px] text-slate-300 leading-relaxed"><i class="fas fa-comment-dots text-purple-400 mr-2"></i><span class="font-black text-white">Coach Tee, plus tracking.</span> A 24/7 advisor, with measurements, photos and every session logged for you.</p>
         </div>
     </div>
 
@@ -758,11 +772,13 @@
                     <p class="text-[10px] text-slate-400 mt-0.5">Your progress is still saving to the cloud, but this device cannot keep an offline copy. Free up some space when you get a chance.</p>
                 </div>
             </div>
-            <!-- Still rendered and still hidden by the same conditions as
-                 before, but the Today card is now where rest, deload and an
-                 unfinished session are communicated, so the band never
-                 promotes these three. Kept so nothing that reads them breaks. -->
-            <div id="deload-banner" class="deload-banner hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week Active</p><p class="text-slate-400 text-[11px] mt-0.5">Sets reduced by 1, duration cut 40%. Let the tissue consolidate.</p></div></div>
+            <!-- Rest and an unfinished session are said by the Today card, so
+                 the band never promotes those two. The deload banner is
+                 different and IS promoted: a deload runs for a whole week,
+                 it starts before the member opens a session, and the Today
+                 card only mentions it as one line among the day's changes.
+                 A week-long change to the plan is worth a banner. -->
+            <div id="deload-banner" class="deload-banner hidden"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><div><p class="text-orange-300 text-[10px] font-black uppercase tracking-widest">Deload Week</p><p id="deload-banner-text" class="text-slate-400 text-[11px] mt-0.5">Lighter on purpose this week. Sets drop by one and durations come down. Same sessions, less volume, and back to normal next week.</p></div></div>
             <div id="hq-rest-banner" class="hidden p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center gap-3">
                 <i class="fas fa-bed text-indigo-400 text-lg flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
@@ -847,7 +863,7 @@
                 <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
                     <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Your streak is still alive. Get back in today.</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Get back in today.</p>
                 </div>
             </div>
             <div id="hq-coach-nudge" class="hidden p-3 rounded-2xl" style="background:rgba(168,85,247,.09);border:1px solid rgba(168,85,247,.3)">
@@ -940,18 +956,34 @@
             <div id="session-log" class="space-y-1.5"></div>
         </div>
 
-        <!-- Level and XP, demoted. Streak lives here too now: it is still
-             worth seeing, it is just not the headline while its own logic
-             counts a prescribed rest day as a miss. -->
+        <!-- Level and XP, demoted. The streak used to live here too and is
+             gone; see the note below the bar. -->
         <div id="hq-level-badge" class="level-badge mx-2 hq-anim">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i><span id="hq-level-name" class="text-yellow-300 text-xs font-black uppercase tracking-widest">LVL 1 &middot; RECRUIT</span></div>
                 <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">65 XP to next level</span>
             </div>
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
+            <!-- The daily streak used to sit here. It contradicted the weekly
+     target by construction: it broke on any day without a session, a
+     prescribed rest day included, so a member following the programme
+     exactly lost their streak twice a week while the week counter called
+     them on track. Display went first, then the mechanics, and in Phase
+     2B.2 the last of it: the server's streak warning and the calculation
+     behind it are gone, so no streak is computed, stored, shown or sent
+     anywhere. Only records.longestStreak remains, frozen, as history. -->
+            <!-- Recovery Passes. Here rather than anywhere louder because a
+                 banked Pass is useful to know about and not urgent, and the
+                 mechanic is small on purpose. Tapping it explains what a
+                 Pass does, which the member needs before one is spent for
+                 them rather than after. -->
             <div class="flex items-center gap-3 mt-2.5">
-                <span id="hq-streak" class="text-[10px] font-bold text-orange-100">0 Day Streak</span>
                 <span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span>
+                <button id="hq-pass-chip" class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-200">
+                    <i class="fas fa-shield-halved text-amber-400/80"></i>
+                    <span id="hq-pass-count">Recovery Passes: 0 / 2</span>
+                    <i class="fas fa-circle-info text-[8px] text-slate-600"></i>
+                </button>
             </div>
         </div>
 
@@ -1066,7 +1098,7 @@
             <i class="fas fa-circle-info text-amber-400 text-sm flex-shrink-0 mt-0.5"></i>
             <p id="mission-blocked-text" class="text-[11px] text-amber-200/90 leading-relaxed"></p>
         </div>
-        <div id="deload-mission-note" class="hidden mx-2 deload-banner text-left"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><p class="text-orange-300 text-[11px]">Deload active — reduced volume loaded automatically.</p></div>
+        <div id="deload-mission-note" class="hidden mx-2 deload-banner text-left"><i class="fas fa-battery-quarter text-orange-400 text-lg flex-shrink-0"></i><p class="text-orange-300 text-[11px]">Deload week. Reduced volume is already loaded for you.</p></div>
 
     <!-- Difficulty selector -->
     <div class="px-2 space-y-2">
@@ -1348,7 +1380,6 @@
         <div class="grid grid-cols-2 gap-3">
             <div class="summary-stat"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">XP Earned</p><p id="summary-xp" class="text-2xl font-black text-white">+0</p></div>
             <div class="summary-stat"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Duration</p><p id="summary-duration" class="text-2xl font-black text-white">--</p></div>
-            <div class="summary-stat"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Current Streak</p><p id="summary-streak" class="text-2xl font-black text-white">--</p></div>
             <div class="summary-stat"><p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">Total XP</p><p id="summary-total-xp" class="text-2xl font-black text-white">--</p></div>
         </div>
         <div id="summary-records" class="space-y-2"></div>
@@ -1507,8 +1538,8 @@
                 <p>This is where the app opens every time. Here is what everything on it means:</p>
                 <div class="space-y-3">
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-fire text-orange-400 mr-1.5"></i>Day Streak</p>
-                        <p>Counts how many days in a row you have completed a session. Any session type counts — length, girth, or recovery. The streak resets automatically at the start of a new week if you missed days.</p>
+                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-circle-check text-emerald-400 mr-1.5"></i>Week Progress</p>
+                        <p>Counts the training sessions you have completed this week against the ones your schedule asked for. A prescribed rest day is not a gap, so taking it costs you nothing. This replaced the old day streak, which broke every time you rested exactly as planned.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-bolt text-yellow-400 mr-1.5"></i>XP & Rank</p>
@@ -1528,7 +1559,7 @@
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-trophy text-yellow-400 mr-1.5"></i>Personal Records</p>
-                        <p>Shows your all-time bests: longest streak, highest single-session XP, and highest week XP. These update automatically when you break a record.</p>
+                        <p>Shows your all-time bests: highest single-session XP, and highest week XP. These update automatically when you break a record.</p>
                     </div>
                 </div>
             </div>
@@ -1636,24 +1667,24 @@
                 <div class="space-y-2">
                     <div class="p-3 rounded-xl bg-emerald-500/05 border border-emerald-500/20">
                         <p class="text-emerald-300 font-bold text-xs mb-1"><i class="fas fa-seedling mr-1.5"></i>Beginner</p>
-                        <p>Default starting tier. Shorter durations, fewer sets. Designed to condition the tissue before increasing load. Everyone starts here.</p>
+                        <p>Shorter durations, fewer sets. Always available, to anyone, at any time. Dropping to it never needs permission and never costs you anything you have earned.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-blue-500/05 border border-blue-500/20">
                         <p class="text-blue-300 font-bold text-xs mb-1"><i class="fas fa-dumbbell mr-1.5"></i>Intermediate</p>
-                        <p>Standard working tier for most users. Unlocks immediately. This is where the majority of your training will happen.</p>
+                        <p>The default, and the standard working tier. Always available. This is where the majority of your training will happen.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-purple-500/05 border border-purple-500/20">
                         <p class="text-purple-300 font-bold text-xs mb-1"><i class="fas fa-bolt mr-1.5"></i>Advanced</p>
-                        <p>Requires 4 weeks at Intermediate before unlocking. The timer starts from the moment you first select Intermediate. This 4-week lock is not arbitrary — collagen remodeling takes a minimum of 3–4 weeks. Rushing this stage is the number one cause of injuries in this protocol.</p>
+                        <p>Earned, not waited out. It opens once you have put together four solid training weeks out of your last eight, and it stays open once you have it. If your recent sessions have been very hard going, or there is not enough history to judge yet, it stays shut for now and the app tells you which. Time served at Intermediate counts for nothing on its own, because sitting at a tier is not training.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-red-500/05 border border-red-500/20">
                         <p class="text-red-300 font-bold text-xs mb-1"><i class="fas fa-skull-crossbones mr-1.5"></i>Elite</p>
-                        <p>Requires 4 weeks at Advanced AND a sustained average EQ of 9+ across your last 10 sessions. Both requirements must be met simultaneously. Tapping the locked Elite button shows you exactly what is needed.</p>
+                        <p>Three things at once: you have reached Advanced, you have the same four solid weeks behind you, and your average EQ across your recent sessions is 9 or above. Fewer than three rated sessions is not enough to judge, and it is not treated as a pass. Tapping the locked Elite button tells you which part is missing.</p>
                     </div>
                 </div>
                 <div class="p-3 rounded-xl bg-orange-500/05 border border-orange-500/20">
                     <p class="text-orange-300 font-bold text-xs mb-1"><i class="fas fa-battery-quarter mr-1.5"></i>Deload Weeks</p>
-                    <p>Every 4th calendar week is automatically a deload week. Volume reduces slightly and the app flags it with an orange banner. Deload weeks are when most of your gains actually consolidate — do not skip them or try to override them.</p>
+                    <p>Once you have put together four solid training weeks, the week that follows is a deload week. Sets drop by one and durations come down, from that week's first session to its last, and the app flags it with an orange banner. It is one week only. Whatever you manage inside it, the next week goes back to normal and the count starts again. This is how the programme is planned rather than a verdict on how your week went, and the session count stays the same, so a deload week can still be a full week of training.</p>
                 </div>
             </div>
         </div>
@@ -1921,6 +1952,26 @@
             <button id="pelvic-lock-take" class="btn-primary py-3.5 text-[12px]">TAKE THE CHECK</button>
             <button id="pelvic-lock-close" class="btn-outline py-3 text-[11px]">Not now</button>
         </div>
+    </div>
+</div>
+
+<!-- What a Recovery Pass is, in plain words. Reachable from the HQ chip, so
+     the member can read it before one is ever spent. No mention of how a
+     Pass is earned beyond "a week where you did the training", because the
+     machinery behind that is not something they should have to learn. -->
+<div id="pass-info-modal" class="hidden fixed inset-0 z-[99996] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
+    <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(245,158,11,.3)">
+        <div class="flex items-start gap-3">
+            <i class="fas fa-shield-halved text-amber-400 text-base flex-shrink-0 mt-0.5"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-[12px] font-black text-amber-300 uppercase tracking-widest">Recovery Passes</p>
+                <p id="pass-info-bank" class="text-[11px] font-bold text-slate-300 mt-1.5">You have 0 of 2 banked.</p>
+                <p class="text-[12px] text-slate-400 mt-2 leading-relaxed">You earn one when you put in enough training to keep your week on track, and you can have two at a time.</p>
+                <p class="text-[12px] text-slate-400 mt-2 leading-relaxed">If you miss a day, a banked Pass is spent automatically to cover it. That stops the reminders treating the gap as if you had dropped off, and the app will not chase you about it.</p>
+                <p class="text-[12px] text-slate-500 mt-2 leading-relaxed">A Pass does not count as a session and it does not move you closer to the next tier. It only changes how the app talks to you about a day you missed.</p>
+            </div>
+        </div>
+        <button id="pass-info-close" class="btn-outline w-full py-3 text-[11px]">Got it</button>
     </div>
 </div>
 
@@ -2238,8 +2289,11 @@ const GIRTH_CIRCUIT = {
 };
 const MILESTONES=[
     {id:'first_session', icon:'fa-flag',              color:'text-blue-400',    title:'First Blood',       desc:'First session complete. The journey has begun.',              trigger:p=>p.sessionLog.length===1},
-    {id:'streak_3',      icon:'fa-fire',              color:'text-orange-400',  title:'On a Roll',         desc:'3 sessions logged. Consistency is the multiplier.',           trigger:p=>getCurrentStreak(p.sessionLog)>=3},
-    {id:'streak_7',      icon:'fa-fire-flame-curved', color:'text-red-400',     title:'Full Week',         desc:"7 days. Your tissue doesn't forget.",                         trigger:p=>getCurrentStreak(p.sessionLog)>=7},
+    /* Re-pointed off the daily streak, which broke on prescribed rest days
+       and so rewarded ignoring the programme. These count sessions and
+       qualifying weeks instead: behaviour the programme actually asks for. */
+    {id:'streak_3',      icon:'fa-fire',              color:'text-orange-400',  title:'On a Roll',         desc:'3 sessions logged. Consistency is the multiplier.',           trigger:p=>(p.sessionLog||[]).length>=3},
+    {id:'streak_7',      icon:'fa-fire-flame-curved', color:'text-red-400',     title:'Full Week',         desc:'A full week of training as prescribed.',                      trigger:p=>!!(window.BP&&window.BP.progressionEligibility(p.progressionLedger).qualifyingWeeks>=1)},
     {id:'xp_500',        icon:'fa-bolt',              color:'text-yellow-400',  title:'500 XP',            desc:'Half a thousand XP banked. You are no longer a beginner.',     trigger:p=>p.totalXp>=500},
     {id:'xp_1000',       icon:'fa-star',              color:'text-yellow-300',  title:'1,000 XP',          desc:'Four digits. The protocol is now instinct.',                   trigger:p=>p.totalXp>=1000},
     {id:'xp_3000',       icon:'fa-crown',             color:'text-amber-400',   title:'3,000 XP Elite',    desc:'Elite rank territory. Your discipline is exceptional.',        trigger:p=>p.totalXp>=3000},
@@ -2529,6 +2583,13 @@ const DEFAULT_PERSISTED={
     primaryGoal:'',        // '' | size | stamina | eq | all  ('' behaves as all)
     pelvicProfile:'',      // '' | tight | standard  — result of the pelvic floor screener
     pelvicScreenDate:'',   // when they last took it, so it can be re-offered
+    /* ── Phase 2B.1 progression ────────────────────────────────────────
+       Both are read and written from here on, and neither is consumed by
+       any behaviour yet: tier gating, deload and backfill are still the
+       old logic. This is the compatibility step, so the columns are
+       round-tripping before anything depends on them. */
+    programmeStartDate:null,  // null + allTimeSessionCount>0 means established, start unknown
+    progressionLedger:[],     // see src/progressionLedger.js for the row shape
 };
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
@@ -2621,6 +2682,20 @@ async function loadPersisted(){
                 lastPassEarnedDate:  data.last_pass_earned_date|| '',
                 primaryGoal:         data.primary_goal        || '',
                 pelvicProfile:       data.pelvic_profile      || '',
+                /* A date column arrives as a string or null. Empty string
+                   is coerced to null so the three programme-start states
+                   stay distinguishable. */
+                programmeStartDate:  data.programme_start_date || null,
+                /* Untrusted until normalised: jsonb enforces no shape, and
+                   this may predate the verdict model or come from a
+                   restored backup. See normaliseLedger. */
+                /* If the module has not landed, keep the raw array rather
+                   than substituting []. Normalising is a correctness step,
+                   not a precondition for holding the data, and discarding
+                   it here would write the loss back on the next save. */
+                progressionLedger:   (window.BP && window.BP.normaliseLedger)
+                                        ? window.BP.normaliseLedger(data.progression_ledger)
+                                        : (Array.isArray(data.progression_ledger) ? data.progression_ledger : []),
                 pelvicScreenDate:    data.pelvic_screen_date  || '',
             };
         }
@@ -2676,6 +2751,8 @@ function _buildSavePayload(){
         primary_goal:          persisted.primaryGoal||'',
         pelvic_profile:        persisted.pelvicProfile||'',
         pelvic_screen_date:    persisted.pelvicScreenDate||'',
+        programme_start_date:  persisted.programmeStartDate||null,
+        progression_ledger:    Array.isArray(persisted.progressionLedger)?persisted.progressionLedger:[],
         updated_at:            new Date().toISOString(),
     };
 }
@@ -2683,7 +2760,7 @@ function _buildSavePayload(){
 // matching ALTER TABLE has been run, Supabase rejects the whole upsert and the
 // member silently stops syncing. We detect that once and fall back to writing
 // the columns that do exist, so progress is never lost over a migration gap.
-const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date','primary_goal','pelvic_profile','pelvic_screen_date'];
+const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date','primary_goal','pelvic_profile','pelvic_screen_date','programme_start_date','progression_ledger'];
 let _schemaMissingNewCols=false;
 function _isUnknownColumnError(err){
     if(!err) return false;
@@ -2938,48 +3015,112 @@ function haptic(p=[40]){try{if(navigator.vibrate)navigator.vibrate(p)}catch(e){}
 function getDiff(){return DIFFICULTIES.find(d=>d.id===(persisted.difficulty||'intermediate'))||DIFFICULTIES[1]}
 
 // ── Tier Lock System ──────────────────────────────────────────────────────
-// Each tier requires 4 weeks (28 days) at the previous tier before unlocking
+// Lowest to highest. Beginner and Intermediate are always available;
+// Advanced and Elite are earned through the progression engine.
 const TIER_ORDER=['beginner','intermediate','advanced','elite'];
-const TIER_WEEKS_REQUIRED={beginner:0,intermediate:0,advanced:4,elite:4};
+/** Banked Recovery Passes. Product policy, same as the progression numbers. */
+const RECOVERY_PASS_CAP=2;
 const ELITE_EQ_REQUIREMENT=9; // must avg 9+ EQ to unlock elite
 
-function getWeeksSinceUnlock(tierId){
-    const unlockDate=persisted.diffUnlockedDate?.[tierId];
-    if(!unlockDate) return 0;
-    return Math.floor((Date.now()-new Date(unlockDate).getTime())/(7*24*60*60*1000));
+/* TIER_WEEKS_REQUIRED and getWeeksSinceUnlock() were deleted in Phase 2B.1.
+   They were the whole of the old gate: a per-tier week count, and elapsed
+   calendar time since a tier was tapped. Neither had any caller left once
+   isTierLocked() stopped reading them, and a grep of app, src and tests
+   found no other reference, so they are gone rather than left to rot.
+   persisted.diffUnlockedDate is NOT deleted: it still records ownership,
+   which is what grandfathers existing Advanced and Elite members. */
+
+/**
+ * Does this member already hold this tier?
+ *
+ * Ownership is absolute and is never revoked. diffUnlockedDate survives for
+ * exactly this reason: it no longer AUTHORISES anything by elapsed time, it
+ * records that a tier was once held. That is what grandfathers every
+ * existing Advanced and Elite member through the new gate.
+ */
+function ownsTier(tierId){
+    if(persisted.difficulty===tierId) return true;
+    return !!(persisted.diffUnlockedDate&&persisted.diffUnlockedDate[tierId]);
 }
 
+/**
+ * The Elite erection-quality condition, unchanged from the old gate and
+ * kept temporarily. Insufficient data is NOT a pass: fewer than three
+ * logged ratings means the condition is not met, not that it is waived.
+ */
+function eliteEqConditionMet(){
+    const rated=(persisted.sessionLog||[]).slice(-10).filter(s=>typeof s.eq==='number');
+    if(rated.length<3) return false;
+    return rated.reduce((t,s)=>t+s.eq,0)/rated.length>=ELITE_EQ_REQUIREMENT;
+}
+
+/**
+ * Which tiers this member may select.
+ *
+ * WHAT THIS REPLACED. The old rule advanced on wall-clock time from a tap:
+ * diffUnlockedDate was written by selecting a tier, getWeeksSinceUnlock
+ * counted calendar weeks from it, and Advanced opened four weeks later
+ * whether or not a single session had been completed. Intermediate was
+ * nominally gated the same way and in practice always open. Nothing in it
+ * read the session log.
+ *
+ * Now Beginner and Intermediate are always available, because reducing or
+ * holding workload must never need permission, and Advanced and Elite are
+ * earned through the progression engine.
+ *
+ * The gate only ever applies UPWARD. Anything at or below where the member
+ * already is stays selectable whatever the engine says, so an Elite member
+ * can always drop to Advanced even if nothing ever recorded them owning it.
+ * Reducing workload is not a privilege and must never be refused.
+ *
+ * Every state other than ELIGIBLE keeps a higher tier locked, and for
+ * different reasons the UI can explain: NOT_ELIGIBLE means more qualifying
+ * work, HOLD means the work is done but an increase is paused, UNKNOWN
+ * means we cannot establish eligibility from what we have.
+ */
 function isTierLocked(tierId){
     if(tierId==='beginner'||tierId==='intermediate') return false;
-    const tierIdx=TIER_ORDER.indexOf(tierId);
-    if(tierIdx<0) return true;
-    const prevTier=TIER_ORDER[tierIdx-1];
-    const weeksAtPrev=getWeeksSinceUnlock(prevTier);
-    const required=TIER_WEEKS_REQUIRED[tierId];
-    if(weeksAtPrev<required) return true;
-    // Elite also requires avg EQ of 9+
+    const idx=TIER_ORDER.indexOf(tierId);
+    if(idx<0) return true;
+    if(idx<=TIER_ORDER.indexOf(persisted.difficulty)) return false;   // at or below: always open
+    if(ownsTier(tierId)) return false;                 // grandfathered, never revoked
+
+    const prog=typeof currentProgression==='function'?currentProgression():null;
+    if(!prog||prog.state!==(window.BP&&window.BP.PROGRESSION_STATE.ELIGIBLE)) return true;
+
+    if(tierId==='advanced') return false;
     if(tierId==='elite'){
-        const recentSessions=(persisted.sessionLog||[]).slice(-10).filter(s=>s.eq);
-        if(recentSessions.length<3) return true; // need at least 3 sessions with EQ data
-        const avgEQ=recentSessions.reduce((t,s)=>t+s.eq,0)/recentSessions.length;
-        if(avgEQ<ELITE_EQ_REQUIREMENT) return true;
+        // Elite is reached through Advanced, not around it.
+        if(!ownsTier('advanced')) return true;
+        return !eliteEqConditionMet();
     }
-    return false;
+    return true;
 }
 
+/**
+ * Why a tier is locked, in words a member can act on.
+ *
+ * Deliberately free of the engine's vocabulary: no ledger, no window, no
+ * sample counts, no state names. Final copy is a later phase; this just has
+ * to be true and not read as a fault.
+ */
 function getTierUnlockInfo(tierId){
     if(!isTierLocked(tierId)) return null;
-    const tierIdx=TIER_ORDER.indexOf(tierId);
-    const prevTier=TIER_ORDER[tierIdx-1];
-    const weeksAtPrev=getWeeksSinceUnlock(prevTier);
-    const required=TIER_WEEKS_REQUIRED[tierId];
-    const weeksLeft=Math.max(0,required-weeksAtPrev);
-    if(tierId==='elite'){
-        const recentSessions=(persisted.sessionLog||[]).slice(-10).filter(s=>s.eq);
-        const avgEQ=recentSessions.length?recentSessions.reduce((t,s)=>t+s.eq,0)/recentSessions.length:0;
-        if(avgEQ<ELITE_EQ_REQUIREMENT) return `Requires avg EQ ${ELITE_EQ_REQUIREMENT}+ (yours: ${avgEQ.toFixed(1)}) + ${weeksLeft}w at Advanced`;
+    const prog=typeof currentProgression==='function'?currentProgression():null;
+    const S=window.BP&&window.BP.PROGRESSION_STATE;
+
+    if(tierId==='elite'&&!ownsTier('advanced')) return 'Reach Advanced first';
+    if(prog&&S){
+        if(prog.state===S.HOLD) return 'Available once your recent sessions ease off';
+        if(prog.state===S.UNKNOWN) return 'Keep logging sessions so this can be assessed';
+        if(prog.state===S.NOT_ELIGIBLE){
+            const e=prog.eligibility;
+            const left=Math.max(0,e.required-e.qualifyingWeeks);
+            return `${left} more solid week${left===1?'':'s'} of training`;
+        }
     }
-    return weeksLeft>0?`${weeksLeft} more week${weeksLeft>1?'s':''} at ${prevTier} required`:null;
+    if(tierId==='elite'&&!eliteEqConditionMet()) return `Requires an average EQ of ${ELITE_EQ_REQUIREMENT} or more across your recent sessions`;
+    return 'Not available yet';
 }
 
 function unlockTierIfEligible(tierId){
@@ -3078,14 +3219,23 @@ function applyDifficulty(ex){
         duration: Math.round(ex.duration * d.durationMult)
     };
 }
-// Deload stacks on top of difficulty (additional -1 set, ×0.6 duration)
-// Triggers on every 4th ISO calendar week, but only after the user has at least
-// 4 weeks of training history — prevents new users from hitting deload immediately.
+// Deload stacks on top of difficulty (additional -1 set, ×0.6 duration).
+/**
+ * Deload, driven by accumulated qualifying work rather than the calendar.
+ *
+ * WHAT THIS REPLACED. `getISOWeek() % 4 === 0`, gated on firstSessionDate,
+ * which was written by a difficulty tap. It fired on members who had never
+ * trained and on members in the middle of a month away.
+ *
+ * Now every fifth qualifying week is the deload week. A non-qualifying week
+ * pauses the count rather than resetting it, and more than 28 days without
+ * qualifying work clears the accumulation so nobody returns from a long
+ * break straight into a deload. Both numbers are product policy and neither
+ * is a statement about how the body behaves.
+ */
 function isDeloadWeek(){
-    if(!persisted.firstSessionDate) return false;
-    const weeksSinceFirst=Math.floor((Date.now()-new Date(persisted.firstSessionDate).getTime())/(7*24*60*60*1000));
-    if(weeksSinceFirst<4) return false;
-    return getISOWeek()%4===0;
+    if(!window.BP) return false;
+    return window.BP.deloadState(persisted.progressionLedger,persisted.sessionLog,{now:new Date()}).isDeloadWeek;
 }
 function applyDeload(ex){
     if(!isDeloadWeek())return ex;
@@ -3555,7 +3705,9 @@ function _coachContext(){
     else if(hasPelvicScreen()) lines.push(`Pelvic floor screener: no signs of a tight floor. Contraction and release work are both appropriate, but tell them to stop the kegels if urgency, perineal ache or post-ejaculation discomfort appear.`);
     else lines.push(`Pelvic floor screener: not taken yet. Assess hypertonic vs weak before recommending any contraction work.`);
     lines.push(`Today's scheduled focus: ${dayTypeLabel(getScheduledType())}.`);
-    lines.push(`Streak: ${getCurrentStreak()} day(s).`);
+    // Streak is retired. Weeks of work is the signal that matches the
+    // programme, and unlike a streak a prescribed rest day does not break it.
+    try{ lines.push(`Qualifying training weeks in the last 8: ${window.BP.progressionEligibility(persisted.progressionLedger).qualifyingWeeks}.`); }catch(e){}
     try{ lines.push(`Level: ${getLevelInfo(persisted.totalXp||0).displayName}, ${persisted.totalXp||0} XP total.`); }catch(e){}
     try{ lines.push(`Difficulty tier: ${getDiff().label||getDiff().id}.`); }catch(e){}
     lines.push(`Sessions logged all time: ${persisted.allTimeSessionCount||log.length}.`);
@@ -4539,7 +4691,11 @@ function buildResolverInput(){
         sessionDraft:draft,
         soreness:localStorage.getItem(getTodaySorenessKey())||'',
         pelvicProfile:persisted.pelvicProfile,
-        firstSessionDate:persisted.firstSessionDate,
+        /* The authoritative deload answer, computed once here and passed in.
+           The resolver used to work it out again from firstSessionDate with
+           the retired calendar rule, so the Today card and the duration
+           estimate could both disagree with the session the member then got. */
+        deload:isDeloadWeek(),
         recoveryPlan:getDailyRecommendedUnfiltered(),
         contractionIndices:CONTRACTION_RECOVERY_IDX,
         estimateMinutes:(mission,opts)=>window.BP.estimateSessionMinutes(mission,{
@@ -4591,8 +4747,8 @@ function currentPrescription(){ return _today; }
 const ATTENTION_BAND=[
     {id:'hq-load-failed-banner',  live:()=>!_persistedLoaded&&!!currentUser},
     {id:'hq-storage-full-banner', live:()=>!!_storageFull},
-    // Never promoted: the Today card owns these three.
-    {id:'deload-banner',          live:()=>false},
+    {id:'deload-banner',          live:()=>typeof isDeloadWeek==='function'&&isDeloadWeek()},
+    // Never promoted: the Today card owns these two.
     {id:'hq-rest-banner',         live:()=>false},
     {id:'resume-banner',          live:()=>false},
 ];
@@ -4997,6 +5153,80 @@ function onReadyContinue(){
     readyPlan(r).go();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// PROGRESSION
+//
+// Wiring only. The ledger is kept current and the gate can be read, but
+// nothing yet consumes either: difficulty tiers, deload and the Recovery
+// Pass are all still the old logic. Those are separate checkpoints.
+//
+// Every rule lives in src/progression*.js, where vitest can execute it.
+// This file supplies state and writes results back, and decides nothing.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Bring the ledger and the programme start date up to date.
+ *
+ * Runs after load and after a completed session, which is every moment
+ * either can change. Saves only when something actually moved, so it does
+ * not add a write to every render.
+ */
+function syncProgression(reason){
+    if(!window.BP || !_persistedLoaded || !currentUser) return false;
+    let changed=false;
+
+    /* Programme start, for members who predate the column. Conservative by
+       design: it is only filled in when the retained history can support
+       it, and a long-tenured member whose early sessions were pruned stays
+       null, which together with allTimeSessionCount > 0 is how
+       "established, start unknown" is expressed. No second column. */
+    if(!persisted.programmeStartDate){
+        const back=window.BP.programmeStartBackfill({
+            programmeStartDate:persisted.programmeStartDate,
+            sessionLog:persisted.sessionLog,
+            firstSessionDate:persisted.firstSessionDate,
+            allTimeSessionCount:persisted.allTimeSessionCount,
+            /* Deliberately not supplied. sessionLog.length against
+               allTimeSessionCount is not proof of completeness: imports,
+               older app versions, recovery entries and past schema changes
+               all break it. Without a trustworthy completeness signal the
+               honest answer is "established, start unknown", so no date is
+               invented. */
+            historyComplete:undefined,
+            now:new Date(),
+        });
+        if(back.date && back.date!==persisted.programmeStartDate){
+            persisted.programmeStartDate=back.date;
+            changed=true;
+        }
+    }
+
+    const before=JSON.stringify(persisted.progressionLedger||[]);
+    persisted.progressionLedger=window.BP.reconcileLedger(persisted.progressionLedger,{
+        weekKey:getCurrentWeekKey(),
+        schedule:persisted.schedule,
+        sessionLog:persisted.sessionLog,
+        now:new Date(),
+    });
+    if(JSON.stringify(persisted.progressionLedger)!==before) changed=true;
+
+    if(changed) savePersisted();
+    return changed;
+}
+
+/**
+ * Today's progression answer. Read-only; nothing acts on it yet.
+ *
+ * Returns ELIGIBLE, HOLD, NOT_ELIGIBLE or UNKNOWN. None of those is
+ * produced by an absence of data: missing optional RPE is reported
+ * separately as rpeUnknown and never blocks.
+ */
+function currentProgression(){
+    if(!window.BP) return null;
+    const holds=window.BP.toleranceHolds(persisted.sessionLog,{now:new Date()});
+    return window.BP.progressionState(persisted.progressionLedger,holds);
+}
+
 function renderDashboard(){
     // Stagger-animate HQ sections on each render
     document.querySelectorAll('#step-0 .hq-anim').forEach((el,i)=>{
@@ -5020,6 +5250,9 @@ function renderDashboard(){
     renderWeekProgress();
     renderAttentionBand();
     window._bpHqRendered=true;
+    /* Keeps the current week's row current and fills any weeks the app was
+       not opened in. Cheap: it only writes when something moved. */
+    syncProgression('render');
     /* Which weekdays this week were completed with something other than
        the scheduled mission. Read from the session log, which is the only
        record of what was actually performed: completedDays has one boolean
@@ -5049,9 +5282,8 @@ function renderDashboard(){
         g.appendChild(d);
     });
     document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
-    const _passes=persisted.streakPasses||0;
-    document.getElementById('hq-streak').innerText=`${getCurrentStreak()} Day Streak`+(_passes?` · 🛡️×${_passes}`:'');
     document.getElementById('hq-xp').innerText=`${persisted.totalXp} XP`;
+    renderPassChip();
     const lvl=getLevelInfo(persisted.totalXp);
     document.getElementById('hq-level-name').innerText=lvl.displayName;
     document.getElementById('hq-level-bar').style.width=`${lvl.pct}%`;
@@ -5138,8 +5370,26 @@ function finishSession(){
         duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):null,
     });
     persisted.sessionLog=trimToByteBudget(persisted.sessionLog,SESSION_LOG_BUDGET_BYTES);
+
+    /* The programme starts on the first completed mechanical session, and
+       on nothing else: not sign-up, not choosing a goal, not opening
+       Mission Select, not picking a difficulty, and not completing
+       Recovery. The old firstSessionDate was set by a difficulty tap,
+       which is why it cannot be trusted as a start.
+       Set once and never moved. */
+    if(window.BP){
+        const _entry=persisted.sessionLog[persisted.sessionLog.length-1];
+        const _start=window.BP.programmeStartOnCompletion({
+            programmeStartDate:persisted.programmeStartDate,
+            completedEntry:_entry,
+            now:new Date(),
+        });
+        if(_start) persisted.programmeStartDate=_start;
+    }
     if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
     updateRecords(earnedXp);
+    // The ledger's current-week row is now out of date by one session.
+    syncProgression('session-completed');
     track('session_completed',{
         mission:session.routineType, xp:earnedXp,
         duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0,
@@ -5147,22 +5397,41 @@ function finishSession(){
         sessionNumber:persisted.allTimeSessionCount||0,
     });
     trackOnce('first_session','first_session_completed');
-    _passEarnedThisSession=maybeEarnStreakPass();
+    _passEarnedThisSession=maybeEarnRecoveryPass();
     savePersisted();
     checkMilestones();
     showSessionSummary(earnedXp);
 }
 let _passEarnedThisSession=false;
-// One pass per full week of consistency, capped at two so it stays a safety net
-// rather than a way to coast.
-function maybeEarnStreakPass(){
-    const today=_dayKey(0);
-    if(persisted.lastPassEarnedDate===today) return false;
-    if((persisted.streakPasses||0)>=2) return false;
-    const streak=getCurrentStreak();
-    if(streak<1||streak%7!==0) return false;
+/**
+ * Earn a Recovery Pass: one per qualifying week, capped at two so it stays a
+ * safety net rather than a way to coast.
+ *
+ * It used to be one per seven streak days, which is gone along with the
+ * streak. A Pass is a flexibility mechanic about reminders and messaging,
+ * NOT training credit, and it must never manufacture mechanical exposure.
+ * It cannot here: earning only reads the ledger and writes streakPasses,
+ * and spending only writes passProtectedDates, which no progression module
+ * reads. Both are verified by test.
+ *
+ * Runs after syncProgression inside finishSession, so the ledger already
+ * reflects the session that just finished.
+ */
+function maybeEarnRecoveryPass(){
+    if(!window.BP) return false;
+    if((persisted.streakPasses||0)>=RECOVERY_PASS_CAP) return false;
+    const led=persisted.progressionLedger||[];
+    const current=led[led.length-1];
+    if(!current||!window.BP.weekQualified(current)) return false;
+    // One per qualifying week. The stored date is only used to tell whether
+    // this week already paid out.
+    const last=persisted.lastPassEarnedDate;
+    if(last){
+        const d=new Date(last);
+        if(!isNaN(d.getTime())&&window.BP.weekKey(d)===current.weekKey) return false;
+    }
     persisted.streakPasses=(persisted.streakPasses||0)+1;
-    persisted.lastPassEarnedDate=today;
+    persisted.lastPassEarnedDate=_dayKey(0);
     return true;
 }
 
@@ -5255,25 +5524,24 @@ function selectRPE(val){
 // PERSONAL RECORDS
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Returns the number of consecutive days (ending today or yesterday) that
-// have at least one logged session. Uses sessionLog dates, not completedDays,
-// so it works correctly across week boundaries.
-function getCurrentStreak(log){
-    const sessions=log||(persisted.sessionLog||[]);
-    if(!sessions.length) return 0;
-    const days=new Set(sessions.map(s=>s.date.split('T')[0]));
-    const protectedDays=new Set(persisted.passProtectedDates||[]);
-    const today=new Date();
-    let streak=0;
-    for(let i=0;i<365;i++){
-        const d=new Date(today);d.setDate(d.getDate()-i);
-        const key=d.toISOString().split('T')[0];
-        // A day counts if it was trained, or if a Recovery Pass is covering it.
-        if(days.has(key)||protectedDays.has(key)){streak++;}
-        else if(i>0){break;} // allow today to not yet have a session without snapping streak
-    }
-    return streak;
-}
+/* The daily streak calculation was deleted in Phase 2B.2.
+
+   It was a function named getCurrentStreak, spelled out here so a search
+   for the old name lands on the reason rather than on nothing.
+
+   It had already lost every caller in this app: Recovery Passes earn per
+   qualifying week, the milestones count sessions and qualifying weeks,
+   Coach Tee is given weeks of work, records.longestStreak is frozen, and
+   nothing displays a streak. It was kept one checkpoint longer only as the
+   parity anchor for the port in notifyRules.js, which the notification
+   sender used to warn members about a streak they could no longer see. That
+   warning has now been retired, so the port is gone, the parity check it
+   existed for is gone, and there is nothing left for this to anchor.
+
+   persisted.records.longestStreak and the records.longest_streak column are
+   NOT removed. They hold real history, nothing reads them for a decision,
+   and dropping them would destroy data to no end. */
+
 function _showLoadFailedBanner(){
     const el=document.getElementById('hq-load-failed-banner');
     if(el) el.classList.remove('hidden');
@@ -5293,12 +5561,49 @@ function _showPassUsedBanner(){
     renderAttentionBand();
     setTimeout(()=>{ _passUsedThisRender=false; renderAttentionBand(); },12000);
 }
+/**
+ * The banked Pass count on the HQ.
+ *
+ * The only place the member can see it. Reads straight off persisted so it
+ * cannot drift from the number the mechanic actually uses, and it is on the
+ * HQ rather than behind a session because a Pass is spent on a day the
+ * member did NOT open a session.
+ */
+function renderPassChip(){
+    const n=Math.max(0,persisted.streakPasses||0);
+    const label=document.getElementById('hq-pass-count');
+    if(label) label.innerText=`Recovery Passes: ${n} / ${RECOVERY_PASS_CAP}`;
+    const bank=document.getElementById('pass-info-bank');
+    if(bank) bank.innerText=`You have ${n} of ${RECOVERY_PASS_CAP} banked.`;
+}
+function openPassInfo(){
+    renderPassChip();
+    document.getElementById('pass-info-modal').classList.remove('hidden');
+    track('pass_info_opened',{banked:Math.max(0,persisted.streakPasses||0)});
+}
+function closePassInfo(){
+    document.getElementById('pass-info-modal').classList.add('hidden');
+}
 function _dayKey(offset){
     const d=new Date(); d.setDate(d.getDate()-(offset||0));
     return d.toISOString().split('T')[0];
 }
-// Spend a banked pass to cover yesterday, so one missed day does not wipe out a
-// long streak (and with it, most of the reason people keep opening the app).
+/**
+ * Spend a banked Pass to cover yesterday.
+ *
+ * It is named for the streak it used to protect; the storage keys
+ * streak_passes and pass_protected_dates are live database columns and the
+ * notification sender reads the second of them, so the names stay.
+ *
+ * What it does is deliberately narrow. It writes one date into
+ * passProtectedDates and nothing else. That list is EXPERIENCE state: it
+ * decides whether a reminder is sent and how the app talks about a gap. It
+ * is not training state. Nothing in src/progression.js or
+ * src/progressionLedger.js reads it, so a spent Pass cannot create a
+ * qualifying session, change a week's verdict, move the deload count or
+ * bring a tier any closer. That separation is asserted in
+ * tests/e2e/recovery-pass.test.js and is the whole point of the mechanic.
+ */
 function maybeConsumeStreakPass(){
     if(!currentUser) return false;
     const sessions=persisted.sessionLog||[];
@@ -5318,10 +5623,11 @@ function maybeConsumeStreakPass(){
 }
 
 function updateRecords(sessionXp){
+    /* records.longestStreak is no longer updated. The value already stored
+       is left alone so the column keeps its history and nothing that reads
+       it breaks, but nothing computes a new streak and nothing shows it. */
     if(!persisted.records) persisted.records={longestStreak:0,bestWeekXp:0,bestSessionXp:0};
-    const streak=getCurrentStreak();
     let changed=false;
-    if(streak>persisted.records.longestStreak){persisted.records.longestStreak=streak;changed=true}
     if(sessionXp>persisted.records.bestSessionXp){persisted.records.bestSessionXp=sessionXp;changed=true}
     // Week XP: sum last 7 sessions
     const weekAgo=new Date(Date.now()-7*24*60*60*1000).toISOString();
@@ -5331,10 +5637,8 @@ function updateRecords(sessionXp){
 }
 function renderRecords(){
     const r=persisted.records||{longestStreak:0,bestWeekXp:0,bestSessionXp:0};
-    const rs=document.getElementById('record-streak');
     const rx=document.getElementById('record-session-xp');
     const rw=document.getElementById('record-week-xp');
-    if(rs)rs.innerText=r.longestStreak+'d';
     if(rx)rx.innerText=r.bestSessionXp+' XP';
     if(rw)rw.innerText=r.bestWeekXp+' XP';
 }
@@ -5348,20 +5652,17 @@ let _rememberMe=false;
 function showSessionSummary(xp){
     const modal=document.getElementById('session-summary-modal');
     const duration=_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0;
-    const streak=getCurrentStreak();
     const taglines=['Tissue is adapting. Recovery starts now.','Consistent operator. The protocol is working.','Another session banked. Results compound.','Strong work. Let the tissue integrate.','That\'s how gains are built. Rest well.'];
     document.getElementById('summary-icon').innerText=['🔥','⚡','💪','🎯','🏆'][Math.floor(Math.random()*5)];
     document.getElementById('summary-tagline').innerText=taglines[Math.floor(Math.random()*taglines.length)];
     document.getElementById('summary-xp').innerText='+'+xp;
     document.getElementById('summary-duration').innerText=duration+'min';
-    document.getElementById('summary-streak').innerText=streak+'d';
     document.getElementById('summary-total-xp').innerText=persisted.totalXp+' XP';
     // Personal records broken?
     const r=persisted.records||{};
     const records=[];
-    if(streak>=r.longestStreak&&streak>0) records.push('🏆 New streak record: '+streak+' days');
     if(xp>=r.bestSessionXp&&xp>0) records.push('⚡ New session XP record: '+xp+' XP');
-    if(_passEarnedThisSession) records.push('🛡️ Recovery Pass earned — one missed day will not break your streak');
+    if(_passEarnedThisSession) records.push('🛡️ You earned a Recovery Pass for a solid week of training');
     const recordsEl=document.getElementById('summary-records');
     recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
     modal.classList.add('show');
@@ -5942,9 +6243,10 @@ const COACH_NUDGES=[
     },
     {
         id:'tier_ready',
-        test:()=>getCurrentStreak()>=14 && ['beginner','intermediate'].includes(getDiff().id),
-        text:'Two weeks of consistency. That is usually the point where the next tier starts to make sense.',
-        question:'I have been consistent for two weeks. How do I know when I am ready to move up a difficulty tier?',
+        test:()=>!!(window.BP&&window.BP.progressionEligibility(persisted.progressionLedger).eligible)
+                 && ['beginner','intermediate'].includes(getDiff().id),
+        text:'You have put together enough solid weeks that the next tier is open to you. Moving up is a choice, not something you owe anyone.',
+        question:'I have been training consistently for a while. How do I know whether to move up a difficulty tier?',
     },
 ];
 function _nudgeKey(id){ return 'bp_nudge_'+id+'_'+(currentUser?.id||''); }
@@ -6008,7 +6310,6 @@ function coachChipCandidates(){
     const out=[];
     const sessions=persisted.allTimeSessionCount||0;
     const eq=getEqSummary(7);
-    const streak=getCurrentStreak();
     const goal=getGoalKey();
     let sleep='',sore='';
     try{ sleep=localStorage.getItem(getTodaySleepKey())||''; sore=localStorage.getItem(getTodaySorenessKey())||''; }catch(e){}
@@ -6027,7 +6328,8 @@ function coachChipCandidates(){
     if(goal==='stamina') out.push('What actually makes someone last longer, physically?');
     if(goal==='eq') out.push('What is the fastest way to improve erection quality?');
     if(goal==='size') out.push('Does length or girth come first, and why?');
-    if(streak>=14) out.push('I have been consistent for two weeks. When should I move up a tier?');
+    if(window.BP&&window.BP.progressionEligibility(persisted.progressionLedger).eligible)
+        out.push('I have been consistent for a while. When should I move up a tier?');
     if(sessions>=1&&sessions<5) out.push('How do I know if I am doing this correctly?');
 
     // Evergreen backfill.
@@ -6383,8 +6685,6 @@ async function _refreshNotifUI(){
         :'';
     const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
     if(prefs.time) document.getElementById('notif-time').value=prefs.time;
-    const streakOn=prefs.streakWarn!==false;
-    _setToggleUI('streak-warn-toggle','streak-warn-thumb',streakOn);
 }
 async function enableNotifications(){
     const btn=document.getElementById('notif-enable-btn');
@@ -6456,7 +6756,6 @@ async function _savePushSubscription(sub){
         p256dh:j.keys.p256dh,
         auth:j.keys.auth,
         reminder_time:prefs.time||'19:00',
-        streak_warn:prefs.streakWarn!==false,
         timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         updated_at:new Date().toISOString(),
     },{onConflict:'user_id'});
@@ -6527,27 +6826,20 @@ async function _ensureCurrentPushSubscription(){
         await _savePushSubscription(fresh);
     }catch(e){/* same rule as the timezone refresh: never fail a sign-in over this */}
 }
-function _setToggleUI(trackId,thumbId,on){
-    const track=document.getElementById(trackId);
-    const thumb=document.getElementById(thumbId);
-    if(!track||!thumb)return;
-    track.style.background=on?'rgb(59,130,246)':'';
-    track.style.borderColor=on?'rgba(59,130,246,.4)':'';
-    thumb.style.transform=on?'translateX(16px)':'';
-    thumb.style.background=on?'#fff':'';
-}
+/* The toggle-rendering helper went with the streak-warning switch, which was
+   the only toggle in the notification settings and its only caller. */
 async function saveNotifPrefs(){
     const time=document.getElementById('notif-time').value;
-    const streakWarn=document.getElementById('streak-warn-toggle').style.background==='rgb(59, 130, 246)';
-    const prefs={time,streakWarn};
+    const prefs={time};
     localStorage.setItem('bp_notif_prefs',JSON.stringify(prefs));
-    // The server reads these columns, so this write is the only thing that
-    // makes the picker and the toggle mean anything.
+    /* The server reads reminder_time, so this write is the only thing that
+       makes the picker mean anything. streak_warn is deliberately no longer
+       written: the column still exists for backward compatibility but
+       nothing reads it, because the streak warning it gated is retired. */
     if(currentUser&&_swRegistration&&'PushManager' in window){
         const sub=await _swRegistration.pushManager.getSubscription().catch(()=>null);
         if(sub) await sb.from('push_subscriptions').update({
             reminder_time:time,
-            streak_warn:streakWarn,
             timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         }).eq('user_id',currentUser.id).catch(()=>{});
     }
@@ -6714,6 +7006,8 @@ function init(){
     // purpose rather than passed through on the way to everything.
     document.getElementById('today-alt-btn').addEventListener('click',()=>{track('something_else');goToStep(3)});
     document.getElementById('pelvic-lock-close').addEventListener('click',closePelvicLock);
+    document.getElementById('hq-pass-chip').addEventListener('click',openPassInfo);
+    document.getElementById('pass-info-close').addEventListener('click',closePassInfo);
     document.getElementById('pelvic-lock-take').addEventListener('click',()=>{
         closePelvicLock();
         _pelvicReturn='picker';
@@ -6873,11 +7167,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     document.getElementById('notif-enable-btn').addEventListener('click',enableNotifications);
     document.getElementById('notif-disable-btn').addEventListener('click',disableNotifications);
     document.getElementById('notif-time').addEventListener('change',saveNotifPrefs);
-    document.getElementById('streak-warn-toggle-label').addEventListener('click',()=>{
-        const on=document.getElementById('streak-warn-toggle').style.background!=='rgb(59, 130, 246)';
-        _setToggleUI('streak-warn-toggle','streak-warn-thumb',on);
-        saveNotifPrefs();
-    });
     initServiceWorker();
     // Safety net: if auth + membership check + data load don't complete in 12 s,
     // drop to the login screen so the user isn't stuck on a blank loading screen.
@@ -6950,8 +7239,21 @@ import { weekCompletion } from '../src/weekCompletion.js';
 // it cannot answer "which week was this log entry in". weekUtils can, and it
 // is the version with the year-boundary tests behind it.
 import { getCurrentWeekKey as weekKey } from '../src/weekUtils.js';
+// Phase 2B.1. The ledger and the progression state are now authoritative:
+// they decide Advanced and Elite access, the deload week, and whether a
+// Recovery Pass is earned. Nothing in the page recomputes any of it.
+import { normaliseLedger, reconcileLedger, progressionState, PROGRESSION_STATE,
+         WEEK_VERDICT, weekQualified, weekIsMemberFacingMiss, deloadState,
+         progressionEligibility } from '../src/progressionLedger.js';
+import { toleranceHolds, programmeStartBackfill, programmeStartOnCompletion,
+         isQualifyingSession } from '../src/progression.js';
+import { PROGRESSION_POLICY } from '../src/progressionPolicy.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
-              estimateSessionMinutes, weekCompletion, weekKey };
+              estimateSessionMinutes, weekCompletion, weekKey, normaliseLedger,
+              reconcileLedger, progressionState, PROGRESSION_STATE, WEEK_VERDICT,
+              weekQualified, weekIsMemberFacingMiss, toleranceHolds,
+              programmeStartBackfill, programmeStartOnCompletion, isQualifyingSession,
+              PROGRESSION_POLICY, deloadState, progressionEligibility };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

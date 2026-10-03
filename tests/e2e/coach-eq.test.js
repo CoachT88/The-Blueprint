@@ -16,7 +16,7 @@ describe('Coach Tee context', () => {
         const ctx = await app.page.evaluate(() => { persisted.sessionLog = []; return _coachContext(); });
         expect(ctx).toMatch(/brand new/i);
         expect(ctx).toMatch(/do not invent history or numbers/i);
-        expect(ctx).not.toMatch(/Streak: \d+ day/);
+        expect(ctx).not.toMatch(/Qualifying training weeks in the last 8: \d+/);
     });
 
     test('an established member gets real figures and an EQ direction', async () => {
@@ -35,7 +35,7 @@ describe('Coach Tee context', () => {
             sessionEntry(1, { type: 'girth', eq: 8, rpe: 6 }), sessionEntry(0, { eq: 8, rpe: 5 }),
         ]);
 
-        expect(ctx).toMatch(/Streak: \d+ day/);
+        expect(ctx).toMatch(/Qualifying training weeks in the last 8: \d+/);
         expect(ctx).toMatch(/Level:/);
         expect(ctx).toMatch(/Difficulty tier: Intermediate/);
         expect(ctx).toMatch(/Sessions logged all time: 6/);

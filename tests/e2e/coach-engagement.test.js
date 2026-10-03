@@ -114,6 +114,7 @@ describe('the nudge fires only when there is something to notice', () => {
             try { localStorage.removeItem('bp_sleep_cn1_' + d.toISOString().split('T')[0]); } catch (e) {}
         }
         persisted.sessionLog = []; persisted.difficulty = 'intermediate';
+        persisted.progressionLedger = [];
     });
 
     test('a member with no history sees nothing', async () => {
@@ -163,17 +164,59 @@ describe('the nudge fires only when there is something to notice', () => {
         expect(id).toBe('returning');
     });
 
-    test('two weeks consistent and still on a lower tier', async () => {
+    /**
+     * Phase 2B.1: this nudge used to fire on a fourteen-day streak. It now
+     * fires on progression eligibility, so the fixture has to be weeks of
+     * recorded work rather than a run of consecutive days. Fifteen daily
+     * sessions and no ledger earns nothing, which is the point.
+     */
+    const seedQualifyingWeeks = (page, n) => page.evaluate((n) => {
+        persisted.primaryGoal = 'all';
+        persisted.schedule = ['length', 'girth', 'rest', 'stamina', 'length', 'rest', 'rest'];
+        persisted.sessionLog = [];
+        persisted.progressionLedger = [];
+        const mondayOf = (d) => { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+        for (let w = n; w >= 1; w--) {
+            const monday = mondayOf(new Date(Date.now() - w * 7 * 86400000));
+            for (let i = 0; i < 3; i++) {
+                const d = new Date(monday); d.setDate(d.getDate() + i);
+                persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length', eq: 7, xpEarned: 15, note: '' });
+            }
+            persisted.progressionLedger = window.BP.reconcileLedger(persisted.progressionLedger, {
+                weekKey: window.BP.weekKey(monday), schedule: persisted.schedule,
+                sessionLog: persisted.sessionLog, now: monday,
+            });
+        }
+        // One session today, so the member does not also read as returning
+        // from a week away. A higher-priority nudge would win and the
+        // assertion below would be testing the wrong thing.
+        persisted.sessionLog.push({ date: new Date().toISOString(), routineType: 'length', eq: 7, xpEarned: 15, note: '' });
+    }, n);
+
+    test('enough qualifying weeks banked and still on a lower tier', async () => {
+        await reset();
+        await seedQualifyingWeeks(app.page, 4);
+        const id = await app.page.evaluate(() => {
+            persisted.difficulty = 'intermediate';
+            return (pickCoachNudge() || {}).id;
+        });
+        expect(id).toBe('tier_ready');
+    });
+
+    test('REGRESSION: a long run of daily sessions alone does not fire it', async () => {
+        // The retired rule. Fifteen consecutive days with no recorded weeks
+        // is exactly the state the old streak test passed on.
         await reset();
         const id = await app.page.evaluate(() => {
+            persisted.progressionLedger = [];
             persisted.sessionLog = Array.from({ length: 15 }, (_, i) => ({
                 date: new Date(Date.now() - i * 864e5).toISOString(),
                 routineType: 'length', eq: 7, rpe: 5, xpEarned: 15, note: '',
             })).reverse();
             persisted.difficulty = 'intermediate';
-            return (pickCoachNudge() || {}).id;
+            return (pickCoachNudge() || {}).id || null;
         });
-        expect(id).toBe('tier_ready');
+        expect(id).not.toBe('tier_ready');
     });
 
     test('only the highest priority shows when two conditions are true', async () => {
