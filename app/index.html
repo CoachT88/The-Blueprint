@@ -2560,6 +2560,13 @@ const DEFAULT_PERSISTED={
     primaryGoal:'',        // '' | size | stamina | eq | all  ('' behaves as all)
     pelvicProfile:'',      // '' | tight | standard  — result of the pelvic floor screener
     pelvicScreenDate:'',   // when they last took it, so it can be re-offered
+    /* ── Phase 2B.1 progression ────────────────────────────────────────
+       Both are read and written from here on, and neither is consumed by
+       any behaviour yet: tier gating, deload and backfill are still the
+       old logic. This is the compatibility step, so the columns are
+       round-tripping before anything depends on them. */
+    programmeStartDate:null,  // null + allTimeSessionCount>0 means established, start unknown
+    progressionLedger:[],     // see src/progressionLedger.js for the row shape
 };
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
@@ -2652,6 +2659,20 @@ async function loadPersisted(){
                 lastPassEarnedDate:  data.last_pass_earned_date|| '',
                 primaryGoal:         data.primary_goal        || '',
                 pelvicProfile:       data.pelvic_profile      || '',
+                /* A date column arrives as a string or null. Empty string
+                   is coerced to null so the three programme-start states
+                   stay distinguishable. */
+                programmeStartDate:  data.programme_start_date || null,
+                /* Untrusted until normalised: jsonb enforces no shape, and
+                   this may predate the verdict model or come from a
+                   restored backup. See normaliseLedger. */
+                /* If the module has not landed, keep the raw array rather
+                   than substituting []. Normalising is a correctness step,
+                   not a precondition for holding the data, and discarding
+                   it here would write the loss back on the next save. */
+                progressionLedger:   (window.BP && window.BP.normaliseLedger)
+                                        ? window.BP.normaliseLedger(data.progression_ledger)
+                                        : (Array.isArray(data.progression_ledger) ? data.progression_ledger : []),
                 pelvicScreenDate:    data.pelvic_screen_date  || '',
             };
         }
@@ -2707,6 +2728,8 @@ function _buildSavePayload(){
         primary_goal:          persisted.primaryGoal||'',
         pelvic_profile:        persisted.pelvicProfile||'',
         pelvic_screen_date:    persisted.pelvicScreenDate||'',
+        programme_start_date:  persisted.programmeStartDate||null,
+        progression_ledger:    Array.isArray(persisted.progressionLedger)?persisted.progressionLedger:[],
         updated_at:            new Date().toISOString(),
     };
 }
@@ -2714,7 +2737,7 @@ function _buildSavePayload(){
 // matching ALTER TABLE has been run, Supabase rejects the whole upsert and the
 // member silently stops syncing. We detect that once and fall back to writing
 // the columns that do exist, so progress is never lost over a migration gap.
-const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date','primary_goal','pelvic_profile','pelvic_screen_date'];
+const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date','primary_goal','pelvic_profile','pelvic_screen_date','programme_start_date','progression_ledger'];
 let _schemaMissingNewCols=false;
 function _isUnknownColumnError(err){
     if(!err) return false;
@@ -6974,8 +6997,11 @@ import { weekCompletion } from '../src/weekCompletion.js';
 // it cannot answer "which week was this log entry in". weekUtils can, and it
 // is the version with the year-boundary tests behind it.
 import { getCurrentWeekKey as weekKey } from '../src/weekUtils.js';
+// Phase 2B.1. Only the normaliser is wired so far: the ledger round-trips
+// through the save payload, and nothing reads it for a decision yet.
+import { normaliseLedger } from '../src/progressionLedger.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
-              estimateSessionMinutes, weekCompletion, weekKey };
+              estimateSessionMinutes, weekCompletion, weekKey, normaliseLedger };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

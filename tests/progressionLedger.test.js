@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import {
     reconcileLedger, pruneLedger, recentWeeks, requiredLedgerWeeks,
     progressionEligibility, deloadState, canProgress,
-    WEEK_VERDICT, weekQualified, weekIsMemberFacingMiss,
+    WEEK_VERDICT, weekQualified, weekIsMemberFacingMiss, normaliseLedger,
 } from '../src/progressionLedger.js';
 import { toleranceHolds } from '../src/progression.js';
 import { getCurrentWeekKey } from '../src/weekUtils.js';
@@ -468,5 +468,153 @@ describe('the whole answer', () => {
 
     test('missing holds are treated as none, not as an error', () => {
         expect(canProgress(eligible(), null).available).toBe(true);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// The normalisation boundary
+//
+// jsonb enforces no shape, so what comes back from the database is untrusted
+// input. These are the cases that could otherwise hand out progression
+// credit on the strength of corrupt data.
+// ---------------------------------------------------------------------------
+describe('normaliseLedger', () => {
+    const ok = (weekKey, targetSessions, qualifyingSessions, verdict) =>
+        ({ weekKey, targetSessions, qualifyingSessions, verdict });
+
+    test('a valid ledger survives unchanged', () => {
+        const valid = [
+            ok('2025_w1', 4, 3, WEEK_VERDICT.QUALIFIED),
+            ok('2025_w2', 4, 1, WEEK_VERDICT.MISSED),
+            ok('2025_w3', 0, 0, WEEK_VERDICT.NEUTRAL),
+            ok('2025_w4', null, 0, WEEK_VERDICT.UNKNOWN),
+        ];
+        expect(normaliseLedger(valid)).toEqual(valid);
+    });
+
+    test.each([
+        ['null', null], ['undefined', undefined], ['an object', { a: 1 }],
+        ['a string', '[]'], ['a number', 7],
+    ])('%s becomes an empty ledger', (_label, input) => {
+        expect(normaliseLedger(input)).toEqual([]);
+    });
+
+    test('REGRESSION: a legacy boolean row cannot earn credit', () => {
+        // `qualified: true` predates the verdict model. A boolean cannot
+        // distinguish qualified from neutral or unknown, so honouring it
+        // would grant credit the current rule never gave.
+        const out = normaliseLedger([{ weekKey: '2025_w1', targetSessions: 4, qualifyingSessions: 3, qualified: true }]);
+        expect(out[0].verdict).toBe(WEEK_VERDICT.UNKNOWN);
+        expect(weekQualified(out[0])).toBe(false);
+        expect(progressionEligibility(normaliseLedger(
+            Array.from({ length: 8 }, (_, i) => ({ weekKey: `2025_w${i + 1}`, targetSessions: 4, qualifyingSessions: 3, qualified: true }))
+        )).eligible).toBe(false);
+    });
+
+    test('a missing verdict becomes unknown', () => {
+        const out = normaliseLedger([{ weekKey: '2025_w1', targetSessions: 4, qualifyingSessions: 3 }]);
+        expect(out[0].verdict).toBe(WEEK_VERDICT.UNKNOWN);
+    });
+
+    test('an unrecognised verdict becomes unknown', () => {
+        for (const v of ['AMAZING', '', 0, true, null, {}]) {
+            const out = normaliseLedger([{ weekKey: '2025_w1', targetSessions: 4, qualifyingSessions: 3, verdict: v }]);
+            expect(out[0].verdict, String(v)).toBe(WEEK_VERDICT.UNKNOWN);
+        }
+    });
+
+    test('REGRESSION: a stored verdict that contradicts its numbers is recomputed', () => {
+        // The one corruption that would silently grant progression.
+        const out = normaliseLedger([ok('2025_w1', 4, 0, WEEK_VERDICT.QUALIFIED)]);
+        expect(out[0].verdict).toBe(WEEK_VERDICT.MISSED);
+        expect(weekQualified(out[0])).toBe(false);
+    });
+
+    test('duplicate weekKeys resolve to the last one written', () => {
+        const out = normaliseLedger([
+            ok('2025_w1', 4, 0, WEEK_VERDICT.MISSED),
+            ok('2025_w1', 4, 3, WEEK_VERDICT.QUALIFIED),
+        ]);
+        expect(out).toHaveLength(1);
+        expect(out[0].qualifyingSessions).toBe(3);
+        expect(out[0].verdict).toBe(WEEK_VERDICT.QUALIFIED);
+    });
+
+    test('rows are ordered by real week, not by string', () => {
+        // '2025_w9' sorts after '2025_w10' as text, and across a year
+        // boundary string order is wrong outright.
+        const out = normaliseLedger([
+            ok('2025_w10', 4, 3, WEEK_VERDICT.QUALIFIED),
+            ok('2025_w9', 4, 3, WEEK_VERDICT.QUALIFIED),
+            ok('2024_w52', 4, 3, WEEK_VERDICT.QUALIFIED),
+        ]);
+        expect(out.map(r => r.weekKey)).toEqual(['2024_w52', '2025_w9', '2025_w10']);
+    });
+
+    test('more than the cap is pruned to the newest', () => {
+        const many = Array.from({ length: 40 }, (_, i) => ok(`2025_w${i + 1}`, 4, 3, WEEK_VERDICT.QUALIFIED));
+        const out = normaliseLedger(many);
+        expect(out).toHaveLength(PROGRESSION_POLICY.ledgerMaxWeeks);
+        expect(out[out.length - 1].weekKey).toBe('2025_w40');
+    });
+
+    test('an unparseable weekKey drops the row', () => {
+        for (const k of ['', 'nonsense', '2025-w1', '25_w1', '2025_w0', '2025_w54', null, 7]) {
+            expect(normaliseLedger([{ weekKey: k, targetSessions: 4, qualifyingSessions: 3, verdict: 'qualified' }]),
+                String(k)).toEqual([]);
+        }
+    });
+
+    test('a corrupt target becomes unknown rather than zero', () => {
+        // Zero is a real claim: "nothing was scheduled". Corruption is not.
+        for (const t of [-4, 'four', NaN, Infinity, {}, true]) {
+            const out = normaliseLedger([{ weekKey: '2025_w1', targetSessions: t, qualifyingSessions: 3, verdict: 'qualified' }]);
+            expect(out[0].targetSessions, String(t)).toBeNull();
+            expect(out[0].verdict).toBe(WEEK_VERDICT.UNKNOWN);
+        }
+    });
+
+    test('a corrupt session count is floored at zero', () => {
+        const out = normaliseLedger([{ weekKey: '2025_w1', targetSessions: 4, qualifyingSessions: -3, verdict: 'qualified' }]);
+        expect(out[0].qualifyingSessions).toBe(0);
+        expect(out[0].verdict).toBe(WEEK_VERDICT.MISSED);
+    });
+
+    test('more sessions than the target is legitimate, not corruption', () => {
+        // Training on a scheduled rest day is allowed and should still count.
+        const out = normaliseLedger([ok('2025_w1', 3, 5, WEEK_VERDICT.QUALIFIED)]);
+        expect(out[0].verdict).toBe(WEEK_VERDICT.QUALIFIED);
+    });
+
+    test('fields a future version added are preserved', () => {
+        // An older cached shell must not strip data a newer one wrote.
+        const out = normaliseLedger([{ ...ok('2025_w1', 4, 3, WEEK_VERDICT.QUALIFIED), futureField: 'keep me' }]);
+        expect(out[0].futureField).toBe('keep me');
+        expect(out[0].verdict).toBe(WEEK_VERDICT.QUALIFIED);
+    });
+
+    test('REGRESSION: a demoted legacy row stays demoted on reload', () => {
+        // Normalisation runs on every load. If a recomputation could
+        // override the deliberate `unknown`, the legacy row would come back
+        // as qualified on the second pass and the fail-safe would be worth
+        // nothing.
+        const legacy = [{ weekKey: '2025_w1', targetSessions: 4, qualifyingSessions: 3, qualified: true }];
+        const first = normaliseLedger(legacy);
+        const second = normaliseLedger(first);
+        const third = normaliseLedger(second);
+        expect(first[0].verdict).toBe(WEEK_VERDICT.UNKNOWN);
+        expect(second[0].verdict).toBe(WEEK_VERDICT.UNKNOWN);
+        expect(third[0].verdict).toBe(WEEK_VERDICT.UNKNOWN);
+        expect(weekQualified(third[0])).toBe(false);
+    });
+
+    test('normalisation is idempotent', () => {
+        const messy = [
+            { weekKey: '2025_w2', targetSessions: 4, qualifyingSessions: 3, qualified: true },
+            ok('2025_w1', 4, 3, WEEK_VERDICT.QUALIFIED),
+            null, 'junk',
+        ];
+        const once = normaliseLedger(messy);
+        expect(normaliseLedger(once)).toEqual(once);
     });
 });

@@ -64,6 +64,104 @@ function asDate(v) {
 }
 const dayAt = (k) => asDate(k + 'T12:00:00');
 
+/**
+ * The normalisation boundary.
+ *
+ * jsonb enforces no shape, so what comes back from the database is
+ * untrusted input: it may predate this phase, come from a restored backup,
+ * or have been written by a future app version a cached shell has not seen.
+ * Everything downstream assumes a well-formed row, so this is the one place
+ * that assumption is established.
+ *
+ * The governing rule is FAIL SAFE: anything we cannot read confidently
+ * becomes `unknown`, which takes its calendar slot and earns nothing.
+ * Guessing in the member's favour would hand out progression credit on the
+ * strength of corrupt data, and guessing against them would invent missed
+ * weeks. `unknown` is the only honest answer for a row we cannot parse.
+ *
+ * Order is by parsed ISO year and week, not by string comparison, because
+ * '2025_w9' sorts after '2025_w10' as text.
+ *
+ * Unrecognised fields are preserved. An older cached shell must not strip
+ * data a newer version wrote.
+ */
+export function normaliseLedger(ledger, policy) {
+    const p = policy || PROGRESSION_POLICY;
+    if (!Array.isArray(ledger)) return [];           // null, object, string, anything
+
+    const byKey = new Map();
+    for (const raw of ledger) {
+        if (!raw || typeof raw !== 'object') continue;
+        const weekKey = typeof raw.weekKey === 'string' ? raw.weekKey.trim() : '';
+        if (!parseWeekKey(weekKey)) continue;        // unparseable key, drop the row
+
+        // Last write wins on a duplicate. Deterministic, and the later row
+        // is the one a later reconcile produced.
+        byKey.set(weekKey, { ...raw, weekKey, ...normaliseFields(raw, p) });
+    }
+
+    const rows = [...byKey.values()].sort((a, b) => {
+        const A = parseWeekKey(a.weekKey), B = parseWeekKey(b.weekKey);
+        return A.year - B.year || A.week - B.week;
+    });
+    return pruneLedger(rows, p);
+}
+
+const VALID_VERDICTS = new Set(['qualified', 'missed', 'neutral', 'unknown']);
+
+function normaliseFields(raw, p) {
+    // A target must be a non-negative integer or genuinely absent. Anything
+    // else is corruption, and corruption means we do not know the target.
+    const t = raw.targetSessions;
+    const targetSessions = (typeof t === 'number' && Number.isFinite(t) && t >= 0)
+        ? Math.floor(t) : null;
+
+    const q = raw.qualifyingSessions;
+    const qualifyingSessions = (typeof q === 'number' && Number.isFinite(q) && q >= 0)
+        ? Math.floor(q) : 0;
+
+    /* A row written before the verdict model carried `qualified: true|false`.
+       It is NOT honoured, even when true. A boolean cannot distinguish a
+       qualified week from a neutral or unknown one, so trusting it would
+       hand out credit the new rule never granted. Those rows become
+       `unknown`: the slot is kept, the credit is not. */
+    if (!VALID_VERDICTS.has(raw.verdict)) {
+        return { targetSessions, qualifyingSessions, verdict: 'unknown' };
+    }
+
+    if (targetSessions === null) {
+        return { targetSessions, qualifyingSessions, verdict: 'unknown' };
+    }
+
+    /* A stored `unknown` is a deliberate statement that this week cannot be
+       judged, and it is final. Recomputing it would undo the fail-safe on
+       the very next load: a legacy boolean row is demoted to `unknown`
+       above, and if that were then recomputed against its surviving target
+       it would come back as `qualified` on the second pass. Normalisation
+       runs on every load, so that is not a hypothetical. */
+    if (raw.verdict === 'unknown') {
+        return { targetSessions, qualifyingSessions, verdict: 'unknown' };
+    }
+
+    /* Otherwise the verdict must agree with the numbers beside it. A stored
+       `qualified` on a row whose counts say otherwise is the one corruption
+       that would silently grant progression. */
+    return {
+        targetSessions,
+        qualifyingSessions,
+        verdict: verdictFor(targetSessions, qualifyingSessions, p),
+    };
+}
+
+/** '2025_w14' -> { year: 2025, week: 14 }, or null if it is not one. */
+function parseWeekKey(key) {
+    const m = /^(\d{4})_w(\d{1,2})$/.exec(key || '');
+    if (!m) return null;
+    const year = Number(m[1]), week = Number(m[2]);
+    if (week < 1 || week > 53) return null;
+    return { year, week };
+}
+
 /** Tolerate anything; a corrupt ledger must never break the app. */
 function sane(ledger) {
     return (Array.isArray(ledger) ? ledger : []).filter(
@@ -187,6 +285,12 @@ export const WEEK_VERDICT = {
 };
 
 function row(weekKey, targetSessions, qualifyingSessions, p) {
+    return { weekKey, targetSessions, qualifyingSessions,
+             verdict: verdictFor(targetSessions, qualifyingSessions, p) };
+}
+
+/** The single place a verdict is decided, used by writes and by normalisation. */
+function verdictFor(targetSessions, qualifyingSessions, p) {
     let verdict;
     if (targetSessions === null) {
         /* No recorded target. Covers both a week nobody opened the app in
@@ -201,7 +305,7 @@ function row(weekKey, targetSessions, qualifyingSessions, p) {
         verdict = qualifyingWeek(targetSessions, qualifyingSessions, p).qualifies
             ? WEEK_VERDICT.QUALIFIED : WEEK_VERDICT.MISSED;
     }
-    return { weekKey, targetSessions, qualifyingSessions, verdict };
+    return verdict;
 }
 
 /** Did this week earn progression credit? The only question the gate asks. */

@@ -1,7 +1,7 @@
 -- ===========================================================================
 -- The Blueprint — Phase 2B.1: progression schema
 --
--- ⚠️  NOT YET APPROVED TO RUN. Awaiting sign-off on the exact statements.
+-- Run this by hand in the Supabase SQL editor. It is the whole migration.
 --
 -- Two nullable columns on public.user_data. No table is created, no column is
 -- altered, no data is rewritten, nothing is dropped. Every statement is
@@ -72,14 +72,23 @@ alter table public.user_data
 --       "weekKey": "2025_w14",
 --       "targetSessions": 4,
 --       "qualifyingSessions": 3,
---       "qualified": true,
---       "cumulativeQualified": 12
+--       "verdict": "qualified"
 --     }
 --   ]
 --
+-- verdict is one of qualified | missed | neutral | unknown. All four consume
+-- a chronological slot in the rolling window; only `qualified` earns
+-- progression credit, and only `missed` may ever produce member-facing
+-- missed-week language.
+--
 -- Oldest first, bounded to 26 entries by the application (see
--- src/progressionPolicy.js ledgerMaxWeeks). At roughly 90 bytes an entry
--- that is about 2.3 KB fully grown.
+-- src/progressionPolicy.js ledgerMaxWeeks). At roughly 80 bytes an entry
+-- that is about 2 KB fully grown.
+--
+-- jsonb enforces no shape, so everything read back goes through
+-- normaliseLedger() in src/progressionLedger.js before it is trusted.
+-- Anything unparseable becomes `unknown`, which takes its slot and earns
+-- nothing. The database is not asked to validate this.
 --
 -- WHY IT EXISTS AT ALL. Progression needs to know how many sessions were
 -- SCHEDULED in a past week. Nothing stores that. The rejected alternative
@@ -88,9 +97,9 @@ alter table public.user_data
 -- target is therefore written down while it is still true and never
 -- recomputed.
 --
--- cumulativeQualified is a running total rather than something derived from
--- the retained entries, so pruning the oldest weeks cannot lose the deload
--- count.
+-- There is deliberately no cumulative deload column. The stale rule bounds
+-- how long a deload cycle can run, so the counter is always recomputable
+-- from the retained weeks; see requiredLedgerWeeks().
 --
 -- default '[]'::jsonb, matching session_log. An empty ledger is a real and
 -- correct state: every member, including long-tenured ones, starts with one
