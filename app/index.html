@@ -1480,7 +1480,6 @@
                class="w-full max-w-xs bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-[15px] text-white"
                placeholder="Your name">
         <p id="ob-name-error" class="hidden text-[11px] text-red-400 font-bold mt-3"></p>
-        <p id="ob-name-note" class="hidden text-[11px] text-slate-500 mt-3"></p>
         <button id="ob-name-skip" class="text-slate-500 text-[11px] font-bold uppercase tracking-widest mt-5">Skip</button>
     </div>
 
@@ -6112,14 +6111,24 @@ async function savePreferredName(value){
  * Over-length refuses and stays put so the member can shorten it; nothing is
  * truncated behind their back. Everything else advances IMMEDIATELY and the
  * save happens behind it, because a failed identity write must never trap
- * anyone in onboarding or cost them access to the product. If it fails they
- * simply have no name, are told so quietly, and carry on.
+ * anyone in onboarding or cost them access to the product.
+ *
+ * A FAILED SAVE IS SILENT, deliberately. There was a note element here, and
+ * it was useless: it lived on the name slide, and .ob-slide is opacity 0
+ * once the member has advanced, so nobody ever saw it. Rather than move the
+ * message somewhere it would be seen, there is now no message, because
+ * there is nothing the member could do with it. The name is optional, no
+ * edit surface exists until the Account surface in 2B.3.4, and nothing in
+ * this subphase displays a name, so there is no contradiction on screen. A
+ * modal, a toast framework or a new notification surface would each be
+ * larger than the problem and are all out of scope.
+ *
+ * The member simply has no name, which is the same state most members are
+ * in. 2B.3.4 is where "no name set" becomes visible and fixable.
  */
 function commitPreferredName(){
     const input=document.getElementById('ob-name-input');
     const err=document.getElementById('ob-name-error');
-    const note=document.getElementById('ob-name-note');
-    if(note) note.classList.add('hidden');
     if(!input||!window.BP) return true;
     const out=window.BP.validatePreferredName(input.value);
     if(!out.ok){
@@ -6131,13 +6140,8 @@ function commitPreferredName(){
     }
     if(err) err.classList.add('hidden');
     if(out.value===null) return true;      // skipped or left blank, nothing to save
-    savePreferredName(out.value).then(ok=>{
-        if(ok) return;
-        if(note){
-            note.textContent='We could not save your name just now. Everything else is set up, and you can add it later.';
-            note.classList.remove('hidden');
-        }
-    });
+    // Fire and forget. Failure leaves them with no name and says nothing.
+    savePreferredName(out.value);
     return true;
 }
 
@@ -6927,7 +6931,7 @@ async function _refreshNotifUI(){
         :perm==='denied'?'Notifications blocked in browser settings.'
         :perm==='granted'?'Almost there. Tap Enable to finish setting up reminders.'
         :'';
-    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
+    const prefs=_readNotifPrefs();
     if(prefs.time) document.getElementById('notif-time').value=prefs.time;
 }
 async function enableNotifications(){
@@ -6993,7 +6997,7 @@ async function _pushRegistration(){
 async function _savePushSubscription(sub){
     if(!currentUser)return;
     const j=sub.toJSON();
-    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
+    const prefs=_readNotifPrefs();
     await sb.from('push_subscriptions').upsert({
         user_id:currentUser.id,
         endpoint:j.endpoint,
@@ -7019,14 +7023,15 @@ async function _refreshPushTimezone(){
     try{
         if(!currentUser)return;
         const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if(!tz||tz===localStorage.getItem('bp_push_tz'))return;
+        const _tzk=_pushTzKey();
+        if(!tz||(_tzk&&tz===localStorage.getItem(_tzk)))return;
         // Deliberately not gated on _swRegistration or on fetching the
         // subscription: initServiceWorker() is not awaited, so the registration
         // is often still null at sign-in and the refresh would silently never
         // happen. The update simply matches no rows for a member who has not
         // subscribed, and the cached key means it runs once per device per move.
         const {error}=await sb.from('push_subscriptions').update({timezone:tz}).eq('user_id',currentUser.id);
-        if(!error) localStorage.setItem('bp_push_tz',tz);
+        if(!error&&_tzk) localStorage.setItem(_tzk,tz);
     }catch(e){/* reminders are not worth failing a sign-in over */}
 }
 // A push subscription is bound to the VAPID key it was created with. When that
@@ -7072,10 +7077,34 @@ async function _ensureCurrentPushSubscription(){
 }
 /* The toggle-rendering helper went with the streak-warning switch, which was
    the only toggle in the notification settings and its only caller. */
+/* Both of these were unscoped while fourteen other bp_ keys carry the user
+   id, and both held MEMBER state rather than device state, so two accounts
+   on one browser shared them.
+
+   bp_notif_prefs holds the chosen reminder time, and
+   _savePushSubscription() writes it into whichever member is signed in: A
+   picks 06:00, B subscribes on the same browser, and B's server row gets
+   A's hour. bp_push_tz caches the last timezone written, so A signing in
+   suppressed B's timezone refresh and left B's row stale.
+
+   Old unscoped values are deliberately NOT migrated. A missing scoped key
+   means exactly what it means on a new device: read the default reminder
+   time, and refresh this member's timezone once. The stale unscoped keys
+   are simply never read again. */
+function _notifPrefsKey(){ return currentUser?('bp_notif_prefs_'+currentUser.id):null; }
+function _pushTzKey(){ return currentUser?('bp_push_tz_'+currentUser.id):null; }
+/** Stored notification prefs for the signed-in member, or {} for nobody. */
+function _readNotifPrefs(){
+    const k=_notifPrefsKey();
+    if(!k) return {};
+    try{ return JSON.parse(localStorage.getItem(k)||'{}'); }catch(e){ return {}; }
+}
+
 async function saveNotifPrefs(){
     const time=document.getElementById('notif-time').value;
     const prefs={time};
-    localStorage.setItem('bp_notif_prefs',JSON.stringify(prefs));
+    const _pk=_notifPrefsKey();
+    if(_pk) localStorage.setItem(_pk,JSON.stringify(prefs));
     /* The server reads reminder_time, so this write is the only thing that
        makes the picker mean anything. streak_warn is deliberately no longer
        written: the column still exists for backward compatibility but

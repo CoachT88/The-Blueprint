@@ -20,7 +20,6 @@ const openNameSlide = (page, { metadata = {}, fails = false } = {}) => page.eval
     // here keeps one test's typing out of the next one's fixture.
     document.getElementById('ob-name-input').value = '';
     document.getElementById('ob-name-error').classList.add('hidden');
-    document.getElementById('ob-name-note').classList.add('hidden');
     showOnboarding();
     goToObSlide(OB_NAME_SLIDE);
     return { slide: _obSlide, heading: document.querySelector('#ob-slide-3 h2').textContent.trim() };
@@ -33,8 +32,6 @@ const state = (page) => page.evaluate(() => ({
     calls: window.__updateUserCalls || 0,
     error: document.getElementById('ob-name-error').classList.contains('hidden')
         ? null : document.getElementById('ob-name-error').textContent.trim(),
-    note: document.getElementById('ob-name-note').classList.contains('hidden')
-        ? null : document.getElementById('ob-name-note').textContent.trim(),
 }));
 
 const type = (page, value) => page.evaluate(v => { document.getElementById('ob-name-input').value = v; }, value);
@@ -159,7 +156,11 @@ describe('capture', () => {
         const s = await state(app.page);
         expect(s.slide).toBe(4);                    // they moved on regardless
         expect(s.name).toBeNull();                  // with no name, honestly
-        expect(s.note).toMatch(/could not save/i);  // and were told quietly
+        // And silently. The note element that used to live here was on a
+        // slide at opacity 0 by the time it was written to, so nobody ever
+        // read it. There is nothing the member could act on, so there is no
+        // message. See commitPreferredName().
+        expect(await app.page.evaluate(() => !!document.getElementById('ob-name-note'))).toBe(false);
         // And onboarding can still be finished.
         const done = await app.page.evaluate(() => { finishOnboarding(); return document.getElementById('onboarding-overlay').classList.contains('show'); });
         expect(done).toBe(false);
