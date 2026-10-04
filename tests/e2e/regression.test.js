@@ -17,6 +17,10 @@ const FUNCTIONS = [
     'preferredName', 'savePreferredName', 'commitPreferredName',
     'greetingEligible', 'renderGreeting', '_greetedToday', '_markGreeted', '_attentionBandLive',
     '_notifPrefsKey', '_pushTzKey', '_readNotifPrefs',
+    // Phase 2B.3.4: existing-member capture and the Account surface
+    'nameNudgeEligible', '_nameAsked', '_markNameAsked',
+    'renderAccount', 'openAccount', 'closeAccount', 'openAccountEditor', 'closeAccountEditor',
+    'saveAccountName', 'clearAccountName', 'handleLogout',
     // persistence
     'savePersisted', '_flushSaveNow', '_buildSavePayload', '_upsertPayload', 'loadPersisted',
     'normaliseSchedule', 'maybeApplyGoalSchedule',
@@ -40,6 +44,14 @@ const ELEMENT_IDS = [
     'manual-close-btn', 'replay-intro-btn', 'replay-tour-btn', 'change-goal-btn',
     'ob-next-btn', 'ob-skip-btn', 'goal-options', 'goal-confirm',
     'ob-name-input', 'ob-name-error', 'ob-name-skip', 'hq-greeting',
+    // Phase 2B.3.4: the name prompt and the Account sheet. logout-btn is
+    // listed because it moved from the header into the sheet keeping its id,
+    // and the relocation must not quietly drop it.
+    'account-btn', 'account-modal', 'account-name-value', 'account-name-edit',
+    'account-name-editor', 'account-name-input', 'account-name-error',
+    'account-name-save', 'account-name-clear', 'account-name-cancel',
+    'account-notif-open', 'account-close', 'logout-btn',
+    'hq-name-prompt', 'hq-name-prompt-add', 'hq-name-prompt-dismiss',
     'tour-next', 'tour-skip', 'tour-layer', 'tour-hole', 'tour-card', 'tour-title', 'tour-body', 'tour-dots',
     'hq-rest-banner', 'hq-pass-used-banner', 'hq-load-failed-banner', 'hq-load-retry-btn',
     'photo-compare-btn', 'photo-compare', 'photo-compare-before', 'photo-compare-after',

@@ -121,6 +121,9 @@
         .dim-toggle-btn{width:36px;height:36px;border-radius:.6rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;flex-shrink:0}
         .dim-toggle-btn.lit{background:rgba(250,204,21,.12);border-color:rgba(250,204,21,.3)}
         /* Deload banner */
+        /* Account rows. The minimum needed to separate them legibly, using
+           the same surface tokens as every other sheet. */
+        .account-row{background:rgba(30,41,59,.5);border:1px solid rgba(51,65,85,.6);border-radius:1rem;padding:.85rem 1rem}
         /* Liveness. Deliberately restrained: week complete is the only one
            that gets colour, and it is a quiet green rather than a fanfare. */
         #today-liveness{color:#94a3b8}
@@ -749,7 +752,7 @@
             <div class="flex items-center gap-2">
                 <span id="current-date" class="text-[10px] font-black uppercase bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700/50 text-slate-300">-- --</span>
                 <button id="notif-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Notifications"><i id="notif-icon" class="fas fa-bell text-xs"></i></button>
-                <button id="logout-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Sign out"><i class="fas fa-right-from-bracket text-xs"></i></button>
+                <button id="account-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Account"><i class="fas fa-user text-xs"></i></button>
             </div>
         </div>
 
@@ -882,6 +885,23 @@
                 <div class="flex-1 min-w-0">
                     <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
                     <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Get back in today.</p>
+                </div>
+            </div>
+            <!-- The lowest-value thing in the band, and the last entry in
+                 NUDGE_BAND. Offered once; either button resolves it. No
+                 urgency, nothing implying the name is required or that
+                 anything is incomplete without it. -->
+            <div id="hq-name-prompt" class="hidden p-3 rounded-2xl bg-slate-800/40 border border-slate-700/50">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-user text-slate-400 text-lg flex-shrink-0 mt-0.5"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest">Make it a little more personal</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">Tell Coach Tee what to call you. Optional, and you can change or remove it whenever you like.</p>
+                        <div class="flex gap-2 mt-2">
+                            <button id="hq-name-prompt-add" class="text-[10px] font-black text-slate-200 uppercase tracking-widest bg-slate-700/60 px-3 py-1.5 rounded-xl">Add preferred name</button>
+                            <button id="hq-name-prompt-dismiss" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Not now</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="hq-coach-nudge" class="hidden p-3 rounded-2xl" style="background:rgba(168,85,247,.09);border:1px solid rgba(168,85,247,.3)">
@@ -1991,6 +2011,47 @@
             <button id="pelvic-lock-take" class="btn-primary py-3.5 text-[12px]">TAKE THE CHECK</button>
             <button id="pelvic-lock-close" class="btn-outline py-3 text-[11px]">Not now</button>
         </div>
+    </div>
+</div>
+
+<!-- ACCOUNT. The smallest surface that lets a member manage the one thing
+     they can set about themselves, reach the notification settings that
+     already exist, and sign out. Nothing else belongs here: no avatar, no
+     username, no bio, no stats, no badges. -->
+<div id="account-modal" class="hidden fixed inset-0 z-[99996] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
+    <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(100,116,139,.3)">
+        <div class="flex justify-between items-center">
+            <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-user"></i> Account</p>
+            <button id="account-close" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400"><i class="fas fa-xmark text-sm"></i></button>
+        </div>
+
+        <div class="account-row">
+            <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-[11px] font-bold text-slate-300">Preferred name</p>
+                    <p id="account-name-value" class="text-[12px] text-slate-500 mt-0.5 truncate">Not set</p>
+                </div>
+                <button id="account-name-edit" class="text-[10px] font-black text-slate-300 uppercase tracking-widest bg-slate-800 px-3 py-1.5 rounded-xl flex-shrink-0">Edit</button>
+            </div>
+            <div id="account-name-editor" class="hidden mt-3 space-y-2">
+                <input id="account-name-input" type="text" autocomplete="given-name" spellcheck="false"
+                       class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-[14px] text-white"
+                       placeholder="Your name">
+                <p id="account-name-error" class="hidden text-[11px] text-red-400 font-bold"></p>
+                <div class="flex gap-2">
+                    <button id="account-name-save" class="btn-primary py-2.5 px-4 text-[11px] flex-1">Save</button>
+                    <button id="account-name-cancel" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Cancel</button>
+                </div>
+                <button id="account-name-clear" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Remove my name</button>
+            </div>
+        </div>
+
+        <div class="account-row flex items-center justify-between gap-3">
+            <p class="text-[11px] font-bold text-slate-300">Notifications</p>
+            <button id="account-notif-open" class="text-[10px] font-black text-slate-300 uppercase tracking-widest bg-slate-800 px-3 py-1.5 rounded-xl">Open</button>
+        </div>
+
+        <button id="logout-btn" class="w-full py-3 text-[11px] font-black text-red-400 uppercase tracking-widest" title="Sign out">Sign out</button>
     </div>
 </div>
 
@@ -4820,8 +4881,12 @@ const NUDGE_BAND=[
     // today's prescription the Today card raises it as a PREPARE state, so
     // nothing is lost by it losing here.
     {id:'hq-pelvic-prompt',       live:()=>!!currentUser&&!hasPelvicScreen()},
+    /* Lower than the screener on purpose. A pelvic check is safety
+       relevant and a name is not, so anything useful about training wins.
+       Offered once in a member's life; see _nameNudgeLive. */
+    {id:'hq-name-prompt',         live:()=>!!_nameNudgeLive},
 ];
-let _storageFull=false, _passUsedThisRender=false, _coachNudgeLive=false;
+let _storageFull=false, _passUsedThisRender=false, _coachNudgeLive=false, _nameNudgeLive=false;
 
 function _renderBand(entries){
     let shown=false;
@@ -4933,6 +4998,51 @@ function greetingEligible(r){
     if(_attentionBandLive()) return false;
     if(!r||GREETING_BLOCKING_STATES.includes(r.state)) return false;
     if(_greetedToday()) return false;
+    return true;
+}
+
+/* ── The one-time name prompt ──────────────────────────────────────────────
+   Offered once in a member's life, never on a schedule. The key is user
+   scoped and holds nothing but the fact that they were asked: no name, no
+   email, no timestamp, and no cooldown, because this is genuinely
+   once-only rather than throttled.
+
+   Resolved by EITHER button. "Not now" obviously resolves it, and so does
+   "Add preferred name": they have been offered it and now know the Account
+   surface exists, which is permanent. The member-facing copy stays simple
+   and this comment is where the behaviour is stated plainly.
+
+   Clearing a name later never un-resolves it. A deliberate clear is a valid
+   permanent state, not an incomplete setup to nag about. */
+function _nameAskedKey(){ return currentUser?('bp_name_asked_'+currentUser.id):null; }
+function _nameAsked(){
+    const k=_nameAskedKey();
+    if(!k) return false;
+    try{ return localStorage.getItem(k)==='1'; }catch(e){ return false; }
+}
+function _markNameAsked(){
+    const k=_nameAskedKey();
+    if(!k) return;
+    try{ localStorage.setItem(k,'1'); }catch(e){}
+}
+
+/**
+ * May the name prompt show right now?
+ *
+ * Everything below is a reason not to. It is the lowest-value message in
+ * the app, so anything about training, safety or the week outranks it, and
+ * a member still in onboarding is already being asked there.
+ */
+function nameNudgeEligible(r,livenessKey){
+    if(!currentUser||!_persistedLoaded) return false;
+    let onboarded=false;
+    try{ onboarded=!!localStorage.getItem('bp_onboarded_'+currentUser.id); }catch(e){}
+    if(!onboarded) return false;
+    if(preferredName()) return false;
+    if(_nameAsked()) return false;
+    if(_attentionBandLive()) return false;
+    if(!r||GREETING_BLOCKING_STATES.includes(r.state)) return false;
+    if(livenessKey) return false;
     return true;
 }
 
@@ -5177,6 +5287,7 @@ function renderToday(){
         live.classList.toggle('hidden',!inLine);
         live.classList.toggle('liveness-complete',key==='week-complete');
         renderGreeting(key==='greeting');
+        _nameNudgeLive=nameNudgeEligible(r,key);
     }
 
     // COMPLETE: closure, not a queue. What was done, and what is next.
@@ -5907,6 +6018,92 @@ function renderPassChip(){
     const bank=document.getElementById('pass-info-bank');
     if(bank) bank.innerText=`You have ${n} of ${RECOVERY_PASS_CAP} banked.`;
 }
+/* ── Account surface ──────────────────────────────────────────────────────
+   The one place a member can see and change what the app calls them, reach
+   the notification settings that already exist, and sign out. */
+function renderAccount(){
+    const name=preferredName();
+    const v=document.getElementById('account-name-value');
+    if(v){
+        // textContent: a name is member-supplied text and some contain
+        // angle brackets. "Not set" is a state, not a problem to fix.
+        v.textContent=name||'Not set';
+        v.classList.toggle('text-slate-300',!!name);
+        v.classList.toggle('text-slate-500',!name);
+    }
+}
+function openAccount(){
+    // Rendered from currentUser at open time rather than anything cached,
+    // so a previous member's name cannot survive into this sheet.
+    renderAccount();
+    closeAccountEditor();
+    document.getElementById('account-modal').classList.remove('hidden');
+    track('account_opened');
+}
+function closeAccount(){ document.getElementById('account-modal').classList.add('hidden'); }
+function openAccountEditor(){
+    const input=document.getElementById('account-name-input');
+    if(input) input.value=preferredName()||'';
+    document.getElementById('account-name-error').classList.add('hidden');
+    document.getElementById('account-name-editor').classList.remove('hidden');
+    if(input) input.focus();
+}
+function closeAccountEditor(){
+    document.getElementById('account-name-editor').classList.add('hidden');
+    document.getElementById('account-name-error').classList.add('hidden');
+}
+function _accountError(msg){
+    const el=document.getElementById('account-name-error');
+    if(!el) return;
+    el.textContent=msg;
+    el.classList.remove('hidden');
+}
+/**
+ * Save what they typed.
+ *
+ * Unlike onboarding, this is an explicit settings action: they expect the
+ * setting to change, so a failure is VISIBLE. The editor stays open with
+ * what they typed still in it, and the displayed value is untouched,
+ * because nothing is mutated optimistically. Nothing is written to
+ * user_data, localStorage or the members table; savePreferredName() goes
+ * to auth metadata and refreshes currentUser from what auth returns, so
+ * every identity surface reads the new value on its next call with no
+ * cache to invalidate.
+ */
+async function saveAccountName(){
+    const input=document.getElementById('account-name-input');
+    if(!input||!window.BP) return false;
+    const out=window.BP.validatePreferredName(input.value);
+    if(!out.ok){
+        _accountError(`That is ${out.length} characters. Please keep it to ${out.max} or fewer.`);
+        return false;
+    }
+    const ok=await savePreferredName(out.value);
+    if(!ok){
+        _accountError('Could not save that just now. Check your connection and try again.');
+        return false;
+    }
+    /* The daily greeting gate is deliberately NOT touched here. Adding a
+       name does not replay a greeting already spent today, and does not
+       force one into this sheet: the greeting lives on the HQ. */
+    renderAccount();
+    closeAccountEditor();
+    renderDashboard();
+    return true;
+}
+/** Clearing is a valid permanent state, and never reopens the prompt. */
+async function clearAccountName(){
+    const ok=await savePreferredName(null);
+    if(!ok){
+        _accountError('Could not save that just now. Check your connection and try again.');
+        return false;
+    }
+    renderAccount();
+    closeAccountEditor();
+    renderDashboard();
+    return true;
+}
+
 function openPassInfo(){
     renderPassChip();
     document.getElementById('pass-info-modal').classList.remove('hidden');
@@ -7439,6 +7636,22 @@ function init(){
     // purpose rather than passed through on the way to everything.
     document.getElementById('today-alt-btn').addEventListener('click',()=>{track('something_else');goToStep(3)});
     document.getElementById('pelvic-lock-close').addEventListener('click',closePelvicLock);
+    document.getElementById('account-btn').addEventListener('click',openAccount);
+    document.getElementById('account-close').addEventListener('click',closeAccount);
+    document.getElementById('account-name-edit').addEventListener('click',openAccountEditor);
+    document.getElementById('account-name-cancel').addEventListener('click',closeAccountEditor);
+    document.getElementById('account-name-save').addEventListener('click',saveAccountName);
+    document.getElementById('account-name-clear').addEventListener('click',clearAccountName);
+    document.getElementById('account-notif-open').addEventListener('click',()=>{closeAccount();openNotifModal();});
+    document.getElementById('hq-name-prompt-add').addEventListener('click',()=>{
+        // Resolved either way: they have been offered it, and the Account
+        // surface they are about to see is permanent.
+        _markNameAsked(); track('name_prompt_accepted');
+        renderDashboard(); openAccount(); openAccountEditor();
+    });
+    document.getElementById('hq-name-prompt-dismiss').addEventListener('click',()=>{
+        _markNameAsked(); track('name_prompt_dismissed'); renderDashboard();
+    });
     document.getElementById('hq-pass-chip').addEventListener('click',openPassInfo);
     document.getElementById('pass-info-close').addEventListener('click',closePassInfo);
     document.getElementById('pelvic-lock-take').addEventListener('click',()=>{
