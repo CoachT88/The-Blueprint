@@ -128,6 +128,19 @@ function installSupabaseStub(cfg) {
                 signOut: () => Promise.resolve({}),
                 signInWithPassword: () => Promise.resolve({ data: {}, error: null }),
                 signUp: () => Promise.resolve({ data: {}, error: null }),
+                /* Phase 2B.3.1. Preferred name lives in auth user_metadata,
+                   so the stub has to model it. window.__authUser is the
+                   stand-in for the session user; window.__updateUserFails
+                   lets a suite make the write fail the way the network can. */
+                updateUser: ({ data }) => {
+                    if (window.__updateUserFails) {
+                        return Promise.resolve({ data: null, error: { message: 'stubbed failure' } });
+                    }
+                    window.__authUser = window.__authUser || { id: 'stub', email: 'stub@example.com', user_metadata: {} };
+                    window.__authUser.user_metadata = { ...(window.__authUser.user_metadata || {}), ...data };
+                    window.__updateUserCalls = (window.__updateUserCalls || 0) + 1;
+                    return Promise.resolve({ data: { user: JSON.parse(JSON.stringify(window.__authUser)) }, error: null });
+                },
             },
             storage: {
                 from: () => ({

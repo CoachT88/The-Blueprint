@@ -18,9 +18,13 @@ describe('goal capture', () => {
             dots: document.querySelectorAll('.ob-dot').length,
             last: _obLastIdx(),
         }));
-        expect(r.slides).toBe(4);
-        expect(r.dots).toBe(4);
-        expect(r.last).toBe(3);
+        // Phase 2B.3.1 inserted the optional name slide before this one, so
+        // the goal picker is now the fifth and last. The count is asserted
+        // against the dots rather than a literal, because the two drifting
+        // apart is the actual bug worth catching.
+        expect(r.slides).toBe(5);
+        expect(r.dots).toBe(r.slides);
+        expect(r.last).toBe(r.slides - 1);
     });
 
     test('the terminal index is derived, so Get Started shows only on the last slide', async () => {
@@ -28,7 +32,7 @@ describe('goal capture', () => {
         await app.page.waitForTimeout(300);
         // textContent, not innerText: .btn-primary applies text-transform:uppercase.
         expect(await app.page.evaluate(() => document.getElementById('ob-next-btn').textContent)).toBe('Next');
-        await app.page.evaluate(() => goToObSlide(3));
+        await app.page.evaluate(() => goToObSlide(_obLastIdx()));
         await app.page.waitForTimeout(250);
         expect(await app.page.evaluate(() => document.getElementById('ob-next-btn').textContent)).toBe('Get Started');
     }, 30_000);

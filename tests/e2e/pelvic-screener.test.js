@@ -219,7 +219,7 @@ describe('the answer buttons actually look selected', () => {
         await app.page.evaluate(() => {
             closePelvicScreen();
             persisted.primaryGoal = '';
-            showOnboarding(); goToObSlide(3);
+            showOnboarding(); goToObSlide(_obLastIdx());   // the goal slide, wherever it sits
         });
         await app.page.waitForTimeout(400);
         const before = await bgOf(sel);
