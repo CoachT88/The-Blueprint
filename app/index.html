@@ -753,6 +753,12 @@
             </div>
         </div>
 
+        <!-- One restrained line, and only on an ordinary opening. The brand
+             lockup above is untouched: this does not replace it, and it is
+             deliberately quieter than the Today headline below. Suppressed
+             entirely whenever anything more useful has something to say. -->
+        <p id="hq-greeting" class="hidden px-2 text-[13px] text-slate-400"></p>
+
         <!-- ── Critical band ───────────────────────────────────────────────
              Above the decision, so only the things that make the decision
              unsafe or impossible to act on: data that did not load, storage
@@ -4874,6 +4880,55 @@ function todayCompletionKind(){
     return today.some(e=>window.BP.isQualifyingSession(e))?'mechanical':'recovery';
 }
 
+/* ── The greeting gate ────────────────────────────────────────────────────
+   Once per LOCAL calendar day per authenticated member. The key carries the
+   user id and the date and nothing else; the name is in neither the key nor
+   the value, and there is no elapsed-24-hours arithmetic anywhere near it.
+   Account A's key cannot suppress B, and coming back to A the same day
+   finds A's own key still set. */
+function _greetedKey(){
+    if(!currentUser||!window.BP) return null;
+    return 'bp_greeted_'+currentUser.id+'_'+window.BP.localDayKey(new Date());
+}
+function _greetedToday(){
+    const k=_greetedKey();
+    if(!k) return false;
+    try{ return localStorage.getItem(k)==='1'; }catch(e){ return false; }
+}
+function _markGreeted(){
+    const k=_greetedKey();
+    if(!k) return;
+    try{ localStorage.setItem(k,'1'); }catch(e){}
+}
+
+/** Is any critical-band message live? One definition, read from the band. */
+function _attentionBandLive(){
+    return ATTENTION_BAND.some(e=>{ try{ return e.live(); }catch(err){ return false; } });
+}
+
+/**
+ * May an ordinary greeting render right now?
+ *
+ * Everything here is a reason NOT to, and the ones about the week live in
+ * livenessContext() rather than being repeated here. This adds only what
+ * that pure function cannot see: who is signed in, whether the app has
+ * finished loading, whether the critical band owns the screen, and whether
+ * the prescription is one where the member is being asked for something.
+ *
+ * Requiring _persistedLoaded is what prevents a flash. Until it is true the
+ * liveness state is unknown, so a greeting might have to be retracted a
+ * moment later; delaying it is explicitly preferred to that. Nothing is
+ * lost by waiting, because the gate is only marked once it actually renders.
+ */
+function greetingEligible(r){
+    if(!currentUser||!_persistedLoaded) return false;
+    if(!preferredName()) return false;
+    if(_attentionBandLive()) return false;
+    if(!r||GREETING_BLOCKING_STATES.includes(r.state)) return false;
+    if(_greetedToday()) return false;
+    return true;
+}
+
 /** The previous finished week, if it is honest to say it did not go to plan. */
 function currentMissedWeek(){
     if(!window.BP) return null;
@@ -4919,11 +4974,27 @@ function renderWeekProgress(){
  * blames anyone. Returning orients straight back to today; a week that did
  * not go to plan is named once and then left alone.
  */
+/* An ordinary opening is the only time this is reached, so the copy carries
+   no information and is not trying to. For a member with no name the surface
+   does not render at all: there is no generic version, because "Good
+   morning." addressed to nobody is filler. */
+const GREETING_COPY={
+    morning:  n=>`Good morning, ${n}.`,
+    afternoon:n=>`Good afternoon, ${n}.`,
+    evening:  n=>`Good evening, ${n}.`,
+};
+/* States where the member is being asked for something, holding mechanical
+   work, or part way through a session. None of those is an ordinary opening.
+   TRAIN, MODIFIED, REST and COMPLETE are. */
+const GREETING_BLOCKING_STATES=['PREPARE','RESUME','RECOVER'];
+
 const LIVENESS_COPY={
     'week-complete':  w=>`Week complete. You finished all ${w.target} sessions.`,
     'returning':      ()=>"You're back. Pick it up with today's session.",
     'extended-return':()=>"You're back after a while away. Today's session is the only thing to think about.",
     'missed-week':    ()=>'Last week did not go to plan. Start again from today.',
+    // Rendered separately, in its own element above the Today card.
+    'greeting':       ()=>'',
 };
 
 /** Copy for each state. Kept here so the renderer stays shape, not prose. */
@@ -5081,11 +5152,17 @@ function renderToday(){
             weekComplete:r.weekComplete,
             returnContext:r.returnContext,
             missedWeek:currentMissedWeek(),
+            greeting:greetingEligible(r),
         });
-        live.textContent=key?LIVENESS_COPY[key](w):'';
-        live.dataset.liveness=key||'';
-        live.classList.toggle('hidden',!key);
+        /* The greeting has its own element above the Today card, so the
+           liveness line stays empty for it rather than carrying two kinds
+           of message in one slot. */
+        const inLine=key&&key!=='greeting';
+        live.textContent=inLine?LIVENESS_COPY[key](w):'';
+        live.dataset.liveness=inLine?key:'';
+        live.classList.toggle('hidden',!inLine);
         live.classList.toggle('liveness-complete',key==='week-complete');
+        renderGreeting(key==='greeting');
     }
 
     // COMPLETE: closure, not a queue. What was done, and what is next.
@@ -5099,6 +5176,40 @@ function renderToday(){
 
     const card=document.getElementById('hq-today-card');
     if(card) card.dataset.state=r.state;
+}
+
+/**
+ * Paint the greeting, or clear it.
+ *
+ * The gate is marked HERE, after the text is on screen, and nowhere else.
+ * A member who opens during RECOVER in the morning has not used up the day:
+ * nothing was shown, so nothing was spent, and the evening still counts.
+ *
+ * textContent, never innerHTML. A name is member-supplied text and some of
+ * them will contain angle brackets.
+ *
+ * TWO GUARDS, DELIBERATELY. greetingEligible() refuses without a name and
+ * this refuses again. Neither alone can produce a nameless greeting, which
+ * mutation testing confirmed: breaking either one on its own changes
+ * nothing observable, and only breaking both renders "Good morning, there."
+ * That is defence in depth rather than dead code, and it is why the suite
+ * pins the compound invariant (no name means no surface, under any
+ * eligibility state) instead of either guard in isolation.
+ */
+function renderGreeting(show){
+    const el=document.getElementById('hq-greeting');
+    if(!el) return;
+    const name=show?preferredName():null;
+    if(!name){
+        el.textContent='';
+        el.classList.add('hidden');
+        return;
+    }
+    const band=window.BP.greetingBand(new Date());
+    el.textContent=GREETING_COPY[band](name);
+    el.dataset.band=band;
+    el.classList.remove('hidden');
+    _markGreeted();
 }
 
 /** Today's finished session, the week, and what is next. */
@@ -7519,7 +7630,8 @@ import { weekCompletion } from '../src/weekCompletion.js';
 // Phase 2B.2 liveness. Communication only: nothing here reaches the
 // prescription, and the browser suite asserts that.
 import { returnContext, missedWeekReentry, livenessContext,
-         daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS } from '../src/liveness.js';
+         daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS,
+         greetingBand, localDayKey, GREETING_BAND, GREETING_BANDS } from '../src/liveness.js';
 // Phase 2B.3.1. Identity, optional forever, read from auth and nowhere else.
 import { validatePreferredName, readPreferredName, hasPreferredName,
          nameLength, PREFERRED_NAME_MAX } from '../src/preferredName.js';
@@ -7544,6 +7656,7 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               PROGRESSION_POLICY, deloadState, progressionEligibility,
               returnContext, missedWeekReentry, livenessContext,
               daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS,
+              greetingBand, localDayKey, GREETING_BAND, GREETING_BANDS,
               validatePreferredName, readPreferredName, hasPreferredName,
               nameLength, PREFERRED_NAME_MAX };
 // The HQ may already have rendered once before this landed; re-render so the

@@ -15,6 +15,7 @@ const FUNCTIONS = [
     'replayIntro', 'closeManual', 'showOnboarding', 'hideOnboarding', 'finishOnboarding',
     'obNext', 'goToObSlide', '_obLastIdx', 'renderGoalOptions', 'selectGoal', 'openGoalPicker',
     'preferredName', 'savePreferredName', 'commitPreferredName',
+    'greetingEligible', 'renderGreeting', '_greetedToday', '_markGreeted', '_attentionBandLive',
     '_notifPrefsKey', '_pushTzKey', '_readNotifPrefs',
     // persistence
     'savePersisted', '_flushSaveNow', '_buildSavePayload', '_upsertPayload', 'loadPersisted',
@@ -38,7 +39,7 @@ const ELEMENT_IDS = [
     'launch-btn', 'progress-btn', 'weekly-report-btn', 'photos-btn', 'ai-coach-btn', 'manual-btn',
     'manual-close-btn', 'replay-intro-btn', 'replay-tour-btn', 'change-goal-btn',
     'ob-next-btn', 'ob-skip-btn', 'goal-options', 'goal-confirm',
-    'ob-name-input', 'ob-name-error', 'ob-name-skip',
+    'ob-name-input', 'ob-name-error', 'ob-name-skip', 'hq-greeting',
     'tour-next', 'tour-skip', 'tour-layer', 'tour-hole', 'tour-card', 'tour-title', 'tour-body', 'tour-dots',
     'hq-rest-banner', 'hq-pass-used-banner', 'hq-load-failed-banner', 'hq-load-retry-btn',
     'photo-compare-btn', 'photo-compare', 'photo-compare-before', 'photo-compare-after',

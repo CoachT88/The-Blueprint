@@ -32,7 +32,43 @@ export const LIVENESS = {
     RETURNING: 'returning',
     EXTENDED_RETURN: 'extended-return',
     MISSED_WEEK: 'missed-week',
+    GREETING: 'greeting',
 };
+
+/**
+ * Time of day, from the member's own clock. Phase 2B.3.2.
+ *
+ * Midnight to 04:59 is evening on purpose. "Good morning" at 2am is simply
+ * wrong, and a fourth band would need a fourth copy string for a window
+ * almost nobody opens the app in.
+ */
+export const GREETING_BANDS = Object.freeze({ morningFrom: 5, afternoonFrom: 12, eveningFrom: 17 });
+
+export const GREETING_BAND = { MORNING: 'morning', AFTERNOON: 'afternoon', EVENING: 'evening' };
+
+/** Which band a local time falls in. No server time, no timezone library. */
+export function greetingBand(now, bands) {
+    const b = bands || GREETING_BANDS;
+    const ref = now instanceof Date && !isNaN(now.getTime()) ? now : new Date();
+    const hour = ref.getHours();
+    if (hour >= b.eveningFrom || hour < b.morningFrom) return GREETING_BAND.EVENING;
+    if (hour >= b.afternoonFrom) return GREETING_BAND.AFTERNOON;
+    return GREETING_BAND.MORNING;
+}
+
+/**
+ * YYYY-MM-DD from LOCAL date parts, for a once-per-calendar-day gate.
+ *
+ * Deliberately not toISOString().split('T')[0], which the app uses
+ * elsewhere and which is UTC. At UTC+13 a UTC date rolls over at 11:00
+ * local, so a UTC key would let a member be greeted twice in one of their
+ * days. This is a calendar-day key, never an elapsed-24-hours comparison.
+ */
+export function localDayKey(now) {
+    const ref = now instanceof Date && !isNaN(now.getTime()) ? now : new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${ref.getFullYear()}-${pad(ref.getMonth() + 1)}-${pad(ref.getDate())}`;
+}
 
 function dayAt(key) {
     const d = new Date(key + 'T12:00:00');
@@ -137,13 +173,24 @@ export function missedWeekReentry(ledger, currentWeekKey) {
  * they have been away, or that last week went badly, is noise at the one
  * moment the right answer is "you are done".
  *
+ * The GREETING is last, and is only ever reached when nothing else had
+ * anything to say. It is an identity enhancement, not product state, and it
+ * must never displace a message about the member's actual training. Its
+ * other two suppressions, the critical band and the safety-relevant
+ * prescription states, are page conditions rather than facts about the
+ * week, so the caller folds them into `greeting` before passing it. This
+ * stays the single place that answers "is there a higher-value contextual
+ * message", and greeting code never re-derives return, week or missed-week
+ * logic for itself.
+ *
  * At most one key comes back. Two liveness messages at once is clutter, and
  * the Today card has one slot by design.
  */
-export function livenessContext({ weekComplete, returnContext: ret, missedWeek } = {}) {
+export function livenessContext({ weekComplete, returnContext: ret, missedWeek, greeting } = {}) {
     if (weekComplete) return LIVENESS.WEEK_COMPLETE;
     if (ret === RETURN_CONTEXT.EXTENDED) return LIVENESS.EXTENDED_RETURN;
     if (ret === RETURN_CONTEXT.RETURNING) return LIVENESS.RETURNING;
     if (missedWeek) return LIVENESS.MISSED_WEEK;
+    if (greeting) return LIVENESS.GREETING;
     return null;
 }
