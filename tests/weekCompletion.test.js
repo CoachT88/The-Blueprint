@@ -82,3 +82,94 @@ describe('weekCompletion', () => {
         expect(r.completed).toBe(1);
     });
 });
+
+/**
+ * Phase 2B.2. completedDays cannot answer "was the scheduled MECHANICAL work
+ * done", because finishSession() sets it for any session including Recovery.
+ * With Week Complete built on this number, the log settles it.
+ */
+describe('the session log settles what a scheduled day actually was', () => {
+    const MON = new Date(2025, 5, 9, 12, 0, 0);          // Monday 9 June 2025
+    const SCHEDULE = ['rest', 'length', 'girth', 'rest', 'stamina', 'length', 'rest'];
+    const ALL = [true, true, true, true, true, true, true];
+    const NONE = [false, false, false, false, false, false, false];
+    // Monday is getDay 1; the ISO week runs Mon 9 to Sun 15 June.
+    const on = (day, routineType) => ({ date: `2025-06-${String(day).padStart(2, '0')}T12:00:00.000Z`, routineType });
+    const run = (sessionLog, done = ALL) =>
+        weekCompletion(SCHEDULE, done, { sessionLog, now: MON });
+
+    test('the schedule still sets the denominator', () => {
+        expect(run([]).target).toBe(4);
+    });
+
+    test('a mechanical session on a scheduled day counts', () => {
+        expect(run([on(9, 'length')], NONE).completed).toBe(1);
+    });
+
+    test('a substituted mission still counts', () => {
+        // Girth done on the day Length was scheduled. Mechanical is
+        // mechanical; the locked substitution rule is untouched.
+        expect(run([on(9, 'girth')], NONE).completed).toBe(1);
+    });
+
+    test('REGRESSION: Recovery on a scheduled day does not count', () => {
+        // completedDays is true for it, and that is exactly the lie this
+        // cross-check exists to stop.
+        expect(run([on(9, 'recovery')], NONE).completed).toBe(0);
+    });
+
+    test('REGRESSION: a Recovery-only week cannot complete', () => {
+        const log = [on(9, 'recovery'), on(10, 'recovery'), on(12, 'recovery'), on(13, 'recovery')];
+        const w = run(log);
+        expect(w.completed).toBe(0);
+        expect(w.allDone).toBe(false);
+    });
+
+    test('Recovery alongside mechanical work on the same day still counts', () => {
+        expect(run([on(9, 'recovery'), on(9, 'length')], NONE).completed).toBe(1);
+    });
+
+    test('a manual tick with nothing logged that day still counts', () => {
+        // The member telling us about work the app did not time. Preserved.
+        expect(run([]).completed).toBe(4);
+    });
+
+    test('a manual tick does not override a day that only had Recovery', () => {
+        expect(run([on(9, 'recovery')]).completed).toBe(3);
+    });
+
+    test('a full mechanical week is allDone', () => {
+        const log = [on(9, 'length'), on(10, 'girth'), on(12, 'stamina'), on(13, 'length')];
+        const w = run(log, NONE);
+        expect(w.completed).toBe(4);
+        expect(w.allDone).toBe(true);
+        expect(w.remaining).toBe(0);
+    });
+
+    test('a scheduled rest day is never part of the target', () => {
+        // Mechanical work on Sunday, which is a rest day. It is worth doing
+        // and it is not one of the four.
+        const log = [on(15, 'length')];
+        const w = run(log, NONE);
+        expect(w.target).toBe(4);
+        expect(w.completed).toBe(0);
+    });
+
+    test('target 0 is never allDone', () => {
+        const rest = ['rest', 'rest', 'rest', 'rest', 'rest', 'rest', 'rest'];
+        const w = weekCompletion(rest, ALL, { sessionLog: [on(9, 'length')], now: MON });
+        expect(w.target).toBe(0);
+        expect(w.allDone).toBe(false);
+    });
+
+    test('without a log it falls back to completedDays alone', () => {
+        // So a caller that has not been updated keeps its old answer rather
+        // than silently reading zero.
+        expect(weekCompletion(SCHEDULE, ALL).completed).toBe(4);
+        expect(weekCompletion(SCHEDULE, ALL, { now: MON }).completed).toBe(4);
+    });
+
+    test('junk in the log does not throw', () => {
+        expect(() => run([null, 'junk', { date: 5 }, {}])).not.toThrow();
+    });
+});

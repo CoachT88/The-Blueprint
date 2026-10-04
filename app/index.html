@@ -121,6 +121,11 @@
         .dim-toggle-btn{width:36px;height:36px;border-radius:.6rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;flex-shrink:0}
         .dim-toggle-btn.lit{background:rgba(250,204,21,.12);border-color:rgba(250,204,21,.3)}
         /* Deload banner */
+        /* Liveness. Deliberately restrained: week complete is the only one
+           that gets colour, and it is a quiet green rather than a fanfare. */
+        #today-liveness{color:#94a3b8}
+        #today-liveness.liveness-complete{color:#6ee7b7;font-weight:700}
+        #hq-stat-chips.week-complete #hq-week-label{color:#6ee7b7}
         .deload-banner{background:linear-gradient(135deg,rgba(249,115,22,.12) 0%,rgba(234,88,12,.06) 100%);border:1px solid rgba(249,115,22,.25);border-radius:1rem;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem}
         /* Box breathing */
         @keyframes drawBoxSeg{from{stroke-dashoffset:105}to{stroke-dashoffset:0}}
@@ -809,6 +814,11 @@
             <p id="today-sub" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
             <p id="today-why" class="text-[12px] text-slate-300 mt-2 leading-relaxed"></p>
             <p id="today-withheld" class="hidden text-[11px] mt-2 leading-relaxed px-3 py-2 rounded-xl" style="background:rgba(100,116,139,.12);color:#cbd5e1"></p>
+            <!-- One liveness line, Phase 2B.2. Chosen by precedence in
+                 livenessContext(): week complete, then return, then a week
+                 that did not go to plan. It sits beside the prescription and
+                 never in place of it. -->
+            <p id="today-liveness" class="hidden text-[12px] mt-2 leading-relaxed"></p>
             <ul id="today-changes" class="hidden mt-3 space-y-1"></ul>
             <div id="today-complete-summary" class="hidden mt-3 grid grid-cols-2 gap-2"></div>
             <div id="today-actions" class="mt-4 space-y-2">
@@ -829,10 +839,12 @@
 
         <!-- ── Week progress ───────────────────────────────────────────────
              Directly under the decision: what to do, then how the week is
-             going. Streak is not here; it is in the level block at the
-             bottom, because a streak that breaks on a prescribed rest day
-             cannot share billing with a target that counts that day as
-             success. -->
+             going. The streak that used to compete with this is gone
+             entirely as of Phase 2B.2; a counter that broke on a prescribed
+             rest day could never share billing with a target that counts
+             that day as success. When every scheduled session is done this
+             reads as complete, quietly: the Today card carries the moment,
+             and this is supporting evidence. -->
         <div id="hq-stat-chips" class="flex items-center gap-2.5 px-3 hq-anim">
             <div id="hq-week-dots" class="flex items-center gap-1.5"></div>
             <span id="hq-week-label" class="text-[11px] font-bold text-slate-400">This week</span>
@@ -2085,7 +2097,16 @@ const DAY_TYPES={
 // rest day while the app still treats it as a training day.
 const UNKNOWN_DAY_ICON='fa-circle-question';
 function dayTypeIcon(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].icon)||UNKNOWN_DAY_ICON; }
-function dayTypeLabel(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].label)||'Unset'; }
+/* DAY_TYPES describes SCHEDULE day types, and recovery is never one: it is
+   a routine type a session can have. Labelling it here rather than adding a
+   key keeps it out of every schedule picker that iterates DAY_TYPES, and
+   stops 'Unset' appearing wherever a completed Recovery session is named.
+   That was invisible until COMPLETE began reading routineType, and it also
+   reached the calendar's substitution tooltip. */
+function dayTypeLabel(t){
+    if(DAY_TYPES[t]) return DAY_TYPES[t].label;
+    return t==='recovery'?'Recovery':'Unset';
+}
 
 // ── Primary goal ───────────────────────────────────────────────────────────
 // '' means never answered and behaves exactly as 'all', so skipping the
@@ -4696,6 +4717,11 @@ function buildResolverInput(){
            the retired calendar rule, so the Today card and the duration
            estimate could both disagree with the session the member then got. */
         deload:isDeloadWeek(),
+        /* Liveness, Phase 2B.2. Communication only: neither of these reaches
+           any part of the prescription. Both are derived here so there is
+           one authoritative answer rather than one per renderer. */
+        weekComplete:currentWeekComplete(),
+        returnContext:currentReturnContext(),
         recoveryPlan:getDailyRecommendedUnfiltered(),
         contractionIndices:CONTRACTION_RECOVERY_IDX,
         estimateMinutes:(mission,opts)=>window.BP.estimateSessionMinutes(mission,{
@@ -4778,6 +4804,63 @@ function _renderBand(entries){
 function renderAttentionBand(){ _renderBand(ATTENTION_BAND); _renderBand(NUDGE_BAND); }
 
 /**
+ * Liveness, Phase 2B.2. Both answers are derived in exactly one place.
+ *
+ * COMMUNICATION ONLY. Nothing either of these returns is allowed to reach
+ * the mission, the sets, the duration, the difficulty, the tier, the
+ * deload, readiness or the schedule. They decide what is SAID, never what
+ * is prescribed, and the browser suite asserts the prescription is
+ * byte-identical with and without them.
+ */
+function currentWeekCompletion(){
+    if(!window.BP) return {completed:0,target:0,remaining:0,allDone:false,label:''};
+    return window.BP.weekCompletion(persisted.schedule,persisted.completedDays,
+        {sessionLog:persisted.sessionLog,now:new Date()});
+}
+/* Everything that speaks about the week reads the line above. The strip and
+   the Week Complete treatment used to call weekCompletion() separately with
+   identical arguments, which agreed by coincidence rather than by
+   construction. One derivation means "4 of 4" and weekComplete can never
+   disagree, and a test asserts that property. */
+function currentWeekComplete(){ return currentWeekCompletion().allDone; }
+function currentReturnContext(){
+    if(!window.BP) return null;
+    return window.BP.returnContext(persisted.sessionLog,{now:new Date()});
+}
+/**
+ * WHAT was completed today, for the COMPLETE card's wording.
+ *
+ * TODAY COMPLETE and WEEKLY MECHANICAL COMPLETION are different questions.
+ * "Did the member finish the session they did today" is answered by
+ * completedDays and stays that way: a prescribed Recovery session really
+ * does complete the day, and the app must not respond to it by offering
+ * another mechanical session, which would undercut the safety hierarchy
+ * that prescribed Recovery in the first place.
+ *
+ * "Did the scheduled mechanical work get done" is a separate question, and
+ * the week strip is authoritative about it.
+ *
+ * So the state stays as it is and only the WORDING becomes context aware,
+ * from the log rather than from the flag. Recovery closes the day without
+ * ever implying it satisfied a mechanical target.
+ *
+ * Uses window.BP.isQualifyingSession, the single definition of mechanical,
+ * rather than restating the condition here.
+ */
+function todayCompletionKind(){
+    const key=_dayKey(0);
+    const today=(persisted.sessionLog||[]).filter(e=>e&&typeof e.date==='string'&&e.date.split('T')[0]===key);
+    if(!today.length) return 'unlogged';          // hand-ticked, nothing timed
+    return today.some(e=>window.BP.isQualifyingSession(e))?'mechanical':'recovery';
+}
+
+/** The previous finished week, if it is honest to say it did not go to plan. */
+function currentMissedWeek(){
+    if(!window.BP) return null;
+    return window.BP.missedWeekReentry(persisted.progressionLedger,getCurrentWeekKey());
+}
+
+/**
  * Week completion: the primary progress signal.
  *
  * Scheduled non-rest sessions are the denominator, so a rest day taken as
@@ -4785,7 +4868,7 @@ function renderAttentionBand(){ _renderBand(ATTENTION_BAND); _renderBand(NUDGE_B
  */
 function renderWeekProgress(){
     if(!window.BP) return;
-    const w=window.BP.weekCompletion(persisted.schedule,persisted.completedDays);
+    const w=currentWeekCompletion();
     const dots=document.getElementById('hq-week-dots');
     const label=document.getElementById('hq-week-label');
     if(dots){
@@ -4796,8 +4879,32 @@ function renderWeekProgress(){
             dots.appendChild(d);
         }
     }
-    if(label) label.textContent=w.target?`${w.completed} of ${w.target} this week`:'No sessions scheduled';
+    /* allDone comes from the same calculation as the dots, deliberately,
+       rather than being re-derived here. Quiet on purpose: the Today card
+       carries the moment and this is the supporting evidence. */
+    if(label) label.textContent=w.target
+        ?(w.allDone?`Week complete · ${w.completed} of ${w.target}`:`${w.completed} of ${w.target} this week`)
+        :'No sessions scheduled';
+    const strip=document.getElementById('hq-stat-chips');
+    if(strip) strip.classList.toggle('week-complete',!!w.allDone);
 }
+
+/**
+ * The liveness line, one per context key.
+ *
+ * Every one of these states a fact the app can prove from its own records:
+ * sessions completed, time since training, a recorded week that fell short.
+ * None of them infers adaptation, vascular or hormonal change, tissue
+ * recovery, erection quality, discipline or confidence, and none of them
+ * blames anyone. Returning orients straight back to today; a week that did
+ * not go to plan is named once and then left alone.
+ */
+const LIVENESS_COPY={
+    'week-complete':  w=>`Week complete. You finished all ${w.target} sessions.`,
+    'returning':      ()=>"You're back. Pick it up with today's session.",
+    'extended-return':()=>"You're back after a while away. Today's session is the only thing to think about.",
+    'missed-week':    ()=>'Last week did not go to plan. Start again from today.',
+};
 
 /** Copy for each state. Kept here so the renderer stays shape, not prose. */
 const TODAY_COPY={
@@ -4843,6 +4950,11 @@ function renderToday(){
     let headline=copy.headline||'';
     if(r.state==='TRAIN') headline=`${dayTypeLabel(r.mission)} Day`;
     if(r.state==='PREPARE') headline=prep.headline;
+    /* COMPLETE says what was actually finished. "Today Is Done" after a
+       Recovery session is true about the day and would be read as the
+       scheduled session being done, which it was not. */
+    const completedKind=r.state==='COMPLETE'?todayCompletionKind():null;
+    if(completedKind==='recovery') headline='Recovery Complete';
     set('today-eyebrow',prep?TODAY_COPY.PREPARE.eyebrow:copy.eyebrow);
     set('today-headline',headline);
 
@@ -4853,15 +4965,21 @@ function renderToday(){
         RECOVER:()=>'Pelvic floor and mobility work, no mechanical load.',
         REST:()=>'',
         RESUME:()=>r.mission?`${dayTypeLabel(r.mission)} session`:'Session',
-        COMPLETE:()=>'',
+        /* Recovery closes the day and says nothing about the week. The
+           strip below is where mechanical progress is reported, and it is
+           unchanged by this session. */
+        COMPLETE:()=>completedKind==='recovery'?"You're done for today.":'',
         PREPARE:()=>'',
     };
     const sub=(subs[r.state]||(()=>''))();
     set('today-sub',sub,!!sub);
-    // COMPLETE's reason and its headline are the same sentence. Saying it
-    // twice in two sizes is not emphasis, it is clutter.
+    /* COMPLETE's reason repeats its headline and sub. Saying it three times
+       in three sizes is not emphasis, it is clutter. Suppressed by state
+       rather than by comparing strings: the string comparison stopped
+       matching the moment the headline became context aware, and the reason
+       reappeared underneath "Recovery Complete". */
     const norm=t=>t.trim().toLowerCase().replace(/[.!]+$/,'');
-    const echoes=!!headline&&norm(r.reason)===norm(headline);
+    const echoes=r.state==='COMPLETE'||(!!headline&&norm(r.reason)===norm(headline));
     set('today-why',r.reason,!!r.reason&&!echoes);
 
     // Duration only when the resolver gives one. RESUME returns null until
@@ -4932,6 +5050,24 @@ function renderToday(){
         hintEl.classList.toggle('hidden',!hint);
     }
 
+    /* ONE liveness line, chosen by livenessContext()'s precedence. It never
+       replaces the headline, the reason or the CTA: the prescription stays
+       authoritative and visible, and this sits beside it. Week Complete
+       outranks the rest because there is no work left to orient toward. */
+    const live=document.getElementById('today-liveness');
+    if(live){
+        const w=currentWeekCompletion();
+        const key=window.BP.livenessContext({
+            weekComplete:r.weekComplete,
+            returnContext:r.returnContext,
+            missedWeek:currentMissedWeek(),
+        });
+        live.textContent=key?LIVENESS_COPY[key](w):'';
+        live.dataset.liveness=key||'';
+        live.classList.toggle('hidden',!key);
+        live.classList.toggle('liveness-complete',key==='week-complete');
+    }
+
     // COMPLETE: closure, not a queue. What was done, and what is next.
     const summary=document.getElementById('today-complete-summary');
     if(summary){
@@ -4950,11 +5086,18 @@ function completeSummaryHtml(){
     const todayKey=new Date().toISOString().split('T')[0];
     const log=(persisted.sessionLog||[]).filter(e=>(e.date||'').startsWith(todayKey));
     const last=log.length?log[log.length-1]:null;
-    const w=window.BP.weekCompletion(persisted.schedule,persisted.completedDays);
+    const w=currentWeekCompletion();
     const cell=(label,value)=>`<div class="stat-chip"><p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">${label}</p><p class="text-base font-black text-white">${value}</p></div>`;
     const out=[];
-    if(last&&last.type) out.push(cell('Completed',dayTypeLabel(last.type)));
-    if(last&&last.duration) out.push(cell('Duration',`${Math.round(last.duration/60)} min`));
+    /* finishSession() writes `routineType`, and `duration` in MINUTES. This
+       read `last.type`, which is never written, so the mission chip never
+       rendered at all; and it divided duration by 60, so a 45 minute session
+       showed as 1 min. The test that covered it seeded {type, duration:840},
+       a payload production has never produced, so it passed while proving
+       nothing. Both are now read as written and driven through the real
+       finishSession() in tests/e2e/today-card.test.js. */
+    if(last&&last.routineType) out.push(cell('Completed',dayTypeLabel(last.routineType)));
+    if(typeof last?.duration==='number'&&last.duration>0) out.push(cell('Duration',`${last.duration} min`));
     if(last&&last.eq) out.push(cell('EQ',`${last.eq}/10`));
     if(last&&last.rpe) out.push(cell('RPE',`${last.rpe}/10`));
     out.push(cell('This week',w.target?`${w.completed} of ${w.target}`:'—'));
@@ -5267,12 +5410,29 @@ function renderDashboard(){
             _substituted[when.getDay()]=e.routineType;
         }
     }
+    /* THE TICK MEANS ONE THING: the scheduled mechanical work for that day
+       was satisfied. It reads the per-day array returned by the same
+       currentWeekCompletion() call the weekly headline and Week Complete
+       use, rather than persisted.completedDays, so the calendar and the
+       headline cannot disagree about a day.
+
+       The visible consequence is that Recovery on a scheduled mechanical day
+       no longer draws a tick, even though completedDays stays true for it.
+       That boolean is accepted legacy debt and is still written; it is
+       simply no longer what the member is shown. A scheduled rest day never
+       ticks either: there is no mechanical work scheduled to satisfy, which
+       is the same reason it is in neither side of the weekly fraction.
+
+       Recovery deliberately gets no icon of its own in this phase. The tick
+       is reserved for satisfied mechanical work; acknowledging Recovery is
+       a later design question, not a thing to improvise here. */
+    const _satisfied=currentWeekCompletion().satisfied;
     const g=document.getElementById('dashboard-grid');g.innerHTML='';
     persisted.schedule.forEach((type,i)=>{
         const d=document.createElement('div');
         const _known=!!DAY_TYPES[type];
         const _isToday=i===new Date().getDay();
-        d.className=`calendar-day type-${_known?type:'unknown'} ${_isToday?'active':''} ${persisted.completedDays[i]?'completed':''} ${_isToday&&type!=='rest'?'scheduled-focus':''}`;
+        d.className=`calendar-day type-${_known?type:'unknown'} ${_isToday?'active':''} ${_satisfied[i]?'completed':''} ${_isToday&&type!=='rest'?'scheduled-focus':''}`;
         d.innerHTML=`<span>${DAY_NAMES[i]}</span><i class="fas ${dayTypeIcon(type)}"></i>`;
         if(_substituted[i]){
             d.dataset.substituted='1';
@@ -6230,17 +6390,11 @@ const COACH_NUDGES=[
         text:'Your erection quality has slipped over your recent sessions. That is worth understanding rather than ignoring.',
         question:'My EQ has been declining over my last few sessions. What causes that and what should I change?',
     },
-    {
-        id:'returning',
-        test:()=>{
-            const log=persisted.sessionLog||[];
-            if(log.length<3) return false;
-            const last=new Date(log[log.length-1].date).getTime();
-            return (Date.now()-last)/864e5>=7;
-        },
-        text:'It has been over a week since your last session. Coming back too hard is the usual way guys get hurt.',
-        question:'I have had more than a week off. How should I restart without overdoing it?',
-    },
+    /* The `returning` nudge was removed in Phase 2B.2. Coming back is not a
+       side note to be queued behind sleep and RPE in a one-at-a-time band
+       where it could be starved entirely; it is now part of the primary
+       Today experience, from returnContext(). It is deliberately NOT
+       replaced by a Coach Tee behaviour. */
     {
         id:'tier_ready',
         test:()=>!!(window.BP&&window.BP.progressionEligibility(persisted.progressionLedger).eligible)
@@ -7235,6 +7389,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 import { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED } from '../src/nextBestAction.js';
 import { estimateSessionMinutes } from '../src/sessionDuration.js';
 import { weekCompletion } from '../src/weekCompletion.js';
+// Phase 2B.2 liveness. Communication only: nothing here reaches the
+// prescription, and the browser suite asserts that.
+import { returnContext, missedWeekReentry, livenessContext,
+         daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS } from '../src/liveness.js';
 // The in-page getCurrentWeekKey() reads the clock and takes no argument, so
 // it cannot answer "which week was this log entry in". weekUtils can, and it
 // is the version with the year-boundary tests behind it.
@@ -7253,7 +7411,9 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               reconcileLedger, progressionState, PROGRESSION_STATE, WEEK_VERDICT,
               weekQualified, weekIsMemberFacingMiss, toleranceHolds,
               programmeStartBackfill, programmeStartOnCompletion, isQualifyingSession,
-              PROGRESSION_POLICY, deloadState, progressionEligibility };
+              PROGRESSION_POLICY, deloadState, progressionEligibility,
+              returnContext, missedWeekReentry, livenessContext,
+              daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

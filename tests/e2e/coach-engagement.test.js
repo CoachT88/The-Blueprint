@@ -157,11 +157,19 @@ describe('the nudge fires only when there is something to notice', () => {
         expect(id).toBe('eq_declining');
     });
 
-    test('coming back after more than a week away', async () => {
+    test('REGRESSION: coming back is no longer a nudge', async () => {
+        // Phase 2B.2 moved return into the primary Today experience. As a
+        // nudge it sat in a one-at-a-time band below sleep and RPE and could
+        // be starved entirely, which is the wrong place for the first thing
+        // the app should say to someone who has been away.
         await reset();
-        const id = await app.page.evaluate(log => { persisted.sessionLog = log; return (pickCoachNudge() || {}).id; },
-            [20, 15, 10].map(d => sessionEntry(d, { rpe: 5, eq: 7 })));
-        expect(id).toBe('returning');
+        const r = await app.page.evaluate(log => {
+            persisted.sessionLog = log;
+            return { id: (pickCoachNudge() || {}).id || null,
+                     stillRegistered: COACH_NUDGES.some(n => n.id === 'returning') };
+        }, [20, 15, 10].map(d => sessionEntry(d, { rpe: 5, eq: 7 })));
+        expect(r.id).not.toBe('returning');
+        expect(r.stillRegistered).toBe(false);
     });
 
     /**
