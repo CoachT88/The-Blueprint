@@ -77,6 +77,57 @@ describe('return context', () => {
     });
 });
 
+/**
+ * The regression CI caught and the local run did not.
+ *
+ * returnContext compared noon on the last training day against the real
+ * `now`, time of day included, so the band moved with the hour the member
+ * opened the app. This suite's own NOW was noon, which aligned both sides
+ * and hid it; the browser suite failed only because the runner happened to
+ * execute before midday.
+ *
+ * Every assertion below is the same gap read at a different o'clock.
+ */
+describe('REGRESSION: the hour of the day cannot move the band', () => {
+    const HOURS = [[0, 30], [6, 0], [9, 0], [11, 59], [12, 0], [15, 30], [18, 0], [23, 59]];
+    const at = (h, m) => new Date(2025, 5, 15, h, m, 0);
+    /** A session exactly `d` calendar days before 15 June, logged at 20:45. */
+    const trainedDaysAgo = (d) => {
+        const day = new Date(2025, 5, 15 - d, 20, 45, 0);
+        return [{ date: day.toISOString(), routineType: 'length' }];
+    };
+
+    test.each(HOURS)('six days away says nothing, read at %i:%i', (h, m) => {
+        expect(returnContext(trainedDaysAgo(6), { now: at(h, m) })).toBeNull();
+    });
+
+    test.each(HOURS)('seven days away is returning, read at %i:%i', (h, m) => {
+        expect(returnContext(trainedDaysAgo(7), { now: at(h, m) })).toBe(RETURN_CONTEXT.RETURNING);
+    });
+
+    test.each(HOURS)('twenty seven days away is still returning, read at %i:%i', (h, m) => {
+        expect(returnContext(trainedDaysAgo(27), { now: at(h, m) })).toBe(RETURN_CONTEXT.RETURNING);
+    });
+
+    test.each(HOURS)('twenty eight days away is an extended return, read at %i:%i', (h, m) => {
+        expect(returnContext(trainedDaysAgo(28), { now: at(h, m) })).toBe(RETURN_CONTEXT.EXTENDED);
+    });
+
+    test.each(HOURS)('the day count itself is stable, read at %i:%i', (h, m) => {
+        expect(daysSinceLastMechanical(trainedDaysAgo(7), at(h, m))).toBe(7);
+        expect(daysSinceLastMechanical(trainedDaysAgo(28), at(h, m))).toBe(28);
+    });
+
+    test('and the session time of day does not move it either', () => {
+        // Trained at 06:00 or at 23:30, seven calendar days ago, read at 09:00.
+        for (const hour of [0, 6, 12, 18, 23]) {
+            const day = new Date(2025, 5, 8, hour, 15, 0);
+            const log = [{ date: day.toISOString(), routineType: 'length' }];
+            expect(returnContext(log, { now: at(9, 0) })).toBe(RETURN_CONTEXT.RETURNING);
+        }
+    });
+});
+
 describe('days since the last mechanical day', () => {
     test('counts whole days back', () => {
         expect(daysSinceLastMechanical([S(9)], NOW)).toBe(9);

@@ -40,6 +40,26 @@ function dayAt(key) {
 }
 
 /**
+ * Whole CALENDAR days between a training day and a reference moment.
+ *
+ * Both sides are anchored to local noon, and that is the whole point. An
+ * earlier version compared noon on the last training day against the real
+ * `now`, time of day included, so the same member with the same gap got a
+ * different answer depending on the hour they opened the app: seven days
+ * later at 14:00 read as 7, and at 09:00 as 6. CI caught it on a
+ * morning run after a local run had passed in the afternoon.
+ *
+ * Round rather than floor: two noon-anchored instants are N*24h apart give
+ * or take an hour across a daylight saving change, and rounding lands on N
+ * in every case where flooring would lose a day.
+ */
+function calendarDaysBetween(lastDay, ref) {
+    const refNoon = new Date(ref);
+    refNoon.setHours(12, 0, 0, 0);
+    return Math.round((refNoon.getTime() - lastDay.getTime()) / DAY_MS);
+}
+
+/**
  * Has this member been away, and roughly how long?
  *
  *   under returningAfterDays        null, nothing to say
@@ -63,7 +83,7 @@ export function returnContext(sessionLog, { now, policy } = {}) {
     const last = dayAt(days[days.length - 1]);
     if (!last) return null;
 
-    const away = Math.floor((ref.getTime() - last.getTime()) / DAY_MS);
+    const away = calendarDaysBetween(last, ref);
     if (away >= p.extendedReturnAfterDays) return RETURN_CONTEXT.EXTENDED;
     if (away >= p.returningAfterDays) return RETURN_CONTEXT.RETURNING;
     return null;
@@ -75,7 +95,7 @@ export function daysSinceLastMechanical(sessionLog, now) {
     const days = qualifyingSessionDays(sessionLog);
     if (!days.length) return null;
     const last = dayAt(days[days.length - 1]);
-    return last ? Math.floor((ref.getTime() - last.getTime()) / DAY_MS) : null;
+    return last ? calendarDaysBetween(last, ref) : null;
 }
 
 /**
