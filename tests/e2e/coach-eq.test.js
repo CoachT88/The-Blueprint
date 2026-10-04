@@ -225,6 +225,80 @@ describe('preferred name in the Coach Tee context', () => {
         expect(c).not.toMatch(/use (their|his) name|address them|always call/i);
     }, 30_000);
 
+    /**
+     * The request itself. Phase 2B.3.5.
+     *
+     * The name's one sanctioned egress is this body's `context` string, so
+     * the shape of the request is part of the privacy claim: three fields,
+     * one turn, no transcript. Intercepting the real fetch is the only way
+     * to assert what actually leaves the page.
+     */
+    test('ACCEPTANCE: the request is three fields and carries no conversation history', async () => {
+        const r = await app.page.evaluate(async () => {
+            currentUser = { id: 'ctn', email: 'marcus.kane@example.com',
+                            user_metadata: { preferred_name: 'Marcus' } };
+            persisted.primaryGoal = 'all'; persisted.pelvicProfile = 'standard';
+            persisted.sessionLog = [{ date: new Date().toISOString(), routineType: 'length',
+                                      eq: 8, rpe: 5, xpEarned: 15 }];
+            /* fetchClaude() refuses without a session, so until the stub
+               grew one in 2B.3.5 no test could reach the actual request. */
+            window.__session = { user: currentUser, access_token: 'stub-token' };
+            const seen = [];
+            const realFetch = window.fetch;
+            window.fetch = (url, opts) => {
+                seen.push({ url: String(url), body: opts && opts.body,
+                            auth: !!(opts && opts.headers && opts.headers.Authorization) });
+                return Promise.resolve({ ok: true, status: 200,
+                    json: () => Promise.resolve({ text: 'ok' }) });
+            };
+            // The real client call, not a reimplementation of it.
+            await fetchClaude('coach', 'how is my form', _coachContext());
+            window.fetch = realFetch;
+            return seen;
+        });
+        expect(r).toHaveLength(1);
+        expect(r[0].url).toContain('/api/coach-tee');
+        expect(r[0].auth).toBe(true);
+        const body = JSON.parse(r[0].body);
+        expect(Object.keys(body).sort()).toEqual(['context', 'mode', 'userMsg']);
+        expect(body.mode).toBe('coach');
+        expect(body.userMsg).toBe('how is my form');
+        expect(body.context).toContain('Preferred name: Marcus');
+        // No history, messages, transcript or memory of any shape.
+        expect(body).not.toHaveProperty('messages');
+        expect(body).not.toHaveProperty('history');
+        expect(typeof body.context).toBe('string');
+        // The email is never a stand-in, and never travels alongside.
+        expect(body.context).not.toContain('marcus.kane');
+        expect(r[0].body).not.toContain('@example.com');
+    }, 30_000);
+
+    test('ACCEPTANCE: clearing the name changes the very next request', async () => {
+        const r = await app.page.evaluate(async () => {
+            window.__authUser = { id: 'ctn', email: 'marcus.kane@example.com',
+                                  user_metadata: { preferred_name: 'Marcus' } };
+            currentUser = { ...window.__authUser };
+            persisted.sessionLog = [{ date: new Date().toISOString(), routineType: 'length',
+                                      eq: 8, rpe: 5, xpEarned: 15 }];
+            window.__session = { user: currentUser, access_token: 'stub-token' };
+            const bodies = [];
+            const realFetch = window.fetch;
+            window.fetch = (url, opts) => { bodies.push(opts.body);
+                return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ text: 'ok' }) }); };
+            await fetchClaude('coach', 'q1', _coachContext());
+            await clearAccountName();                       // the real clear
+            await fetchClaude('coach', 'q2', _coachContext());
+            window.fetch = realFetch;
+            return { bodies, name: preferredName() };
+        });
+        expect(r.name).toBeNull();
+        expect(r.bodies[0]).toContain('Preferred name: Marcus');
+        // No cache to invalidate: savePreferredName swaps currentUser for
+        // whatever auth returned, so the next context is already current.
+        expect(r.bodies[1]).not.toContain('Preferred name');
+        expect(r.bodies[1]).not.toContain('Marcus');
+    }, 30_000);
+
     test('the page threw nothing throughout', () => {
         expect(app.errors).toEqual([]);
     });

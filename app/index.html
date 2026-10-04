@@ -1482,7 +1482,7 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">Start at Beginner</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The app has 4 tiers: Beginner → Intermediate → Advanced → Elite. Intermediate is the default and Beginner is always there if you want to scale down. Advanced and Elite are earned by putting training weeks in, not by waiting.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The app has 4 tiers: Beginner → Intermediate → Advanced → Elite. A new account starts at Beginner, and Intermediate is open from day one whenever you want it. Advanced and Elite are earned by putting training weeks in, not by waiting.</p>
         <div class="mt-6 p-4 rounded-2xl bg-amber-500/08 border border-amber-500/20 text-left max-w-xs w-full">
             <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">CoachTee Says</p>
             <p class="text-slate-400 text-xs leading-relaxed">The guys who try to skip to Advanced in week one are the same guys who quit in week three. Trust the process.</p>
@@ -7110,12 +7110,29 @@ async function handleForgotPassword(){
     if(error)setAuthError(error.message);
     else setAuthSuccess('Password reset email sent. Check your inbox.');
 }
+/* Every overlay that shows one member's own data.
+   These are body-level siblings of the screens, not .step-content, so hiding
+   the steps on sign-out left them open. The auth screen covers them at
+   z-99999 so nothing is visible while signed out, but hideAuthScreen() on the
+   NEXT sign-in uncovers them, and none of them re-render until reopened. The
+   Account sheet was the live case: A signs out with it open, B signs in, and
+   B's HQ comes up with A's name on screen. Withholding identity UI beats
+   showing the wrong member's. */
+function _closeMemberOverlays(){
+    ['account-modal','notif-modal','pass-info-modal','coach-modal','type-modal',
+     'tier-lock-modal','pelvic-screen-modal','pelvic-result-modal']
+        .forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden')});
+    const hist=document.getElementById('history-modal'); if(hist) hist.style.display='none';
+    const man=document.getElementById('manual-modal'); if(man) man.classList.remove('show');
+    closeAccountEditor();
+}
 async function handleLogout(){
     // Clear state and show auth screen immediately — don't wait on the network.
     // Any in-flight onUserSignedIn will see currentUser cleared and abort.
     currentUser=null;persisted={...DEFAULT_PERSISTED};
     _releaseWakeLock();
     showAuthScreen();
+    _closeMemberOverlays();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     _flushSaveNow();
     flushAnalytics();
@@ -7843,7 +7860,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     sb.auth.onAuthStateChange((event,session)=>{
         if(event==='SIGNED_OUT'){
             currentUser=null;persisted={...DEFAULT_PERSISTED};_persistedLoaded=false;
-            showAuthScreen();return;
+            // Also reached when the session ends somewhere else: another tab,
+            // or an expired token. handleLogout() never ran, so the overlays
+            // have to be closed here too.
+            showAuthScreen();_closeMemberOverlays();return;
         }
         setTimeout(()=>{
             if(session?.user){
