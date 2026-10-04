@@ -5698,26 +5698,23 @@ function finishSession(){
            completion, showSessionSummary() has one caller, and a reload
            clears it, so it cannot repeat or cross accounts.
 
-           The lifetime count closes a real hole the tests found. A long
-           tenured member whose log has been pruned and who has no legacy
-           firstSessionDate backfills as "established-start-unknown", which
-           correctly leaves the date null. Their next completion would then
-           set it and read as a first session, so someone three hundred
-           sessions in would be told they were just getting underway.
-           allTimeSessionCount is incremented above and is never truncated,
-           so one here means their first ever session and not merely the
-           first this app witnessed.
+           provablyFirstMechanicalSession() closes a real hole the tests
+           found. A long-tenured member whose log has been pruned and who
+           has no legacy firstSessionDate backfills as
+           "established-start-unknown", which correctly leaves the date
+           null. Their next completion would then set it and read as a
+           first session, so someone three hundred sessions in would be
+           told they were just getting underway.
 
-           KNOWN TRADE-OFF. A member whose debut session was Recovery
-           reaches their first mechanical session at a count of two, so they
-           do not get this line. The programme did genuinely begin for them,
-           and they are the case this misses. The alternative was a
-           threshold somewhere between two and three hundred, which would be
-           arbitrary, or the backfill's `established` flag, which turns true
-           after any single session and so cannot tell the two apart. A
-           missed line for a rare member beats telling a long-tenured one
-           they are just starting. */
-        _programmeStartedThisSession=!!_start&&(persisted.allTimeSessionCount||0)<=1;
+           It proves the question rather than guessing at it: the history
+           has to be demonstrably whole, and it has to contain no earlier
+           mechanical session. No session-count threshold, which could not
+           separate a new member whose debut was Recovery from a tenured
+           one whose log was pruned, and which would have been invented. */
+        _programmeStartedThisSession=!!_start&&window.BP.provablyFirstMechanicalSession({
+            sessionLog:persisted.sessionLog,
+            allTimeSessionCount:persisted.allTimeSessionCount,
+        });
     }
     if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
     updateRecords(earnedXp);
@@ -7698,13 +7695,14 @@ import { normaliseLedger, reconcileLedger, progressionState, PROGRESSION_STATE,
          WEEK_VERDICT, weekQualified, weekIsMemberFacingMiss, deloadState,
          progressionEligibility } from '../src/progressionLedger.js';
 import { toleranceHolds, programmeStartBackfill, programmeStartOnCompletion,
-         isQualifyingSession } from '../src/progression.js';
+         isQualifyingSession, provablyFirstMechanicalSession } from '../src/progression.js';
 import { PROGRESSION_POLICY } from '../src/progressionPolicy.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, weekCompletion, weekKey, normaliseLedger,
               reconcileLedger, progressionState, PROGRESSION_STATE, WEEK_VERDICT,
               weekQualified, weekIsMemberFacingMiss, toleranceHolds,
               programmeStartBackfill, programmeStartOnCompletion, isQualifyingSession,
+              provablyFirstMechanicalSession,
               PROGRESSION_POLICY, deloadState, progressionEligibility,
               returnContext, missedWeekReentry, livenessContext,
               daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS,

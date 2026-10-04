@@ -102,17 +102,51 @@ describe('the first qualifying mechanical session', () => {
         expect(r.records).not.toContain(LINE);
     }, 30_000);
 
-    test('KNOWN TRADE-OFF: a debut Recovery session costs them the line', async () => {
-        /* Their first mechanical session is their second overall, so the
-           lifetime-count gate excludes it. The programme did begin for
-           them, and this is the case the gate misses. The alternatives were
-           an arbitrary threshold between two and three hundred, or the
-           backfill's `established` flag, which turns true after any single
-           session and cannot separate a new member from a long-tenured one.
-           Documented rather than papered over. */
+    test('ACCEPTANCE: a debut Recovery session no longer costs them the line', async () => {
+        /* Their first mechanical session is their second overall. The
+           threshold this replaced excluded them; the proof does not,
+           because the retained history is demonstrably whole and contains
+           no earlier mechanical session. */
         const r = await finish(app.page, 'length');
-        expect(r.start).toBeTruthy();               // the programme did start
-        expect(r.records).not.toContain(LINE);      // and nothing was said
+        expect(r.start).toBeTruthy();
+        expect(r.records).toContain(LINE);
+    }, 30_000);
+
+    test('ACCEPTANCE: several Recovery sessions first still gets the line', async () => {
+        await brandNew(app.page);
+        await finish(app.page, 'recovery');
+        await finish(app.page, 'recovery');
+        const r = await finish(app.page, 'length');
+        expect(r.records).toContain(LINE);
+    }, 30_000);
+
+    test('ACCEPTANCE: retained history already holding mechanical work refuses', async () => {
+        /* A member can hold mechanical history AND a null programme start,
+           because the backfill will not date anyone without corroboration.
+           The completeness count alone would wave this through. */
+        await brandNew(app.page, { patch: {
+            allTimeSessionCount: 2,
+            sessionLog: [
+                { date: new Date(Date.now() - 5 * 86400000).toISOString(), routineType: 'length', duration: 30 },
+                { date: new Date(Date.now() - 2 * 86400000).toISOString(), routineType: 'recovery', duration: 20 },
+            ],
+        } });
+        const r = await finish(app.page, 'length');
+        expect(r.start).toBeTruthy();               // the date does get set
+        expect(r.flag).toBe(false);                 // but they are not new
+        expect(r.records).not.toContain(LINE);
+    }, 30_000);
+
+    test('ACCEPTANCE: a pruned log refuses even when the last sessions were Recovery', async () => {
+        await brandNew(app.page, { patch: {
+            allTimeSessionCount: 300,
+            sessionLog: [
+                { date: new Date(Date.now() - 3 * 86400000).toISOString(), routineType: 'recovery', duration: 20 },
+            ],
+        } });
+        const r = await finish(app.page, 'length');
+        expect(r.flag).toBe(false);
+        expect(r.records).not.toContain(LINE);
     }, 30_000);
 
     test('ACCEPTANCE: an established member is not told they are starting', async () => {
