@@ -106,3 +106,126 @@ describe('EQ chart', () => {
         expect(app.errors).toEqual([]);
     }, 30_000);
 });
+
+/**
+ * The preferred name as deterministic Coach Tee context, Phase 2B.3.3.
+ *
+ * One line, only when a name exists. The model may use it naturally and is
+ * never told to. It determines no identity and calculates no state: every
+ * fact in the block is supplied by the app.
+ */
+describe('preferred name in the Coach Tee context', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'ctn' }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    const ctx = (page, { name, log } = {}) => page.evaluate(({ name, log }) => {
+        currentUser = { id: 'ctn', email: 'marcus.kane@example.com',
+                        user_metadata: name ? { preferred_name: name } : {} };
+        persisted.primaryGoal = 'all';
+        persisted.pelvicProfile = 'standard';
+        persisted.sessionLog = log
+            ? [{ date: new Date().toISOString(), routineType: 'length', eq: 8, rpe: 5, xpEarned: 15 }]
+            : [];
+        return _coachContext();
+    }, { name, log: !!log });
+
+    test('a name produces exactly one context line', async () => {
+        const c = await ctx(app.page, { name: 'Marcus', log: true });
+        expect(c).toContain('Preferred name: Marcus');
+        expect(c.match(/Preferred name:/g)).toHaveLength(1);
+    }, 30_000);
+
+    test('and for a brand new member too', async () => {
+        const c = await ctx(app.page, { name: 'Marcus', log: false });
+        expect(c).toContain('brand new');
+        expect(c).toContain('Preferred name: Marcus');
+        expect(c.match(/Preferred name:/g)).toHaveLength(1);
+    }, 30_000);
+
+    test('ACCEPTANCE: no name means no line, never a null', async () => {
+        for (const log of [true, false]) {
+            const c = await ctx(app.page, { name: null, log });
+            expect(c).not.toContain('Preferred name');
+            expect(c).not.toContain('null');
+            expect(c).not.toContain('undefined');
+        }
+    }, 30_000);
+
+    test('ACCEPTANCE: the email is never used as a fallback', async () => {
+        const c = await ctx(app.page, { name: null, log: true });
+        expect(c).not.toMatch(/marcus/i);
+        expect(c).not.toContain('@');
+    }, 30_000);
+
+    test('ACCEPTANCE: the deterministic facts are identical with and without it', async () => {
+        const withName = await ctx(app.page, { name: 'Marcus', log: true });
+        const without = await ctx(app.page, { name: null, log: true });
+        const strip = t => t.split('\n').filter(l => !l.startsWith('Preferred name:')).join('\n');
+        expect(strip(withName)).toBe(strip(without));
+    }, 30_000);
+
+    test('ACCEPTANCE: Coach Tee is still stateless, one user turn and no history', async () => {
+        const r = await app.page.evaluate(async () => {
+            const seen = [];
+            // fetchClaude bails without a session, and the harness stub has
+            // none, so one is supplied for the length of this call.
+            const realGetSession = sb.auth.getSession;
+            sb.auth.getSession = () => Promise.resolve({ data: { session: { access_token: 'stub-token' } } });
+            const realFetch = window.fetch;
+            window.fetch = (url, opts) => {
+                if (String(url).includes('/api/coach-tee')) {
+                    seen.push(JSON.parse(opts.body));
+                    return Promise.resolve(new Response(JSON.stringify({ content: [{ text: 'ok' }] }),
+                        { status: 200, headers: { 'Content-Type': 'application/json' } }));
+                }
+                return realFetch(url, opts);
+            };
+            currentUser = { ...currentUser, user_metadata: { preferred_name: 'Marcus' } };
+            document.getElementById('coach-input').value = 'Is this working?';
+            await askCoach();
+            window.fetch = realFetch;
+            sb.auth.getSession = realGetSession;
+            return seen;
+        });
+        expect(r.length).toBeGreaterThan(0);
+        const body = r[0];
+        expect(body.context).toContain('Preferred name: Marcus');
+        // No conversation history is sent, and nothing new was added to the
+        // transport: mode, userMsg and context, as before.
+        expect(body).not.toHaveProperty('messages');
+        expect(body).not.toHaveProperty('history');
+        expect(Object.keys(body).sort()).toEqual(['context', 'mode', 'userMsg']);
+    }, 30_000);
+
+    test('REGRESSION: the name reaches no other payload', async () => {
+        const r = await app.page.evaluate(() => {
+            currentUser = { ...currentUser, user_metadata: { preferred_name: 'Zebediah' } };
+            _analyticsBuffer = [];
+            track('coach_asked');
+            renderDashboard();
+            return {
+                payload: JSON.stringify(_buildSavePayload()),
+                persisted: JSON.stringify(persisted),
+                analytics: JSON.stringify(_analyticsBuffer),
+                local: Object.keys(localStorage).map(k => `${k}=${localStorage.getItem(k)}`).join('|'),
+                ledger: JSON.stringify(persisted.progressionLedger || []),
+            };
+        });
+        for (const blob of [r.payload, r.persisted, r.analytics, r.local, r.ledger]) {
+            expect(blob).not.toContain('Zebediah');
+        }
+    }, 30_000);
+
+    test('the context states facts and gives no instruction about the name', async () => {
+        const c = await ctx(app.page, { name: 'Marcus', log: true });
+        const line = c.split('\n').find(l => l.startsWith('Preferred name:'));
+        expect(line).toBe('Preferred name: Marcus');
+        // No "address them as", "use their name", "always call them".
+        expect(c).not.toMatch(/use (their|his) name|address them|always call/i);
+    }, 30_000);
+
+    test('the page threw nothing throughout', () => {
+        expect(app.errors).toEqual([]);
+    });
+});

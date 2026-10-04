@@ -3744,9 +3744,16 @@ async function fetchClaude(mode, userMsg, context){
 function _coachContext(){
     const log=persisted.sessionLog||[];
     if(!log.length){
-        return `LIVE USER DATA\nThis member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(getScheduledType())}.`;
+        const _n=preferredName();
+        return `LIVE USER DATA\n${_n?`Preferred name: ${_n}\n`:''}This member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(getScheduledType())}.`;
     }
     const lines=[];
+    /* Deterministic context, like every other line here. The model may use
+       it naturally and is not told to; it never determines identity, and it
+       calculates none of the facts below. Omitted entirely when there is no
+       name, rather than sent as a null. */
+    const _name=preferredName();
+    if(_name) lines.push(`Preferred name: ${_name}`);
     lines.push(`Stated goal: ${getGoal().label}. ${getGoal().coach}`);
     if(isFloorTight()) lines.push(`Pelvic floor screener: HYPERTONIC (tight). Do NOT recommend kegels or any contraction work to this member under any circumstances. Lead with reverse kegels, diaphragmatic breathing, hip openers and myofascial release. Contraction work has been removed from their protocol in the app.`);
     else if(hasPelvicScreen()) lines.push(`Pelvic floor screener: no signs of a tight floor. Contraction and release work are both appropriate, but tell them to stop the kegels if urgency, perineal ache or post-ejaculation discomfort appear.`);
@@ -4991,7 +4998,14 @@ const GREETING_BLOCKING_STATES=['PREPARE','RESUME','RECOVER'];
 const LIVENESS_COPY={
     'week-complete':  w=>`Week complete. You finished all ${w.target} sessions.`,
     'returning':      ()=>"You're back. Pick it up with today's session.",
-    'extended-return':()=>"You're back after a while away. Today's session is the only thing to think about.",
+    /* The one other place the name is used, and it appears once. The second
+       half is deliberately about TODAY: nothing here says progress was lost,
+       anything detrained, tolerance dropped or that they are starting over.
+       Twenty eight days is product policy about when saying something is
+       useful, not a conclusion about anyone's body. */
+    'extended-return':(w,name)=>name
+        ?`Welcome back, ${name}. Today's session is the only thing to think about.`
+        :"You're back after a while away. Today's session is the only thing to think about.",
     'missed-week':    ()=>'Last week did not go to plan. Start again from today.',
     // Rendered separately, in its own element above the Today card.
     'greeting':       ()=>'',
@@ -5158,7 +5172,7 @@ function renderToday(){
            liveness line stays empty for it rather than carrying two kinds
            of message in one slot. */
         const inLine=key&&key!=='greeting';
-        live.textContent=inLine?LIVENESS_COPY[key](w):'';
+        live.textContent=inLine?LIVENESS_COPY[key](w,preferredName()):'';
         live.dataset.liveness=inLine?key:'';
         live.classList.toggle('hidden',!inLine);
         live.classList.toggle('liveness-complete',key==='week-complete');
@@ -5676,6 +5690,34 @@ function finishSession(){
             now:new Date(),
         });
         if(_start) persisted.programmeStartDate=_start;
+        /* Exactly-once by construction, and no storage is needed for it.
+           programmeStartOnCompletion() returns a date ONLY when the start
+           was previously unset and this completion was mechanical, so
+           Recovery cannot set it, a backfilled start cannot, and an
+           established member cannot. The flag is reassigned on every
+           completion, showSessionSummary() has one caller, and a reload
+           clears it, so it cannot repeat or cross accounts.
+
+           The lifetime count closes a real hole the tests found. A long
+           tenured member whose log has been pruned and who has no legacy
+           firstSessionDate backfills as "established-start-unknown", which
+           correctly leaves the date null. Their next completion would then
+           set it and read as a first session, so someone three hundred
+           sessions in would be told they were just getting underway.
+           allTimeSessionCount is incremented above and is never truncated,
+           so one here means their first ever session and not merely the
+           first this app witnessed.
+
+           KNOWN TRADE-OFF. A member whose debut session was Recovery
+           reaches their first mechanical session at a count of two, so they
+           do not get this line. The programme did genuinely begin for them,
+           and they are the case this misses. The alternative was a
+           threshold somewhere between two and three hundred, which would be
+           arbitrary, or the backfill's `established` flag, which turns true
+           after any single session and so cannot tell the two apart. A
+           missed line for a rare member beats telling a long-tenured one
+           they are just starting. */
+        _programmeStartedThisSession=!!_start&&(persisted.allTimeSessionCount||0)<=1;
     }
     if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
     updateRecords(earnedXp);
@@ -5694,6 +5736,7 @@ function finishSession(){
     showSessionSummary(earnedXp);
 }
 let _passEarnedThisSession=false;
+let _programmeStartedThisSession=false;
 /**
  * Earn a Recovery Pass: one per qualifying week, capped at two so it stays a
  * safety net rather than a way to coast.
@@ -5954,6 +5997,15 @@ function showSessionSummary(xp){
     const records=[];
     if(xp>=r.bestSessionXp&&xp>0) records.push('⚡ New session XP record: '+xp+' XP');
     if(_passEarnedThisSession) records.push('🛡️ You earned a Recovery Pass for a solid week of training');
+    /* The programme has begun, and that is the whole claim. Nothing here
+       says adaptation has started, that results are underway or that any
+       physical change has happened, because none of that is known.
+       No name: this moment does not need one.
+
+       Week Complete outranks it. If this same session also finished the
+       week, that is the larger accomplishment and this stays quiet rather
+       than stacking a second celebratory line beside it. */
+    if(_programmeStartedThisSession&&!currentWeekComplete()) records.push("🚩 You're officially underway.");
     const recordsEl=document.getElementById('summary-records');
     recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
     modal.classList.add('show');
