@@ -85,7 +85,7 @@ members as a strength, not hidden as a gap.
 
 ## 2. Source of truth: the evidence table
 
-### 2.1 Ventus 2020 — the anchor for solo delivery
+### 2.1 Ventus 2020: the anchor for solo delivery
 
 Ventus D et al., *Arch Sex Behav* 2020. PMID 31741252. n=50.
 
@@ -125,7 +125,7 @@ internally valid contrast is the psychobehavioural add-on arm, and that was
 comparator. Quote the confidence interval whenever the effect size is quoted:
 the lower bound of 0.27 is compatible with a small effect.
 
-### 2.2 Dogan and Kece 2023 — protocol source, not efficacy source
+### 2.2 Dogan and Kece 2023: protocol source, not efficacy source
 
 *PLoS ONE* 2023;18(8):e0283091. n=80. **Pre-test/post-test quasi-experimental.
 NOT randomised.**
@@ -156,7 +156,7 @@ NOT randomised.**
 
 **Grade: D for efficacy. Useful as protocol evidence only.**
 
-### 2.3 de Carufel and Trudel 2006 — the only device-free randomisation
+### 2.3 de Carufel and Trudel 2006: the only device-free randomisation
 
 *J Sex Marital Ther* 2006. 36 couples, three arms.
 
@@ -192,7 +192,7 @@ separate and unresolved question.**
 
 **Grade: C.**
 
-### 2.4 Erkut 2025 — breathing protocol known, efficacy claim not established
+### 2.4 Erkut 2025: breathing protocol known, efficacy claim not established
 
 *J Sex Med* 2025;22(8):1422. PMID 40580936. n=62 randomised, 59 completed.
 
@@ -206,7 +206,7 @@ separate and unresolved question.**
 | Breaths per session | **At least 10** `[REPORTED]` |
 | Cadence | ~6 per minute, derived from the 10 s cycle `[INFERRED]` |
 | Session duration beyond the minimum | `[UNRESOLVED]` |
-| Body position | `[UNRESOLVED]` — the supine reference belongs to the pelvic floor assessment |
+| Body position | `[UNRESOLVED]`, the supine reference belongs to the pelvic floor assessment |
 | Pelvic floor coordinated with breathing | `[UNRESOLVED]` |
 | Adherence measurement | `[BLOCKED]` |
 | IELT between-group | **P = .12** `[REPORTED]`, inconsistent with the paper's own wording |
@@ -304,68 +304,335 @@ extrapolation and the internal record says so.**
 
 ---
 
-## 4. The three-track model
+## 4. Taxonomy: three kinds of work
 
-### Skill track
+An earlier draft carried a one-off exception allowing breathing to survive a
+Rest day. That was a contradiction patched with a special case. The structure
+below removes it generically: **there are three kinds of work, and Rest
+withholds two of them.**
 
-**Stage 1. Recognition.** Learn to notice the rising urge before control is
-lost. No cycle requirement, no stopping requirement, no elapsed-time
-requirement. **Intentionally unfailable.** An early finish is data.
+| Kind | What it is | Examples |
+|---|---|---|
+| **Primary Training Session** | The main programme stimulus. At most one per day. **The only thing that can earn progression.** | Recognition, Stop and Recover, Modulation, Transfer, Length, Girth |
+| **Supporting Work** | Secondary scheduled work that supports the programme. Zero or more per day. | Pelvic Floor Strength and Control, Pelvic Floor Relaxation and Coordination, Mobility |
+| **Daily Practice** | Low-burden cadence-based work that may continue on a Rest day **without converting it into a training day**. | Calm Arousal Breathing |
 
-**Stage 2. Stop and Recover.** 3 cycles. Approach the urge, stop completely,
-regain control without waiting so long that erection or desire disappears,
-resume. The terminal cycle may end in ejaculation.
+### What Rest means, precisely
 
-**Stage 3. Modulate Without a Full Stop.** Introduced once Recognition and
-Stop and Recover are reliable. Candidate tools: reduce tempo, reduce
-stimulation intensity, reduce unnecessary whole-body muscular tension,
-breathing. **Stop remains available as a fallback, and using it is not a
-failure.** Exact protocol is an open design task.
+```
+mode = rest   →   no Primary Training Session
+                  no Supporting Work
+                  Daily Practice continues
+```
 
-**Stage 4. Transfer.** More realistic movement, position and stimulation
-contexts. Exact protocol is an open design task. The programme stops where the
-app can no longer observe anything; partnered contexts are briefed, not
-prescribed as timed sessions.
+Rest is still a prescription and still means no training. A two-minute daily
+practice is not training, which is exactly why it does not break the rule.
 
-### Parallel support tracks
+**This is a generic third work type, not a breathing carve-out.** Any future
+low-burden daily item (a mobility minute, a hydration prompt made
+prescriptive) uses the same slot and inherits the same rule.
 
-**Calm Arousal Breathing.** Regular low-burden supporting work. Does not count
-as a primary progression session. **No IELT promise.**
+### Three completion truths, never summed
 
-**Pelvic Floor.** Screener-routed: standard goes to Strength and Control;
-tight or unscreened goes to Relaxation and Coordination. Purpose is awareness
-and control support. **No claim that contracting or relaxing at the
-pre-ejaculatory moment is proven superior.**
+Adding a third kind of work adds a third thing to be true or false about a
+day. They are reported separately.
 
-### Member experience
+| Truth | Numerator | Denominator | Drives |
+|---|---|---|---|
+| **Programme adherence** | completed Primary + Supporting Work | assigned Primary + Supporting Work | the weekly headline |
+| **Daily Practice adherence** | practices completed | days elapsed | its own quiet line |
+| **Progression qualification** | sessions meeting the stage gate | sessions required | stage advancement |
 
-The member never chooses which stage to train, how many cycles, whether today
-is skill practice or support, which pelvic floor category, or whether he has
-progressed. **Open app, see what today is, do it.**
-
----
-
-## 5. Amendments to earlier 3S architecture
-
-Recorded rather than folded in silently.
-
-**A1. Breathing persists on Rest days.** The earlier rule was that a true rest
-day carries no supporting work. Breathing is a two-minute daily practice and
-the only element of the programme with daily cadence; withholding it two days
-a week would break that cadence to protect a rule about session work. **Rest
-still means no session work.**
-
-**A2. "Stopping is a tool, not the skill" is reclassified.** It is a
-**Blueprint design inference supported by overlapping behavioural evidence**,
-not a research finding. de Carufel showed two multicomponent packages
-performed similarly. It did not show stopping is irrelevant and it identified
-no causal ingredient. The same applies to the core skill statement: *recognise
-rising arousal and regain control* is **our abstraction across the evidence**,
-not something a single trial proved.
+**A day plan's `status` reflects Primary and Supporting Work only.** Missing a
+daily practice does not mark a Rest day as missed, which would be perverse:
+a Rest day asks for no session work, so there is no session work to fail.
 
 ---
 
-## 6. Open items
+## 5. The skill track
+
+### Stage 1. Recognition
+
+**Objective: the first meaningful recognition of the rising urge.** That is the
+primary event of the session, and everything else is secondary.
+
+One button, and the interface is nothing else.
+
+```
+TODAY - Recognition
+One job: notice the moment the urge becomes recognisable.
+
+                    [ I FEEL IT ]
+```
+
+On the **first** tap, the app reinforces what just happened:
+
+> "That is the feeling we are training you to catch earlier."
+
+He may continue the session or finish normally. Further taps are recorded if
+useful, but **Stage 1 is not a tap-count exercise** and the member is never
+shown a target number of taps.
+
+No cycle requirement. No stopping requirement. No elapsed-time requirement.
+No clock on screen. **Intentionally unfailable.**
+
+**Why a recognition stage exists at all** `[PRODUCT POLICY]`. No trial has one.
+Every protocol's stop trigger is phenomenological, so the cue has to be
+detectable before any tool can be applied, and Bustos indicates detection is
+the binding constraint: 62% of 481 men ejaculated before completing a
+five-stop exercise `[REPORTED]`. An opening session most men fail loses them
+in the first week.
+
+**Progression** `[PRODUCT POLICY]`: recognised the urge before finishing, in
+2 consecutive full sessions. **An early finish is information, not failure.**
+
+### Stage 2. Stop and Recover
+
+3 cycles `[PRODUCT POLICY, informed by Ventus 2020]`.
+
+```
+Cycle 1 of 3
+Stimulate. When it feels close:            [ STOP ]
+        |
+Hand off completely. Wait until the urge passes,
+but not so long that the erection goes.
+                           [ I'M BACK IN CONTROL ]
+        |
+Cycle 2 of 3 ...
+Cycle 3 - you can finish on this one.
+```
+
+**No pause countdown** `[P4]`. The member's tap ends the pause. **No
+elapsed-time target** `[P3]`. Three cycles done is the session done.
+
+The pause screen carries **both halves** of the resume condition, because the
+two-sided form is `[REPORTED Ventus]` and the currently shipped copy states
+only the first half.
+
+**A successful session** `[PRODUCT POLICY, P8]`: prescribed cycles completed,
+no ejaculation before the intended terminal cycle, the rising urge recognised
+in time to use the assigned tool, and sufficient control regained to resume.
+
+### Stage 3. Modulate Without a Full Stop
+
+**Objective: reduce dependence on a complete stop by developing more than one
+usable non-stop control tool.**
+
+Not four mandatory mini-levels. **An adaptive tool curriculum.**
+
+- **Blueprint assigns the tool. The member never chooses.**
+- One tool is taught at a time.
+- Performance is tracked **per tool**.
+- A tool becomes **demonstrated** once its success criterion is met.
+- **Stage 4 becomes eligible when more than one non-stop tool is
+  demonstrated.** The required count and the per-tool success criterion are
+  configurable `[PRODUCT POLICY]`.
+
+**Stop remains the safe fallback.** If the assigned tool is not enough, the
+member stops completely and regains control, and that cycle counts as a Stage 2
+cycle inside a Stage 3 session. **This preserves prior skill instead of turning
+Stage 3 into pass or fail.**
+
+Candidate tools, in proposed teaching order `[PRODUCT POLICY]`:
+
+| Order | Tool | Why here |
+|---|---|---|
+| 1 | Reduce tempo | most concrete, easiest to execute alone |
+| 2 | Reduce stimulation intensity | same axis, finer control |
+| 3 | Release unnecessary whole-body tension | `[REPORTED]` as a de Carufel FS component |
+| 4 | Integrate breathing | the member already owns the pattern from Daily Practice |
+
+**Ordering is ours.** de Carufel showed a multicomponent package containing
+several of these matched stop-start. It proved nothing about which one works,
+and nothing here should imply otherwise.
+
+**Do not hard-code four mandatory tool levels.** The curriculum is a list, the
+gate counts demonstrated tools, and both are configuration.
+
+### Stage 4. Transfer
+
+More realistic movement, position and stimulation contexts. `[REPORTED]` as a
+late stage in both Dogan's progression and SCT phase 4.
+
+Dogan's later stages also include partner stimulation and intercourse
+`[REPORTED]`. **The app cannot run a timed session for those**, so it briefs
+rather than prescribes. The programme stops where the app can no longer
+observe anything, and that boundary is deliberate.
+
+Exact protocol remains an open design task.
+
+---
+
+## 6. Readiness adaptation and earned progression
+
+### The governing principle
+
+> **Blueprint can reduce what the member has to do today without lowering what
+> he has to demonstrate before progressing.**
+
+That is the whole relationship between readiness and progression, and it
+closes a hole in an earlier draft where a reduced session still satisfied the
+advancement gate. Soreness must never become a cheaper route to a higher
+stage.
+
+### The matrix
+
+| Session as delivered | Programme adherence | Progression qualification |
+|---|---|---|
+| **Full prescribed session** | yes | **yes, possible** |
+| **Modified** (reduced cycles) | yes | **no, by default** |
+| **Protective / support only** | yes, if completed as assigned | **no** |
+| **Rest, as prescribed** | not counted either side | **no** |
+| **Missed** | no | **no** |
+
+### How readiness modifies each stage
+
+| Readiness | Stage 1 | Stages 2 to 4 |
+|---|---|---|
+| normal | as prescribed | 3 cycles, **qualifying** |
+| **moderate soreness** | unchanged, nothing to reduce, **qualifying** | **2 cycles**, adherence only, **not qualifying** |
+| **high soreness** | withheld | withheld, day becomes protective: Daily Practice plus Relaxation and Coordination |
+| **deload week** | unchanged | 2 cycles, adherence only, **not qualifying** |
+| moderate plus deload | unchanged | **primary withheld**, support only |
+
+Stage 1 is not reduced by moderate soreness because there is nothing in it to
+reduce, so a Stage 1 session under moderate soreness is a full prescribed
+session and does qualify.
+
+Cycle reduction is the natural modification for a cycle-driven session and it
+respects the minimum meaningful dose rule: below two cycles there is no
+approach and retreat left, so the day becomes support only rather than a token
+session.
+
+**Equivalency rules remain architecturally possible** (some future reduced
+session might be made to qualify under defined conditions) **but none are
+invented now.**
+
+---
+
+## 7. State and logging
+
+### Progression state
+
+```
+lastLonger: {
+  stage: 1 | 2 | 3 | 4,
+  consecutiveSuccesses: int,        // stages 1, 2 and 4. Resets on advance,
+                                    // never on a failed session.
+  stage3: {
+    currentTool: toolId | null,
+    tools: {
+      [toolId]: { consecutive: int, demonstrated: bool }
+    }
+  },
+  stageEnteredAt: date,             // record only, never a gate  [P9]
+}
+```
+
+**Minimum clean state for Stage 3 is two fields per tool.** `consecutive`
+drives the gate; `demonstrated` is stored rather than derived because it must
+be **sticky**: once a tool is demonstrated it stays demonstrated even if a
+later session with it fails. That mirrors tier ownership, which is never
+revoked.
+
+`demonstratedTools` is not stored. It is
+`Object.keys(tools).filter(t => tools[t].demonstrated)`, and storing both
+invites them to disagree.
+
+Optional analytics only, not required by any gate: `attempts` and `successes`
+totals per tool.
+
+Policy values, all configurable and all `[PRODUCT POLICY]`:
+`successesRequired: 2`, `toolSuccessesRequired`, `toolsRequiredForStage4: 2`.
+
+**No week counter anywhere.** Progression is earned, not elapsed `[P9]`.
+
+### What a skill session logs
+
+```
+{ stage, cyclesPrescribed, cyclesCompleted,
+  recognisedInTime: [bool per cycle],
+  regainedControl:  [bool per cycle],
+  outcome: 'completed' | 'early' | 'noFinish',
+  toolUsed, fellBackToStop: bool,
+  qualifying: bool,                 // false for any modified session
+  durationSeconds }                 // recorded, never shown as a target
+```
+
+Duration is captured because the app currently logs nothing about performed
+work, which the Phase 3S audit named as its largest data gap. **It is never
+surfaced as a goal** `[P3]`, and it is not an IELT measurement.
+
+`qualifying` is written at log time rather than inferred later, so a session's
+status cannot be re-judged by a future policy change. That is the same
+property the progression ledger exists to protect.
+
+---
+
+## 8. The Today experience
+
+```
++--------------------------------+
+| TODAY                          |
+| Stop & Recover                 |
+| 3 cycles                       |
+| [ START SESSION ]              |
+| 1 of 2 successful sessions     |   <- earned, not elapsed  [P9]
++--------------------------------+
+  Daily Practice - Calm Arousal Breathing - 10 breaths
+```
+
+One card, one obvious action, Daily Practice as a quiet line beneath.
+
+**The practice is expressed in breaths, not minutes.** We deliberately declined
+to convert Erkut's "3:7, at least 10 breaths" into a time prescription, so the
+member must see the unit that was actually prescribed. Showing "2 min" would
+reintroduce the invented number through the interface after the design
+document had refused it.
+
+On a Pelvic day the Supporting Work promotes into the primary slot and the card
+reads Pelvic Floor, Relaxation and Coordination. On a Rest day the card says
+Rest with no call to action, and the Daily Practice line remains.
+
+The member never chooses the stage, the cycle count, the tool, the pelvic
+category, or whether he has progressed.
+
+---
+
+## 9. Consequences for the generic day plan model
+
+The third work type changes the shape proposed in the Phase 3S architecture
+pass.
+
+```js
+dayPlan = {
+  date,                      // ISO date, not a weekday index
+  mode,                      // prescribed | modified | protective | rest
+  primarySession: { type, tier, dose } | null,
+  supportingWork: [ { type, category, dose, required } ],
+  dailyPractice:  [ { type, dose, required } ],   // NEW
+  status,                    // pending | completed | partial | missed
+}
+```
+
+Four consequences, and the third is the one that matters:
+
+1. **`dailyPractice` is a third array**, not a flag on `supportingWork`.
+   A flag would make every consumer of `supportingWork` responsible for
+   remembering to filter it out, and one of them eventually would not.
+2. **`mode: 'rest'` constrains `primarySession` and `supportingWork` only.**
+   A rest day may carry a non-empty `dailyPractice`, and that is the whole
+   point of the type.
+3. **`status` is computed from Primary and Supporting Work only.** Daily
+   Practice completion is recorded against the date, not folded into the day's
+   status, so a missed practice can never mark a Rest day as missed.
+4. **Daily Practice never enters `MECHANICAL_TYPES`** and so can never reach
+   progression qualification, by the same structural guarantee that keeps
+   Supporting Work out of it.
+
+---
+
+## 10. Open items
 
 ### Blocked cells
 
@@ -378,7 +645,7 @@ not something a single trial proved.
 | 5 | Funding and conflicts | Ventus | any marketing citation |
 | 6 | Per-trial extraction tables, quality assessment | Cooper / NIHR | independent verification |
 | 7 | Squeeze dose | Masters and Johnson primary | whether the squeeze has a defensible dose |
-| 8 | Resume trigger | Dogan | — |
+| 8 | Resume trigger | Dogan | not retrievable |
 | 9 | Adverse event collection | Dogan, Erkut | all safety claims |
 
 This environment's egress policy blocks journal full texts. Confirmed denied:
@@ -387,9 +654,25 @@ This environment's egress policy blocks journal full texts. Confirmed denied:
 
 ### Open design tasks
 
-- Stage 3 protocol and tool ordering
-- Stage 4 transfer protocol
-- Whether the squeeze retains any role (P10 left it as legacy content)
+- **Stage 3 per-tool success criterion** and `toolsRequiredForStage4`. The
+  shape is settled (adaptive curriculum, sticky demonstration, stop as
+  fallback); the two numbers are not.
+- **Stage 4 transfer protocol.**
+- Whether the squeeze retains any role. P10 left it as legacy content,
+  required by nothing.
+- Whether any reduced session should ever qualify for progression. The
+  architecture permits an equivalency rule; none is defined, and the default
+  is that it does not.
+
+Resolved by the taxonomy correction, recorded so the reasoning is not lost:
+
+- **The Rest-day breathing contradiction.** Previously patched with a one-off
+  exception. Now resolved by Daily Practice as a third work type, so Rest
+  withholds Primary and Supporting Work and nothing needs a carve-out.
+- **Reduced sessions earning advancement.** Previously a hole: moderate
+  soreness cut three cycles to two and the session still satisfied the gate,
+  which made soreness a cheaper route to a higher stage. Now closed by the
+  governing principle in section 6.
 
 ### Carried debt from elsewhere in 3S
 
@@ -403,7 +686,7 @@ This environment's egress policy blocks journal full texts. Confirmed denied:
 
 ---
 
-## 7. What this is
+## 11. What this is
 
 The research does not contain a routine to copy. Four passes established that
 fairly conclusively.
