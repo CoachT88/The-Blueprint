@@ -78,12 +78,11 @@ before measuring. If you add geometry assertions, wait too.
 **Assert on SVG text nodes, not `innerHTML`.** A regex for an inch mark will
 happily match `stroke-width="2.5"`.
 
-**Tailwind is not real here.** See the header comment in `tw-shim.css`. The CDNs
-are blocked on purpose so runs are deterministic and work offline, and the shim
-covers the layout utilities the app uses. Assertions should be about behaviour
-and state; if you need pixel-accurate layout, build Tailwind properly and drop
-the CDN block instead. The shim has no arbitrary z-index utilities, which is why
-`photo-compare` parks the step layer before clicking.
+**Tailwind is real here.** Since Phase 3B the app ships its own generated
+`app/vendor/tw.css`, plus self-hosted Inter and a Font Awesome subset, so the
+suites render what production renders and geometry assertions are meaningful.
+The styling CDNs stay blocked in the harness so a regression that reintroduces
+one fails loudly instead of quietly depending on the network.
 
 ## Adding a suite
 

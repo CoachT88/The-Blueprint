@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE BLUEPRINT | Session Pilot</title>
     <meta name="theme-color" content="#020617">
 
@@ -22,12 +22,113 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./vendor/fa.css">
+    <link rel="stylesheet" href="./vendor/fonts.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700&display=swap');
-        :root{--bg-deep:#020617;--accent-blue:#3b82f6;--accent-emerald:#10b981;--accent-purple:#a855f7;--accent-yellow:#facc15}
+        /* ── Design tokens ───────────────────────────────────────────────
+           Phase 3B. The vocabulary later phases build on. Deliberately small:
+           38 values, not a palette dump.
+
+           This replaces a token layer that existed in name only. The five
+           variables here before carried 13 usages across a 7,900-line file,
+           one of them (--accent-yellow) referenced nowhere at all, while the
+           app actually used ~60 distinct colours and 330 arbitrary pixel font
+           sizes written inline.
+
+           3B DEFINES these and migrates only the three things that are
+           correctness fixes: text contrast, the z-index ladder, and the
+           invalid opacity utilities. Screens migrate one at a time from 3C.
+           The old --bg-deep / --accent-* names are kept as aliases because
+           live CSS still references them; they retire with the screens. */
+        :root{
+            /* Surfaces */
+            --canvas:#080b14; --surface:#111726; --surface-raised:#1a2235;
+            --border:#253049; --border-strong:#35425e;
+
+            /* Text. --text-secondary replaces slate-500 (#64748b), which sat
+               at 4.24:1 on the canvas and failed WCAG AA in 12 places.
+               --text-muted is for large or bold text only. */
+            --text:#f1f5f9; --text-secondary:#9aa8bd; --text-muted:#6b7a94;
+
+            /* Semantic. One accent; the rest mean something specific. */
+            --accent:#3b82f6; --accent-press:#2563eb;
+            --success:#10b981; --caution:#f59e0b; --safety:#fb7185; --rest:#818cf8;
+
+            /* Type. 11px is the floor: 28 of 39 HQ text nodes were 8-11px. */
+            --t-display:34px; --t-h1:24px; --t-h2:18px; --t-h3:15px;
+            --t-body:15px; --t-small:13px; --t-micro:11px;
+
+            /* Space */
+            --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-6:24px; --s-8:32px; --s-12:48px;
+
+            /* Radius */
+            --r-sm:8px; --r-md:14px; --r-lg:20px; --r-sheet:28px;
+
+            /* Elevation */
+            --e-1:0 1px 2px rgba(0,0,0,.4);
+            --e-2:0 4px 16px rgba(0,0,0,.45);
+            --e-3:0 12px 40px rgba(0,0,0,.55);
+
+            /* Motion. Two durations and one easing. */
+            --m-fast:120ms; --m-std:240ms; --m-slow:360ms;
+            --ease:cubic-bezier(.2,.8,.2,1);
+
+            /* Stacking. One documented ladder, replacing 25 ad-hoc values
+               across four declaration mechanisms with a 301-99,989 dead zone
+               in the middle. See the comment at the overlays themselves. */
+            --z-base:0; --z-raised:10; --z-sticky:100; --z-popover:200;
+            --z-sheet:300; --z-sheet-over:310; --z-modal:400; --z-modal-over:410;
+            --z-auth:500; --z-system:600; --z-system-over:610;
+
+            /* Retained aliases; existing rules still reference these. */
+            --bg-deep:#020617;--accent-blue:#3b82f6;--accent-emerald:#10b981;
+            --accent-purple:#a855f7
+        }
+        /* ── Primitives ──────────────────────────────────────────────────
+           Phase 3B. Six classes covering the UI that actually repeats, drawn
+           from the 3A count: 160+ ad-hoc card divs, 11 button treatments
+           across 155 buttons (96 of them hand-assembled utility strings, 73
+           of those appearing exactly once), a circular icon button written 6
+           different ways, and a micro text-button written 8.
+
+           DEFINED here, applied from 3C. Nothing is re-skinned in this
+           phase; these exist so the screens have something to migrate to. */
+        /* Contrast. slate-500 measured 4.24:1 on the canvas and slate-600
+           2.66:1, both below the 4.5:1 AA requirement, across 130 uses and
+           17 of the 39 HQ text nodes. These two classes carry the fix. */
+        .u-text-2{color:var(--text-secondary)}
+        .u-text-3{color:var(--text-muted)}
+        .u-surface{background:var(--surface);border:1px solid var(--border);
+            border-radius:var(--r-lg);box-shadow:var(--e-1)}
+        .u-surface-raised{background:var(--surface-raised);border:1px solid var(--border-strong);
+            border-radius:var(--r-lg);box-shadow:var(--e-2)}
+        .u-btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s-2);
+            min-height:44px;padding:0 var(--s-4);border-radius:var(--r-md);border:1px solid transparent;
+            font-size:var(--t-micro);font-weight:800;text-transform:uppercase;letter-spacing:.1em;
+            cursor:pointer;transition:background var(--m-fast) var(--ease),border-color var(--m-fast) var(--ease)}
+        .u-btn:disabled{opacity:.45;cursor:default}
+        .u-btn--primary{background:var(--accent);color:#fff}
+        .u-btn--primary:active:not(:disabled){background:var(--accent-press)}
+        .u-btn--secondary{background:transparent;border-color:var(--border-strong);color:var(--text)}
+        .u-btn--quiet{background:transparent;color:var(--text-secondary);min-height:44px;padding:0 var(--s-2)}
+        /* 44px is the tap target; the visible circle stays 32-36px. 3A found
+           33 controls under 44px, of which the icon buttons and micro links
+           were the genuinely problematic ones rather than the dense chips. */
+        .u-icon-btn{display:inline-flex;align-items:center;justify-content:center;
+            width:44px;height:44px;border-radius:999px;background:transparent;border:0;
+            color:var(--text-secondary);cursor:pointer}
+        .u-icon-btn>*{pointer-events:none}
+        .u-chip{display:inline-flex;align-items:center;gap:var(--s-1);
+            padding:var(--s-1) var(--s-2);border-radius:999px;background:var(--surface-raised);
+            border:1px solid var(--border);color:var(--text-secondary);
+            font-size:var(--t-micro);font-weight:700}
+        .u-metric{display:flex;flex-direction:column;gap:2px}
+        .u-metric__label{font-size:var(--t-micro);font-weight:800;text-transform:uppercase;
+            letter-spacing:.08em;color:var(--text-secondary)}
+        .u-metric__value{font-family:'JetBrains Mono',monospace;font-weight:700;
+            font-size:var(--t-h2);color:var(--text)}
+
         html,body{font-family:'Inter',sans-serif;background-color:var(--bg-deep);color:#f8fafc;overflow:hidden;margin:0;padding:0;height:100%;width:100%}
         .app-container{height:100%;width:100%;position:relative;overflow:hidden}
         .ambient-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
@@ -41,8 +142,7 @@
         .hidden-step{display:none!important}
         .active-step{display:block!important;animation:slideUp .42s cubic-bezier(.2,.8,.2,1)}
         @keyframes slideUp{from{opacity:0;transform:translateY(22px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
-        @keyframes fadeOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-10px)}}
-        .progress-bar{height:4px;background:#0f172a;position:fixed;top:0;left:0;width:100%;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+                .progress-bar{height:4px;background:#0f172a;position:fixed;top:0;left:0;width:100%;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.5)}
         .progress-fill{height:100%;background:linear-gradient(90deg,#2563eb,#60a5fa);transition:width .6s cubic-bezier(.4,0,.2,1);box-shadow:0 0 15px rgba(59,130,246,.5)}
         .btn-primary{background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white;padding:1.25rem;border-radius:1.25rem;font-weight:800;text-transform:uppercase;letter-spacing:.15em;transition:all .2s cubic-bezier(.4,0,.2,1);border:1px solid rgba(255,255,255,.15);border-top:1px solid rgba(255,255,255,.3);width:100%;flex-shrink:0;box-shadow:0 10px 30px -5px rgba(37,99,235,.4),inset 0 -2px 10px rgba(0,0,0,.2);cursor:pointer}
         .btn-primary:active{transform:scale(.96);opacity:.9}
@@ -53,12 +153,9 @@
         .glass-input{background:rgba(15,23,42,.4);border:1px solid rgba(255,255,255,.1);border-radius:1rem;color:#f8fafc;padding:1rem;width:100%;outline:none;resize:none;transition:border-color .2s;font-family:inherit;font-size:.875rem}
         .glass-input:focus{border-color:rgba(168,85,247,.4)}
         .timer-glow{font-family:'JetBrains Mono',monospace;text-shadow:0 0 40px rgba(59,130,246,.5)}
-        .tension-line{width:100%;height:80px;stroke:var(--accent-blue);stroke-width:5;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 10px rgba(59,130,246,.6))}
-        .rk-circle{width:120px;height:120px;border-radius:50%;background:rgba(16,185,129,.05);border:2px solid rgba(16,185,129,.3);transition:all 4s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 20px rgba(16,185,129,.1)}
-        .rk-expand{transform:scale(1.6);background:rgba(16,185,129,.15);border:4px solid var(--accent-emerald);box-shadow:0 0 60px rgba(16,185,129,.4),inset 0 0 30px rgba(16,185,129,.3)}
-        .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;width:100%;flex-shrink:0}
+                                .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;width:100%;flex-shrink:0}
         .calendar-day{aspect-ratio:1/1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:1rem;border:1px solid rgba(255,255,255,.05);transition:all .3s cubic-bezier(.2,.8,.2,1);cursor:pointer;position:relative;background:linear-gradient(145deg,rgba(30,41,59,.3) 0%,rgba(15,23,42,.5) 100%);box-shadow:0 4px 15px -5px rgba(0,0,0,.3)}
-        .calendar-day span{font-size:.6rem;font-weight:800;margin-bottom:6px;color:#64748b;text-transform:uppercase}
+        .calendar-day span{font-size:.6rem;font-weight:800;margin-bottom:6px;color:var(--text-secondary);text-transform:uppercase}
         .calendar-day.active{border-color:rgba(59,130,246,.6);border-top-color:rgba(96,165,250,.8);background:linear-gradient(145deg,rgba(59,130,246,.15) 0%,rgba(37,99,235,.05) 100%);box-shadow:inset 0 0 20px rgba(59,130,246,.1),0 8px 20px -5px rgba(59,130,246,.25);transform:translateY(-2px)}
         .calendar-day.completed::after{content:'\f058';font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;top:-6px;right:-6px;color:var(--accent-emerald);font-size:1rem;background:var(--bg-deep);border-radius:50%;padding:1px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
         .type-length{border-bottom:4px solid var(--accent-blue);color:#93c5fd}
@@ -83,7 +180,7 @@
         .level-bar-track{height:3px;background:#1e293b;border-radius:999px;width:100%;margin-top:.4rem}
         .level-bar-fill{height:100%;background:linear-gradient(90deg,#facc15,#f59e0b);border-radius:999px;transition:width .8s cubic-bezier(.4,0,.2,1)}
         .log-entry{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border-radius:.75rem;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);font-size:.75rem;font-weight:600;flex-wrap:wrap}
-        #rest-overlay{position:fixed;inset:0;background-color:rgba(2,6,23,.96);flex-direction:column;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(20px)}
+        #rest-overlay{position:fixed;inset:0;background-color:rgba(2,6,23,.96);flex-direction:column;align-items:center;justify-content:center;z-index:var(--z-system);backdrop-filter:blur(20px)}
         #rest-overlay:not(.hidden){display:flex}
         .ai-response-box{background:rgba(168,85,247,.1);border-left:4px solid var(--accent-purple);padding:1rem;border-radius:.5rem;font-size:.85rem;line-height:1.6;color:#e2e8f0;display:none;white-space:pre-wrap}
         .ai-response-box.ai-error{background:rgba(239,68,68,.1);border-left-color:#ef4444;color:#fca5a5}
@@ -112,7 +209,7 @@
         .measure-field input:focus{border-color:rgba(59,130,246,.5)}
         .measure-field input::placeholder{color:#475569;font-size:.75rem;font-family:inherit;font-weight:400}
         /* Chart modal */
-        #chart-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:200;backdrop-filter:blur(20px);overflow-y:auto}
+        #chart-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:var(--z-modal);backdrop-filter:blur(20px);overflow-y:auto}
         .chart-svg-wrap{width:100%;overflow:hidden;border-radius:1rem;background:rgba(15,23,42,.5);border:1px solid rgba(255,255,255,.06)}
         .chart-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
         .stat-chip{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.75rem;padding:.6rem .9rem;text-align:center}
@@ -131,9 +228,6 @@
         #hq-stat-chips.week-complete #hq-week-label{color:#6ee7b7}
         .deload-banner{background:linear-gradient(135deg,rgba(249,115,22,.12) 0%,rgba(234,88,12,.06) 100%);border:1px solid rgba(249,115,22,.25);border-radius:1rem;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem}
         /* Box breathing */
-        @keyframes drawBoxSeg{from{stroke-dashoffset:105}to{stroke-dashoffset:0}}
-        .box-seg{stroke-dasharray:105;stroke-dashoffset:105}
-        .box-seg.drawing{animation:drawBoxSeg var(--seg-dur,4s) linear forwards}
         .box-done{stroke-dasharray:105;stroke-dashoffset:0;opacity:.35}
         #box-phase-label{font-size:1.1rem;font-weight:900;text-transform:uppercase;letter-spacing:.2em;font-style:italic}
         #box-phase-count{font-family:'JetBrains Mono',monospace;font-size:3rem;font-weight:900;line-height:1;text-shadow:0 0 30px rgba(16,185,129,.6)}
@@ -150,7 +244,7 @@
         /* Hydration warning */
         .hydration-warning{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:1rem;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem}
         /* Password reset modal */
-        #password-reset-modal{position:fixed;inset:0;background:var(--bg-deep);z-index:99999;display:none;align-items:center;justify-content:center;padding:2rem}
+        #password-reset-modal{position:fixed;inset:0;background:var(--bg-deep);z-index:var(--z-auth);display:none;align-items:center;justify-content:center;padding:2rem}
         #password-reset-modal.show{display:flex}
         /* Soreness warning modal */
         /* Blackout day */
@@ -158,7 +252,7 @@
         /* Elite requirement badge */
         .elite-req{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:.75rem;padding:.5rem .75rem;font-size:.65rem;font-weight:800;color:#fca5a5;text-transform:uppercase;letter-spacing:.06em}
         /* Milestone modal */
-        #milestone-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:99998;backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:2rem}
+        #milestone-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:var(--z-modal-over);backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:2rem}
         #milestone-modal.show{display:flex}
         .milestone-inner{background:linear-gradient(145deg,rgba(30,41,59,.8) 0%,rgba(15,23,42,.95) 100%);border:1px solid rgba(250,204,21,.3);border-top:1px solid rgba(250,204,21,.5);border-radius:2rem;padding:2rem;text-align:center;max-width:20rem;width:100%;box-shadow:0 0 80px rgba(250,204,21,.1)}
         @keyframes burst{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
@@ -167,10 +261,8 @@
         .export-row{display:flex;gap:.5rem}
         .export-row button{flex:1;padding:.65rem .4rem;border-radius:.75rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .2s;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);color:#64748b}
         .export-row button:hover{border-color:rgba(255,255,255,.15);color:#94a3b8}
-        @keyframes popIn{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
-        .xp-pop{animation:popIn .3s cubic-bezier(.175,.885,.32,1.275)}
-        /* Onboarding slides */
-        #onboarding-overlay{position:fixed;inset:0;background:var(--bg-deep);z-index:99994;display:none;flex-direction:column;}
+                        /* Onboarding slides */
+        #onboarding-overlay{position:fixed;inset:0;background:var(--bg-deep);z-index:var(--z-modal);display:none;flex-direction:column;}
         #onboarding-overlay.show{display:flex;}
         .ob-slide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;text-align:center;opacity:0;transform:translateX(40px);transition:opacity .4s,transform .4s;pointer-events:none;}
         .ob-slide.active{opacity:1;transform:translateX(0);pointer-events:auto;}
@@ -180,12 +272,12 @@
         /* Guided tour (coach marks). Scrim sits above every app modal but below
            the loading screen. The "hole" is one box whose huge spread shadow
            darkens everything outside it, so no 4-panel geometry is needed. */
-        #tour-layer{position:fixed;inset:0;z-index:100000;display:none;}
+        #tour-layer{position:fixed;inset:0;z-index:var(--z-system);display:none;}
         #tour-layer.show{display:block;}
         #tour-hole{position:fixed;border-radius:16px;box-shadow:0 0 0 9999px rgba(2,6,23,.88);
             border:2px solid rgba(59,130,246,.9);pointer-events:none;
             transition:top .32s cubic-bezier(.2,.8,.2,1),left .32s cubic-bezier(.2,.8,.2,1),width .32s cubic-bezier(.2,.8,.2,1),height .32s cubic-bezier(.2,.8,.2,1);}
-        #tour-card{position:fixed;z-index:100001;width:min(20rem,calc(100vw - 2rem));
+        #tour-card{position:fixed;z-index:var(--z-system-over);width:min(20rem,calc(100vw - 2rem));
             background:linear-gradient(145deg,rgba(30,41,59,.98) 0%,rgba(15,23,42,.99) 100%);
             border:1px solid rgba(59,130,246,.35);border-radius:1.25rem;padding:1.1rem 1.15rem;
             animation:modalSpring .32s cubic-bezier(.2,.8,.2,1);}
@@ -196,14 +288,13 @@
         #tour-next{background:#2563eb;color:#fff;font-weight:900;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;padding:.6rem 1.1rem;border-radius:.75rem;border:none;cursor:pointer;flex-shrink:0;}
         #tour-skip{background:none;border:none;color:#475569;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;padding:.4rem 0;}
         /* Manual */
-        #manual-modal{position:fixed;inset:0;background:rgba(2,6,23,.98);z-index:99992;backdrop-filter:blur(20px);display:none;flex-direction:column;overflow:hidden;}
+        #manual-modal{position:fixed;inset:0;background:rgba(2,6,23,.98);z-index:var(--z-modal);backdrop-filter:blur(20px);display:none;flex-direction:column;overflow:hidden;}
         #manual-modal.show{display:flex}
         .manual-chapter{border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;transition:background .15s;}
         .manual-chapter:active{background:rgba(255,255,255,.03)}
         .manual-section{display:none;padding:1rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.04);}
         .manual-section.open{display:block}
-        .manual-tag{display:inline-block;font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:.2rem .5rem;border-radius:999px;border:1px solid;margin-right:.3rem;margin-bottom:.3rem}
-        /* Coach tip */
+                /* Coach tip */
         /* ── Today card ───────────────────────────────
            The one element the eye should land on. Heavier border, more
            padding and a lift than anything else on the HQ, and the state
@@ -239,11 +330,11 @@
         /* Records chips */
         .record-chip{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:.875rem;padding:.6rem .75rem;text-align:center;flex:1}
         /* Session summary */
-        #session-summary-modal{position:fixed;inset:0;background:rgba(2,6,23,.96);z-index:99997;backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:1.5rem;overflow-y:auto}
+        #session-summary-modal{position:fixed;inset:0;background:rgba(2,6,23,.96);z-index:var(--z-modal);backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:1.5rem;overflow-y:auto}
         #session-summary-modal.show{display:flex}
         .summary-stat{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:1rem;padding:.75rem 1rem;text-align:center}
         /* Weekly report */
-        #weekly-report-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:99996;backdrop-filter:blur(20px);display:none;align-items:flex-start;justify-content:center;padding:1.5rem;overflow-y:auto}
+        #weekly-report-modal{position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:var(--z-modal);backdrop-filter:blur(20px);display:none;align-items:flex-start;justify-content:center;padding:1.5rem;overflow-y:auto}
         #weekly-report-modal.show{display:flex}
         /* How-to steps panel */
         .howto-panel{background:rgba(15,23,42,.5);border:1px solid rgba(255,255,255,.07);border-radius:1rem;padding:.9rem 1rem;text-align:left;display:none}
@@ -264,8 +355,7 @@
         .ex-pick-tod.morning{color:#fbbf24;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.06)}
         .ex-pick-tod.afternoon{color:#fb923c;border-color:rgba(251,146,60,.3);background:rgba(251,146,60,.06)}
         .ex-pick-tod.night{color:#818cf8;border-color:rgba(129,140,248,.3);background:rgba(129,140,248,.06)}
-        .rec-section-label{font-size:.62rem;font-weight:900;text-transform:uppercase;letter-spacing:.15em;color:#475569;padding:.25rem .5rem}
-        .tod-header{display:flex;align-items:center;gap:.6rem;padding:.5rem 0 .25rem}
+                .tod-header{display:flex;align-items:center;gap:.6rem;padding:.5rem 0 .25rem}
         .coach-rec-banner{background:linear-gradient(135deg,rgba(245,158,11,.1) 0%,rgba(234,88,12,.05) 100%);border:1px solid rgba(245,158,11,.2);border-radius:1rem;padding:.75rem 1rem;display:flex;align-items:flex-start;gap:.75rem}
         /* Exercise detail drawer */
         .ex-detail-card{background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.15);border-radius:1rem;padding:.9rem 1rem;font-size:.75rem;line-height:1.6;color:#cbd5e1;display:none}
@@ -284,9 +374,9 @@
         .hydration-liter.hit{background:rgba(59,130,246,.18);border-color:rgba(59,130,246,.6);color:#93c5fd;box-shadow:0 0 12px rgba(59,130,246,.2)}
         .hydration-liter.complete{background:rgba(16,185,129,.18);border-color:rgba(16,185,129,.6);color:#6ee7b7;box-shadow:0 0 12px rgba(16,185,129,.2)}
         /* Auth screen */
-        #auth-screen{position:fixed;inset:0;background:var(--bg-deep);z-index:99999;display:flex;align-items:center;justify-content:center;padding:2rem}
+        #auth-screen{position:fixed;inset:0;background:var(--bg-deep);z-index:var(--z-auth);display:flex;align-items:center;justify-content:center;padding:2rem}
         #auth-screen.hidden{display:none}
-        #loading-screen{position:fixed;inset:0;background:var(--bg-deep);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem}
+        #loading-screen{position:fixed;inset:0;background:var(--bg-deep);z-index:var(--z-system);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem}
         #loading-screen.hidden{display:none}
         .auth-card{background:linear-gradient(145deg,rgba(30,41,59,.6) 0%,rgba(15,23,42,.9) 100%);border:1px solid rgba(255,255,255,.08);border-top:1px solid rgba(255,255,255,.15);border-radius:2rem;padding:2rem;width:100%;max-width:22rem;backdrop-filter:blur(20px);box-shadow:0 30px 60px -10px rgba(0,0,0,.6)}
         .auth-input{background:rgba(15,23,42,.6);border:1px solid rgba(255,255,255,.1);border-radius:.875rem;color:#f8fafc;padding:.875rem 1rem;width:100%;outline:none;font-family:inherit;font-size:.9rem;transition:border-color .2s;box-sizing:border-box}
@@ -342,6 +432,13 @@
             .hq-anim{opacity:1 !important}
         }
     </style>
+    <!-- Tailwind last on purpose. The CDN runtime injected its stylesheet into
+         <head> at load, i.e. AFTER the inline <style> above, so utilities won
+         ties against the app's own component classes. Linking it before that
+         block silently flipped the cascade: .deload-banner{display:flex} then
+         beat .hidden{display:none} and the deload banner rendered on every
+         HQ. Keep this link below the <style>. -->
+    <link rel="stylesheet" href="./vendor/tw.css">
 </head>
 <body>
 <div class="ambient-bg"><div class="ambient-glow-1"></div><div class="ambient-glow-2"></div></div>
@@ -352,7 +449,7 @@
         <div class="text-center mb-6">
             <i class="fas fa-lock text-3xl text-blue-400 mb-3"></i>
             <h2 class="text-xl font-black italic uppercase text-white">Set New Password</h2>
-            <p class="text-slate-500 text-[11px] mt-1">Enter your new password below</p>
+            <p class="u-text-2 text-[11px] mt-1">Enter your new password below</p>
         </div>
         <div class="space-y-3">
             <input type="password" id="new-password-input" class="auth-input" placeholder="New password">
@@ -371,7 +468,7 @@
         <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
         <i class="fas fa-fingerprint text-5xl text-blue-400 relative"></i>
     </div>
-    <i class="fas fa-spinner fa-spin text-slate-600 text-xl"></i>
+    <i class="fas fa-spinner fa-spin u-text-2 text-xl"></i>
 </div>
 
 <div id="auth-screen" class="hidden">
@@ -384,7 +481,7 @@
                 </div>
             </div>
             <h1 class="text-2xl font-black italic uppercase tracking-tighter text-white">The Blueprint</h1>
-            <p class="text-slate-500 text-[11px] mt-1 font-semibold uppercase tracking-widest">Members Only</p>
+            <p class="u-text-2 text-[11px] mt-1 font-semibold uppercase tracking-widest">Members Only</p>
         </div>
 
     <!-- Tabs -->
@@ -406,10 +503,10 @@
             <div id="remember-me-toggle" class="w-9 h-5 rounded-full bg-slate-700 border border-slate-600 relative transition-colors flex-shrink-0">
                 <div id="remember-me-thumb" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-400 transition-all"></div>
             </div>
-            <span class="text-[11px] text-slate-500 font-semibold">Remember me</span>
+            <span class="text-[11px] u-text-2 font-semibold">Remember me</span>
         </label>
         <button id="auth-submit-btn" class="btn-primary py-4 text-sm mt-1">SIGN IN</button>
-        <button id="auth-forgot-btn" class="w-full text-slate-600 text-[10px] font-bold uppercase tracking-widest py-2">Forgot password?</button>
+        <button id="auth-forgot-btn" class="w-full u-text-2 text-[10px] font-bold uppercase tracking-widest py-2">Forgot password?</button>
     </div>
 </div>
 
@@ -427,9 +524,9 @@
         </button>
         <div class="text-center">
             <p class="text-emerald-400 font-black uppercase tracking-[0.25em] text-[10px]">Active Rest</p>
-            <p id="rest-next-label" class="text-slate-500 text-[9px] mt-0.5">Next round coming up</p>
+            <p id="rest-next-label" class="u-text-2 text-[9px] mt-0.5">Next round coming up</p>
         </div>
-        <button id="rest-skip-btn" class="text-slate-500 font-black text-[10px] uppercase tracking-widest py-1.5 px-4 border border-slate-800 rounded-full active:scale-95">Skip</button>
+        <button id="rest-skip-btn" class="u-text-2 font-black text-[10px] uppercase tracking-widest py-1.5 px-4 border border-slate-800 rounded-full active:scale-95">Skip</button>
     </div>
 
     <div class="flex flex-col items-center" style="margin-top:76px;gap:0;">
@@ -477,7 +574,7 @@
 
         <!-- Protocol reminder -->
         <div class="bg-emerald-950/50 border border-emerald-500/15 rounded-2xl px-5 py-3 mx-6 text-center">
-            <p class="text-slate-500 text-[10px] leading-relaxed"><strong class="text-emerald-500">INHALE 4s</strong> — belly full, push pelvic floor down (RK) &nbsp;·&nbsp; <strong class="text-emerald-500">HOLD 4s</strong> &nbsp;·&nbsp; <strong class="text-emerald-500">EXHALE 4s</strong> — full release &nbsp;·&nbsp; <strong class="text-emerald-500">HOLD 4s</strong></p>
+            <p class="u-text-2 text-[10px] leading-relaxed"><strong class="text-emerald-500">INHALE 4s</strong> — belly full, push pelvic floor down (RK) &nbsp;·&nbsp; <strong class="text-emerald-500">HOLD 4s</strong> &nbsp;·&nbsp; <strong class="text-emerald-500">EXHALE 4s</strong> — full release &nbsp;·&nbsp; <strong class="text-emerald-500">HOLD 4s</strong></p>
         </div>
     </div>
 </div>
@@ -526,18 +623,18 @@
         <div class="px-2 space-y-3">
             <div class="flex items-center gap-2"><div class="chart-legend-dot" style="background:#a855f7"></div><span class="text-[10px] font-black uppercase tracking-widest" style="color:#a855f7">EQ — Erection Quality Per Session</span></div>
             <div class="chart-svg-wrap"><svg id="eq-chart" width="100%" viewBox="0 0 340 160"></svg></div>
-            <p class="text-[9px] text-slate-600 text-center italic">EQ responds in weeks. It moves long before the tape does.</p>
+            <p class="text-[9px] u-text-2 text-center italic">EQ responds in weeks. It moves long before the tape does.</p>
         </div>
     <!-- Personal Records -->
     <div id="hq-records-card" class="px-2 space-y-2 hq-anim">
-        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Personal Records</p>
+        <p class="text-[9px] font-black uppercase tracking-[0.25em] u-text-2 px-1">Personal Records</p>
         <div class="flex gap-2">
             <div class="record-chip"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">Best Session</p><p id="record-session-xp" class="text-lg font-black text-white">0 XP</p></div>
             <div class="record-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Best Week</p><p id="record-week-xp" class="text-lg font-black text-white">0 XP</p></div>
         </div>
     </div>
         <div id="chart-stats" class="grid grid-cols-2 gap-3 px-2"></div>
-        <p class="text-center text-slate-600 text-[10px] italic px-2">Measurements logged at session end.</p>
+        <p class="text-center u-text-2 text-[10px] italic px-2">Measurements logged at session end.</p>
         <!-- Photo gallery -->
         <div class="px-2 space-y-3">
             <p class="text-[11px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-images"></i> Progress Photos</p>
@@ -548,38 +645,38 @@
 </div>
 
 <!-- NOTIFICATION SETTINGS MODAL -->
-<div id="notif-modal" class="hidden fixed inset-0 z-[99992] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
+<div id="notif-modal" class="hidden fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
     <div class="w-full max-w-sm bg-slate-900 border border-slate-700/60 rounded-3xl p-6 space-y-5">
         <div class="flex justify-between items-center">
             <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-bell"></i> Training Reminders</p>
             <button id="notif-modal-close" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400"><i class="fas fa-xmark text-sm"></i></button>
         </div>
         <div id="notif-unsupported" class="hidden">
-            <p class="text-[11px] text-slate-500 leading-relaxed">Push notifications aren't supported in this browser. On iPhone, add The Blueprint to your Home Screen first, then open it from there.</p>
+            <p class="text-[11px] u-text-2 leading-relaxed">Push notifications aren't supported in this browser. On iPhone, add The Blueprint to your Home Screen first, then open it from there.</p>
         </div>
         <div id="notif-supported">
             <div class="space-y-4">
                 <p class="text-[11px] text-slate-400 leading-relaxed">One reminder a day at the time you choose. Nothing on a rest day, nothing once you've trained, and nothing on a day a Recovery Pass is covering.</p>
-                <p class="text-[10px] text-slate-600 leading-relaxed">Notifications only ever say The Blueprint. Nothing about what you train appears on your lock screen.</p>
+                <p class="text-[10px] u-text-2 leading-relaxed">Notifications only ever say The Blueprint. Nothing about what you train appears on your lock screen.</p>
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-[11px] font-bold text-slate-300">Daily reminder</p>
-                            <p class="text-[10px] text-slate-600">Sent if you haven't trained that day</p>
+                            <p class="text-[10px] u-text-2">Sent if you haven't trained that day</p>
                         </div>
                         <input type="time" id="notif-time" value="19:00" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 font-bold">
                     </div>
                 </div>
                 <button id="notif-enable-btn" class="btn-primary py-3 text-sm w-full">Enable Notifications</button>
                 <button id="notif-disable-btn" class="hidden w-full py-3 text-[11px] font-black text-red-400 uppercase tracking-widest">Disable Notifications</button>
-                <p id="notif-status" class="text-[10px] text-slate-600 text-center italic"></p>
+                <p id="notif-status" class="text-[10px] u-text-2 text-center italic"></p>
             </div>
         </div>
     </div>
 </div>
 
 <!-- MEASUREMENT HOW-TO OVERLAY -->
-<div id="measure-howto-modal" class="hidden fixed inset-0 z-[99992] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
+<div id="measure-howto-modal" class="hidden fixed inset-0 z-[var(--z-modal)] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
     <div class="w-full max-w-sm bg-slate-900 border border-slate-700/60 rounded-3xl p-6 space-y-5">
         <div class="flex justify-between items-center">
             <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-ruler-combined"></i> How to Measure</p>
@@ -602,7 +699,7 @@
                     <li><span class="text-emerald-400 font-black mr-1.5">3.</span>Measure snugly — not tight. Record to nearest 0.25″.</li>
                 </ol>
             </div>
-            <div class="bg-amber-500/08 border border-amber-500/20 rounded-xl p-3">
+            <div class="bg-amber-500/[0.08] border border-amber-500/20 rounded-xl p-3">
                 <p class="text-[10px] text-amber-300 font-black uppercase tracking-widest mb-1">Consistency is key</p>
                 <p class="text-[11px] text-slate-400 leading-relaxed">Measure at the same time of day, same EQ level, same position. Small daily fluctuations are normal — trends over weeks are what matter.</p>
             </div>
@@ -611,7 +708,7 @@
 </div>
 
 <!-- PHOTO LOG MODAL -->
-<div id="photo-log-modal" class="hidden fixed inset-0 z-[99990] overflow-y-auto" style="background:rgba(2,6,23,.97)">
+<div id="photo-log-modal" class="hidden fixed inset-0 z-[var(--z-modal)] overflow-y-auto" style="background:rgba(2,6,23,.97)">
     <div class="inner-step-wrapper py-12 space-y-6">
         <div class="flex justify-between items-center px-2">
             <h2 class="text-3xl font-black italic uppercase text-slate-50">Photo Log</h2>
@@ -634,19 +731,19 @@
             <div id="photo-log-error" class="hidden mt-2 text-center">
                 <p class="text-[11px] text-red-400"><i class="fas fa-triangle-exclamation mr-1"></i>Upload failed — try again</p>
             </div>
-            <p class="text-[9px] text-slate-700 italic mt-2 text-center">Stored privately — only you can see this.</p>
+            <p class="text-[9px] u-text-3 italic mt-2 text-center">Stored privately — only you can see this.</p>
         </div>
         <div class="px-2">
             <button id="photo-compare-btn" class="btn-outline w-full py-3 text-[11px] flex items-center justify-center gap-2" style="border-color:rgba(16,185,129,.3);color:#6ee7b7;">
                 <i class="fas fa-code-compare text-xs" style="color:#10b981"></i> Compare Before &amp; After
             </button>
-            <p id="photo-compare-hint" class="hidden text-[10px] text-slate-500 italic mt-2 text-center"></p>
+            <p id="photo-compare-hint" class="hidden text-[10px] u-text-2 italic mt-2 text-center"></p>
         </div>
         <!-- Before / after -->
         <div id="photo-compare" class="hidden px-2 space-y-3">
             <div class="grid grid-cols-2 gap-2">
                 <div>
-                    <p class="text-[9px] font-black uppercase tracking-widest text-slate-500 text-center mb-1">Before</p>
+                    <p class="text-[9px] font-black uppercase tracking-widest u-text-2 text-center mb-1">Before</p>
                     <img id="photo-compare-before" class="w-full aspect-square object-cover rounded-xl bg-slate-800">
                     <p id="photo-compare-before-date" class="text-[10px] text-slate-400 text-center mt-1 font-semibold"></p>
                 </div>
@@ -657,7 +754,7 @@
                 </div>
             </div>
             <p id="photo-compare-gap" class="text-center text-[11px] font-black uppercase tracking-widest text-slate-300"></p>
-            <p class="text-center text-[10px] text-slate-600 italic">Tap any photo below to use it as the After shot.</p>
+            <p class="text-center text-[10px] u-text-2 italic">Tap any photo below to use it as the After shot.</p>
         </div>
         <div id="photo-log-gallery" class="grid grid-cols-3 gap-2 px-2"></div>
         <div class="scroll-buffer"></div>
@@ -665,7 +762,7 @@
 </div>
 
 <!-- PHOTO VIEWER OVERLAY -->
-<div id="photo-viewer-overlay" class="hidden fixed inset-0 z-[99999] flex flex-col items-center justify-center p-4" style="background:rgba(2,6,23,.98)">
+<div id="photo-viewer-overlay" class="hidden fixed inset-0 z-[var(--z-modal-over)] flex flex-col items-center justify-center p-4" style="background:rgba(2,6,23,.98)">
     <div class="flex justify-between items-center w-full max-w-sm mb-4 flex-shrink-0">
         <div id="photo-viewer-date" class="text-[10px] font-black text-slate-400 uppercase tracking-widest"></div>
         <button id="photo-viewer-close" class="w-11 h-11 flex items-center justify-center rounded-full bg-slate-800/80 text-white"><i class="fas fa-xmark text-lg"></i></button>
@@ -712,8 +809,8 @@
     <!-- Liability gate -->
     <div class="px-4 w-full space-y-3 text-left">
         <div class="bg-red-950/30 border border-red-500/20 rounded-2xl p-4 mb-1">
-            <p class="text-red-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"><i class="fas fa-shield-exclamation"></i> Liability Agreement Required</p>
-            <p class="text-slate-500 text-[10px] leading-relaxed">Both boxes must be checked before you can access the protocol. Read carefully.</p>
+            <p class="text-red-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2"><i class="fas fa-triangle-exclamation"></i> Liability Agreement Required</p>
+            <p class="u-text-2 text-[10px] leading-relaxed">Both boxes must be checked before you can access the protocol. Read carefully.</p>
         </div>
 
         <label id="lbl-liability" class="flex items-start gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800 cursor-pointer transition-colors">
@@ -727,7 +824,7 @@
         </label>
 
         <button id="init-btn" disabled class="btn-primary py-6 text-xl mt-2">INITIALIZE PILOT</button>
-        <p id="init-hint" class="text-slate-600 text-[10px] text-center italic">Check both boxes above to continue</p>
+        <p id="init-hint" class="u-text-2 text-[10px] text-center italic">Check both boxes above to continue</p>
     </div>
     <div class="scroll-buffer"></div>
 </div>
@@ -751,8 +848,8 @@
             </div>
             <div class="flex items-center gap-2">
                 <span id="current-date" class="text-[10px] font-black uppercase bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700/50 text-slate-300">-- --</span>
-                <button id="notif-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Notifications"><i id="notif-icon" class="fas fa-bell text-xs"></i></button>
-                <button id="account-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Account"><i class="fas fa-user text-xs"></i></button>
+                <button id="notif-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 u-text-2" title="Notifications"><i id="notif-icon" class="fas fa-bell text-xs"></i></button>
+                <button id="account-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 u-text-2" title="Account"><i class="fas fa-user text-xs"></i></button>
             </div>
         </div>
 
@@ -816,8 +913,8 @@
              withheldSession, and decides nothing for itself. See renderToday. -->
         <div id="hq-today-card" class="today-card mx-2 hq-anim">
             <div class="flex items-baseline justify-between gap-3">
-                <p id="today-eyebrow" class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">Today</p>
-                <p id="today-meta" class="text-[10px] font-bold text-slate-500 hidden" style="font-family:'JetBrains Mono',monospace"></p>
+                <p id="today-eyebrow" class="text-[10px] font-black uppercase tracking-[0.25em] u-text-2">Today</p>
+                <p id="today-meta" class="text-[10px] font-bold u-text-2 hidden" style="font-family:'JetBrains Mono',monospace"></p>
             </div>
             <h2 id="today-headline" class="text-3xl font-black uppercase italic tracking-tight leading-none mt-1.5 text-slate-50">&nbsp;</h2>
             <p id="today-sub" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
@@ -834,15 +931,15 @@
                 <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
                 <button id="resume-btn" class="btn-primary hidden" style="background:linear-gradient(135deg,#059669 0%,#047857 100%)">RESUME SESSION</button>
                 <button id="today-prepare-btn" class="btn-primary hidden">GET SET UP</button>
-                <p id="today-prepare-hint" class="hidden text-[10px] text-slate-600 text-center"></p>
+                <p id="today-prepare-hint" class="hidden text-[10px] u-text-2 text-center"></p>
                 <button id="today-optional-btn" class="hidden w-full text-[11px] font-black uppercase tracking-widest text-slate-400 py-2.5 rounded-xl" style="background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.2)">Active Recovery</button>
-                <button id="today-why-btn" class="hidden w-full text-[10px] font-bold text-slate-500 py-1.5">Why this today?</button>
+                <button id="today-why-btn" class="hidden w-full text-[10px] font-bold u-text-2 py-1.5">Why this today?</button>
                 <!-- Meaningful now that the primary CTA goes straight to the
                      prescribed session. Deliberately a text link rather than
                      a button: this is what we recommend, and you still have
                      control, in that order. Never shown where choosing
                      something else would route around a safety block. -->
-                <button id="today-alt-btn" class="hidden w-full text-[11px] font-bold text-slate-500 py-2 underline decoration-slate-700 underline-offset-4">Something else</button>
+                <button id="today-alt-btn" class="hidden w-full text-[11px] font-bold u-text-2 py-2 underline decoration-slate-700 underline-offset-4">Something else</button>
             </div>
         </div>
 
@@ -875,7 +972,7 @@
                         <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">A pelvic floor can be too tight as easily as too weak, and the training for each is the opposite. Thirty seconds, six questions, and your Recovery Protocol adjusts to the answer.</p>
                         <div class="flex gap-2 mt-2">
                             <button id="hq-pelvic-start" class="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-amber-500/20 px-3 py-1.5 rounded-xl">Take The Check</button>
-                            <button id="hq-pelvic-learn" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Why?</button>
+                            <button id="hq-pelvic-learn" class="text-[10px] font-black u-text-2 uppercase tracking-widest px-2 py-1.5">Why?</button>
                         </div>
                     </div>
                 </div>
@@ -899,7 +996,7 @@
                         <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">Tell Coach Tee what to call you. Optional, and you can change or remove it whenever you like.</p>
                         <div class="flex gap-2 mt-2">
                             <button id="hq-name-prompt-add" class="text-[10px] font-black text-slate-200 uppercase tracking-widest bg-slate-700/60 px-3 py-1.5 rounded-xl">Add preferred name</button>
-                            <button id="hq-name-prompt-dismiss" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Not now</button>
+                            <button id="hq-name-prompt-dismiss" class="text-[10px] font-black u-text-2 uppercase tracking-widest px-2 py-1.5">Not now</button>
                         </div>
                     </div>
                 </div>
@@ -912,7 +1009,7 @@
                         <p id="hq-coach-nudge-text" class="text-[11px] text-slate-300 mt-0.5 leading-relaxed"></p>
                         <div class="flex gap-2 mt-2">
                             <button id="hq-coach-nudge-ask" class="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl" style="background:rgba(168,85,247,.2);color:#d8b4fe">Ask Coach Tee</button>
-                            <button id="hq-coach-nudge-dismiss" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Not now</button>
+                            <button id="hq-coach-nudge-dismiss" class="text-[10px] font-black u-text-2 uppercase tracking-widest px-2 py-1.5">Not now</button>
                         </div>
                     </div>
                 </div>
@@ -922,15 +1019,15 @@
         <!-- ── Secondary ───────────────────────────────────────────────────
              Everything below supports the decision above and must not compete
              with it. Nothing here was removed; it was reordered. -->
-        <div id="hq-calendar-card" class="calendar-container px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
-        <p class="text-[9px] font-black text-slate-700 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
+        <div id="hq-calendar-card" class="px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
+        <p class="text-[9px] font-black u-text-3 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
         <div id="last-measure-row" class="flex gap-3 mx-2">
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
         </div>
         <div id="eq-summary-row" class="hidden flex gap-3 mx-2">
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Avg EQ</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">last 7 sessions</p><p id="eq-avg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] text-slate-600 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Avg EQ</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">last 7 sessions</p><p id="eq-avg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
         </div>
 
         <!-- Hydration, collapsed by default. It is a log, not a decision, and
@@ -944,7 +1041,7 @@
                 <div class="flex items-center gap-2 flex-shrink-0 min-w-0">
                     <span id="hydration-over" class="hidden text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" style="background:rgba(16,185,129,.15);color:#6ee7b7;white-space:nowrap;"></span>
                     <span id="hydration-amount" class="text-sm font-black text-white" style="font-family:'JetBrains Mono',monospace;white-space:nowrap;">0 / 3L</span>
-                    <i id="hydration-chevron" class="fas fa-chevron-down text-slate-600 text-[10px] transition-transform"></i>
+                    <i id="hydration-chevron" class="fas fa-chevron-down u-text-2 text-[10px] transition-transform"></i>
                 </div>
             </button>
             <div class="hydration-bar-track mt-3"><div id="hydration-bar" class="hydration-bar-fill" style="width:0%"></div></div>
@@ -965,9 +1062,9 @@
                 </div>
                 <p id="hydration-entry-note" class="hidden text-[10px] text-center mb-1"></p>
                 <div class="flex justify-center mb-1">
-                    <button id="hydration-undo-btn" class="hidden text-[9px] font-black uppercase tracking-widest text-slate-500 px-2 py-1"><i class="fas fa-rotate-left mr-1"></i>Undo last</button>
+                    <button id="hydration-undo-btn" class="hidden text-[9px] font-black uppercase tracking-widest u-text-2 px-2 py-1"><i class="fas fa-rotate-left mr-1"></i>Undo last</button>
                 </div>
-                <p id="hydration-msg" class="text-[10px] text-slate-500 italic mt-1 text-center">Sip through the day rather than drinking a lot at once.</p>
+                <p id="hydration-msg" class="text-[10px] u-text-2 italic mt-1 text-center">Sip through the day rather than drinking a lot at once.</p>
             </div>
         </div>
 
@@ -990,7 +1087,7 @@
         </div>
 
         <div class="px-2 space-y-2">
-            <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Recent Sessions</p>
+            <p class="text-[9px] font-black uppercase tracking-[0.25em] u-text-2 px-1">Recent Sessions</p>
             <div id="session-log" class="space-y-1.5"></div>
         </div>
 
@@ -999,7 +1096,7 @@
         <div id="hq-level-badge" class="level-badge mx-2 hq-anim">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i><span id="hq-level-name" class="text-yellow-300 text-xs font-black uppercase tracking-widest">LVL 1 &middot; RECRUIT</span></div>
-                <span id="hq-level-next" class="text-[10px] text-slate-500 font-semibold">65 XP to next level</span>
+                <span id="hq-level-next" class="text-[10px] u-text-2 font-semibold">65 XP to next level</span>
             </div>
             <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
             <!-- The daily streak used to sit here. It contradicted the weekly
@@ -1020,7 +1117,7 @@
                 <button id="hq-pass-chip" class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-200">
                     <i class="fas fa-shield-halved text-amber-400/80"></i>
                     <span id="hq-pass-count">Recovery Passes: 0 / 2</span>
-                    <i class="fas fa-circle-info text-[8px] text-slate-600"></i>
+                    <i class="fas fa-circle-info text-[8px] u-text-2"></i>
                 </button>
             </div>
         </div>
@@ -1051,7 +1148,7 @@
     <div class="inner-step-wrapper py-12 space-y-7">
         <div class="px-2">
             <h2 class="text-4xl font-black uppercase italic text-slate-50 leading-none">Ready?</h2>
-            <p id="ready-planned" class="text-[12px] text-slate-500 mt-2"></p>
+            <p id="ready-planned" class="text-[12px] u-text-2 mt-2"></p>
         </div>
 
         <div class="px-2 space-y-5">
@@ -1070,7 +1167,7 @@
             <div>
                 <div class="flex items-baseline justify-between mb-2">
                     <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest">Sleep</p>
-                    <span class="text-[9px] font-black text-slate-600 uppercase tracking-widest">Optional</span>
+                    <span class="text-[9px] font-black u-text-2 uppercase tracking-widest">Optional</span>
                 </div>
                 <div class="grid grid-cols-4 gap-1.5" id="sleep-btns">
                     <button class="quick-tap" data-sleep="poor">&#128564; Poor</button>
@@ -1119,7 +1216,7 @@
         </div>
         <div class="flex flex-col gap-4 px-2">
             <div class="grid grid-cols-2 gap-4"><button id="warmup-btn" class="btn-primary py-4">Start</button><button id="warmup-reset-btn" class="btn-outline">Reset</button></div>
-            <button id="warmup-skip-btn" class="text-slate-500 font-black text-[10px] tracking-widest py-3">Skip Warmup, Start Session</button>
+            <button id="warmup-skip-btn" class="u-text-2 font-black text-[10px] tracking-widest py-3">Skip Warmup, Start Session</button>
             <button id="warmup-back-btn" class="btn-outline py-3 text-[11px]">Back to Mission Select</button>
         </div>
         <div class="scroll-buffer"></div>
@@ -1131,7 +1228,7 @@
 <div id="step-3" class="step-content hidden-step">
     <div class="inner-step-wrapper min-h-screen justify-center text-center space-y-8">
         <h2 class="text-4xl font-black italic uppercase text-slate-50">Choose A Different Session</h2>
-        <p id="mission-override-note" class="text-[11px] text-slate-500 -mt-4 px-2"></p>
+        <p id="mission-override-note" class="text-[11px] u-text-2 -mt-4 px-2"></p>
         <div id="mission-blocked-note" class="hidden mx-2 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left flex items-start gap-3">
             <i class="fas fa-circle-info text-amber-400 text-sm flex-shrink-0 mt-0.5"></i>
             <p id="mission-blocked-text" class="text-[11px] text-amber-200/90 leading-relaxed"></p>
@@ -1140,14 +1237,14 @@
 
     <!-- Difficulty selector -->
     <div class="px-2 space-y-2">
-        <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Difficulty</p>
+        <p class="text-[9px] font-black uppercase tracking-[0.25em] u-text-2 px-1">Difficulty</p>
         <div class="flex gap-2" id="diff-selector">
             <button class="diff-btn diff-beginner"     data-diff="beginner"><i class="fas fa-seedling mr-1"></i>Beginner</button>
             <button class="diff-btn diff-intermediate" data-diff="intermediate"><i class="fas fa-dumbbell mr-1"></i>Mid</button>
             <button class="diff-btn diff-advanced"     data-diff="advanced"><i class="fas fa-bolt mr-1"></i>Advanced</button>
             <button class="diff-btn diff-elite"        data-diff="elite"><i class="fas fa-skull-crossbones mr-1"></i>Elite</button>
         </div>
-        <div id="diff-detail" class="text-[10px] text-slate-500 italic px-1"></div>
+        <div id="diff-detail" class="text-[10px] u-text-2 italic px-1"></div>
         <p id="elite-req-note" class="hidden elite-req mt-1 px-1"><i class="fas fa-lock mr-1"></i></p>
         <p id="diff-recovery-note" class="hidden text-[10px] text-amber-500/70 italic px-1"><i class="fas fa-info-circle mr-1"></i>Difficulty does not apply to recovery sessions.</p>
     </div>
@@ -1167,28 +1264,28 @@
     </div>
     <div class="grid grid-cols-1 gap-4 px-2 w-full">
         <div class="grid grid-cols-2 gap-4">
-            <button id="mission-length-btn" class="instruction-card hover:border-blue-500/50 transition-all flex flex-col items-center gap-2 py-6 px-3"><i class="fas fa-up-right-and-down-left-from-center text-2xl text-blue-400"></i><span class="text-xl font-black uppercase italic">Length</span><span class="text-[9px] text-slate-500 font-semibold leading-snug text-center">Stretching protocol: ligament and tunica elongation</span></button>
-            <button id="mission-girth-btn"  class="instruction-card hover:border-emerald-500/50 transition-all flex flex-col items-center gap-2 py-6 px-3"><i class="fas fa-expand text-2xl text-emerald-400"></i><span class="text-xl font-black uppercase italic">Girth</span><span class="text-[9px] text-slate-500 font-semibold leading-snug text-center">Jelq and Uli work: expansion under pressure</span></button>
+            <button id="mission-length-btn" class="instruction-card hover:border-blue-500/50 transition-all flex flex-col items-center gap-2 py-6 px-3"><i class="fas fa-up-right-and-down-left-from-center text-2xl text-blue-400"></i><span class="text-xl font-black uppercase italic">Length</span><span class="text-[9px] u-text-2 font-semibold leading-snug text-center">Stretching protocol: ligament and tunica elongation</span></button>
+            <button id="mission-girth-btn"  class="instruction-card hover:border-emerald-500/50 transition-all flex flex-col items-center gap-2 py-6 px-3"><i class="fas fa-expand text-2xl text-emerald-400"></i><span class="text-xl font-black uppercase italic">Girth</span><span class="text-[9px] u-text-2 font-semibold leading-snug text-center">Jelq and Uli work: expansion under pressure</span></button>
         </div>
         <p id="beginner-rec-note" class="hidden text-[10px] text-blue-300/80 text-center px-2 leading-relaxed"><i class="fas fa-circle-info mr-1"></i>New here? Start with <span class="font-black">Length</span>. It is the more forgiving of the two and builds the base girth work depends on.</p>
         <button id="mission-stamina-btn" class="instruction-card hover:border-purple-500/50 transition-all flex items-center gap-5 px-6 py-5" style="border-color:rgba(168,85,247,0.15);">
             <i class="fas fa-fire-flame-curved text-2xl text-purple-400 flex-shrink-0"></i>
             <div class="text-left">
                 <p class="text-xl font-black uppercase italic text-purple-300">Stamina &amp; Blood Flow</p>
-                <p class="text-[10px] text-slate-500 font-semibold mt-0.5">Edging protocol — stamina training &amp; vascular conditioning</p>
+                <p class="text-[10px] u-text-2 font-semibold mt-0.5">Edging protocol — stamina training &amp; vascular conditioning</p>
             </div>
-            <i class="fas fa-chevron-right text-slate-700 text-xs ml-auto flex-shrink-0"></i>
+            <i class="fas fa-chevron-right u-text-3 text-xs ml-auto flex-shrink-0"></i>
         </button>
         <button id="mission-recovery-btn" class="instruction-card hover:border-amber-500/50 transition-all flex items-center gap-5 px-6 py-5 border-amber-500/20" style="border-color:rgba(245,158,11,0.15);">
             <i class="fas fa-heart-pulse text-2xl text-amber-400 flex-shrink-0"></i>
             <div class="text-left">
                 <p class="text-xl font-black uppercase italic text-amber-300">Recovery</p>
-                <p class="text-[10px] text-slate-500 font-semibold mt-0.5">8 exercises — pelvic floor, hip openers &amp; The Big Four</p>
+                <p class="text-[10px] u-text-2 font-semibold mt-0.5">8 exercises — pelvic floor, hip openers &amp; The Big Four</p>
             </div>
-            <i class="fas fa-chevron-right text-slate-700 text-xs ml-auto flex-shrink-0"></i>
+            <i class="fas fa-chevron-right u-text-3 text-xs ml-auto flex-shrink-0"></i>
         </button>
     </div>
-    <button id="mission-abort-btn" class="text-slate-600 font-black uppercase text-[10px] pt-4">Abort Session</button>
+    <button id="mission-abort-btn" class="u-text-2 font-black uppercase text-[10px] pt-4">Abort Session</button>
     <div class="scroll-buffer"></div>
 </div>
 
@@ -1202,7 +1299,7 @@
             <button id="recovery-back-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 flex-shrink-0"><i class="fas fa-arrow-left text-sm"></i></button>
             <div>
                 <h2 class="text-3xl font-black italic uppercase text-slate-50 leading-none">Recovery</h2>
-                <p class="text-[10px] text-slate-500 font-semibold mt-0.5">Choose your exercises</p>
+                <p class="text-[10px] u-text-2 font-semibold mt-0.5">Choose your exercises</p>
             </div>
         </div>
 
@@ -1228,7 +1325,7 @@
         <button id="recovery-start-btn" class="btn-primary py-5" style="background:linear-gradient(135deg,#d97706 0%,#b45309 100%)">
             <span id="recovery-start-label">START SESSION</span>
         </button>
-        <p class="text-slate-600 text-[10px] text-center italic">Exercises run in order. You can always skip any set.</p>
+        <p class="u-text-2 text-[10px] text-center italic">Exercises run in order. You can always skip any set.</p>
     </div>
     <div class="scroll-buffer"></div>
 </div>
@@ -1241,7 +1338,7 @@
     <div class="inner-step-wrapper min-h-screen py-6 text-center relative justify-center" style="gap:0;">
 
     <!-- Top bar -->
-    <div class="flex justify-between items-center pb-3 px-2 mt-4" style="position:relative;z-index:15">
+    <div class="flex justify-between items-center pb-3 px-2 mt-4" style="position:relative;z-index:var(--z-raised)">
         <div class="flex items-center gap-3">
             <button id="ex-home-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 active:scale-95" title="Back to Dashboard"><i class="fas fa-house text-sm"></i></button>
             <button id="ex-back-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 active:scale-95"><i class="fas fa-arrow-left text-sm"></i></button>
@@ -1252,24 +1349,24 @@
         </div>
         <div class="flex items-center gap-2">
             <div class="bg-slate-900/80 border border-yellow-500/30 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5"><i class="fas fa-bolt text-yellow-400 text-xs"></i><span id="live-xp" class="text-xs font-black text-yellow-400">0 XP</span></div>
-            <div class="text-right"><p class="text-[8px] font-black text-slate-500 uppercase" title="Erection Quality target for this exercise">Target EQ</p><p id="ex-eq-req" class="text-sm font-black text-blue-400 italic leading-none">--</p></div>
+            <div class="text-right"><p class="text-[8px] font-black u-text-2 uppercase" title="Erection Quality target for this exercise">Target EQ</p><p id="ex-eq-req" class="text-sm font-black text-blue-400 italic leading-none">--</p></div>
         </div>
     </div>
 
     <!-- Pip dots -->
-    <div id="pip-container" class="flex justify-center gap-3 mb-3" style="position:relative;z-index:15"></div>
+    <div id="pip-container" class="flex justify-center gap-3 mb-3" style="position:relative;z-index:var(--z-raised)"></div>
 
     <!-- Pre-session circuit overview (shown before first set, hidden during active timer) -->
-    <div id="circuit-overview" class="hidden mx-2 mb-4 p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/05 text-left" style="position:relative;z-index:15;">
+    <div id="circuit-overview" class="hidden mx-2 mb-4 p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 text-left" style="position:relative;z-index:var(--z-raised);">
         <p id="circuit-overview-label" class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><i class="fas fa-list-check"></i> Circuit Overview</p>
         <div id="circuit-overview-steps" class="space-y-2"></div>
     </div>
 
     <!-- Exercise title -->
-    <h2 id="ex-title" class="text-4xl font-black italic uppercase leading-none text-slate-50 px-4 mb-4" style="position:relative;z-index:15">--</h2>
+    <h2 id="ex-title" class="text-4xl font-black italic uppercase leading-none text-slate-50 px-4 mb-4" style="position:relative;z-index:var(--z-raised)">--</h2>
 
     <!-- Collapsible info panels — hidden when active -->
-    <div id="ex-info-panels" class="space-y-3 transition-all duration-300" style="position:relative;z-index:15;">
+    <div id="ex-info-panels" class="space-y-3 transition-all duration-300" style="position:relative;z-index:var(--z-raised);">
         <div class="instruction-card mx-2 bg-gradient-to-b from-slate-800/40 to-slate-900/60">
             <p id="ex-live-text" class="text-sm font-semibold text-blue-100 italic mb-4">Ready...</p>
             <div class="grid grid-cols-2 gap-4 w-full border-t border-slate-700/50 pt-4 text-left">
@@ -1286,17 +1383,17 @@
     </div>
 
     <!-- Active cue — only shown when running -->
-    <div id="ex-active-cue" class="hidden mx-2 my-3 px-4 py-3 rounded-2xl bg-blue-500/08 border border-blue-500/15 text-center" style="position:relative;z-index:15;">
+    <div id="ex-active-cue" class="hidden mx-2 my-3 px-4 py-3 rounded-2xl bg-blue-500/[0.08] border border-blue-500/15 text-center" style="position:relative;z-index:var(--z-raised);">
         <p id="ex-cue-text" class="text-sm font-bold text-blue-200 italic leading-relaxed"></p>
     </div>
 
     <!-- BIG TIMER -->
-    <div class="py-2" style="position:relative;z-index:15;">
+    <div class="py-2" style="position:relative;z-index:var(--z-raised);">
         <div id="ex-timer" class="font-black tracking-tighter tabular-nums leading-none timer-glow text-blue-400" style="font-size:clamp(5rem,22vw,10rem)">30</div>
     </div>
 
     <!-- ENGAGE button (ready state) -->
-    <div class="px-4 pb-6 w-full" style="position:relative;z-index:15;">
+    <div class="px-4 pb-6 w-full" style="position:relative;z-index:var(--z-raised);">
         <button id="ex-btn" class="btn-primary py-6 text-xl w-full">ENGAGE SET</button>
         <!-- MASSIVE pause button (active state) -->
         <button id="ex-pause-btn" class="hidden w-full rounded-2xl border-2 border-slate-700 bg-slate-900/60 flex items-center justify-center gap-4 py-6 cursor-pointer transition-all active:scale-95" style="min-height:80px;">
@@ -1319,7 +1416,7 @@
     <!-- EQ check-in -->
     <div class="instruction-card border-blue-500/20 mx-2 text-left">
         <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-gauge-high"></i> EQ During Session</p>
-        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Erection Quality: how firm were you? 1 = flaccid, 10 = maximum. <button onclick="openManualAt('m-eq')" class="text-blue-400 font-bold underline" style="background:none;border:none;padding:0;cursor:pointer;font-size:inherit">Read more</button></p>
+        <p class="text-[10px] u-text-2 mb-3 leading-relaxed">Erection Quality: how firm were you? 1 = flaccid, 10 = maximum. <button onclick="openManualAt('m-eq')" class="text-blue-400 font-bold underline" style="background:none;border:none;padding:0;cursor:pointer;font-size:inherit">Read more</button></p>
         <div class="grid grid-cols-5 gap-1.5" id="eq-checkin-btns">
             <button class="eq-btn" data-eq="1">1<br><span class="text-[9px] font-normal opacity-60">Flaccid</span></button>
             <button class="eq-btn" data-eq="2">2</button>
@@ -1337,7 +1434,7 @@
     <!-- RPE -->
     <div class="instruction-card border-emerald-500/20 mx-2 text-left">
         <p class="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-dumbbell"></i> Session Effort (RPE)</p>
-        <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">Rate of Perceived Exertion: how hard the session felt overall. <button onclick="openManualAt('m-eq')" class="text-emerald-400 font-bold underline" style="background:none;border:none;padding:0;cursor:pointer;font-size:inherit">Read more</button></p>
+        <p class="text-[10px] u-text-2 mb-3 leading-relaxed">Rate of Perceived Exertion: how hard the session felt overall. <button onclick="openManualAt('m-eq')" class="text-emerald-400 font-bold underline" style="background:none;border:none;padding:0;cursor:pointer;font-size:inherit">Read more</button></p>
         <div class="grid grid-cols-5 gap-1.5" id="rpe-btns">
             <button class="rpe-btn" data-rpe="1">1<br><span class="text-[9px] font-normal opacity-60">Easy</span></button>
             <button class="rpe-btn" data-rpe="2">2</button>
@@ -1355,8 +1452,8 @@
     <!-- Measurements -->
     <div class="instruction-card border-blue-500/20 mx-2 text-left">
         <div class="flex items-center justify-between mb-4">
-            <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-ruler-combined"></i> Log Measurements <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
-            <button id="measure-howto-btn" class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1 active:opacity-70"><i class="fas fa-circle-question text-slate-600"></i> How?</button>
+            <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-ruler-combined"></i> Log Measurements <span class="u-text-2 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
+            <button id="measure-howto-btn" class="text-[10px] font-black u-text-2 uppercase tracking-widest flex items-center gap-1 active:opacity-70"><i class="fas fa-circle-question u-text-2"></i> How?</button>
         </div>
         <div class="measure-grid">
             <div class="measure-field"><label class="text-blue-400">BPEL (inches)</label><input type="number" id="input-bpel" step="0.01" min="3" max="12" placeholder="e.g. 6.25"></div>
@@ -1366,7 +1463,7 @@
 
     <!-- Progress Photo -->
     <div class="instruction-card border-purple-500/20 mx-2 text-left">
-        <p class="text-[11px] font-black text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-camera"></i> Progress Photo <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
+        <p class="text-[11px] font-black text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-camera"></i> Progress Photo <span class="u-text-2 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
         <div id="photo-preview" class="hidden mb-3 relative">
             <img id="photo-preview-img" class="w-full max-h-48 object-cover rounded-xl bg-slate-800">
             <p class="text-[10px] text-emerald-400 mt-2 text-center"><i class="fas fa-check mr-1"></i>Photo saved to your log</p>
@@ -1381,12 +1478,12 @@
             <i class="fas fa-camera" style="color:#a855f7"></i> Take / Upload Photo
         </button>
         <input type="file" id="photo-file-input" accept="image/*" class="hidden">
-        <p class="text-[9px] text-slate-700 italic mt-2 text-center">Stored privately — only you can see this.</p>
+        <p class="text-[9px] u-text-3 italic mt-2 text-center">Stored privately — only you can see this.</p>
     </div>
 
     <!-- Session note -->
     <div class="instruction-card border-slate-700/30 mx-2 text-left">
-        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-pen-to-square"></i> Session Note <span class="text-slate-600 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
+        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-pen-to-square"></i> Session Note <span class="u-text-2 font-medium normal-case tracking-normal ml-1">(optional)</span></p>
         <textarea id="session-note-input" class="glass-input h-20" maxlength="500" placeholder="EQ was strong, good pump on girth work..."></textarea>
     </div>
 
@@ -1445,7 +1542,7 @@
     <div class="ob-slide active" id="ob-slide-0">
         <div class="relative mb-8">
             <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
-            <div class="relative p-7 bg-blue-500/08 rounded-full border border-blue-500/20 w-fit mx-auto">
+            <div class="relative p-7 bg-blue-500/[0.08] rounded-full border border-blue-500/20 w-fit mx-auto">
                 <i class="fas fa-calendar-week text-5xl text-blue-400"></i>
             </div>
         </div>
@@ -1461,14 +1558,14 @@
     <div class="ob-slide" id="ob-slide-1">
         <div class="relative mb-8">
             <div class="absolute inset-0 bg-emerald-500/20 blur-[40px] rounded-full"></div>
-            <div class="relative p-7 bg-emerald-500/08 rounded-full border border-emerald-500/20 w-fit mx-auto">
+            <div class="relative p-7 bg-emerald-500/[0.08] rounded-full border border-emerald-500/20 w-fit mx-auto">
                 <i class="fas fa-gauge-high text-5xl text-emerald-400"></i>
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">What is EQ?</h2>
         <p class="text-slate-400 text-sm leading-relaxed max-w-xs">EQ (Erection Quality) is a 1–10 scale you rate yourself at the start of each set. The app uses it to match intensity to your tissue readiness — too soft means no effective pressure, too firm risks overload.</p>
         <div class="mt-6 grid grid-cols-3 gap-3 w-full max-w-xs">
-            <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700 text-center"><p class="text-xl font-black text-slate-300">1–4</p><p class="text-[9px] text-slate-500 mt-0.5">Length work</p></div>
+            <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700 text-center"><p class="text-xl font-black text-slate-300">1–4</p><p class="text-[9px] u-text-2 mt-0.5">Length work</p></div>
             <div class="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center"><p class="text-xl font-black text-blue-300">6–7</p><p class="text-[9px] text-blue-400 mt-0.5">Jelq / Uli</p></div>
             <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center"><p class="text-xl font-black text-emerald-300">7–8</p><p class="text-[9px] text-emerald-400 mt-0.5">Squeeze</p></div>
         </div>
@@ -1477,13 +1574,13 @@
     <div class="ob-slide" id="ob-slide-2">
         <div class="relative mb-8">
             <div class="absolute inset-0 bg-amber-500/20 blur-[40px] rounded-full"></div>
-            <div class="relative p-7 bg-amber-500/08 rounded-full border border-amber-500/20 w-fit mx-auto">
+            <div class="relative p-7 bg-amber-500/[0.08] rounded-full border border-amber-500/20 w-fit mx-auto">
                 <i class="fas fa-shield-halved text-5xl text-amber-400"></i>
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">Start at Beginner</h2>
         <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The app has 4 tiers: Beginner → Intermediate → Advanced → Elite. A new account starts at Beginner, and Intermediate is open from day one whenever you want it. Advanced and Elite are earned by putting training weeks in, not by waiting.</p>
-        <div class="mt-6 p-4 rounded-2xl bg-amber-500/08 border border-amber-500/20 text-left max-w-xs w-full">
+        <div class="mt-6 p-4 rounded-2xl bg-amber-500/[0.08] border border-amber-500/20 text-left max-w-xs w-full">
             <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">CoachTee Says</p>
             <p class="text-slate-400 text-xs leading-relaxed">The guys who try to skip to Advanced in week one are the same guys who quit in week three. Trust the process.</p>
         </div>
@@ -1496,7 +1593,7 @@
     <div class="ob-slide" id="ob-slide-3">
         <div class="relative mb-6">
             <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
-            <div class="relative p-6 bg-blue-500/08 rounded-full border border-blue-500/20 w-fit mx-auto">
+            <div class="relative p-6 bg-blue-500/[0.08] rounded-full border border-blue-500/20 w-fit mx-auto">
                 <i class="fas fa-user text-4xl text-blue-400"></i>
             </div>
         </div>
@@ -1506,13 +1603,13 @@
                class="w-full max-w-xs bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-[15px] text-white"
                placeholder="Your name">
         <p id="ob-name-error" class="hidden text-[11px] text-red-400 font-bold mt-3"></p>
-        <button id="ob-name-skip" class="text-slate-500 text-[11px] font-bold uppercase tracking-widest mt-5">Skip</button>
+        <button id="ob-name-skip" class="u-text-2 text-[11px] font-bold uppercase tracking-widest mt-5">Skip</button>
     </div>
 
     <div class="ob-slide" id="ob-slide-4">
         <div class="relative mb-6">
             <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
-            <div class="relative p-6 bg-blue-500/08 rounded-full border border-blue-500/20 w-fit mx-auto">
+            <div class="relative p-6 bg-blue-500/[0.08] rounded-full border border-blue-500/20 w-fit mx-auto">
                 <i class="fas fa-bullseye text-4xl text-blue-400"></i>
             </div>
         </div>
@@ -1537,7 +1634,7 @@
         <div class="ob-dot"></div>
     </div>
     <button id="ob-next-btn" class="btn-primary py-5 w-full max-w-xs">Next</button>
-    <button id="ob-skip-btn" class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Skip intro</button>
+    <button id="ob-skip-btn" class="u-text-2 text-[10px] font-bold uppercase tracking-widest">Skip intro</button>
 </div>
 
 </div>
@@ -1567,7 +1664,7 @@
             <div>
                 <p class="text-[9px] font-black text-purple-400 uppercase tracking-[.25em] mb-1">The Blueprint</p>
                 <h2 class="text-3xl font-black italic uppercase text-white leading-none">User Manual</h2>
-                <p class="text-slate-500 text-[11px] mt-1">Everything you need to use this app correctly</p>
+                <p class="u-text-2 text-[11px] mt-1">Everything you need to use this app correctly</p>
             </div>
             <button id="manual-close-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 flex-shrink-0 mt-1"><i class="fas fa-xmark text-lg"></i></button>
         </div>
@@ -1587,9 +1684,9 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-house text-blue-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Your home screen</p><p class="text-[10px] text-slate-500">Where the app opens, and what is on it</p></div>
+                    <div><p class="text-sm font-black text-white">Your home screen</p><p class="text-[10px] u-text-2">Where the app opens, and what is on it</p></div>
                 </div>
-                <i id="m-hq-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-hq-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-hq" class="manual-section">
@@ -1629,21 +1726,21 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-dumbbell text-emerald-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Training Sessions</p><p class="text-[10px] text-slate-500">Length, Girth, and how they work</p></div>
+                    <div><p class="text-sm font-black text-white">Training Sessions</p><p class="text-[10px] u-text-2">Length, Girth, and how they work</p></div>
                 </div>
-                <i id="m-training-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-training-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-training" class="manual-section">
             <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
                 <p>Tap <strong class="text-white">Begin Session</strong> to start. After the pre-flight check you pick your mission. Length and Girth then run the warmup phase first, because cold tissue does not stretch. Stamina and Recovery start straight away.</p>
                 <div class="space-y-3">
-                    <div class="p-3 rounded-xl bg-blue-500/05 border border-blue-500/20">
+                    <div class="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
                         <p class="text-blue-300 font-bold text-xs mb-1"><i class="fas fa-up-right-and-down-left-from-center mr-1.5"></i>Length Protocol</p>
                         <p class="mb-2">Targets the suspensory ligament and tunica through directional tension. The session consists of one exercise: Directional Pulls.</p>
                         <p><strong class="text-slate-300">Directional Pulls</strong> — 5 directions (Out, Up, Down, Left, Right) performed in sequence. Each direction is a separate timed set. The button always shows which direction you are working before you start. EQ target: 3–4 (flaccid to very soft).</p>
                     </div>
-                    <div class="p-3 rounded-xl bg-emerald-500/05 border border-emerald-500/20">
+                    <div class="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                         <p class="text-emerald-300 font-bold text-xs mb-2"><i class="fas fa-expand mr-1.5"></i>Girth Protocol</p>
                         <div class="space-y-3">
                             <div>
@@ -1660,10 +1757,10 @@
                             </div>
                         </div>
                         <div class="mt-3 pt-2 border-t border-slate-700/50">
-                            <p class="text-slate-500 text-[10px]">Beginner: 3 Rounds · Mid: 4 Rounds · Advanced: 5 Rounds · Elite: 5 Rounds (longer durations)</p>
+                            <p class="u-text-2 text-[10px]">Beginner: 3 Rounds · Mid: 4 Rounds · Advanced: 5 Rounds · Elite: 5 Rounds (longer durations)</p>
                         </div>
                     </div>
-                    <div class="p-3 rounded-xl bg-purple-500/05 border border-purple-500/20">
+                    <div class="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
                         <p class="text-purple-300 font-bold text-xs mb-1"><i class="fas fa-fire-flame-curved mr-1.5"></i>Stamina &amp; Blood Flow</p>
                         <p class="mb-2">A separate protocol focused on arousal management and vascular conditioning. Runs as standard sets — not a circuit.</p>
                         <div class="space-y-2 mt-2">
@@ -1680,18 +1777,18 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-gauge-high text-purple-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">EQ — Erection Quality</p><p class="text-[10px] text-slate-500">The most important number in this protocol</p></div>
+                    <div><p class="text-sm font-black text-white">EQ — Erection Quality</p><p class="text-[10px] u-text-2">The most important number in this protocol</p></div>
                 </div>
-                <i id="m-eq-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-eq-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-eq" class="manual-section">
             <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
                 <p>EQ is your Erection Quality on a scale of 1 to 10. It tells you how much blood volume is in the tissue and therefore what kind of stress it can handle.</p>
                 <div class="grid grid-cols-3 gap-2 my-3">
-                    <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center"><p class="font-black text-slate-300 text-lg">1–3</p><p class="text-[9px] text-slate-500 mt-0.5">Fully flaccid</p><p class="text-[9px] text-blue-400 mt-0.5">Length work</p></div>
-                    <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center"><p class="font-black text-slate-300 text-lg">6–8</p><p class="text-[9px] text-slate-500 mt-0.5">Semi-erect</p><p class="text-[9px] text-emerald-400 mt-0.5">Girth work</p></div>
-                    <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center"><p class="font-black text-slate-300 text-lg">9–10</p><p class="text-[9px] text-slate-500 mt-0.5">Full erection</p><p class="text-[9px] text-red-400 mt-0.5">Stop training</p></div>
+                    <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center"><p class="font-black text-slate-300 text-lg">1–3</p><p class="text-[9px] u-text-2 mt-0.5">Fully flaccid</p><p class="text-[9px] text-blue-400 mt-0.5">Length work</p></div>
+                    <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center"><p class="font-black text-slate-300 text-lg">6–8</p><p class="text-[9px] u-text-2 mt-0.5">Semi-erect</p><p class="text-[9px] text-emerald-400 mt-0.5">Girth work</p></div>
+                    <div class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center"><p class="font-black text-slate-300 text-lg">9–10</p><p class="text-[9px] u-text-2 mt-0.5">Full erection</p><p class="text-[9px] text-red-400 mt-0.5">Stop training</p></div>
                 </div>
                 <div class="space-y-3">
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
@@ -1715,33 +1812,33 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Difficulty Tiers</p><p class="text-[10px] text-slate-500">Beginner through Elite — how locking works</p></div>
+                    <div><p class="text-sm font-black text-white">Difficulty Tiers</p><p class="text-[10px] u-text-2">Beginner through Elite — how locking works</p></div>
                 </div>
-                <i id="m-tiers-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-tiers-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-tiers" class="manual-section">
             <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
                 <p>The app has four difficulty tiers. They control the duration and number of sets for every exercise. Higher tiers earn more XP per session.</p>
                 <div class="space-y-2">
-                    <div class="p-3 rounded-xl bg-emerald-500/05 border border-emerald-500/20">
+                    <div class="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                         <p class="text-emerald-300 font-bold text-xs mb-1"><i class="fas fa-seedling mr-1.5"></i>Beginner</p>
                         <p>Shorter durations, fewer sets. Always available, to anyone, at any time. Dropping to it never needs permission and never costs you anything you have earned.</p>
                     </div>
-                    <div class="p-3 rounded-xl bg-blue-500/05 border border-blue-500/20">
+                    <div class="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
                         <p class="text-blue-300 font-bold text-xs mb-1"><i class="fas fa-dumbbell mr-1.5"></i>Intermediate</p>
                         <p>The default, and the standard working tier. Always available. This is where the majority of your training will happen.</p>
                     </div>
-                    <div class="p-3 rounded-xl bg-purple-500/05 border border-purple-500/20">
+                    <div class="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
                         <p class="text-purple-300 font-bold text-xs mb-1"><i class="fas fa-bolt mr-1.5"></i>Advanced</p>
                         <p>Earned, not waited out. It opens once you have put together four solid training weeks out of your last eight, and it stays open once you have it. If your recent sessions have been very hard going, or there is not enough history to judge yet, it stays shut for now and the app tells you which. Time served at Intermediate counts for nothing on its own, because sitting at a tier is not training.</p>
                     </div>
-                    <div class="p-3 rounded-xl bg-red-500/05 border border-red-500/20">
+                    <div class="p-3 rounded-xl bg-red-500/5 border border-red-500/20">
                         <p class="text-red-300 font-bold text-xs mb-1"><i class="fas fa-skull-crossbones mr-1.5"></i>Elite</p>
                         <p>Three things at once: you have reached Advanced, you have the same four solid weeks behind you, and your average EQ across your recent sessions is 9 or above. Fewer than three rated sessions is not enough to judge, and it is not treated as a pass. Tapping the locked Elite button tells you which part is missing.</p>
                     </div>
                 </div>
-                <div class="p-3 rounded-xl bg-orange-500/05 border border-orange-500/20">
+                <div class="p-3 rounded-xl bg-orange-500/5 border border-orange-500/20">
                     <p class="text-orange-300 font-bold text-xs mb-1"><i class="fas fa-battery-quarter mr-1.5"></i>Deload Weeks</p>
                     <p>Once you have put together four solid training weeks, the week that follows is a deload week. Sets drop by one and durations come down, from that week's first session to its last, and the app flags it with an orange banner. It is one week only. Whatever you manage inside it, the next week goes back to normal and the count starts again. This is how the programme is planned rather than a verdict on how your week went, and the session count stays the same, so a deload week can still be a full week of training.</p>
                 </div>
@@ -1753,9 +1850,9 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-heart-pulse text-amber-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Recovery Protocol</p><p class="text-[10px] text-slate-500">8 exercises — the other half of the protocol</p></div>
+                    <div><p class="text-sm font-black text-white">Recovery Protocol</p><p class="text-[10px] u-text-2">8 exercises — the other half of the protocol</p></div>
                 </div>
-                <i id="m-recovery-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-recovery-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-recovery" class="manual-section">
@@ -1776,11 +1873,11 @@
                         <p class="mb-2"><strong class="text-slate-300">Pigeon Pose</strong> — Targets the glutes and deep hip rotators that pull on the pelvis from sitting. One leg folded in front, other stretched back. 2 sets × 60s (switch sides each set).</p>
                         <p><strong class="text-slate-300">Butterfly Stretch</strong> — Releases the adductors (inner thighs), which sit close to the pelvic floor and commonly get tight from sitting. Soles together, knees out, hinge forward at the hips. 2 sets × 45s.</p>
                     </div>
-                    <div class="p-3 rounded-xl bg-amber-500/05 border border-amber-500/20">
+                    <div class="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
                         <p class="text-amber-300 font-bold text-xs mb-1">Daily Recommendations</p>
                         <p>The app recommends different exercises based on time of day. Morning: open the hips (Squat + Happy Baby). Afternoon: counteract sitting (Pigeon + Butterfly). Night: pelvic floor protocol (all 4 floor exercises). You can always customize the selection or tap Select All 8.</p>
                     </div>
-                    <div class="p-3 rounded-xl bg-red-500/05 border border-red-500/20">
+                    <div class="p-3 rounded-xl bg-red-500/5 border border-red-500/20">
                         <p class="text-red-300 font-bold text-xs mb-1">Rest days</p>
                         <p>On scheduled rest days, Length and Girth are not available and Recovery Protocol is. This is intentional. Rest is part of the programme, not a gap in it, and the tissue needs mechanical rest between sessions.</p>
                     </div>
@@ -1793,16 +1890,16 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-comment-dots text-purple-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Ask Coach Tee</p><p class="text-[10px] text-slate-500">Your AI training advisor</p></div>
+                    <div><p class="text-sm font-black text-white">Ask Coach Tee</p><p class="text-[10px] u-text-2">Your AI training advisor</p></div>
                 </div>
-                <i id="m-coach-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-coach-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-coach" class="manual-section">
             <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
                 <p>Ask Coach Tee is your 24/7 training advisor built specifically around this protocol. Whether it is 2am and you have a question about soreness, mid-session and something feels off, or you just want to understand why an exercise works — it is right there in your pocket, ready to give you a straight answer.</p>
                 <div class="space-y-3">
-                    <div class="p-3 rounded-xl bg-purple-500/05 border border-purple-500/20">
+                    <div class="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
                         <p class="text-purple-300 font-bold text-xs mb-1">What you can ask me</p>
                         <p>Anything related to the protocol. Technique questions, soreness concerns, EQ issues, modifications, hydration, recovery timing, what a sensation means — ask anything related to the protocol and get a clear, direct answer.</p>
                     </div>
@@ -1814,7 +1911,7 @@
                         <p class="text-white font-bold text-xs mb-1">Daily tip from Coach T</p>
                         <p>Every morning a new tip from me appears at the top of your home screen. These are real coaching insights I want you to carry into your day — on consistency, tissue science, hydration, EQ, warmup, and recovery. They rotate through 15 tips and change automatically each day.</p>
                     </div>
-                    <div class="p-3 rounded-xl bg-amber-500/05 border border-amber-500/20">
+                    <div class="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
                         <p class="text-amber-300 font-bold text-xs mb-1">Ask, do not guess</p>
                         <p>Most guys plateau or get hurt because they push through uncertainty instead of getting clarity. If something feels off, ask before the next set. If technique is unclear, ask before the next session. That is exactly what this feature is for.</p>
                     </div>
@@ -1827,9 +1924,9 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-chart-line text-blue-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Progress & Data</p><p class="text-[10px] text-slate-500">Measurements, reports, and session history</p></div>
+                    <div><p class="text-sm font-black text-white">Progress & Data</p><p class="text-[10px] u-text-2">Measurements, reports, and session history</p></div>
                 </div>
-                <i id="m-progress-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-progress-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-progress" class="manual-section">
@@ -1860,9 +1957,9 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-triangle-exclamation text-red-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Safety & Warning Signs</p><p class="text-[10px] text-slate-500">When to stop — no exceptions</p></div>
+                    <div><p class="text-sm font-black text-white">Safety & Warning Signs</p><p class="text-[10px] u-text-2">When to stop — no exceptions</p></div>
                 </div>
-                <i id="m-safety-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-safety-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-safety" class="manual-section">
@@ -1895,9 +1992,9 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-lightbulb text-yellow-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Tips for Best Results</p><p class="text-[10px] text-slate-500">What separates guys who gain from guys who plateau</p></div>
+                    <div><p class="text-sm font-black text-white">Tips for Best Results</p><p class="text-[10px] u-text-2">What separates guys who gain from guys who plateau</p></div>
                 </div>
-                <i id="m-tips-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-tips-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-tips" class="manual-section">
@@ -1930,7 +2027,7 @@
         </div>
 
         <div class="px-5 py-4 space-y-2">
-            <p class="text-[9px] font-black uppercase tracking-[0.25em] text-slate-600 px-1">Data Management</p>
+            <p class="text-[9px] font-black uppercase tracking-[0.25em] u-text-2 px-1">Data Management</p>
         <div class="export-row">
             <button id="export-btn"><i class="fas fa-download mr-1"></i>Export</button>
             <button id="import-btn"><i class="fas fa-upload mr-1"></i>Import</button>
@@ -1944,9 +2041,9 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-lock text-slate-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Your Privacy</p><p class="text-[10px] text-slate-500">What is stored, and what is never stored</p></div>
+                    <div><p class="text-sm font-black text-white">Your Privacy</p><p class="text-[10px] u-text-2">What is stored, and what is never stored</p></div>
                 </div>
-                <i id="m-privacy-chevron" class="fas fa-chevron-down text-slate-600 text-xs transition-transform"></i>
+                <i id="m-privacy-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-privacy" class="manual-section">
@@ -1971,7 +2068,7 @@
         </div>
 
         <div class="px-5 py-6 text-center">
-            <p class="text-slate-600 text-[10px] italic">The Blueprint — built by CoachTee</p>
+            <p class="u-text-2 text-[10px] italic">The Blueprint — built by CoachTee</p>
         </div>
 
     </div>
@@ -1981,7 +2078,7 @@
 
 <!-- SESSION HISTORY MODAL -->
 
-<div id="history-modal" style="position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:99993;backdrop-filter:blur(20px);display:none;flex-direction:column;overflow-y:auto;">
+<div id="history-modal" style="position:fixed;inset:0;background:rgba(2,6,23,.97);z-index:var(--z-modal);backdrop-filter:blur(20px);display:none;flex-direction:column;overflow-y:auto;">
     <div class="inner-step-wrapper py-10 space-y-4">
         <div class="flex justify-between items-center px-2 pt-4">
             <h2 class="text-3xl font-black italic uppercase text-white">Session History</h2>
@@ -1998,7 +2095,7 @@
 <!-- Why a contraction exercise is locked. The padlock was visible but mute,
      so an unscreened member saw a dashed card and no reason for it. Short on
      purpose: the point is the reason and the way to fix it, not a lecture. -->
-<div id="pelvic-lock-modal" class="hidden fixed inset-0 z-[99996] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
+<div id="pelvic-lock-modal" class="hidden fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
     <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(245,158,11,.3)">
         <div class="flex items-start gap-3">
             <i class="fas fa-lock text-amber-400 text-base flex-shrink-0 mt-0.5"></i>
@@ -2018,7 +2115,7 @@
      they can set about themselves, reach the notification settings that
      already exist, and sign out. Nothing else belongs here: no avatar, no
      username, no bio, no stats, no badges. -->
-<div id="account-modal" class="hidden fixed inset-0 z-[99996] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
+<div id="account-modal" class="hidden fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
     <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(100,116,139,.3)">
         <div class="flex justify-between items-center">
             <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-user"></i> Account</p>
@@ -2029,7 +2126,7 @@
             <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
                     <p class="text-[11px] font-bold text-slate-300">Preferred name</p>
-                    <p id="account-name-value" class="text-[12px] text-slate-500 mt-0.5 truncate">Not set</p>
+                    <p id="account-name-value" class="text-[12px] u-text-2 mt-0.5 truncate">Not set</p>
                 </div>
                 <button id="account-name-edit" class="text-[10px] font-black text-slate-300 uppercase tracking-widest bg-slate-800 px-3 py-1.5 rounded-xl flex-shrink-0">Edit</button>
             </div>
@@ -2040,9 +2137,9 @@
                 <p id="account-name-error" class="hidden text-[11px] text-red-400 font-bold"></p>
                 <div class="flex gap-2">
                     <button id="account-name-save" class="btn-primary py-2.5 px-4 text-[11px] flex-1">Save</button>
-                    <button id="account-name-cancel" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Cancel</button>
+                    <button id="account-name-cancel" class="text-[10px] font-black u-text-2 uppercase tracking-widest px-3">Cancel</button>
                 </div>
-                <button id="account-name-clear" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Remove my name</button>
+                <button id="account-name-clear" class="text-[10px] font-black u-text-2 uppercase tracking-widest">Remove my name</button>
             </div>
         </div>
 
@@ -2059,7 +2156,7 @@
      the member can read it before one is ever spent. No mention of how a
      Pass is earned beyond "a week where you did the training", because the
      machinery behind that is not something they should have to learn. -->
-<div id="pass-info-modal" class="hidden fixed inset-0 z-[99996] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
+<div id="pass-info-modal" class="hidden fixed inset-0 z-[var(--z-sheet-over)] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
     <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(245,158,11,.3)">
         <div class="flex items-start gap-3">
             <i class="fas fa-shield-halved text-amber-400 text-base flex-shrink-0 mt-0.5"></i>
@@ -2068,19 +2165,19 @@
                 <p id="pass-info-bank" class="text-[11px] font-bold text-slate-300 mt-1.5">You have 0 of 2 banked.</p>
                 <p class="text-[12px] text-slate-400 mt-2 leading-relaxed">You earn one when you put in enough training to keep your week on track, and you can have two at a time.</p>
                 <p class="text-[12px] text-slate-400 mt-2 leading-relaxed">If you miss a day, a banked Pass is spent automatically to cover it. That stops the reminders treating the gap as if you had dropped off, and the app will not chase you about it.</p>
-                <p class="text-[12px] text-slate-500 mt-2 leading-relaxed">A Pass does not count as a session and it does not move you closer to the next tier. It only changes how the app talks to you about a day you missed.</p>
+                <p class="text-[12px] u-text-2 mt-2 leading-relaxed">A Pass does not count as a session and it does not move you closer to the next tier. It only changes how the app talks to you about a day you missed.</p>
             </div>
         </div>
         <button id="pass-info-close" class="btn-outline w-full py-3 text-[11px]">Got it</button>
     </div>
 </div>
 
-<div id="pelvic-screen-modal" class="hidden fixed inset-0 z-[99994] overflow-y-auto" style="background:rgba(2,6,23,.98)">
+<div id="pelvic-screen-modal" class="hidden fixed inset-0 z-[var(--z-modal)] overflow-y-auto" style="background:rgba(2,6,23,.98)">
     <div class="inner-step-wrapper py-12 space-y-5">
         <div class="px-2 text-center">
             <div class="relative mb-5 inline-block">
                 <div class="absolute inset-0 bg-amber-500/20 blur-[40px] rounded-full"></div>
-                <div class="relative p-5 bg-amber-500/08 rounded-full border border-amber-500/20 w-fit mx-auto"><i class="fas fa-stethoscope text-3xl text-amber-400"></i></div>
+                <div class="relative p-5 bg-amber-500/[0.08] rounded-full border border-amber-500/20 w-fit mx-auto"><i class="fas fa-stethoscope text-3xl text-amber-400"></i></div>
             </div>
             <h2 class="text-2xl font-black italic uppercase text-white mb-2">Quick Pelvic Floor Check</h2>
             <p class="text-slate-400 text-[12px] leading-relaxed">Six questions, about thirty seconds. A pelvic floor can be too tight as easily as too weak, and the training is opposite for each. Getting this wrong makes symptoms worse, so it is worth answering honestly.</p>
@@ -2089,14 +2186,14 @@
         <div class="px-2 space-y-2">
             <button id="pelvic-screen-submit" class="btn-primary py-4 text-sm" disabled>See My Result</button>
             <button id="pelvic-screen-later" class="btn-outline w-full py-3 text-[11px]">Not now</button>
-            <p class="text-[9px] text-slate-700 italic text-center px-4">This is a guide to steer your training, not a medical diagnosis. Ongoing pelvic pain is worth seeing a pelvic health physiotherapist about.</p>
+            <p class="text-[9px] u-text-3 italic text-center px-4">This is a guide to steer your training, not a medical diagnosis. Ongoing pelvic pain is worth seeing a pelvic health physiotherapist about.</p>
         </div>
         <div class="scroll-buffer"></div>
     </div>
 </div>
 
 <!-- PELVIC SCREENER RESULT -->
-<div id="pelvic-result-modal" class="hidden fixed inset-0 z-[99995] flex items-center justify-center p-6" style="background:rgba(2,6,23,.97)">
+<div id="pelvic-result-modal" class="hidden fixed inset-0 z-[var(--z-modal-over)] flex items-center justify-center p-6" style="background:rgba(2,6,23,.97)">
     <div style="background:linear-gradient(145deg,rgba(30,41,59,.95) 0%,rgba(15,23,42,.98) 100%);border:1px solid rgba(245,158,11,.3);border-top:1px solid rgba(245,158,11,.5);border-radius:2rem;padding:2rem;max-width:22rem;width:100%;text-align:center;">
         <i id="pelvic-result-icon" class="fas fa-circle-info text-amber-400 text-4xl mb-4"></i>
         <h3 id="pelvic-result-title" class="text-xl font-black uppercase italic text-white mb-3"></h3>
@@ -2109,7 +2206,7 @@
 
 <!-- TIER LOCK MODAL -->
 
-<div id="tier-lock-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[300] hidden flex items-center justify-center p-6">
+<div id="tier-lock-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[var(--z-popover)] hidden flex items-center justify-center p-6">
     <div class="bg-slate-900/95 border border-red-500/30 w-full max-w-xs rounded-[2rem] p-8 text-center space-y-4">
         <i class="fas fa-lock text-red-400 text-3xl"></i>
         <h3 id="tier-lock-title" class="text-xl font-black uppercase italic text-white">Tier Locked</h3>
@@ -2123,7 +2220,7 @@
 <!-- DAY MODAL -->
 
 <!-- UPDATE NOTICE MODAL -->
-<div id="update-notice-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[300] hidden flex items-center justify-center p-6">
+<div id="update-notice-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[var(--z-popover)] hidden flex items-center justify-center p-6">
     <div class="bg-slate-900/95 border border-blue-500/30 w-full max-w-xs rounded-[2rem] p-8 space-y-5 text-center">
         <div class="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto">
             <i class="fas fa-circle-check text-blue-400 text-2xl"></i>
@@ -2136,7 +2233,7 @@
     </div>
 </div>
 
-<div id="type-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] hidden flex items-center justify-center p-6">
+<div id="type-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[var(--z-popover)] hidden flex items-center justify-center p-6">
     <div class="bg-slate-900/90 border border-slate-700 w-full max-w-xs rounded-[2rem] p-8 space-y-4">
         <h3 class="text-center font-black uppercase italic text-slate-400 text-sm tracking-[0.2em] mb-6">Adjust intent</h3>
         <div class="space-y-4">
@@ -2147,16 +2244,16 @@
         </div>
         <div class="h-px w-full bg-slate-800 my-6"></div>
         <button id="modal-toggle-btn"  class="w-full py-4 rounded-xl bg-slate-800/50 border border-slate-700 text-emerald-400 font-bold uppercase text-xs cursor-pointer">Toggle Log Status</button>
-        <button id="modal-dismiss-btn" class="w-full py-3 text-slate-500 font-bold uppercase text-[10px] cursor-pointer">Dismiss</button>
+        <button id="modal-dismiss-btn" class="w-full py-3 u-text-2 font-bold uppercase text-[10px] cursor-pointer">Dismiss</button>
     </div>
 </div>
 
 <!-- COACH MODAL -->
 
-<div id="coach-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] hidden flex items-center justify-center p-4">
+<div id="coach-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[var(--z-modal)] hidden flex items-center justify-center p-4">
     <div class="bg-slate-900/95 border border-purple-500/30 w-full max-w-md rounded-[2rem] p-6 space-y-4 flex flex-col max-h-[90vh]">
-        <div class="flex justify-between items-center"><h3 class="font-black uppercase italic text-purple-400 tracking-widest"><i class="fas fa-comment-dots"></i> Ask Coach Tee ✨</h3><button id="coach-close-btn" class="text-slate-500 cursor-pointer"><i class="fas fa-xmark text-xl"></i></button></div>
-        <div id="coach-chat-area" class="flex-grow overflow-y-auto bg-slate-950/50 rounded-xl p-4 border border-slate-800/80 text-sm text-slate-300 space-y-3 min-h-[200px]"><p class="italic text-slate-500 text-sm">CoachTee is ready. Ask anything.</p></div>
+        <div class="flex justify-between items-center"><h3 class="font-black uppercase italic text-purple-400 tracking-widest"><i class="fas fa-comment-dots"></i> Ask Coach Tee ✨</h3><button id="coach-close-btn" class="u-text-2 cursor-pointer"><i class="fas fa-xmark text-xl"></i></button></div>
+        <div id="coach-chat-area" class="flex-grow overflow-y-auto bg-slate-950/50 rounded-xl p-4 border border-slate-800/80 text-sm text-slate-300 space-y-3 min-h-[200px]"><p class="italic u-text-2 text-sm">CoachTee is ready. Ask anything.</p></div>
         <div class="pt-2 flex flex-col gap-3">
             <div id="coach-chips" class="flex flex-col gap-1.5"></div>
             <textarea id="coach-input" class="glass-input h-20" placeholder="What's good Coach Tee..."></textarea>
@@ -2313,7 +2410,7 @@ function showPelvicResult(profile,yes){
         ? `You answered yes to ${yes} of 6. That pattern points to a pelvic floor that is already holding too much tension rather than one that is weak.<br><br>
            <span class="text-white font-bold">Kegels would make that worse.</span> A tight floor squeezed harder gets tighter, and tightness is what drives the urgency, the aching and the finishing early in the first place.<br><br>
            So the app has taken contraction work out of your Recovery Protocol. You will get release work instead: reverse kegels, breathing, and hip openers. That is the actual treatment for this, and it is what Coach Tee will steer you toward from now on.<br><br>
-           <span class="text-slate-500">You can retake this any time from the Manual. If things ease off, the contraction work comes back.</span>`
+           <span class="u-text-2">You can retake this any time from the Manual. If things ease off, the contraction work comes back.</span>`
         : `You answered yes to ${yes} of 6, which does not suggest a tight pelvic floor. Your full Recovery Protocol stays available, contraction and release work both.<br><br>
            <span class="text-white font-bold">Keep an eye on it anyway.</span> If you start getting urgency, aching in the perineum after sitting, or discomfort after ejaculating, stop the kegels and retake this from the Manual. Those are the signs the floor has tipped from strong into tight.`;
     document.getElementById('pelvic-result-modal').classList.remove('hidden');
@@ -2412,7 +2509,7 @@ const MILESTONES=[
 const WARMUP_TIPS=[
     {icon:'fa-shower',            color:'text-blue-400',   label:"Coach T's Protocol",   title:'Warm Shower — The Gold Standard',      body:"10 minutes under warm water is the most effective warmup available. Steam carries heat deeper into the tunica and suspensory ligaments than any hot towel or wrap ever can."},
     {icon:'fa-temperature-high',  color:'text-orange-400', label:'Why Steam Wins',        title:'Steam Penetrates. Dry Heat Doesn\'t.', body:'Moist heat carries thermal energy into tissue more evenly than dry heat, and warm connective tissue is more compliant than cold. That is the reason for the shower, rather than any particular number.'},
-    {icon:'fa-droplets',          color:'text-cyan-400',   label:'Vascular Priming',      title:'Blood Flow is the Catalyst',           body:'Warm water dilates peripheral vessels and brings blood to the tissue before any mechanical stress is applied. It is the cheapest thing you can do to arrive at a session prepared.'},
+    {icon:'fa-droplet',          color:'text-cyan-400',   label:'Vascular Priming',      title:'Blood Flow is the Catalyst',           body:'Warm water dilates peripheral vessels and brings blood to the tissue before any mechanical stress is applied. It is the cheapest thing you can do to arrive at a session prepared.'},
     {icon:'fa-shield-halved',     color:'text-emerald-400',label:'Injury Prevention',     title:'Cold Tissue Tears. Warm Tissue Expands.',body:'Connective tissue is more compliant warm than cold, which is why every other discipline warms up before it loads anything. Working cold is where avoidable strains come from.'},
     {icon:'fa-clock',             color:'text-purple-400', label:'Timing Science',        title:'Why 10 Minutes — Not 5',               body:'Surface warmth arrives long before deep tissue does, so the first couple of minutes are not the warmup. Ten minutes is the standard this protocol uses. Do not cut it short.'},
     {icon:'fa-fire-flame-curved', color:'text-amber-400',  label:'Temperature Sweet Spot',title:'Warm, Not Hot',                        body:'Comfortable enough to stand under for the full 10 minutes. If the water is too hot to stay in, you\'re irritating skin and superficial vessels — not warming deep tissue. Find the sweet spot.'},
@@ -3613,10 +3710,10 @@ function onGalleryTap(i,url,date,path){
 async function renderGalleryInto(elId){
     const el=document.getElementById(elId);
     if(!el||!currentUser)return;
-    el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</p>';
+    el.innerHTML='<p class="col-span-3 u-text-2 text-[11px] italic text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</p>';
     try{
         const {data,error}=await sb.storage.from('progress-photos').list(currentUser.id,{sortBy:{column:'name',order:'desc'},limit:60});
-        if(error||!data?.length){el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4">No photos yet — add your first one above.</p>';return;}
+        if(error||!data?.length){el.innerHTML='<p class="col-span-3 u-text-2 text-[11px] italic text-center py-4">No photos yet — add your first one above.</p>';return;}
         const paths=data.map(f=>`${currentUser.id}/${f.name}`);
         const {data:signed}=await sb.storage.from('progress-photos').createSignedUrls(paths,3600);
         const urls=(signed||[]).map((s,i)=>{
@@ -3626,9 +3723,9 @@ async function renderGalleryInto(elId){
         });
         // Keep the newest-first list around so compare mode can use it without refetching.
         _galleryItems=urls;
-        el.innerHTML=urls.map((p,i)=>`<div class="cursor-pointer" onclick="onGalleryTap(${i},'${p.url}','${p.date}','${p.path}')"><img src="${p.url}" loading="lazy" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] text-slate-500 text-center mt-1 truncate">${p.date}</p></div>`).join('');
+        el.innerHTML=urls.map((p,i)=>`<div class="cursor-pointer" onclick="onGalleryTap(${i},'${p.url}','${p.date}','${p.path}')"><img src="${p.url}" loading="lazy" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] u-text-2 text-center mt-1 truncate">${p.date}</p></div>`).join('');
         _refreshCompareAvailability();
-    }catch(e){el.innerHTML='<p class="col-span-3 text-slate-600 text-[11px] italic text-center py-4">Could not load photos.</p>';}
+    }catch(e){el.innerHTML='<p class="col-span-3 u-text-2 text-[11px] italic text-center py-4">Could not load photos.</p>';}
 }
 async function handlePhotoLogUpload(file){
     if(!file||!currentUser)return;
@@ -3666,7 +3763,7 @@ function renderProgressChart(){
         // An EQ-led member can have plenty charted above this; do not tell them
         // they have no data.
         const _hasEq=getEqSummary().count>0;
-        statsEl.innerHTML=`<div class="col-span-2 text-center py-6 text-slate-600 text-sm italic">${_hasEq?'Your EQ trend is above. Log BPEL and MSEG after a session to add size tracking.':'Log measurements after sessions to see trends here.'}</div>`;
+        statsEl.innerHTML=`<div class="col-span-2 text-center py-6 u-text-2 text-sm italic">${_hasEq?'Your EQ trend is above. Log BPEL and MSEG after a session to add size tracking.':'Log measurements after sessions to see trends here.'}</div>`;
         drawEmpty('bpel-chart');drawEmpty('mseg-chart');return;
     }
     const first=meas[0],last=meas[meas.length-1];
@@ -4059,7 +4156,7 @@ function buildRecoveryPicker(){
     if(recommended.length){
         const hdr = document.createElement('div');
         hdr.className = 'tod-header px-1';
-        hdr.innerHTML = `<i class="fas ${todIcon} text-amber-400 text-xs"></i><span class="text-[10px] font-black text-amber-400 uppercase tracking-widest">${todLabel}</span><span class="text-[9px] text-slate-600 ml-auto">${recommended.length} recommended</span>`;
+        hdr.innerHTML = `<i class="fas ${todIcon} text-amber-400 text-xs"></i><span class="text-[10px] font-black text-amber-400 uppercase tracking-widest">${todLabel}</span><span class="text-[9px] u-text-2 ml-auto">${recommended.length} recommended</span>`;
         list.appendChild(hdr);
     }
 
@@ -4078,7 +4175,7 @@ function buildRecoveryPicker(){
         card.dataset.idx = i;
         card.innerHTML = `
             <div class="ex-pick-top">
-                <div class="ex-pick-check">${blocked?'<i class="fas fa-lock text-slate-600 text-[10px]"></i>':(selected?'<i class="fas fa-check text-white text-[10px]"></i>':'')}</div>
+                <div class="ex-pick-check">${blocked?'<i class="fas fa-lock u-text-2 text-[10px]"></i>':(selected?'<i class="fas fa-check text-white text-[10px]"></i>':'')}</div>
                 <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:rgba(255,255,255,.04)">
                     <i class="fas ${meta.icon||'fa-circle'} ${meta.color||'text-slate-400'} text-xs"></i>
                 </div>
@@ -4088,9 +4185,9 @@ function buildRecoveryPicker(){
                         ${isRec?'<span class="text-[8px] font-black text-amber-400 uppercase tracking-wider bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20">Today</span>':''}
                     </div>
                     <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <span class="text-[10px] text-slate-500">${ex.sets} sets · ${fmtDuration(ex.duration,ex.duration)}</span>
-                        <span class="text-slate-700">·</span>
-                        <span class="text-[9px] font-black ${meta.color||'text-slate-500'} uppercase">${meta.category||''}</span>
+                        <span class="text-[10px] u-text-2">${ex.sets} sets · ${fmtDuration(ex.duration,ex.duration)}</span>
+                        <span class="u-text-3">·</span>
+                        <span class="text-[9px] font-black ${meta.color||'u-text-2'} uppercase">${meta.category||''}</span>
                         ${todBadges}
                     </div>
                 </div>
@@ -4204,7 +4301,7 @@ function updateExUI(){
         document.getElementById('circuit-overview-steps').innerHTML=`
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">1</span><p class="text-[11px] text-slate-300">Wet Jelq <span class="text-emerald-500">${jelqLabel}</span> — 3s per stroke, 60-80% EQ</p></div>
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">2</span><p class="text-[11px] text-slate-300">Uli — Manual Clamp <span class="text-emerald-500">${cfg.uliDur}s</span> — OK grip at base, 80% EQ</p></div>
-            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-[9px] font-black text-slate-400">↺</span><p class="text-[11px] text-slate-500">${cfg.restDur}s rest + re-lube between rounds</p></div>`;
+            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-[9px] font-black text-slate-400">↺</span><p class="text-[11px] u-text-2">${cfg.restDur}s rest + re-lube between rounds</p></div>`;
         circOv.classList.remove('hidden');
     } else {
         circOv.classList.add('hidden');
@@ -5217,7 +5314,7 @@ function renderToday(){
     const changes=document.getElementById('today-changes');
     if(changes){
         changes.innerHTML=r.changes.map(c=>
-            `<li class="text-[11px] text-slate-400 leading-relaxed flex gap-2"><span class="text-slate-600">&bull;</span><span>${c}</span></li>`).join('');
+            `<li class="text-[11px] text-slate-400 leading-relaxed flex gap-2"><span class="u-text-2">&bull;</span><span>${c}</span></li>`).join('');
         changes.classList.add('hidden');     // revealed by "Why this today?"
     }
     set('today-why-btn',undefined,r.changes.length>0);
@@ -5343,7 +5440,7 @@ function completeSummaryHtml(){
     const log=(persisted.sessionLog||[]).filter(e=>(e.date||'').startsWith(todayKey));
     const last=log.length?log[log.length-1]:null;
     const w=currentWeekCompletion();
-    const cell=(label,value)=>`<div class="stat-chip"><p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">${label}</p><p class="text-base font-black text-white">${value}</p></div>`;
+    const cell=(label,value)=>`<div class="stat-chip"><p class="text-[9px] font-black u-text-2 uppercase tracking-widest mb-1">${label}</p><p class="text-base font-black text-white">${value}</p></div>`;
     const out=[];
     /* finishSession() writes `routineType`, and `duration` in MINUTES. This
        read `last.type`, which is never written, so the mission chip never
@@ -5749,13 +5846,13 @@ function resumeSession(){
 }
 function renderLog(){
     const c=document.getElementById('session-log'),logs=(persisted.sessionLog||[]).slice(-5).reverse();
-    if(!logs.length){c.innerHTML=`<p class="text-slate-600 text-[11px] italic text-center py-4">No sessions logged yet.</p>`;return}
+    if(!logs.length){c.innerHTML=`<p class="u-text-2 text-[11px] italic text-center py-4">No sessions logged yet.</p>`;return}
     c.innerHTML=logs.map(log=>{
         const d=new Date(log.date),lbl=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
         const icon=log.routineType==='length'?'fa-up-right-and-down-left-from-center':log.routineType==='girth'?'fa-expand':log.routineType==='stamina'?'fa-fire-flame-curved':'fa-heart-pulse';
         const color=log.routineType==='length'?'text-blue-400':log.routineType==='girth'?'text-emerald-400':log.routineType==='stamina'?'text-purple-400':'text-amber-400';
-        const note=log.note?`<span class="w-full text-slate-600 text-[10px] italic mt-0.5 truncate">${esc(log.note)}</span>`:'';
-        return`<div class="log-entry"><i class="fas ${icon} ${color} text-xs w-4 text-center"></i><span class="text-slate-300 capitalize text-[11px]">${log.routineType}</span><span class="text-slate-500 text-[10px]">${lbl}</span><span class="text-yellow-400 text-[10px] font-bold ml-auto">+${log.xpEarned} XP</span>${note}</div>`;
+        const note=log.note?`<span class="w-full u-text-2 text-[10px] italic mt-0.5 truncate">${esc(log.note)}</span>`:'';
+        return`<div class="log-entry"><i class="fas ${icon} ${color} text-xs w-4 text-center"></i><span class="text-slate-300 capitalize text-[11px]">${log.routineType}</span><span class="u-text-2 text-[10px]">${lbl}</span><span class="text-yellow-400 text-[10px] font-bold ml-auto">+${log.xpEarned} XP</span>${note}</div>`;
     }).join('');
 }
 
@@ -6029,7 +6126,7 @@ function renderAccount(){
         // angle brackets. "Not set" is a state, not a problem to fix.
         v.textContent=name||'Not set';
         v.classList.toggle('text-slate-300',!!name);
-        v.classList.toggle('text-slate-500',!name);
+        v.classList.toggle('u-text-2',!name);
     }
 }
 function openAccount(){
@@ -6201,7 +6298,7 @@ function showSessionSummary(xp){
        than stacking a second celebratory line beside it. */
     if(_programmeStartedThisSession&&!currentWeekComplete()) records.push("🚩 You're officially underway.");
     const recordsEl=document.getElementById('summary-records');
-    recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
+    recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/[0.08] border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
     modal.classList.add('show');
     haptic([100,50,200]);
 }
@@ -6260,13 +6357,13 @@ function showWeeklyReport(){
             <div class="summary-stat"><p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">Avg RPE</p><p class="text-2xl font-black text-white">${avgRPE}</p>${rpeInsight?`<p class="text-[9px] mt-1">${rpeInsight}</p>`:''}</div>
         </div>
         <div class="summary-stat"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Active Days</p><p class="text-3xl font-black text-white">${streak} / 7</p></div>
-        ${meas.length>=2?`<div class="summary-stat text-left"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2">Latest Measurements</p><div class="flex gap-4"><div><p class="text-[10px] text-slate-500">BPEL</p><p class="font-black text-white text-lg">${meas[meas.length-1].bpel||'—'}"</p></div><div><p class="text-[10px] text-slate-500">MSEG</p><p class="font-black text-white text-lg">${meas[meas.length-1].mseg||'—'}"</p></div></div></div>`:''}
+        ${meas.length>=2?`<div class="summary-stat text-left"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2">Latest Measurements</p><div class="flex gap-4"><div><p class="text-[10px] u-text-2">BPEL</p><p class="font-black text-white text-lg">${meas[meas.length-1].bpel||'—'}"</p></div><div><p class="text-[10px] u-text-2">MSEG</p><p class="font-black text-white text-lg">${meas[meas.length-1].mseg||'—'}"</p></div></div></div>`:''}
         <div class="summary-stat text-left">
             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Recent Sessions</p>
-            ${weekSessions.length===0?'<p class="text-slate-600 text-sm italic">No sessions this week yet.</p>':
+            ${weekSessions.length===0?'<p class="u-text-2 text-sm italic">No sessions this week yet.</p>':
             weekSessions.slice(-5).reverse().map(s=>{
                 const d=new Date(s.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-                return `<div class="flex items-center gap-2 py-1.5 border-b border-slate-800/50"><span class="text-[10px] text-slate-400 w-24 flex-shrink-0">${d}</span><span class="text-[10px] font-bold capitalize ${s.routineType==='length'?'text-blue-400':s.routineType==='girth'?'text-emerald-400':s.routineType==='stamina'?'text-purple-400':'text-amber-400'}">${s.routineType}</span>${s.eq?`<span class="text-[10px] text-slate-500 ml-auto">EQ ${s.eq}</span>`:''}</div>`;
+                return `<div class="flex items-center gap-2 py-1.5 border-b border-slate-800/50"><span class="text-[10px] text-slate-400 w-24 flex-shrink-0">${d}</span><span class="text-[10px] font-bold capitalize ${s.routineType==='length'?'text-blue-400':s.routineType==='girth'?'text-emerald-400':s.routineType==='stamina'?'text-purple-400':'text-amber-400'}">${s.routineType}</span>${s.eq?`<span class="text-[10px] u-text-2 ml-auto">EQ ${s.eq}</span>`:''}</div>`;
             }).join('')}
         </div>
         <button id="view-all-sessions-btn" class="btn-outline py-3 text-sm w-full">View Full History</button>
@@ -6348,7 +6445,7 @@ function renderHistoryPage(reset){
     const total=all.length;
     if(reset) list.innerHTML='';
     if(!total){
-        list.innerHTML='<p class="text-slate-600 text-sm italic text-center py-8">No sessions logged yet.</p>';
+        list.innerHTML='<p class="u-text-2 text-sm italic text-center py-8">No sessions logged yet.</p>';
         return;
     }
     // Newest first, without reversing the whole array on every page.
@@ -6367,7 +6464,7 @@ function renderHistoryPage(reset){
         document.getElementById('history-load-more').addEventListener('click',()=>renderHistoryPage(false));
     } else if(total>HISTORY_PAGE_SIZE){
         list.insertAdjacentHTML('beforeend',
-            `<p class="text-[10px] text-slate-600 italic text-center py-3">All ${total} sessions shown.</p>`);
+            `<p class="text-[10px] u-text-2 italic text-center py-3">All ${total} sessions shown.</p>`);
     }
 }
 function historyRow(s){
@@ -6385,9 +6482,9 @@ function historyRow(s){
                             <p class="text-sm font-black text-white capitalize">${s.routineType}</p>
                             <span class="text-yellow-400 text-[11px] font-bold">+${s.xpEarned} XP</span>
                         </div>
-                        <p class="text-[10px] text-slate-500 mt-0.5">${dateStr} · ${timeStr}</p>
+                        <p class="text-[10px] u-text-2 mt-0.5">${dateStr} · ${timeStr}</p>
                         ${s.eq||s.rpe?`<div class="flex gap-3 mt-1.5">${s.eq?`<span class="text-[10px] text-slate-400">EQ <span class="text-white font-bold">${s.eq}</span></span>`:''}${s.rpe?`<span class="text-[10px] text-slate-400">RPE <span class="text-white font-bold">${s.rpe}</span></span>`:''}</div>`:''}
-                        ${s.note?`<p class="text-[10px] text-slate-500 italic mt-1 truncate">${esc(s.note)}</p>`:''}
+                        ${s.note?`<p class="text-[10px] u-text-2 italic mt-1 truncate">${esc(s.note)}</p>`:''}
                     </div>
                 </div>
             </div>`;
