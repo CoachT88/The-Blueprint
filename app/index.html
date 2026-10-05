@@ -598,7 +598,7 @@
         <!-- Box breathing phase -->
         <div class="text-center mb-4">
             <p id="box-phase-label" class="text-3xl font-black uppercase italic text-emerald-400 leading-none mb-1">INHALE</p>
-            <p id="box-phase-sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest">bear down — reverse kegel</p>
+            <p id="box-phase-sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest">let the floor open and drop</p>
             <div id="box-phase-count" class="text-5xl font-black text-emerald-300 tabular-nums mt-2">4</div>
         </div>
 
@@ -1914,7 +1914,7 @@
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-2">Pelvic Floor Work (4 exercises)</p>
                         <p class="mb-2"><strong class="text-slate-300">Kegel Contractions</strong> — Trains voluntary contraction. Pelvic floor muscle training has reasonable evidence behind it for erectile function and ejaculatory control, but only if your floor is not already too tight. A hypertonic floor gets worse with kegels, not better. Take the Pelvic Floor Check in this Manual first; if it flags you, the app removes these from your protocol automatically. 3 sets × 60s. 3 seconds on, 3 seconds full release.</p>
-                        <p class="mb-2"><strong class="text-slate-300">Reverse Kegel Stretch</strong> — The antagonist to the kegel. Trains the floor to fully release. The aim is a floor that can let go as well as squeeze. 3 sets × 45s. Inhale deep, gently bear down.</p>
+                        <p class="mb-2"><strong class="text-slate-300">Reverse Kegel Stretch</strong> — The opposite of the kegel. Trains the floor to let go rather than squeeze. 3 sets × 45s. Breathe into your lower belly and let the muscles between your penis and anus open and drop, like the feeling of letting gas out. No pushing, no straining.</p>
                         <p class="mb-2"><strong class="text-slate-300">Pelvic Floor Release</strong> — Deep passive decompression using breath and gravity. No active movement. 3 sets × 45s.</p>
                         <p><strong class="text-slate-300">Pelvic Floor Endurance Hold</strong> — 40% contraction sustained for the full set. Builds motor control and stamina, not peak strength. 3 sets × 60s.</p>
                     </div>
@@ -2683,14 +2683,21 @@ const ROUTINES={
             ]
         },
         {
-            title:'Reverse Kegel Stretch', detail:'Inhale deep into the belly and gently bear down — as if allowing urine to flow faster. The pelvic floor physically drops on the inhale. Never strain or push hard.', sets:3, duration:45, isRecovery:true,
-            eq:'Soft — 0-2 EQ', feel:'Pelvic floor dropping and opening. Gentle downward pressure without strain.',
-            dontFeel:'Abdominal straining or bearing down with full force.',
+            /* CUE CORRECTION. This used to say "gently bear down". That is a
+               Valsalva instruction: it raises pressure in the abdomen and
+               drives straining, which is the opposite motor pattern to the
+               one this exercise exists to teach, and it was being served
+               specifically to men whose screener flagged a floor that holds
+               tension. The cue is now a sensation a man already knows,
+               and every line of it is release rather than push. */
+            title:'Reverse Kegel Stretch', detail:'Let the muscles between your penis and anus open and drop. Think of the feeling of gently letting gas out, or the moment you relax to start urinating. That is the feeling you are after. You are not pushing. That is only a comparison, by the way: do not practise this while you are actually urinating.', sets:3, duration:45, isRecovery:true,
+            eq:'Soft, 0-2 EQ', feel:'A quiet opening and dropping between your legs, like letting go. Belly soft, breath easy.',
+            dontFeel:'Straining or pushing hard. Abs bracing. Holding your breath. Forcing anything downward. If you are working at it, you are doing the opposite of this exercise.',
             cues:[
-                {time:45, text:'Inhale deep into the belly. Gently push down — floor releases.'},
-                {time:30, text:'Maintain the release. Stay relaxed. Belly stays full.'},
-                {time:15, text:'Deepen the breath. Let the floor drop further on each inhale.'},
-                {time:5,  text:'Exhale slowly. Reset before next set.'}
+                {time:45, text:'Belly relaxed. Slow breath into your lower belly.'},
+                {time:30, text:'As you breathe in, let the muscles between your penis and anus open and drop.'},
+                {time:15, text:'Like letting gas out, or relaxing to start urinating. Do not force it.'},
+                {time:5,  text:'Breathe out normally. Let everything stay relaxed.'}
             ]
         },
         {
@@ -2768,25 +2775,46 @@ const ROUTINES={
     ],
     stamina:[
         {
+            /* INSTRUCTION CORRECTION. This exercise is a version of the
+               stop-start technique, and in three places it told the member
+               to do the opposite of it.
+
+                 "slow down significantly or stop entirely"  you stop. Fully.
+                 "hold at that plateau for 10-15 seconds"    there is no hold.
+                                                             Holding at the edge
+                                                             is a different thing
+                                                             and it is the pattern
+                                                             associated with
+                                                             pelvic floor tension.
+                 "let arousal drop to roughly 60%"           that is still high.
+                                                             You let the urge go
+                                                             entirely before
+                                                             starting again.
+
+               It also cued arousal off erection firmness, which are two
+               different things and diverge in exactly the men this is for.
+               Instructions and cues are corrected here. Sets, duration and
+               the whole shape of the session are unchanged and belong to
+               the Last Longer redesign, not to this correction. */
             title:'Edging — Controlled Hold',
             howto:[
-                'Get to 70-80% erection. You need solid volume but not full hardness.',
-                'Begin a slow, rhythmic stroke — about 2-3 seconds per pass.',
-                'As you feel arousal building toward the edge, slow down significantly or stop entirely.',
-                'Hold at that plateau for 10-15 seconds, letting arousal drop to roughly 60%.',
-                'Resume slow strokes and repeat the cycle for the full duration.',
-                'The goal is controlled arousal management — stamina training through repetition at the edge.',
+                'Get to 70-80% erection to start. You need solid volume but not full hardness.',
+                'Begin a slow, rhythmic stroke, about 2 to 3 seconds per pass.',
+                'As you feel the urge to finish building, STOP. Take your hand off completely. Do not slow down, and do not keep going gently.',
+                'Wait with no stimulation at all until the urge has fully gone. Not eased off. Gone.',
+                'Start again with slow strokes, and repeat the cycle for the full set.',
+                'What you are training is the ability to notice the urge early and let it pass. The stopping is the exercise, not the stroking.',
             ],
             sets:3, duration:120,
-            eq:'7-8 EQ (70-80%)',
-            feel:'Controlled arousal at the plateau. You are managing the edge, not crossing it. Deep rhythmic breathing.',
-            dontFeel:'Rushing, crossing the edge, or losing focus on breath control. This is discipline training.',
+            eq:'7-8 EQ (70-80%) to start',
+            feel:'The urge rising, then fully settling while your hand is off. You should recognise it earlier each time.',
+            dontFeel:'Carrying on at the edge. Slowing down instead of stopping. Restarting while you can still feel the urge. Going past the point where you could stop.',
             cues:[
-                {time:120, text:'70-80% EQ. Begin slow strokes — 2 to 3 seconds per pass.'},
-                {time:90,  text:'Feel the plateau building — slow down now. Hold the edge for 10-15 seconds.'},
-                {time:60,  text:'Let arousal drop to 60%, then resume. Controlled cycle — this is the adaptation.'},
-                {time:30,  text:'Final stretch. Maintain breath control. Slow, deliberate, disciplined.'},
-                {time:5,   text:'Stop. Let arousal fully settle before the next set.'}
+                {time:120, text:'Slow strokes, 2 to 3 seconds per pass.'},
+                {time:90,  text:'Urge building? Hand off completely. Not slower. Off.'},
+                {time:60,  text:'Wait until the urge has gone, then start again.'},
+                {time:30,  text:'Notice how early you can catch it. That is the skill.'},
+                {time:5,   text:'Stop. Let it settle fully before the next set.'}
             ]
         },
         {
@@ -2796,7 +2824,7 @@ const ROUTINES={
                 'Avoid the Shaft: Keep your hands away from the middle of the shaft. Never squeeze or crush the mid-shaft with your palms.',
                 'Finger Placement: Position the pad of your thumb on the underside notch (frenulum) right below the head, and your index and middle fingers on the opposite side.',
                 'Technique: Apply a gentle, static squeeze using only that one-handed three-finger grip. This is a targeted coronal ridge pinch, not a heavy compression.',
-                'Duration: Hold the gentle squeeze steadily for 10 to 15 seconds. Keep the pressure light — this is a neural reset, not a strength exercise.',
+                'Duration: Hold the gentle squeeze steadily for 10 to 15 seconds. Keep the pressure light. Firm pressure just below the head damps the urge to ejaculate. Pain means you are pressing too hard.',
                 'Rest & Reset: Release your grip completely, breathe out slowly, and rest without touching for 30 seconds. Allow your blood flow and arousal to drop completely before attempting another round.',
             ],
             sets:3, duration:15, restDur:30,
@@ -2805,7 +2833,7 @@ const ROUTINES={
             dontFeel:'Any sharp pain, throbbing, numbness, coldness at the tip, or a tingling/electric sensation. Release your grip immediately and do not resume the exercise.',
             cues:[
                 {time:15, text:'60-70% EQ. Thumb on frenulum, two fingers opposite — gentle static squeeze.'},
-                {time:8,  text:'Hold light pressure only. Feel arousal dropping. This is the neural reset.'},
+                {time:8,  text:'Hold light pressure only. Feel the urge backing off.'},
                 {time:3,  text:'Release fully. 30-second rest coming up — no touching.'}
             ]
         }
@@ -4686,7 +4714,10 @@ function onSetDone(){
 }
 // ── Box breathing (4-4-4-4) ────────────────────────────────────────────
 const BOX_PHASES=[
-    {label:'INHALE', sub:'bear down — reverse kegel', secs:4, circleScale:1.55},
+    /* Was "bear down — reverse kegel". Same Valsalva cue as the Reverse
+       Kegel exercise carried, and a member meets this one on every round
+       rest rather than once a session. Release, not push. */
+    {label:'INHALE', sub:'let the floor open and drop',secs:4, circleScale:1.55},
     {label:'HOLD',   sub:'stay full',                 secs:4, circleScale:1.55},
     {label:'EXHALE', sub:'release breath — relax',    secs:4, circleScale:1.0},
     {label:'HOLD',   sub:'stay empty',                secs:4, circleScale:1.0},
