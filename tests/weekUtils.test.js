@@ -128,6 +128,32 @@ describe('dateKeyForWeekday preserves the pre-extraction mapping', () => {
         expect(out).toBe('2026-10-06');
     });
 
+    test('local-noon anchoring is load-bearing for a non-noon reference', () => {
+        /*
+         * Every other reference in this suite is already at local noon, which
+         * makes setHours(12,...) a no-op and leaves it untested. In production
+         * the reference is `new Date()`, an arbitrary time of day.
+         *
+         * Without the anchoring, a reference late in the evening in a negative
+         * UTC offset pushes the timestamp past midnight UTC and shifts the
+         * ENTIRE week by one day. Pinned in a subprocess so TZ cannot leak.
+         */
+        const moduleUrl = new URL('../src/weekUtils.js', import.meta.url).href;
+        const script = [
+            `import { dateKeyForWeekday } from ${JSON.stringify(moduleUrl)};`,
+            'const ref = new Date(2026, 9, 7, 23, 30, 0, 0);',   // Wed 23:30 local
+            'process.stdout.write([0, 1, 6].map(i => dateKeyForWeekday(ref, i)).join(" "));',
+        ].join('\n');
+        const out = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+            env: { ...process.env, TZ: 'America/New_York' },
+            encoding: 'utf8',
+        }).trim();
+
+        // Same answer as a local-noon reference in the same week. Dropping the
+        // anchoring yields 2026-10-12 2026-10-06 2026-10-11 instead.
+        expect(out).toBe('2026-10-11 2026-10-05 2026-10-10');
+    });
+
     test('the helper itself is deterministic and reads no implicit now', () => {
         const ref = localNoon(2026, 10, 7);
         for (let index = 0; index < 7; index++) {
