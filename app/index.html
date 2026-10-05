@@ -3181,8 +3181,14 @@ async function _upsertWithSchemaFallback(){
         const trimmed=_upsertPayload();
         /* If the narrow strip removed nothing, the retry would be the same
            request byte for byte and could only waste a round trip. Skip it
-           and let the broad tier answer. This is also what keeps the two-tier
-           change inert until the newest columns are actually in the payload. */
+           and let the broad tier answer.
+
+           Currently unreachable, and deliberately kept: _buildSavePayload
+           always emits both newest columns, so the strip always removes two
+           keys. It becomes live the moment a column in
+           _LATEST_SCHEMA_COLUMNS is emitted conditionally, and then it also
+           stops the narrow tier consuming its one retry on a request that
+           cannot succeed. No test covers it, because nothing can reach it. */
         if(Object.keys(trimmed).length<Object.keys(first).length){
             console.warn('user_data is missing the newest columns; saving without them. Run the pending ALTER TABLE.');
             ({error}=await sb.from('user_data').upsert(trimmed,{onConflict:'id'}));
