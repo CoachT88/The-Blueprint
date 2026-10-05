@@ -2875,6 +2875,17 @@ const DEFAULT_PERSISTED={
        programmeStartDate records when the programme actually began. */
     programmeStartDate:null,  // null + allTimeSessionCount>0 means established, start unknown
     progressionLedger:[],     // see src/progressionLedger.js for the row shape
+    /* ── Phase 3S.1 day-plan storage ───────────────────────────────────
+       Carried, not yet read. Nothing generates either one and nothing
+       branches on either one in this phase; they exist so the columns can
+       round-trip safely before the model that uses them lands.
+
+       null and [] are the honest empty values, and they differ on purpose.
+       A null programme means none has ever been generated, which is where
+       every account starts. An empty plan list is a complete answer: this
+       member has no dated plans. */
+    programme:null,           // see supabase/day-plans-schema.sql
+    dayPlans:[],              // see src/dayPlan.js for the record shape
 };
 let persisted={...DEFAULT_PERSISTED};
 let currentUser = null;
@@ -2945,44 +2956,7 @@ async function loadPersisted(){
                 if(!_err) localStorage.removeItem('bp_dirty_'+currentUser.id);
             }catch(e){}
         } else {
-            persisted = {
-                ...DEFAULT_PERSISTED,
-                schedule:            data.schedule             || DEFAULT_PERSISTED.schedule,
-                completedDays:       data.completed_days       || DEFAULT_PERSISTED.completedDays,
-                totalXp:             data.total_xp             || 0,
-                sessionLog:          data.session_log          || [],
-                measurements:        data.measurements         || [],
-                seenMilestones:      data.seen_milestones      || [],
-                difficulty:          data.difficulty           || 'intermediate',
-                diffUnlockedDate:    data.diff_unlocked_date   || {intermediate:'',advanced:'',elite:''},
-                firstSessionDate:    data.first_session_date   || '',
-                weekKey:             data.week_key             || '',
-                records:             data.records              || {longestStreak:0,bestWeekXp:0,bestSessionXp:0},
-                tipIndex:            data.tip_index            || 0,
-                lastTipDate:         data.last_tip_date        || '',
-                allTimeSessionCount: data.all_time_session_count || 0,
-                xpMigrated:          data.xp_migrated          || false,
-                streakPasses:        data.streak_passes        || 0,
-                passProtectedDates:  data.pass_protected_dates || [],
-                lastPassEarnedDate:  data.last_pass_earned_date|| '',
-                primaryGoal:         data.primary_goal        || '',
-                pelvicProfile:       data.pelvic_profile      || '',
-                /* A date column arrives as a string or null. Empty string
-                   is coerced to null so the three programme-start states
-                   stay distinguishable. */
-                programmeStartDate:  data.programme_start_date || null,
-                /* Untrusted until normalised: jsonb enforces no shape, and
-                   this may predate the verdict model or come from a
-                   restored backup. See normaliseLedger. */
-                /* If the module has not landed, keep the raw array rather
-                   than substituting []. Normalising is a correctness step,
-                   not a precondition for holding the data, and discarding
-                   it here would write the loss back on the next save. */
-                progressionLedger:   (window.BP && window.BP.normaliseLedger)
-                                        ? window.BP.normaliseLedger(data.progression_ledger)
-                                        : (Array.isArray(data.progression_ledger) ? data.progression_ledger : []),
-                pelvicScreenDate:    data.pelvic_screen_date  || '',
-            };
+            persisted = _internalFromRow(data);
         }
         // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
         // Use allTimeSessionCount (never truncated) rather than sessionLog.length (capped at 50)
@@ -3013,6 +2987,61 @@ async function loadPersisted(){
     }
 }
 
+/* The server row translated into the internal persisted shape, and nothing
+   else. Column names are a storage concern and they stop here: no caller
+   outside this function sees a snake_case key, and nothing in it touches
+   `persisted` or decides whether the result is trustworthy.
+
+   It no longer spreads DEFAULT_PERSISTED. Every default key is mapped
+   explicitly below, which is what makes the mapping readable, and the
+   adoption boundary supplies the defaults anyway. A named test asserts the
+   two key sets still match, so a field added to DEFAULT_PERSISTED without a
+   mapping here fails loudly instead of silently resetting on every load. */
+function _internalFromRow(data){
+    return {
+        schedule:            data.schedule             || DEFAULT_PERSISTED.schedule,
+        completedDays:       data.completed_days       || DEFAULT_PERSISTED.completedDays,
+        totalXp:             data.total_xp             || 0,
+        sessionLog:          data.session_log          || [],
+        measurements:        data.measurements         || [],
+        seenMilestones:      data.seen_milestones      || [],
+        difficulty:          data.difficulty           || 'intermediate',
+        diffUnlockedDate:    data.diff_unlocked_date   || {intermediate:'',advanced:'',elite:''},
+        firstSessionDate:    data.first_session_date   || '',
+        weekKey:             data.week_key             || '',
+        records:             data.records              || {longestStreak:0,bestWeekXp:0,bestSessionXp:0},
+        tipIndex:            data.tip_index            || 0,
+        lastTipDate:         data.last_tip_date        || '',
+        allTimeSessionCount: data.all_time_session_count || 0,
+        xpMigrated:          data.xp_migrated          || false,
+        streakPasses:        data.streak_passes        || 0,
+        passProtectedDates:  data.pass_protected_dates || [],
+        lastPassEarnedDate:  data.last_pass_earned_date|| '',
+        primaryGoal:         data.primary_goal        || '',
+        pelvicProfile:       data.pelvic_profile      || '',
+        /* A date column arrives as a string or null. Empty string
+           is coerced to null so the three programme-start states
+           stay distinguishable. */
+        programmeStartDate:  data.programme_start_date || null,
+        /* Untrusted until normalised: jsonb enforces no shape, and
+           this may predate the verdict model or come from a
+           restored backup. See normaliseLedger. */
+        /* If the module has not landed, keep the raw array rather
+           than substituting []. Normalising is a correctness step,
+           not a precondition for holding the data, and discarding
+           it here would write the loss back on the next save. */
+        progressionLedger:   (window.BP && window.BP.normaliseLedger)
+                                ? window.BP.normaliseLedger(data.progression_ledger)
+                                : (Array.isArray(data.progression_ledger) ? data.progression_ledger : []),
+        pelvicScreenDate:    data.pelvic_screen_date  || '',
+        /* Phase 3S.1. Carried, not read. The column defaults in
+           supabase/day-plans-schema.sql mean an unmigrated row answers
+           null and [] here, which is the same answer a migrated row with
+           nothing in it gives, and both are correct. */
+        programme:           data.programme            || null,
+        dayPlans:            data.day_plans            || [],
+    };
+}
 function _buildSavePayload(){
     return{
         schedule:       persisted.schedule,
@@ -3038,6 +3067,12 @@ function _buildSavePayload(){
         pelvic_screen_date:    persisted.pelvicScreenDate||'',
         programme_start_date:  persisted.programmeStartDate||null,
         progression_ledger:    Array.isArray(persisted.progressionLedger)?persisted.progressionLedger:[],
+        /* Phase 3S.1. Written from the first deploy so the columns are never
+           stale relative to the local backup, even though nothing reads them
+           yet. _LATEST_SCHEMA_COLUMNS is what makes that safe on a table
+           that has not had the migration run. */
+        programme:             persisted.programme||null,
+        day_plans:             Array.isArray(persisted.dayPlans)?persisted.dayPlans:[],
         updated_at:            new Date().toISOString(),
     };
 }
