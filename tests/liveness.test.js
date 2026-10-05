@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import {
     returnContext, daysSinceLastMechanical, missedWeekReentry, livenessContext,
-    RETURN_CONTEXT, LIVENESS,
+    greetingBand, localDayKey, RETURN_CONTEXT, LIVENESS, GREETING_BAND, GREETING_BANDS,
 } from '../src/liveness.js';
 import { WEEK_VERDICT } from '../src/progressionLedger.js';
 import { PROGRESSION_POLICY, withPolicy } from '../src/progressionPolicy.js';
@@ -222,6 +222,134 @@ describe('precedence: exactly one message', () => {
                 for (const mw of [null, missed]) {
                     const out = livenessContext({ weekComplete, returnContext: ret, missedWeek: mw });
                     expect(out === null || typeof out === 'string').toBe(true);
+                }
+            }
+        }
+    });
+});
+
+/**
+ * The greeting band, swept across every hour rather than pinned to one.
+ *
+ * Phase 2B.2 shipped a boundary defect that survived locally because its
+ * fixture was fixed at noon and only CI happened to run in the morning.
+ * Anything taking a clock is now tested against the whole clock.
+ */
+describe('greeting band', () => {
+    const at = (h, m = 0) => new Date(2025, 5, 15, h, m, 0);
+
+    test('the thresholds are the ones the product locked', () => {
+        expect(GREETING_BANDS).toEqual({ morningFrom: 5, afternoonFrom: 12, eveningFrom: 17 });
+    });
+
+    test.each([5, 6, 7, 8, 9, 10, 11])('%i:00 is morning', (h) => {
+        expect(greetingBand(at(h))).toBe(GREETING_BAND.MORNING);
+    });
+
+    test.each([12, 13, 14, 15, 16])('%i:00 is afternoon', (h) => {
+        expect(greetingBand(at(h))).toBe(GREETING_BAND.AFTERNOON);
+    });
+
+    test.each([17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4])('%i:00 is evening', (h) => {
+        expect(greetingBand(at(h))).toBe(GREETING_BAND.EVENING);
+    });
+
+    test('every hour of the day lands in exactly one band', () => {
+        const seen = Array.from({ length: 24 }, (_, h) => greetingBand(at(h)));
+        expect(seen.filter(b => b === undefined || b === null)).toHaveLength(0);
+        expect(new Set(seen)).toEqual(new Set(['morning', 'afternoon', 'evening']));
+    });
+
+    test('the exact boundary minutes', () => {
+        expect(greetingBand(at(4, 59))).toBe(GREETING_BAND.EVENING);
+        expect(greetingBand(at(5, 0))).toBe(GREETING_BAND.MORNING);
+        expect(greetingBand(at(11, 59))).toBe(GREETING_BAND.MORNING);
+        expect(greetingBand(at(12, 0))).toBe(GREETING_BAND.AFTERNOON);
+        expect(greetingBand(at(16, 59))).toBe(GREETING_BAND.AFTERNOON);
+        expect(greetingBand(at(17, 0))).toBe(GREETING_BAND.EVENING);
+        expect(greetingBand(at(23, 59))).toBe(GREETING_BAND.EVENING);
+        expect(greetingBand(at(0, 0))).toBe(GREETING_BAND.EVENING);
+    });
+
+    test('midnight to five is evening, not morning', () => {
+        for (const h of [0, 1, 2, 3, 4]) {
+            expect(greetingBand(at(h))).not.toBe(GREETING_BAND.MORNING);
+        }
+    });
+
+    test('the bands are overridable, so the thresholds stay in one place', () => {
+        const b = { morningFrom: 4, afternoonFrom: 11, eveningFrom: 20 };
+        expect(greetingBand(at(4), b)).toBe(GREETING_BAND.MORNING);
+        expect(greetingBand(at(19), b)).toBe(GREETING_BAND.AFTERNOON);
+        expect(greetingBand(at(20), b)).toBe(GREETING_BAND.EVENING);
+    });
+
+    test('junk falls back to now rather than throwing', () => {
+        expect(() => greetingBand(new Date('nonsense'))).not.toThrow();
+        expect(['morning', 'afternoon', 'evening']).toContain(greetingBand(undefined));
+    });
+});
+
+describe('the local day key', () => {
+    test('it is the local date, not the UTC one', () => {
+        // 23:30 local on 15 June. In any timezone ahead of UTC this is
+        // already 16 June in UTC, and the key must still say the 15th.
+        const late = new Date(2025, 5, 15, 23, 30, 0);
+        expect(localDayKey(late)).toBe('2025-06-15');
+        const early = new Date(2025, 5, 15, 0, 30, 0);
+        expect(localDayKey(early)).toBe('2025-06-15');
+    });
+
+    test('it is stable across every hour of one local day', () => {
+        const keys = Array.from({ length: 24 }, (_, h) => localDayKey(new Date(2025, 5, 15, h, 0, 0)));
+        expect(new Set(keys).size).toBe(1);
+    });
+
+    test('it changes at local midnight, not 24 hours after anything', () => {
+        expect(localDayKey(new Date(2025, 5, 15, 23, 59, 59))).toBe('2025-06-15');
+        expect(localDayKey(new Date(2025, 5, 16, 0, 0, 0))).toBe('2025-06-16');
+    });
+
+    test('months and days are zero padded', () => {
+        expect(localDayKey(new Date(2025, 0, 5, 12, 0, 0))).toBe('2025-01-05');
+    });
+
+    test('junk falls back to now rather than throwing', () => {
+        expect(localDayKey(new Date('nonsense'))).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+});
+
+describe('the greeting is last in precedence', () => {
+    const missed = { weekKey: '2025_w24', verdict: 'missed' };
+
+    test('it renders when nothing else has anything to say', () => {
+        expect(livenessContext({ greeting: true })).toBe(LIVENESS.GREETING);
+    });
+
+    test.each([
+        ['week complete', { weekComplete: true }],
+        ['an extended return', { returnContext: RETURN_CONTEXT.EXTENDED }],
+        ['a return', { returnContext: RETURN_CONTEXT.RETURNING }],
+        ['a missed week', { missedWeek: missed }],
+    ])('%s outranks it', (_label, over) => {
+        const out = livenessContext({ ...over, greeting: true });
+        expect(out).not.toBe(LIVENESS.GREETING);
+        expect(out).not.toBeNull();
+    });
+
+    test('an ineligible greeting leaves nothing at all', () => {
+        expect(livenessContext({ greeting: false })).toBeNull();
+        expect(livenessContext({})).toBeNull();
+    });
+
+    test('REGRESSION: it never displaces a message about the training', () => {
+        for (const weekComplete of [true, false]) {
+            for (const ret of [null, RETURN_CONTEXT.RETURNING, RETURN_CONTEXT.EXTENDED]) {
+                for (const mw of [null, missed]) {
+                    const out = livenessContext({ weekComplete, returnContext: ret, missedWeek: mw, greeting: true });
+                    const somethingElse = weekComplete || ret || mw;
+                    if (somethingElse) expect(out).not.toBe(LIVENESS.GREETING);
+                    else expect(out).toBe(LIVENESS.GREETING);
                 }
             }
         }

@@ -4,7 +4,7 @@ import {
     isQualifyingSession, isRecoverySession, qualifyingSessionDays, lifetimeVolume,
     qualifyingWeek, countQualifyingDaysInWeek,
     rpeTolerance, recoverySafety, toleranceHolds,
-    programmeStartBackfill, programmeStartOnCompletion,
+    programmeStartBackfill, programmeStartOnCompletion, provablyFirstMechanicalSession,
 } from '../src/progression.js';
 import { PROGRESSION_POLICY, withPolicy } from '../src/progressionPolicy.js';
 
@@ -413,5 +413,98 @@ describe('programme start backfill for existing members', () => {
     test('nothing throws on junk input', () => {
         expect(() => programmeStartBackfill()).not.toThrow();
         expect(programmeStartBackfill({}).source).toBe(PROGRAMME_START_SOURCE.NOT_STARTED);
+    });
+});
+
+/**
+ * Proving a first mechanical session, Phase 2B.3.3.
+ *
+ * The acknowledgment this gates says the programme has begun, so it must
+ * never reach someone it has already begun for. The question is answered
+ * from evidence or refused; there is deliberately no session-count
+ * threshold, because no N separates a new member whose debut was Recovery
+ * from a tenured one whose log was pruned.
+ */
+describe('provably first mechanical session', () => {
+    const S = (routineType, day) => ({ date: `2025-06-${String(day).padStart(2, '0')}T12:00:00.000Z`, routineType });
+    /** `log`, with allTimeSessionCount defaulting to a complete history. */
+    const ask = (log, count) => provablyFirstMechanicalSession({
+        sessionLog: log, allTimeSessionCount: count === undefined ? log.length : count,
+    });
+
+    test('ACCEPTANCE: the first session ever, and it is mechanical', () => {
+        expect(ask([S('length', 1)])).toBe(true);
+    });
+
+    test('ACCEPTANCE: Recovery first, then the first mechanical one', () => {
+        expect(ask([S('recovery', 1), S('length', 2)])).toBe(true);
+    });
+
+    test('ACCEPTANCE: several Recovery sessions, then the first mechanical one', () => {
+        expect(ask([S('recovery', 1), S('recovery', 2), S('recovery', 3), S('length', 4)])).toBe(true);
+    });
+
+    test('ACCEPTANCE: a veteran with a pruned log is refused', () => {
+        // 300 sessions ever, 50 retained. The equality is what catches it.
+        const log = Array.from({ length: 50 }, (_, i) => S('recovery', (i % 28) + 1));
+        log.push(S('length', 29));
+        expect(ask(log, 300)).toBe(false);
+    });
+
+    test('ACCEPTANCE: established-start-unknown is refused', () => {
+        // One retained entry, a lifetime of history behind it.
+        expect(ask([S('length', 1)], 300)).toBe(false);
+    });
+
+    test('ACCEPTANCE: retained history already holding a mechanical session is refused', () => {
+        // Complete history, but they have trained mechanically before. This
+        // is the case the count alone would miss, because a member can hold
+        // mechanical history and still have no programme start date.
+        expect(ask([S('length', 1), S('recovery', 2), S('girth', 3)])).toBe(false);
+    });
+
+    test('every mechanical type counts as prior history', () => {
+        for (const type of MECHANICAL_MISSIONS) {
+            expect(ask([S(type, 1), S('length', 2)])).toBe(false);
+        }
+    });
+
+    test('REGRESSION: the session being asked about does not veto itself', () => {
+        // It is the last entry and is excluded, or nothing would ever pass.
+        expect(ask([S('length', 1)])).toBe(true);
+        expect(ask([S('recovery', 1), S('girth', 2)])).toBe(true);
+    });
+
+    test('REGRESSION: a count above the retained length is refused', () => {
+        for (const count of [2, 3, 51, 300]) {
+            expect(ask([S('length', 1)], count)).toBe(false);
+        }
+    });
+
+    test('REGRESSION: a count below the retained length is refused too', () => {
+        // A member predating the field, or an import whose backup omitted
+        // it, loads as 0 against a populated log. Not provable either way.
+        expect(ask([S('recovery', 1), S('length', 2)], 0)).toBe(false);
+        expect(ask([S('recovery', 1), S('recovery', 2), S('length', 3)], 1)).toBe(false);
+    });
+
+    test('an empty or absent log proves nothing', () => {
+        expect(ask([], 0)).toBe(false);
+        expect(provablyFirstMechanicalSession({ sessionLog: null, allTimeSessionCount: 0 })).toBe(false);
+        expect(provablyFirstMechanicalSession({})).toBe(false);
+        expect(provablyFirstMechanicalSession()).toBe(false);
+    });
+
+    test('a missing or malformed count is refused rather than assumed', () => {
+        const log = [S('recovery', 1), S('length', 2)];
+        for (const count of [undefined, null, NaN, '2', {}]) {
+            expect(provablyFirstMechanicalSession({ sessionLog: log, allTimeSessionCount: count })).toBe(false);
+        }
+    });
+
+    test('junk entries do not throw', () => {
+        expect(() => provablyFirstMechanicalSession({
+            sessionLog: [null, 'junk', {}, S('length', 2)], allTimeSessionCount: 4,
+        })).not.toThrow();
     });
 });

@@ -14,6 +14,15 @@ const FUNCTIONS = [
     'startTour', 'tourNext', 'endTour', 'maybeStartTour', 'oneTimeTip', 'replayTour',
     'replayIntro', 'closeManual', 'showOnboarding', 'hideOnboarding', 'finishOnboarding',
     'obNext', 'goToObSlide', '_obLastIdx', 'renderGoalOptions', 'selectGoal', 'openGoalPicker',
+    'preferredName', 'savePreferredName', 'commitPreferredName',
+    'greetingEligible', 'renderGreeting', '_greetedToday', '_markGreeted', '_attentionBandLive',
+    '_notifPrefsKey', '_pushTzKey', '_readNotifPrefs',
+    // Phase 2B.3.4: existing-member capture and the Account surface
+    'nameNudgeEligible', '_nameAsked', '_markNameAsked',
+    'renderAccount', 'openAccount', 'closeAccount', 'openAccountEditor', 'closeAccountEditor',
+    'saveAccountName', 'clearAccountName', 'handleLogout', '_closeMemberOverlays',
+    // Phase 2B.3.5: onboarding structure the journeys drive directly
+    'obNext', 'hideOnboarding', 'finishOnboarding', 'fetchClaude', '_greetedKey',
     // persistence
     'savePersisted', '_flushSaveNow', '_buildSavePayload', '_upsertPayload', 'loadPersisted',
     'normaliseSchedule', 'maybeApplyGoalSchedule',
@@ -36,6 +45,15 @@ const ELEMENT_IDS = [
     'launch-btn', 'progress-btn', 'weekly-report-btn', 'photos-btn', 'ai-coach-btn', 'manual-btn',
     'manual-close-btn', 'replay-intro-btn', 'replay-tour-btn', 'change-goal-btn',
     'ob-next-btn', 'ob-skip-btn', 'goal-options', 'goal-confirm',
+    'ob-name-input', 'ob-name-error', 'ob-name-skip', 'hq-greeting',
+    // Phase 2B.3.4: the name prompt and the Account sheet. logout-btn is
+    // listed because it moved from the header into the sheet keeping its id,
+    // and the relocation must not quietly drop it.
+    'account-btn', 'account-modal', 'account-name-value', 'account-name-edit',
+    'account-name-editor', 'account-name-input', 'account-name-error',
+    'account-name-save', 'account-name-clear', 'account-name-cancel',
+    'account-notif-open', 'account-close', 'logout-btn',
+    'hq-name-prompt', 'hq-name-prompt-add', 'hq-name-prompt-dismiss',
     'tour-next', 'tour-skip', 'tour-layer', 'tour-hole', 'tour-card', 'tour-title', 'tour-body', 'tour-dots',
     'hq-rest-banner', 'hq-pass-used-banner', 'hq-load-failed-banner', 'hq-load-retry-btn',
     'photo-compare-btn', 'photo-compare', 'photo-compare-before', 'photo-compare-after',
@@ -138,6 +156,77 @@ describe('app wiring', () => {
         expect(await app.page.evaluate(
             () => document.getElementById('history-modal').style.display)).not.toBe('none');
     }, 40_000);
+
+    /**
+     * Onboarding structure. Phase 2B.3.1 inserted the name slide in the
+     * middle of a five-slide deck, and Phase 2B.3.5 checks the seams.
+     *
+     * _obLastIdx() is derived from the DOM but OB_NAME_SLIDE is the literal
+     * 3, so inserting a slide before it would silently point the name gate
+     * at the wrong slide and nothing else would complain. openGoalPicker()
+     * carries the matching assumption that the goal slide is last.
+     */
+    test('the name slide index actually indexes the name slide', async () => {
+        const r = await app.page.evaluate(() => {
+            const slides = [...document.querySelectorAll('.ob-slide')];
+            return { count: slides.length, last: _obLastIdx(), nameIdx: OB_NAME_SLIDE,
+                     nameSlideHasInput: !!slides[OB_NAME_SLIDE].querySelector('#ob-name-input'),
+                     lastSlideHasGoals: !!slides[_obLastIdx()].querySelector('#goal-options'),
+                     dots: document.querySelectorAll('#ob-dots .ob-dot').length };
+        });
+        expect(r.nameSlideHasInput).toBe(true);     // OB_NAME_SLIDE is not adrift
+        expect(r.lastSlideHasGoals).toBe(true);     // openGoalPicker's assumption holds
+        expect(r.last).toBe(r.count - 1);
+        expect(r.dots).toBe(r.count);               // a dot per slide, still
+        expect(r.nameIdx).toBeLessThan(r.last);
+    }, 30_000);
+
+    test('onboarding still navigates end to end, and only the name slide can refuse', async () => {
+        const r = await app.page.evaluate(() => {
+            showOnboarding(0);
+            const seen = [];
+            for (let i = 0; i < 10 && document.getElementById('onboarding-overlay').classList.contains('show'); i++) {
+                seen.push(_obSlide);
+                obNext();
+            }
+            return { seen, closed: !document.getElementById('onboarding-overlay').classList.contains('show'),
+                     onboarded: localStorage.getItem('bp_onboarded_reg1') };
+        });
+        expect(r.seen).toEqual([0, 1, 2, 3, 4]);    // every slide, in order
+        expect(r.closed).toBe(true);
+        expect(r.onboarded).toBe('1');              // the completion flag is set
+    }, 30_000);
+
+    test('an over-long name is the one thing that holds onboarding up', async () => {
+        const r = await app.page.evaluate(() => {
+            showOnboarding(OB_NAME_SLIDE);
+            document.getElementById('ob-name-input').value = 'x'.repeat(41);
+            obNext();
+            const stuck = _obSlide;
+            document.getElementById('ob-name-input').value = '';
+            obNext();                                // blank always passes
+            const freed = _obSlide;
+            hideOnboarding();
+            return { stuck, freed };
+        });
+        expect(r.stuck).toBe(3);                     // refused, still on the slide
+        expect(r.freed).toBe(4);                     // and never trapped there
+    }, 30_000);
+
+    test('the tier slide no longer contradicts itself about where a new account starts', async () => {
+        /* app/index.html:2746 puts a brand-new account on beginner, so the
+           "Start at Beginner" headline was always right and the body clause
+           claiming Intermediate was the default was the stale half. */
+        const r = await app.page.evaluate(() => {
+            const slide = document.getElementById('ob-slide-2');
+            return { text: slide.innerText || slide.textContent,
+                     welcome: document.getElementById('step-welcome').textContent };
+        });
+        expect(r.text).not.toContain('Intermediate is the default');
+        expect(r.text).toContain('starts at Beginner');
+        expect(r.text).toContain('Intermediate is open from day one');
+        expect(r.welcome).toContain('Beginner and Intermediate are open from day one');
+    }, 30_000);
 
     test('the daily tip renders and the run produced no JS errors', async () => {
         await app.page.evaluate(() => { persisted.lastTipDate = ''; renderDailyTip(); });

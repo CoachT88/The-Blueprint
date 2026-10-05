@@ -99,18 +99,56 @@ function launchOptions() {
  *                   table that has not had its ALTER TABLE run yet
  * Every upsert is recorded on window.__writes so tests can assert what would
  * have reached the database.
+ *
+ * Phase 2B.3.5 added a real session lifecycle on top, because until then
+ * signOut() was a no-op, getSession() was hardcoded to null and the
+ * onAuthStateChange subscription was never fired. The consequence was that
+ * handleLogout(), the SIGNED_OUT branch and onUserSignedIn() had never been
+ * executed by a test, and every "account switch" in the suite was a
+ * reassignment of currentUser with persisted hand-seeded beside it. Those
+ * remain useful as targeted isolation tests; they just do not prove the
+ * lifecycle. See authSignIn() / authSignOut().
  */
 function installSupabaseStub(cfg) {
     window.__writes = [];
     window.__row = cfg.row;
     window.__files = cfg.files;
+    /* Phase 2B.3.5. The session lifecycle, so the real auth path can run.
+       All three default to empty, which reproduces the old behaviour exactly:
+       no session, a subscription nobody fires, and a members table nobody
+       asks about. A suite opts in by calling authSignIn(). */
+    window.__session = null;          // what getSession() returns
+    window.__authSubs = [];           // onAuthStateChange callbacks
+    window.__members = [];            // emails the members table knows
+    window.__rowsByUser = {};         // per-account user_data, keyed by id
+    window.__authEvents = [];         // every event fired, for assertions
+
     const noRow = { data: null, error: { code: 'PGRST116', message: 'no rows' } };
-    const readResult = () => (window.__row ? { data: window.__row, error: null } : noRow);
-    const makeQuery = () => {
+    /* A per-account row wins when one is registered, so two accounts in one
+       browser can hold genuinely different data. Otherwise the single __row
+       every existing suite uses. */
+    const readResult = () => {
+        const uid = window.__session && window.__session.user && window.__session.user.id;
+        const scoped = uid && Object.prototype.hasOwnProperty.call(window.__rowsByUser, uid)
+            ? window.__rowsByUser[uid] : undefined;
+        const row = scoped !== undefined ? scoped : window.__row;
+        return row ? { data: row, error: null } : noRow;
+    };
+    /* The members lookup is a different question from the user_data read, and
+       answering it with __row would sign every test member straight back out:
+       checkMembership() treats PGRST116 as "not a member". */
+    const membersResult = (email) => {
+        const hit = (window.__members || []).some(m => String(m).toLowerCase() === String(email).toLowerCase());
+        return hit ? { data: { email }, error: null } : noRow;
+    };
+    const makeQuery = (table) => {
         const q = {};
-        ['select', 'eq', 'order', 'limit', 'insert', 'delete', 'update'].forEach(m => { q[m] = () => q; });
-        q.single = () => (cfg.hangRead ? new Promise(() => {}) : Promise.resolve(readResult()));
-        q.then = (res) => (cfg.hangRead ? new Promise(() => {}) : Promise.resolve(readResult()).then(res));
+        let askedEmail = null;
+        ['select', 'order', 'limit', 'insert', 'delete', 'update'].forEach(m => { q[m] = () => q; });
+        q.eq = (col, val) => { if (col === 'email') askedEmail = val; return q; };
+        const result = () => (table === 'members' ? membersResult(askedEmail) : readResult());
+        q.single = () => (cfg.hangRead && table !== 'members' ? new Promise(() => {}) : Promise.resolve(result()));
+        q.then = (res) => (cfg.hangRead && table !== 'members' ? new Promise(() => {}) : Promise.resolve(result()).then(res));
         q.upsert = (payload) => {
             const bad = cfg.rejectColumns.find(c => c in payload);
             if (bad) return Promise.resolve({ error: { code: 'PGRST204', message: `Could not find the '${bad}' column of 'user_data' in the schema cache` } });
@@ -119,15 +157,52 @@ function installSupabaseStub(cfg) {
         };
         return q;
     };
+    /* Fire the way Supabase does: every registered listener, in order. The
+       app registers exactly one (app/index.html onAuthStateChange). */
+    window.__fireAuth = (event, session) => {
+        window.__authEvents.push(event);
+        window.__session = session;
+        (window.__authSubs || []).forEach(cb => { try { cb(event, session); } catch (e) {} });
+    };
     window.supabase = {
         createClient: () => ({
             from: makeQuery,
             auth: {
-                onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
-                getSession: () => Promise.resolve({ data: { session: null } }),
-                signOut: () => Promise.resolve({}),
+                onAuthStateChange: (cb) => {
+                    window.__authSubs.push(cb);
+                    return { data: { subscription: { unsubscribe() {
+                        window.__authSubs = window.__authSubs.filter(x => x !== cb);
+                    } } } };
+                },
+                getSession: () => Promise.resolve({ data: { session: window.__session } }),
+                /* A real sign-out drops the session and tells the app. Without
+                   this the SIGNED_OUT branch had never once executed.
+                   The event is deferred to a macrotask on purpose: the real
+                   one arrives after a network round trip, so handleLogout()'s
+                   own cleanup and the SIGNED_OUT branch's cleanup are
+                   separated in time. Firing it synchronously made each one
+                   cover for the other, and a mutation removing either went
+                   unnoticed. */
+                signOut: () => {
+                    window.__authUser = null;
+                    setTimeout(() => window.__fireAuth('SIGNED_OUT', null), 0);
+                    return Promise.resolve({});
+                },
                 signInWithPassword: () => Promise.resolve({ data: {}, error: null }),
                 signUp: () => Promise.resolve({ data: {}, error: null }),
+                /* Phase 2B.3.1. Preferred name lives in auth user_metadata,
+                   so the stub has to model it. window.__authUser is the
+                   stand-in for the session user; window.__updateUserFails
+                   lets a suite make the write fail the way the network can. */
+                updateUser: ({ data }) => {
+                    if (window.__updateUserFails) {
+                        return Promise.resolve({ data: null, error: { message: 'stubbed failure' } });
+                    }
+                    window.__authUser = window.__authUser || { id: 'stub', email: 'stub@example.com', user_metadata: {} };
+                    window.__authUser.user_metadata = { ...(window.__authUser.user_metadata || {}), ...data };
+                    window.__updateUserCalls = (window.__updateUserCalls || 0) + 1;
+                    return Promise.resolve({ data: { user: JSON.parse(JSON.stringify(window.__authUser)) }, error: null });
+                },
             },
             storage: {
                 from: () => ({
@@ -149,10 +224,22 @@ export const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCA
  * array that accumulates page errors, so a suite can assert a clean run.
  */
 export async function openApp(opts = {}) {
-    const { row = null, hangRead = false, rejectColumns = [], files = [], acceptDialogs = true } = opts;
+    const { row = null, hangRead = false, rejectColumns = [], files = [], acceptDialogs = true,
+            clock = null, timezoneId = null } = opts;
     const srv = await startServer();
     const browser = await chromium.launch(launchOptions());
-    const page = await browser.newPage({ viewport: VIEWPORT });
+    /* Phase 2B.3.5. `timezoneId` belongs to the context and `clock` has to be
+       installed before the first navigation, so both are set up here rather
+       than being something a test can reach for later. They are the whole of
+       the clock control in this suite: Playwright's own API, used by the few
+       tests that genuinely need an hour or a timezone, not a general
+       injection facility. */
+    const page = await browser.newPage(timezoneId ? { viewport: VIEWPORT, timezoneId } : { viewport: VIEWPORT });
+    /* setFixedTime, deliberately, not install(). install() replaces the timer
+       queue as well, so the app's own setTimeout work would never run and the
+       page would come up half-wired. setFixedTime only pins what the clock
+       READS, which is the entire question these tests ask. */
+    if (clock) await page.clock.setFixedTime(clock);
 
     const errors = [];
     page.on('pageerror', e => errors.push(`PAGEERROR: ${e.message}`));
@@ -193,6 +280,45 @@ export async function signIn(page, { id = 'testuser', email = 'test@example.com'
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('auth-screen').classList.add('hidden');
     }, { id, email, patch: persisted, loaded });
+}
+
+/**
+ * Sign in the way production does, through onAuthStateChange.
+ *
+ * This is the real orchestration: the app's own handler runs
+ * onUserSignedIn() → checkMembership() → loadPersisted() → hideAuthScreen(),
+ * so anything that happens between the session arriving and the data landing
+ * is observable. signIn() above skips all of that on purpose and stays the
+ * right tool for a targeted invariant; this is the one to reach for when the
+ * lifecycle itself is what is under test.
+ *
+ * `row` is the account's user_data (null = a brand-new member with no row).
+ * The email is added to the stubbed members table, because checkMembership()
+ * reads PGRST116 as "not a member" and would sign them straight back out.
+ */
+export async function authSignIn(page, { id = 'testuser', email = 'test@example.com',
+                                         user_metadata = {}, row = null, member = true } = {}) {
+    await page.evaluate(({ id, email, user_metadata, row, member }) => {
+        const user = { id, email, user_metadata: { ...user_metadata } };
+        window.__authUser = JSON.parse(JSON.stringify(user));
+        window.__rowsByUser[id] = row;
+        if (member && !window.__members.includes(email)) window.__members.push(email);
+        window.__fireAuth('SIGNED_IN', { user, access_token: 'stub-token-' + id });
+    }, { id, email, user_metadata, row, member });
+    // onUserSignedIn awaits the membership lookup and the row read before it
+    // hides the auth screen, so that is the honest signal that boot finished.
+    await page.waitForFunction(
+        () => document.getElementById('auth-screen').classList.contains('hidden')
+              && document.getElementById('loading-screen').classList.contains('hidden'),
+        null, { timeout: 15_000 });
+}
+
+/** Sign out the way the member does: the real handleLogout(). */
+export async function authSignOut(page) {
+    await page.evaluate(() => handleLogout());
+    await page.waitForFunction(
+        () => !document.getElementById('auth-screen').classList.contains('hidden'),
+        null, { timeout: 15_000 });
 }
 
 /** Which `.step-content` is currently visible, by id. */

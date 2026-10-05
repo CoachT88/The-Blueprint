@@ -346,3 +346,46 @@ export function programmeStartOnCompletion({ programmeStartDate, completedEntry,
     const d = asDate(completedEntry.date) || asDate(now) || new Date();
     return dayKey(d);
 }
+
+/**
+ * Can we PROVE no qualifying mechanical session happened before this one?
+ *
+ * Called just after a completion, so the session in question is the last
+ * entry in the log. Two things have to hold.
+ *
+ * FIRST, the history has to be complete. allTimeSessionCount has exactly one
+ * increment site and sessionLog has exactly one push site, and they are
+ * adjacent lines in finishSession(), so the two move in lockstep and
+ * equality means nothing has been dropped. Every way they can come apart
+ * breaks the equality in a direction we can see:
+ *
+ *   log pruned at the byte budget, or the historic entry cap   count > length
+ *   member predates the count field, so it loads as 0          count < length
+ *   import whose backup omits the count                        count < length
+ *   import of a backup taken after pruning                     count > length
+ *
+ * All of those refuse. The one case that slips through is a hand-edited
+ * backup that is internally consistent, where the member overwrote their own
+ * data with a file claiming N sessions and the app has no other evidence.
+ *
+ * SECOND, the retained history must contain no earlier mechanical session.
+ * The count alone is not enough: a member can hold mechanical history AND a
+ * null programmeStartDate, because programmeStartBackfill() refuses to date
+ * anyone without corroboration. Reading the log catches that.
+ *
+ * The last entry is excluded, because the question is about what came
+ * BEFORE. Trimming removes from the front, so the newest entry is always
+ * last; and if this very push triggered a trim then count exceeds length and
+ * the completeness half has already refused.
+ *
+ * Deliberately not a session-count threshold. "Fewer than N sessions" cannot
+ * separate a new member whose first session was Recovery from a long-tenured
+ * one whose log was pruned, and any N would be invented. This asks a
+ * question the data can actually answer, and says no when it cannot.
+ */
+export function provablyFirstMechanicalSession({ sessionLog, allTimeSessionCount } = {}) {
+    const log = Array.isArray(sessionLog) ? sessionLog : [];
+    if (!log.length) return false;
+    if (allTimeSessionCount !== log.length) return false;         // history not provably whole
+    return !log.slice(0, -1).some(isQualifyingSession);           // nothing mechanical before
+}

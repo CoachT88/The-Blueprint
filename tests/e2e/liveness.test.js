@@ -986,3 +986,126 @@ describe('today complete versus weekly mechanical completion', () => {
         expect(app.errors).toEqual([]);
     });
 });
+
+/**
+ * Selective personalization, Phase 2B.3.3.
+ *
+ * Extended return is the one other place the name is used, and it appears
+ * once. Twenty eight days is product policy about when an acknowledgement is
+ * useful, never a conclusion about anyone's body.
+ */
+describe('extended return, with and without a name', () => {
+    let app;
+    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'xr' }); }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    /** Away `daysAgo`, optionally named, then render. */
+    const away = (page, daysAgo, name) => page.evaluate(({ daysAgo, name }) => {
+        currentUser = { ...currentUser, user_metadata: name ? { preferred_name: name } : {} };
+        _persistedLoaded = true;
+        persisted.primaryGoal = 'all';
+        persisted.pelvicProfile = 'standard';
+        persisted.schedule = ['length', 'length', 'length', 'length', 'length', 'length', 'length'];
+        persisted.completedDays = [false, false, false, false, false, false, false];
+        persisted.progressionLedger = [];
+        const d = new Date(); d.setDate(d.getDate() - daysAgo); d.setHours(12, 0, 0, 0);
+        persisted.sessionLog = [{ date: d.toISOString(), routineType: 'length', duration: 30 }];
+        Object.keys(localStorage).filter(k => k.startsWith('bp_greeted_')).forEach(k => localStorage.removeItem(k));
+        renderDashboard();
+        const r = window.BP.nextBestAction(buildResolverInput());
+        const live = document.getElementById('today-liveness');
+        const greet = document.getElementById('hq-greeting');
+        return {
+            liveness: live.dataset.liveness || null,
+            text: live.classList.contains('hidden') ? '' : live.textContent.trim(),
+            greetingShown: !greet.classList.contains('hidden'),
+            state: r.state, mission: r.mission, duration: r.duration, modifiers: r.modifiers,
+            returnContext: r.returnContext,
+            // Everything personalization is forbidden from touching.
+            difficulty: persisted.difficulty, deload: isDeloadWeek(),
+            weekComplete: r.weekComplete, prescription: applyDifficulty({ sets: 4, duration: 60 }),
+        };
+    }, { daysAgo, name });
+
+    test('ACCEPTANCE: 28 days with a name is a restrained named welcome', async () => {
+        const r = await away(app.page, 40, 'Marcus');
+        expect(r.liveness).toBe('extended-return');
+        expect(r.text).toBe("Welcome back, Marcus. Today's session is the only thing to think about.");
+        // The name appears exactly once.
+        expect(r.text.match(/Marcus/g)).toHaveLength(1);
+    }, 30_000);
+
+    test('ACCEPTANCE: 28 days with no name keeps the existing wording', async () => {
+        const r = await away(app.page, 40, null);
+        expect(r.liveness).toBe('extended-return');
+        expect(r.text).toBe("You're back after a while away. Today's session is the only thing to think about.");
+    }, 30_000);
+
+    test('7 to 27 days does not gain the named treatment', async () => {
+        for (const d of [7, 15, 27]) {
+            const r = await away(app.page, d, 'Marcus');
+            expect(r.liveness).toBe('returning');
+            expect(r.text).toBe("You're back. Pick it up with today's session.");
+            expect(r.text).not.toContain('Marcus');
+        }
+    }, 60_000);
+
+    test('under 7 days says nothing at all', async () => {
+        const r = await away(app.page, 3, 'Marcus');
+        expect(r.liveness).toBe(null);
+        expect(r.text).toBe('');
+    }, 30_000);
+
+    test('ACCEPTANCE: the ordinary greeting is suppressed that day', async () => {
+        const r = await away(app.page, 40, 'Marcus');
+        expect(r.greetingShown).toBe(false);
+        // So the name is said once on the whole screen, not twice.
+        const whole = await app.page.evaluate(() => document.getElementById('step-0').textContent);
+        expect(whole.match(/Marcus/g)).toHaveLength(1);
+    }, 30_000);
+
+    test('ACCEPTANCE: it changes nothing about the prescription', async () => {
+        const named = await away(app.page, 40, 'Marcus');
+        const anon = await away(app.page, 40, null);
+        expect(named.state).toBe(anon.state);
+        expect(named.mission).toBe(anon.mission);
+        expect(named.duration).toBe(anon.duration);
+        expect(named.modifiers).toEqual(anon.modifiers);
+        expect(named.returnContext).toBe(anon.returnContext);
+        expect(named.difficulty).toBe(anon.difficulty);
+        expect(named.deload).toBe(anon.deload);
+        expect(named.weekComplete).toBe(anon.weekComplete);
+        expect(named.prescription).toEqual(anon.prescription);
+        // And the tier a named member lands on is the untouched default.
+        expect(named.difficulty).toBe('intermediate');
+    }, 30_000);
+
+    test('REGRESSION: a markup-like name stays inert', async () => {
+        const r = await app.page.evaluate(() => {
+            window.__xss = 0;
+            currentUser = { ...currentUser, user_metadata: { preferred_name: '<img src=x onerror="window.__xss=1">' } };
+            _persistedLoaded = true;
+            const d = new Date(); d.setDate(d.getDate() - 40); d.setHours(12, 0, 0, 0);
+            persisted.sessionLog = [{ date: d.toISOString(), routineType: 'length', duration: 30 }];
+            renderDashboard();
+            const live = document.getElementById('today-liveness');
+            return { xss: window.__xss, imgs: live.querySelectorAll('img').length, html: live.innerHTML, text: live.textContent };
+        });
+        expect(r.xss).toBe(0);
+        expect(r.imgs).toBe(0);
+        expect(r.html).not.toContain('<img');
+        expect(r.text).toContain('<img');
+    }, 30_000);
+
+    test('no return copy claims anything about the body', async () => {
+        const all = await app.page.evaluate(() =>
+            ['returning', 'extended-return'].map(k => LIVENESS_COPY[k]({ target: 4 }, 'Marcus')).join(' | '));
+        expect(all).not.toMatch(/lost progress|detrain|starting over|start over|tolerance|slipped back/i);
+        expect(all).not.toMatch(/adapt|vascular|hormon|tissue|erection|blood flow|testosterone/i);
+        expect(all).not.toMatch(/discipline|willpower|lazy|fell off/i);
+    }, 30_000);
+
+    test('the page threw nothing throughout', () => {
+        expect(app.errors).toEqual([]);
+    });
+});

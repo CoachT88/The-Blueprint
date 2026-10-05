@@ -121,6 +121,9 @@
         .dim-toggle-btn{width:36px;height:36px;border-radius:.6rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;flex-shrink:0}
         .dim-toggle-btn.lit{background:rgba(250,204,21,.12);border-color:rgba(250,204,21,.3)}
         /* Deload banner */
+        /* Account rows. The minimum needed to separate them legibly, using
+           the same surface tokens as every other sheet. */
+        .account-row{background:rgba(30,41,59,.5);border:1px solid rgba(51,65,85,.6);border-radius:1rem;padding:.85rem 1rem}
         /* Liveness. Deliberately restrained: week complete is the only one
            that gets colour, and it is a quiet green rather than a fanfare. */
         #today-liveness{color:#94a3b8}
@@ -749,9 +752,15 @@
             <div class="flex items-center gap-2">
                 <span id="current-date" class="text-[10px] font-black uppercase bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700/50 text-slate-300">-- --</span>
                 <button id="notif-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Notifications"><i id="notif-icon" class="fas fa-bell text-xs"></i></button>
-                <button id="logout-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Sign out"><i class="fas fa-right-from-bracket text-xs"></i></button>
+                <button id="account-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 text-slate-500" title="Account"><i class="fas fa-user text-xs"></i></button>
             </div>
         </div>
+
+        <!-- One restrained line, and only on an ordinary opening. The brand
+             lockup above is untouched: this does not replace it, and it is
+             deliberately quieter than the Today headline below. Suppressed
+             entirely whenever anything more useful has something to say. -->
+        <p id="hq-greeting" class="hidden px-2 text-[13px] text-slate-400"></p>
 
         <!-- ── Critical band ───────────────────────────────────────────────
              Above the decision, so only the things that make the decision
@@ -876,6 +885,23 @@
                 <div class="flex-1 min-w-0">
                     <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Recovery Pass Used</p>
                     <p class="text-[10px] text-slate-400 mt-0.5">You missed yesterday, so a banked pass covered it. Get back in today.</p>
+                </div>
+            </div>
+            <!-- The lowest-value thing in the band, and the last entry in
+                 NUDGE_BAND. Offered once; either button resolves it. No
+                 urgency, nothing implying the name is required or that
+                 anything is incomplete without it. -->
+            <div id="hq-name-prompt" class="hidden p-3 rounded-2xl bg-slate-800/40 border border-slate-700/50">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-user text-slate-400 text-lg flex-shrink-0 mt-0.5"></i>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest">Make it a little more personal</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">Tell Coach Tee what to call you. Optional, and you can change or remove it whenever you like.</p>
+                        <div class="flex gap-2 mt-2">
+                            <button id="hq-name-prompt-add" class="text-[10px] font-black text-slate-200 uppercase tracking-widest bg-slate-700/60 px-3 py-1.5 rounded-xl">Add preferred name</button>
+                            <button id="hq-name-prompt-dismiss" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1.5">Not now</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="hq-coach-nudge" class="hidden p-3 rounded-2xl" style="background:rgba(168,85,247,.09);border:1px solid rgba(168,85,247,.3)">
@@ -1456,14 +1482,34 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">Start at Beginner</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The app has 4 tiers: Beginner → Intermediate → Advanced → Elite. New pilots start at Beginner. Each tier requires 4 weeks of consistent training before the next unlocks — this lets your tissue adapt safely. On rest days, always do the Recovery Protocol.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">The app has 4 tiers: Beginner → Intermediate → Advanced → Elite. A new account starts at Beginner, and Intermediate is open from day one whenever you want it. Advanced and Elite are earned by putting training weeks in, not by waiting.</p>
         <div class="mt-6 p-4 rounded-2xl bg-amber-500/08 border border-amber-500/20 text-left max-w-xs w-full">
             <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">CoachTee Says</p>
             <p class="text-slate-400 text-xs leading-relaxed">The guys who try to skip to Advanced in week one are the same guys who quit in week three. Trust the process.</p>
         </div>
     </div>
 
+    <!-- Optional, and it has to stay that way. Continue works with the field
+         empty, Skip is visible rather than hidden behind the field, and no
+         suggestion is offered: guessing a name from the email local part
+         would be wrong often enough to feel invasive. -->
     <div class="ob-slide" id="ob-slide-3">
+        <div class="relative mb-6">
+            <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
+            <div class="relative p-6 bg-blue-500/08 rounded-full border border-blue-500/20 w-fit mx-auto">
+                <i class="fas fa-user text-4xl text-blue-400"></i>
+            </div>
+        </div>
+        <h2 class="text-3xl font-black italic uppercase text-white mb-2">What should Coach Tee call you?</h2>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">Optional. Leave it blank if you would rather not, and you can change it later.</p>
+        <input id="ob-name-input" type="text" autocomplete="given-name" spellcheck="false"
+               class="w-full max-w-xs bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-[15px] text-white"
+               placeholder="Your name">
+        <p id="ob-name-error" class="hidden text-[11px] text-red-400 font-bold mt-3"></p>
+        <button id="ob-name-skip" class="text-slate-500 text-[11px] font-bold uppercase tracking-widest mt-5">Skip</button>
+    </div>
+
+    <div class="ob-slide" id="ob-slide-4">
         <div class="relative mb-6">
             <div class="absolute inset-0 bg-blue-500/20 blur-[40px] rounded-full"></div>
             <div class="relative p-6 bg-blue-500/08 rounded-full border border-blue-500/20 w-fit mx-auto">
@@ -1485,6 +1531,7 @@
 <div class="absolute bottom-0 left-0 right-0 p-8 flex flex-col items-center gap-4">
     <div class="flex gap-2" id="ob-dots">
         <div class="ob-dot active"></div>
+        <div class="ob-dot"></div>
         <div class="ob-dot"></div>
         <div class="ob-dot"></div>
         <div class="ob-dot"></div>
@@ -1964,6 +2011,47 @@
             <button id="pelvic-lock-take" class="btn-primary py-3.5 text-[12px]">TAKE THE CHECK</button>
             <button id="pelvic-lock-close" class="btn-outline py-3 text-[11px]">Not now</button>
         </div>
+    </div>
+</div>
+
+<!-- ACCOUNT. The smallest surface that lets a member manage the one thing
+     they can set about themselves, reach the notification settings that
+     already exist, and sign out. Nothing else belongs here: no avatar, no
+     username, no bio, no stats, no badges. -->
+<div id="account-modal" class="hidden fixed inset-0 z-[99996] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
+    <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(100,116,139,.3)">
+        <div class="flex justify-between items-center">
+            <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-user"></i> Account</p>
+            <button id="account-close" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400"><i class="fas fa-xmark text-sm"></i></button>
+        </div>
+
+        <div class="account-row">
+            <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-[11px] font-bold text-slate-300">Preferred name</p>
+                    <p id="account-name-value" class="text-[12px] text-slate-500 mt-0.5 truncate">Not set</p>
+                </div>
+                <button id="account-name-edit" class="text-[10px] font-black text-slate-300 uppercase tracking-widest bg-slate-800 px-3 py-1.5 rounded-xl flex-shrink-0">Edit</button>
+            </div>
+            <div id="account-name-editor" class="hidden mt-3 space-y-2">
+                <input id="account-name-input" type="text" autocomplete="given-name" spellcheck="false"
+                       class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-[14px] text-white"
+                       placeholder="Your name">
+                <p id="account-name-error" class="hidden text-[11px] text-red-400 font-bold"></p>
+                <div class="flex gap-2">
+                    <button id="account-name-save" class="btn-primary py-2.5 px-4 text-[11px] flex-1">Save</button>
+                    <button id="account-name-cancel" class="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">Cancel</button>
+                </div>
+                <button id="account-name-clear" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Remove my name</button>
+            </div>
+        </div>
+
+        <div class="account-row flex items-center justify-between gap-3">
+            <p class="text-[11px] font-bold text-slate-300">Notifications</p>
+            <button id="account-notif-open" class="text-[10px] font-black text-slate-300 uppercase tracking-widest bg-slate-800 px-3 py-1.5 rounded-xl">Open</button>
+        </div>
+
+        <button id="logout-btn" class="w-full py-3 text-[11px] font-black text-red-400 uppercase tracking-widest" title="Sign out">Sign out</button>
     </div>
 </div>
 
@@ -2605,10 +2693,9 @@ const DEFAULT_PERSISTED={
     pelvicProfile:'',      // '' | tight | standard  — result of the pelvic floor screener
     pelvicScreenDate:'',   // when they last took it, so it can be re-offered
     /* ── Phase 2B.1 progression ────────────────────────────────────────
-       Both are read and written from here on, and neither is consumed by
-       any behaviour yet: tier gating, deload and backfill are still the
-       old logic. This is the compatibility step, so the columns are
-       round-tripping before anything depends on them. */
+       Both are authoritative. The ledger decides Advanced and Elite
+       access, the deload week and whether a Recovery Pass is earned;
+       programmeStartDate records when the programme actually began. */
     programmeStartDate:null,  // null + allTimeSessionCount>0 means established, start unknown
     progressionLedger:[],     // see src/progressionLedger.js for the row shape
 };
@@ -3718,9 +3805,16 @@ async function fetchClaude(mode, userMsg, context){
 function _coachContext(){
     const log=persisted.sessionLog||[];
     if(!log.length){
-        return `LIVE USER DATA\nThis member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(getScheduledType())}.`;
+        const _n=preferredName();
+        return `LIVE USER DATA\n${_n?`Preferred name: ${_n}\n`:''}This member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(getScheduledType())}.`;
     }
     const lines=[];
+    /* Deterministic context, like every other line here. The model may use
+       it naturally and is not told to; it never determines identity, and it
+       calculates none of the facts below. Omitted entirely when there is no
+       name, rather than sent as a null. */
+    const _name=preferredName();
+    if(_name) lines.push(`Preferred name: ${_name}`);
     lines.push(`Stated goal: ${getGoal().label}. ${getGoal().coach}`);
     if(isFloorTight()) lines.push(`Pelvic floor screener: HYPERTONIC (tight). Do NOT recommend kegels or any contraction work to this member under any circumstances. Lead with reverse kegels, diaphragmatic breathing, hip openers and myofascial release. Contraction work has been removed from their protocol in the app.`);
     else if(hasPelvicScreen()) lines.push(`Pelvic floor screener: no signs of a tight floor. Contraction and release work are both appropriate, but tell them to stop the kegels if urgency, perineal ache or post-ejaculation discomfort appear.`);
@@ -4787,8 +4881,12 @@ const NUDGE_BAND=[
     // today's prescription the Today card raises it as a PREPARE state, so
     // nothing is lost by it losing here.
     {id:'hq-pelvic-prompt',       live:()=>!!currentUser&&!hasPelvicScreen()},
+    /* Lower than the screener on purpose. A pelvic check is safety
+       relevant and a name is not, so anything useful about training wins.
+       Offered once in a member's life; see _nameNudgeLive. */
+    {id:'hq-name-prompt',         live:()=>!!_nameNudgeLive},
 ];
-let _storageFull=false, _passUsedThisRender=false, _coachNudgeLive=false;
+let _storageFull=false, _passUsedThisRender=false, _coachNudgeLive=false, _nameNudgeLive=false;
 
 function _renderBand(entries){
     let shown=false;
@@ -4854,6 +4952,100 @@ function todayCompletionKind(){
     return today.some(e=>window.BP.isQualifyingSession(e))?'mechanical':'recovery';
 }
 
+/* ── The greeting gate ────────────────────────────────────────────────────
+   Once per LOCAL calendar day per authenticated member. The key carries the
+   user id and the date and nothing else; the name is in neither the key nor
+   the value, and there is no elapsed-24-hours arithmetic anywhere near it.
+   Account A's key cannot suppress B, and coming back to A the same day
+   finds A's own key still set. */
+function _greetedKey(){
+    if(!currentUser||!window.BP) return null;
+    return 'bp_greeted_'+currentUser.id+'_'+window.BP.localDayKey(new Date());
+}
+function _greetedToday(){
+    const k=_greetedKey();
+    if(!k) return false;
+    try{ return localStorage.getItem(k)==='1'; }catch(e){ return false; }
+}
+function _markGreeted(){
+    const k=_greetedKey();
+    if(!k) return;
+    try{ localStorage.setItem(k,'1'); }catch(e){}
+}
+
+/** Is any critical-band message live? One definition, read from the band. */
+function _attentionBandLive(){
+    return ATTENTION_BAND.some(e=>{ try{ return e.live(); }catch(err){ return false; } });
+}
+
+/**
+ * May an ordinary greeting render right now?
+ *
+ * Everything here is a reason NOT to, and the ones about the week live in
+ * livenessContext() rather than being repeated here. This adds only what
+ * that pure function cannot see: who is signed in, whether the app has
+ * finished loading, whether the critical band owns the screen, and whether
+ * the prescription is one where the member is being asked for something.
+ *
+ * Requiring _persistedLoaded is what prevents a flash. Until it is true the
+ * liveness state is unknown, so a greeting might have to be retracted a
+ * moment later; delaying it is explicitly preferred to that. Nothing is
+ * lost by waiting, because the gate is only marked once it actually renders.
+ */
+function greetingEligible(r){
+    if(!currentUser||!_persistedLoaded) return false;
+    if(!preferredName()) return false;
+    if(_attentionBandLive()) return false;
+    if(!r||GREETING_BLOCKING_STATES.includes(r.state)) return false;
+    if(_greetedToday()) return false;
+    return true;
+}
+
+/* ── The one-time name prompt ──────────────────────────────────────────────
+   Offered once in a member's life, never on a schedule. The key is user
+   scoped and holds nothing but the fact that they were asked: no name, no
+   email, no timestamp, and no cooldown, because this is genuinely
+   once-only rather than throttled.
+
+   Resolved by EITHER button. "Not now" obviously resolves it, and so does
+   "Add preferred name": they have been offered it and now know the Account
+   surface exists, which is permanent. The member-facing copy stays simple
+   and this comment is where the behaviour is stated plainly.
+
+   Clearing a name later never un-resolves it. A deliberate clear is a valid
+   permanent state, not an incomplete setup to nag about. */
+function _nameAskedKey(){ return currentUser?('bp_name_asked_'+currentUser.id):null; }
+function _nameAsked(){
+    const k=_nameAskedKey();
+    if(!k) return false;
+    try{ return localStorage.getItem(k)==='1'; }catch(e){ return false; }
+}
+function _markNameAsked(){
+    const k=_nameAskedKey();
+    if(!k) return;
+    try{ localStorage.setItem(k,'1'); }catch(e){}
+}
+
+/**
+ * May the name prompt show right now?
+ *
+ * Everything below is a reason not to. It is the lowest-value message in
+ * the app, so anything about training, safety or the week outranks it, and
+ * a member still in onboarding is already being asked there.
+ */
+function nameNudgeEligible(r,livenessKey){
+    if(!currentUser||!_persistedLoaded) return false;
+    let onboarded=false;
+    try{ onboarded=!!localStorage.getItem('bp_onboarded_'+currentUser.id); }catch(e){}
+    if(!onboarded) return false;
+    if(preferredName()) return false;
+    if(_nameAsked()) return false;
+    if(_attentionBandLive()) return false;
+    if(!r||GREETING_BLOCKING_STATES.includes(r.state)) return false;
+    if(livenessKey) return false;
+    return true;
+}
+
 /** The previous finished week, if it is honest to say it did not go to plan. */
 function currentMissedWeek(){
     if(!window.BP) return null;
@@ -4899,11 +5091,34 @@ function renderWeekProgress(){
  * blames anyone. Returning orients straight back to today; a week that did
  * not go to plan is named once and then left alone.
  */
+/* An ordinary opening is the only time this is reached, so the copy carries
+   no information and is not trying to. For a member with no name the surface
+   does not render at all: there is no generic version, because "Good
+   morning." addressed to nobody is filler. */
+const GREETING_COPY={
+    morning:  n=>`Good morning, ${n}.`,
+    afternoon:n=>`Good afternoon, ${n}.`,
+    evening:  n=>`Good evening, ${n}.`,
+};
+/* States where the member is being asked for something, holding mechanical
+   work, or part way through a session. None of those is an ordinary opening.
+   TRAIN, MODIFIED, REST and COMPLETE are. */
+const GREETING_BLOCKING_STATES=['PREPARE','RESUME','RECOVER'];
+
 const LIVENESS_COPY={
     'week-complete':  w=>`Week complete. You finished all ${w.target} sessions.`,
     'returning':      ()=>"You're back. Pick it up with today's session.",
-    'extended-return':()=>"You're back after a while away. Today's session is the only thing to think about.",
+    /* The one other place the name is used, and it appears once. The second
+       half is deliberately about TODAY: nothing here says progress was lost,
+       anything detrained, tolerance dropped or that they are starting over.
+       Twenty eight days is product policy about when saying something is
+       useful, not a conclusion about anyone's body. */
+    'extended-return':(w,name)=>name
+        ?`Welcome back, ${name}. Today's session is the only thing to think about.`
+        :"You're back after a while away. Today's session is the only thing to think about.",
     'missed-week':    ()=>'Last week did not go to plan. Start again from today.',
+    // Rendered separately, in its own element above the Today card.
+    'greeting':       ()=>'',
 };
 
 /** Copy for each state. Kept here so the renderer stays shape, not prose. */
@@ -5061,11 +5276,18 @@ function renderToday(){
             weekComplete:r.weekComplete,
             returnContext:r.returnContext,
             missedWeek:currentMissedWeek(),
+            greeting:greetingEligible(r),
         });
-        live.textContent=key?LIVENESS_COPY[key](w):'';
-        live.dataset.liveness=key||'';
-        live.classList.toggle('hidden',!key);
+        /* The greeting has its own element above the Today card, so the
+           liveness line stays empty for it rather than carrying two kinds
+           of message in one slot. */
+        const inLine=key&&key!=='greeting';
+        live.textContent=inLine?LIVENESS_COPY[key](w,preferredName()):'';
+        live.dataset.liveness=inLine?key:'';
+        live.classList.toggle('hidden',!inLine);
         live.classList.toggle('liveness-complete',key==='week-complete');
+        renderGreeting(key==='greeting');
+        _nameNudgeLive=nameNudgeEligible(r,key);
     }
 
     // COMPLETE: closure, not a queue. What was done, and what is next.
@@ -5079,6 +5301,40 @@ function renderToday(){
 
     const card=document.getElementById('hq-today-card');
     if(card) card.dataset.state=r.state;
+}
+
+/**
+ * Paint the greeting, or clear it.
+ *
+ * The gate is marked HERE, after the text is on screen, and nowhere else.
+ * A member who opens during RECOVER in the morning has not used up the day:
+ * nothing was shown, so nothing was spent, and the evening still counts.
+ *
+ * textContent, never innerHTML. A name is member-supplied text and some of
+ * them will contain angle brackets.
+ *
+ * TWO GUARDS, DELIBERATELY. greetingEligible() refuses without a name and
+ * this refuses again. Neither alone can produce a nameless greeting, which
+ * mutation testing confirmed: breaking either one on its own changes
+ * nothing observable, and only breaking both renders "Good morning, there."
+ * That is defence in depth rather than dead code, and it is why the suite
+ * pins the compound invariant (no name means no surface, under any
+ * eligibility state) instead of either guard in isolation.
+ */
+function renderGreeting(show){
+    const el=document.getElementById('hq-greeting');
+    if(!el) return;
+    const name=show?preferredName():null;
+    if(!name){
+        el.textContent='';
+        el.classList.add('hidden');
+        return;
+    }
+    const band=window.BP.greetingBand(new Date());
+    el.textContent=GREETING_COPY[band](name);
+    el.dataset.band=band;
+    el.classList.remove('hidden');
+    _markGreeted();
 }
 
 /** Today's finished session, the week, and what is next. */
@@ -5545,6 +5801,31 @@ function finishSession(){
             now:new Date(),
         });
         if(_start) persisted.programmeStartDate=_start;
+        /* Exactly-once by construction, and no storage is needed for it.
+           programmeStartOnCompletion() returns a date ONLY when the start
+           was previously unset and this completion was mechanical, so
+           Recovery cannot set it, a backfilled start cannot, and an
+           established member cannot. The flag is reassigned on every
+           completion, showSessionSummary() has one caller, and a reload
+           clears it, so it cannot repeat or cross accounts.
+
+           provablyFirstMechanicalSession() closes a real hole the tests
+           found. A long-tenured member whose log has been pruned and who
+           has no legacy firstSessionDate backfills as
+           "established-start-unknown", which correctly leaves the date
+           null. Their next completion would then set it and read as a
+           first session, so someone three hundred sessions in would be
+           told they were just getting underway.
+
+           It proves the question rather than guessing at it: the history
+           has to be demonstrably whole, and it has to contain no earlier
+           mechanical session. No session-count threshold, which could not
+           separate a new member whose debut was Recovery from a tenured
+           one whose log was pruned, and which would have been invented. */
+        _programmeStartedThisSession=!!_start&&window.BP.provablyFirstMechanicalSession({
+            sessionLog:persisted.sessionLog,
+            allTimeSessionCount:persisted.allTimeSessionCount,
+        });
     }
     if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
     updateRecords(earnedXp);
@@ -5563,6 +5844,7 @@ function finishSession(){
     showSessionSummary(earnedXp);
 }
 let _passEarnedThisSession=false;
+let _programmeStartedThisSession=false;
 /**
  * Earn a Recovery Pass: one per qualifying week, capped at two so it stays a
  * safety net rather than a way to coast.
@@ -5736,6 +6018,92 @@ function renderPassChip(){
     const bank=document.getElementById('pass-info-bank');
     if(bank) bank.innerText=`You have ${n} of ${RECOVERY_PASS_CAP} banked.`;
 }
+/* ── Account surface ──────────────────────────────────────────────────────
+   The one place a member can see and change what the app calls them, reach
+   the notification settings that already exist, and sign out. */
+function renderAccount(){
+    const name=preferredName();
+    const v=document.getElementById('account-name-value');
+    if(v){
+        // textContent: a name is member-supplied text and some contain
+        // angle brackets. "Not set" is a state, not a problem to fix.
+        v.textContent=name||'Not set';
+        v.classList.toggle('text-slate-300',!!name);
+        v.classList.toggle('text-slate-500',!name);
+    }
+}
+function openAccount(){
+    // Rendered from currentUser at open time rather than anything cached,
+    // so a previous member's name cannot survive into this sheet.
+    renderAccount();
+    closeAccountEditor();
+    document.getElementById('account-modal').classList.remove('hidden');
+    track('account_opened');
+}
+function closeAccount(){ document.getElementById('account-modal').classList.add('hidden'); }
+function openAccountEditor(){
+    const input=document.getElementById('account-name-input');
+    if(input) input.value=preferredName()||'';
+    document.getElementById('account-name-error').classList.add('hidden');
+    document.getElementById('account-name-editor').classList.remove('hidden');
+    if(input) input.focus();
+}
+function closeAccountEditor(){
+    document.getElementById('account-name-editor').classList.add('hidden');
+    document.getElementById('account-name-error').classList.add('hidden');
+}
+function _accountError(msg){
+    const el=document.getElementById('account-name-error');
+    if(!el) return;
+    el.textContent=msg;
+    el.classList.remove('hidden');
+}
+/**
+ * Save what they typed.
+ *
+ * Unlike onboarding, this is an explicit settings action: they expect the
+ * setting to change, so a failure is VISIBLE. The editor stays open with
+ * what they typed still in it, and the displayed value is untouched,
+ * because nothing is mutated optimistically. Nothing is written to
+ * user_data, localStorage or the members table; savePreferredName() goes
+ * to auth metadata and refreshes currentUser from what auth returns, so
+ * every identity surface reads the new value on its next call with no
+ * cache to invalidate.
+ */
+async function saveAccountName(){
+    const input=document.getElementById('account-name-input');
+    if(!input||!window.BP) return false;
+    const out=window.BP.validatePreferredName(input.value);
+    if(!out.ok){
+        _accountError(`That is ${out.length} characters. Please keep it to ${out.max} or fewer.`);
+        return false;
+    }
+    const ok=await savePreferredName(out.value);
+    if(!ok){
+        _accountError('Could not save that just now. Check your connection and try again.');
+        return false;
+    }
+    /* The daily greeting gate is deliberately NOT touched here. Adding a
+       name does not replay a greeting already spent today, and does not
+       force one into this sheet: the greeting lives on the HQ. */
+    renderAccount();
+    closeAccountEditor();
+    renderDashboard();
+    return true;
+}
+/** Clearing is a valid permanent state, and never reopens the prompt. */
+async function clearAccountName(){
+    const ok=await savePreferredName(null);
+    if(!ok){
+        _accountError('Could not save that just now. Check your connection and try again.');
+        return false;
+    }
+    renderAccount();
+    closeAccountEditor();
+    renderDashboard();
+    return true;
+}
+
 function openPassInfo(){
     renderPassChip();
     document.getElementById('pass-info-modal').classList.remove('hidden');
@@ -5823,6 +6191,15 @@ function showSessionSummary(xp){
     const records=[];
     if(xp>=r.bestSessionXp&&xp>0) records.push('⚡ New session XP record: '+xp+' XP');
     if(_passEarnedThisSession) records.push('🛡️ You earned a Recovery Pass for a solid week of training');
+    /* The programme has begun, and that is the whole claim. Nothing here
+       says adaptation has started, that results are underway or that any
+       physical change has happened, because none of that is known.
+       No name: this moment does not need one.
+
+       Week Complete outranks it. If this same session also finished the
+       week, that is the larger accomplishment and this stays quiet rather
+       than stacking a second celebratory line beside it. */
+    if(_programmeStartedThisSession&&!currentWeekComplete()) records.push("🚩 You're officially underway.");
     const recordsEl=document.getElementById('summary-records');
     recordsEl.innerHTML=records.map(r=>`<div class="text-center text-emerald-400 text-sm font-black py-1.5 bg-emerald-500/08 border border-emerald-500/20 rounded-xl">${r}</div>`).join('');
     modal.classList.add('show');
@@ -6047,8 +6424,82 @@ function goToObSlide(idx){
     if(btn) btn.innerText=idx>=_obLastIdx()?'Get Started':'Next';
 }
 function obNext(){
+    // The name slide is the only one that can refuse to advance, and only
+    // for a value too long to store. Blank always passes.
+    if(_obSlide===OB_NAME_SLIDE&&!commitPreferredName()) return;
     if(_obSlide>=_obLastIdx()) finishOnboarding();
     else goToObSlide(_obSlide+1);
+}
+
+/* ── Preferred name ────────────────────────────────────────────────────────
+   Optional, and the no-name path is the one most members are on. It lives in
+   Supabase auth user_metadata: it arrives with the session, crosses devices,
+   and needed no migration. It is never copied into persisted, never written
+   to localStorage, and never guessed from the email. */
+const OB_NAME_SLIDE=3;
+
+/** The one read. Everything that wants the name asks this and nothing else. */
+function preferredName(){
+    if(!window.BP) return null;
+    return window.BP.readPreferredName(currentUser);
+}
+
+/**
+ * Save, or clear when passed null.
+ *
+ * Returns true only when auth confirmed it. currentUser is refreshed from
+ * the user auth hands back, so the next read is the stored value rather
+ * than what we hoped we stored.
+ */
+async function savePreferredName(value){
+    if(!currentUser) return false;
+    try{
+        const {data,error}=await sb.auth.updateUser({data:{preferred_name:value}});
+        if(error) return false;
+        if(data&&data.user) currentUser=data.user;
+        else currentUser={...currentUser,user_metadata:{...(currentUser.user_metadata||{}),preferred_name:value}};
+        return true;
+    }catch(e){ return false; }
+}
+
+/**
+ * Leaving the name slide.
+ *
+ * Over-length refuses and stays put so the member can shorten it; nothing is
+ * truncated behind their back. Everything else advances IMMEDIATELY and the
+ * save happens behind it, because a failed identity write must never trap
+ * anyone in onboarding or cost them access to the product.
+ *
+ * A FAILED SAVE IS SILENT, deliberately. There was a note element here, and
+ * it was useless: it lived on the name slide, and .ob-slide is opacity 0
+ * once the member has advanced, so nobody ever saw it. Rather than move the
+ * message somewhere it would be seen, there is now no message, because
+ * there is nothing the member could do with it. The name is optional, no
+ * edit surface exists until the Account surface in 2B.3.4, and nothing in
+ * this subphase displays a name, so there is no contradiction on screen. A
+ * modal, a toast framework or a new notification surface would each be
+ * larger than the problem and are all out of scope.
+ *
+ * The member simply has no name, which is the same state most members are
+ * in. 2B.3.4 is where "no name set" becomes visible and fixable.
+ */
+function commitPreferredName(){
+    const input=document.getElementById('ob-name-input');
+    const err=document.getElementById('ob-name-error');
+    if(!input||!window.BP) return true;
+    const out=window.BP.validatePreferredName(input.value);
+    if(!out.ok){
+        if(err){
+            err.textContent=`That is ${out.length} characters. Please keep it to ${out.max} or fewer.`;
+            err.classList.remove('hidden');
+        }
+        return false;                      // stay on the slide
+    }
+    if(err) err.classList.add('hidden');
+    if(out.value===null) return true;      // skipped or left blank, nothing to save
+    // Fire and forget. Failure leaves them with no name and says nothing.
+    savePreferredName(out.value);
+    return true;
 }
 
 // ── Primary goal picker ────────────────────────────────────────────────────
@@ -6659,12 +7110,29 @@ async function handleForgotPassword(){
     if(error)setAuthError(error.message);
     else setAuthSuccess('Password reset email sent. Check your inbox.');
 }
+/* Every overlay that shows one member's own data.
+   These are body-level siblings of the screens, not .step-content, so hiding
+   the steps on sign-out left them open. The auth screen covers them at
+   z-99999 so nothing is visible while signed out, but hideAuthScreen() on the
+   NEXT sign-in uncovers them, and none of them re-render until reopened. The
+   Account sheet was the live case: A signs out with it open, B signs in, and
+   B's HQ comes up with A's name on screen. Withholding identity UI beats
+   showing the wrong member's. */
+function _closeMemberOverlays(){
+    ['account-modal','notif-modal','pass-info-modal','coach-modal','type-modal',
+     'tier-lock-modal','pelvic-screen-modal','pelvic-result-modal']
+        .forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden')});
+    const hist=document.getElementById('history-modal'); if(hist) hist.style.display='none';
+    const man=document.getElementById('manual-modal'); if(man) man.classList.remove('show');
+    closeAccountEditor();
+}
 async function handleLogout(){
     // Clear state and show auth screen immediately — don't wait on the network.
     // Any in-flight onUserSignedIn will see currentUser cleared and abort.
     currentUser=null;persisted={...DEFAULT_PERSISTED};
     _releaseWakeLock();
     showAuthScreen();
+    _closeMemberOverlays();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     _flushSaveNow();
     flushAnalytics();
@@ -6837,7 +7305,7 @@ async function _refreshNotifUI(){
         :perm==='denied'?'Notifications blocked in browser settings.'
         :perm==='granted'?'Almost there. Tap Enable to finish setting up reminders.'
         :'';
-    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
+    const prefs=_readNotifPrefs();
     if(prefs.time) document.getElementById('notif-time').value=prefs.time;
 }
 async function enableNotifications(){
@@ -6903,7 +7371,7 @@ async function _pushRegistration(){
 async function _savePushSubscription(sub){
     if(!currentUser)return;
     const j=sub.toJSON();
-    const prefs=JSON.parse(localStorage.getItem('bp_notif_prefs')||'{}');
+    const prefs=_readNotifPrefs();
     await sb.from('push_subscriptions').upsert({
         user_id:currentUser.id,
         endpoint:j.endpoint,
@@ -6929,14 +7397,15 @@ async function _refreshPushTimezone(){
     try{
         if(!currentUser)return;
         const tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if(!tz||tz===localStorage.getItem('bp_push_tz'))return;
+        const _tzk=_pushTzKey();
+        if(!tz||(_tzk&&tz===localStorage.getItem(_tzk)))return;
         // Deliberately not gated on _swRegistration or on fetching the
         // subscription: initServiceWorker() is not awaited, so the registration
         // is often still null at sign-in and the refresh would silently never
         // happen. The update simply matches no rows for a member who has not
         // subscribed, and the cached key means it runs once per device per move.
         const {error}=await sb.from('push_subscriptions').update({timezone:tz}).eq('user_id',currentUser.id);
-        if(!error) localStorage.setItem('bp_push_tz',tz);
+        if(!error&&_tzk) localStorage.setItem(_tzk,tz);
     }catch(e){/* reminders are not worth failing a sign-in over */}
 }
 // A push subscription is bound to the VAPID key it was created with. When that
@@ -6982,10 +7451,34 @@ async function _ensureCurrentPushSubscription(){
 }
 /* The toggle-rendering helper went with the streak-warning switch, which was
    the only toggle in the notification settings and its only caller. */
+/* Both of these were unscoped while fourteen other bp_ keys carry the user
+   id, and both held MEMBER state rather than device state, so two accounts
+   on one browser shared them.
+
+   bp_notif_prefs holds the chosen reminder time, and
+   _savePushSubscription() writes it into whichever member is signed in: A
+   picks 06:00, B subscribes on the same browser, and B's server row gets
+   A's hour. bp_push_tz caches the last timezone written, so A signing in
+   suppressed B's timezone refresh and left B's row stale.
+
+   Old unscoped values are deliberately NOT migrated. A missing scoped key
+   means exactly what it means on a new device: read the default reminder
+   time, and refresh this member's timezone once. The stale unscoped keys
+   are simply never read again. */
+function _notifPrefsKey(){ return currentUser?('bp_notif_prefs_'+currentUser.id):null; }
+function _pushTzKey(){ return currentUser?('bp_push_tz_'+currentUser.id):null; }
+/** Stored notification prefs for the signed-in member, or {} for nobody. */
+function _readNotifPrefs(){
+    const k=_notifPrefsKey();
+    if(!k) return {};
+    try{ return JSON.parse(localStorage.getItem(k)||'{}'); }catch(e){ return {}; }
+}
+
 async function saveNotifPrefs(){
     const time=document.getElementById('notif-time').value;
     const prefs={time};
-    localStorage.setItem('bp_notif_prefs',JSON.stringify(prefs));
+    const _pk=_notifPrefsKey();
+    if(_pk) localStorage.setItem(_pk,JSON.stringify(prefs));
     /* The server reads reminder_time, so this write is the only thing that
        makes the picker mean anything. streak_warn is deliberately no longer
        written: the column still exists for backward compatibility but
@@ -7160,6 +7653,22 @@ function init(){
     // purpose rather than passed through on the way to everything.
     document.getElementById('today-alt-btn').addEventListener('click',()=>{track('something_else');goToStep(3)});
     document.getElementById('pelvic-lock-close').addEventListener('click',closePelvicLock);
+    document.getElementById('account-btn').addEventListener('click',openAccount);
+    document.getElementById('account-close').addEventListener('click',closeAccount);
+    document.getElementById('account-name-edit').addEventListener('click',openAccountEditor);
+    document.getElementById('account-name-cancel').addEventListener('click',closeAccountEditor);
+    document.getElementById('account-name-save').addEventListener('click',saveAccountName);
+    document.getElementById('account-name-clear').addEventListener('click',clearAccountName);
+    document.getElementById('account-notif-open').addEventListener('click',()=>{closeAccount();openNotifModal();});
+    document.getElementById('hq-name-prompt-add').addEventListener('click',()=>{
+        // Resolved either way: they have been offered it, and the Account
+        // surface they are about to see is permanent.
+        _markNameAsked(); track('name_prompt_accepted');
+        renderDashboard(); openAccount(); openAccountEditor();
+    });
+    document.getElementById('hq-name-prompt-dismiss').addEventListener('click',()=>{
+        _markNameAsked(); track('name_prompt_dismissed'); renderDashboard();
+    });
     document.getElementById('hq-pass-chip').addEventListener('click',openPassInfo);
     document.getElementById('pass-info-close').addEventListener('click',closePassInfo);
     document.getElementById('pelvic-lock-take').addEventListener('click',()=>{
@@ -7272,6 +7781,14 @@ function init(){
     document.getElementById('pelvic-result-ok').addEventListener('click',closePelvicResult);
     document.getElementById('pelvic-result-learn').addEventListener('click',()=>{closePelvicResult();openManualAt('m-recovery');});
     document.getElementById('ob-skip-btn').addEventListener('click',()=>{track('intro_skipped',{slide:_obSlide});hideOnboarding();});
+    document.getElementById('ob-name-skip').addEventListener('click',()=>{
+        /* Skipping stores nothing. The field is cleared so a later Continue
+           cannot save what they just chose not to give us. */
+        const i=document.getElementById('ob-name-input'); if(i) i.value='';
+        document.getElementById('ob-name-error').classList.add('hidden');
+        track('name_skipped');
+        goToObSlide(_obSlide+1);
+    });
     document.getElementById('tour-next').addEventListener('click',tourNext);
     document.getElementById('tour-skip').addEventListener('click',()=>{if(!_tourIsTip)track('tour_skipped',{stop:_tourIdx});endTour();});
     // Tapping the dimmed area advances, matching how these tours usually behave.
@@ -7343,7 +7860,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     sb.auth.onAuthStateChange((event,session)=>{
         if(event==='SIGNED_OUT'){
             currentUser=null;persisted={...DEFAULT_PERSISTED};_persistedLoaded=false;
-            showAuthScreen();return;
+            // Also reached when the session ends somewhere else: another tab,
+            // or an expired token. handleLogout() never ran, so the overlays
+            // have to be closed here too.
+            showAuthScreen();_closeMemberOverlays();return;
         }
         setTimeout(()=>{
             if(session?.user){
@@ -7392,7 +7912,11 @@ import { weekCompletion } from '../src/weekCompletion.js';
 // Phase 2B.2 liveness. Communication only: nothing here reaches the
 // prescription, and the browser suite asserts that.
 import { returnContext, missedWeekReentry, livenessContext,
-         daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS } from '../src/liveness.js';
+         daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS,
+         greetingBand, localDayKey, GREETING_BAND, GREETING_BANDS } from '../src/liveness.js';
+// Phase 2B.3.1. Identity, optional forever, read from auth and nowhere else.
+import { validatePreferredName, readPreferredName, hasPreferredName,
+         nameLength, PREFERRED_NAME_MAX } from '../src/preferredName.js';
 // The in-page getCurrentWeekKey() reads the clock and takes no argument, so
 // it cannot answer "which week was this log entry in". weekUtils can, and it
 // is the version with the year-boundary tests behind it.
@@ -7404,16 +7928,20 @@ import { normaliseLedger, reconcileLedger, progressionState, PROGRESSION_STATE,
          WEEK_VERDICT, weekQualified, weekIsMemberFacingMiss, deloadState,
          progressionEligibility } from '../src/progressionLedger.js';
 import { toleranceHolds, programmeStartBackfill, programmeStartOnCompletion,
-         isQualifyingSession } from '../src/progression.js';
+         isQualifyingSession, provablyFirstMechanicalSession } from '../src/progression.js';
 import { PROGRESSION_POLICY } from '../src/progressionPolicy.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, weekCompletion, weekKey, normaliseLedger,
               reconcileLedger, progressionState, PROGRESSION_STATE, WEEK_VERDICT,
               weekQualified, weekIsMemberFacingMiss, toleranceHolds,
               programmeStartBackfill, programmeStartOnCompletion, isQualifyingSession,
+              provablyFirstMechanicalSession,
               PROGRESSION_POLICY, deloadState, progressionEligibility,
               returnContext, missedWeekReentry, livenessContext,
-              daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS };
+              daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS,
+              greetingBand, localDayKey, GREETING_BAND, GREETING_BANDS,
+              validatePreferredName, readPreferredName, hasPreferredName,
+              nameLength, PREFERRED_NAME_MAX };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();
