@@ -2,8 +2,55 @@
 
 Phase 3S. **Design document. Nothing here is implemented.**
 
-Status: rulings P1 to P11 locked. Three-track model approved. Stage 3 and
-Stage 4 protocols are open design tasks.
+Status: **frozen for implementation planning.** Rulings P1 to P11 locked.
+Three work types, four skill stages, programme-aware readiness. Stage 3 and
+Stage 4 exact interactions remain open design tasks and do not block planning.
+
+---
+
+## FROZEN FOR IMPLEMENTATION PLANNING
+
+The Last Longer skill architecture is **frozen** as of this document.
+
+### The frozen model
+
+```
+PRIMARY SKILL TRACK      Recognition
+                           -> Stop and Recover
+                             -> Modulate Without a Full Stop
+                               -> Transfer
+
+SUPPORTING WORK          Pelvic Floor, screener-routed
+                         Mobility where appropriate
+
+DAILY PRACTICE           Calm Arousal Breathing
+
+PROGRESSION              Performance-gated
+                         Full qualifying sessions only
+                         No calendar advancement
+                         No punishment for early ejaculation
+                         No progression credit from reduced or
+                           protective work
+
+MEMBER EXPERIENCE        Open app, see Today, do it
+```
+
+### What the freeze means
+
+**No further Last Longer technique research**, unless a specific unresolved
+safety or dose decision requires it. Four passes established that the
+literature contains no protocol to copy; a fifth will not change that, and the
+remaining work is implementation rather than discovery.
+
+The unresolved values are not gaps to research away. They are **knobs to
+parameterise**, listed in the final section.
+
+### What is still open
+
+Two things, both of which can be resolved during implementation rather than
+before it: the Stage 3 and Stage 4 protocols at the level of exact
+interaction, and the readiness thresholds in section 6. Neither blocks
+planning.
 
 ---
 
@@ -343,9 +390,21 @@ day. They are reported separately.
 | **Daily Practice adherence** | practices completed | days elapsed | its own quiet line |
 | **Progression qualification** | sessions meeting the stage gate | sessions required | stage advancement |
 
-**A day plan's `status` reflects Primary and Supporting Work only.** Missing a
-daily practice does not mark a Rest day as missed, which would be perverse:
-a Rest day asks for no session work, so there is no session work to fail.
+**A day plan's `status` reflects Primary and Supporting Work only.**
+
+This is a hard rule, not a default:
+
+- `dayPlan.status` is computed from scheduled Primary plus Supporting Work,
+  and from nothing else.
+- **Missing Calm Arousal Breathing must never turn a Rest day into a missed
+  programme day.** A Rest day asks for no session work, so there is no session
+  work to fail.
+- Daily Practice surfaces independently in Progress, for example
+  `Calm Arousal Breathing 5/7 days`, with **no effect on the day's
+  training-state truth**.
+- **The three truths never collapse into one score.** There is no combined
+  percentage anywhere, because the moment one exists somebody will optimise
+  the easy component to move it.
 
 ---
 
@@ -470,43 +529,91 @@ Exact protocol remains an open design task.
 > **Blueprint can reduce what the member has to do today without lowering what
 > he has to demonstrate before progressing.**
 
-That is the whole relationship between readiness and progression, and it
-closes a hole in an earlier draft where a reduced session still satisfied the
-advancement gate. Soreness must never become a cheaper route to a higher
+That is the whole relationship between readiness and progression. It closes a
+hole in an earlier draft where a reduced session still satisfied the
+advancement gate, which made reporting soreness a cheaper route to a higher
 stage.
 
-### The matrix
+### Qualification matrix
 
 | Session as delivered | Programme adherence | Progression qualification |
 |---|---|---|
 | **Full prescribed session** | yes | **yes, possible** |
-| **Modified** (reduced cycles) | yes | **no, by default** |
+| **Modified** (reduced) | yes | **no, by default** |
 | **Protective / support only** | yes, if completed as assigned | **no** |
 | **Rest, as prescribed** | not counted either side | **no** |
 | **Missed** | no | **no** |
 
-### How readiness modifies each stage
+**Equivalency rules remain architecturally possible.** Some future reduced
+session might be made to qualify under defined conditions. None is invented
+now, and the default is that a reduced session does not qualify.
 
-| Readiness | Stage 1 | Stages 2 to 4 |
-|---|---|---|
-| normal | as prescribed | 3 cycles, **qualifying** |
-| **moderate soreness** | unchanged, nothing to reduce, **qualifying** | **2 cycles**, adherence only, **not qualifying** |
-| **high soreness** | withheld | withheld, day becomes protective: Daily Practice plus Relaxation and Coordination |
-| **deload week** | unchanged | 2 cycles, adherence only, **not qualifying** |
-| moderate plus deload | unchanged | **primary withheld**, support only |
+### Readiness modifiers are programme-aware
 
-Stage 1 is not reduced by moderate soreness because there is nothing in it to
-reduce, so a Stage 1 session under moderate soreness is a full prescribed
-session and does qualify.
+> **A readiness modifier may depend on the location and type of discomfort,
+> not only its global severity. One global soreness level does not map
+> identically across Size, Last Longer, Erection Quality and Everything.**
 
-Cycle reduction is the natural modification for a cycle-driven session and it
-respects the minimum meaningful dose rule: below two cycles there is no
-approach and retreat left, so the day becomes support only rather than a token
-session.
+This replaces an earlier draft which stated, as though it were architectural
+truth, that moderate soreness reduces Stages 2 to 4 to two cycles. **That
+generalised a signal too coarse to carry it.**
 
-**Equivalency rules remain architecturally possible** (some future reduced
-session might be made to qualify under defined conditions) **but none are
-invented now.**
+The existing readiness field is a single global severity
+(`none | mild | moderate | high`). For Length and Girth, where the training
+stress is mechanical loading of tissue, a global severity is a defensible
+proxy. For Last Longer it is not, because the relevant question is not only
+how sore but **where, and whether it is relevant to today's training**:
+
+- moderately sore legs after a run have little to do with an arousal-control
+  session, and reducing that session would be a false precaution
+- moderate penile, perineal or pelvic discomfort is **not** answered by a
+  *shorter* arousal-control session, because the problem is the stimulation
+  itself rather than its volume
+- **pain or meaningful genital irritation must never become an opportunity to
+  earn adherence through stimulation**
+
+### Last Longer policy direction
+
+Direction, not thresholds.
+
+| Signal | Direction |
+|---|---|
+| Unrelated or general soreness | little or no effect on the Primary Training Session |
+| Relevant genital, perineal or pelvic discomfort | may modify **or withhold** the Primary Training Session |
+| Pain, or high relevant discomfort | **no stimulation-based Primary Training Session** |
+
+Recorded explicitly so none of it is assumed:
+
+- The global `soreness` field **stays** for compatibility.
+- The readiness UI is **not** redesigned in this document.
+- Exact mild and moderate rules remain `[PRODUCT POLICY]`, to be resolved
+  during readiness implementation.
+
+**Consequence for existing code, noted and not acted on.**
+`modifiers.moderateSoreness` in `src/nextBestAction.js` is currently a single
+universal lever applied the same way to every mission. A programme-aware model
+needs either a programme-scoped modifier or a location-aware input. That is a
+Phase 3S implementation decision. **Nothing in the resolver changes here.**
+
+### The shape a modification takes, when one is right
+
+Where a reduction **is** the correct response, the shape for a cycle-driven
+session is **3 cycles to 2** `[PRODUCT POLICY]`, and the session is adherence
+only. This survives as the form of a modification, **not as the automatic
+answer to a global severity reading**.
+
+Below two cycles there is no approach and retreat left, so the day becomes
+support only rather than a token session. That is the minimum meaningful dose
+rule applied to this programme.
+
+Stage 1 has nothing to reduce. Where a Stage 1 session runs at all it is a
+full prescribed session and it qualifies.
+
+### Deload
+
+A deload week reduces Stages 2 to 4 to 2 cycles, adherence only, not
+qualifying `[PRODUCT POLICY]`. Deload is programme state rather than a
+readiness signal, so it is not subject to the location question above.
 
 ---
 
@@ -531,9 +638,34 @@ lastLonger: {
 
 **Minimum clean state for Stage 3 is two fields per tool.** `consecutive`
 drives the gate; `demonstrated` is stored rather than derived because it must
-be **sticky**: once a tool is demonstrated it stays demonstrated even if a
-later session with it fails. That mirrors tier ownership, which is never
-revoked.
+be sticky.
+
+### Counter semantics
+
+"Consecutive" is ambiguous without these four rules, so they are the rules.
+
+| Event | `consecutive` | `demonstrated` | Adherence | Qualification |
+|---|---|---|---|---|
+| **Full qualifying session, successful** | **+1** | set true at threshold | yes | yes |
+| **Full qualifying session, unsuccessful** | **reset to 0** | unchanged | yes | no |
+| **Modified session** | **unchanged** | unchanged | yes | **no** |
+| **Protective / withheld** | unchanged | unchanged | yes, if completed as assigned | no |
+
+1. `consecutive` advances **only** from a full qualifying session.
+2. A **modified** session leaves the counter **unchanged**. It does not
+   advance it and it does not reset it.
+3. A **qualifying failure** resets that tool's `consecutive` to zero.
+4. Once `demonstrated` is true it **stays** true. A later unsuccessful session
+   never removes it.
+
+**The asymmetry in rule 2 is deliberate.** A reduced session is not a failure;
+it is a session that could not qualify. Resetting a counter because the app
+decided to lighten the day would punish the member for the app's own
+adaptation, and it would quietly undo the governing principle above.
+
+**Rule 4 mirrors tier ownership, which is never revoked.** The principle is
+worth stating in its own words: **temporary performance fluctuates; earned
+capability does not disappear.**
 
 `demonstratedTools` is not stored. It is
 `Object.keys(tools).filter(t => tools[t].demonstrated)`, and storing both
@@ -696,3 +828,73 @@ on every number we chose ourselves, and a progression a man will actually
 complete. **`[PRODUCT POLICY]` values outnumber `[REPORTED]` ones here by
 roughly two to one.** That is the honest consequence of the evidence base, and
 it is the reason this file exists rather than another conversation.
+
+---
+
+## 12. Parameterisation list for implementation planning
+
+Every `[PRODUCT POLICY]` value in this document, with its proposed starting
+value and where it belongs. **These are knobs, not findings.** They go in
+`PROGRESSION_POLICY` alongside the existing progression numbers, under the
+header already there stating that not one of them is a medical constant, a
+physiological threshold, or a finding from any literature.
+
+### Skill session shape
+
+| Knob | Proposed start | Informed by |
+|---|---|---|
+| `cyclesPerSession` | **3** | Ventus 2020 reports 3 |
+| `cyclesWhenModified` | **2** | minimum meaningful dose for a cycle-driven session |
+| `skillSessionsPerWeek` | **2** | below Ventus's 3, chosen for adherence |
+| session duration target | **none** | cycle-driven, not stopwatch-driven `[P3]` |
+| pause duration | **none** | no timer; the member's tap ends the pause `[P4]` |
+
+### Progression gates
+
+| Knob | Proposed start | Note |
+|---|---|---|
+| `successesRequired` | **2** | consecutive, for Stages 1, 2 and 4 |
+| `toolSuccessesRequired` | **unset** | per-tool criterion for Stage 3 |
+| `toolsRequiredForStage4` | **2** | "more than one demonstrated tool" |
+| Stage 1 success | recognised before finishing | |
+| Stage 2 success | cycles completed, no early finish, recognised in time, control regained | |
+| Stage 3 success | at least 2 of 3 cycles controlled without a full stop | |
+
+### Daily Practice
+
+| Knob | Proposed start | Note |
+|---|---|---|
+| `breathsPerPractice` | **10 minimum** | `[REPORTED Erkut]`, a floor not a prescription |
+| breathing pattern | **3s in, 7s out, no holds** | `[REPORTED Erkut]`, not a policy value |
+| `practicesPerDay` | **1 required** | research dose was 2; ours is 1, for adherence |
+| position | **not prescribed** | `[P6]`, not an active ingredient |
+| maximum session length | **unset** | `[UNRESOLVED]`, blocked in the source |
+
+### Readiness
+
+| Knob | Proposed start | Note |
+|---|---|---|
+| discomfort location model | **unset** | section 6. The architectural rule is fixed; the thresholds are not |
+| relevant-discomfort thresholds | **unset** | resolve during readiness implementation |
+| unrelated-soreness effect | **little or none** | direction only |
+| pain response | **no stimulation-based Primary Session** | direction only, and the one with a safety cost |
+
+### Curriculum
+
+| Knob | Proposed start | Note |
+|---|---|---|
+| Stage 3 tool order | tempo, intensity, tension, breathing | ordering is ours; de Carufel proved nothing about which works |
+| squeeze retained | **no, legacy only** | `[P10]`, required by nothing |
+| hand-only vs device | **hand-only** | `[P11]`, recorded as an extrapolation |
+
+### Rules that are not knobs
+
+These are architecture and must not be made configurable, because making them
+adjustable is how they get adjusted:
+
+- A reduced session never qualifies for progression.
+- `demonstrated` is never revoked.
+- Daily Practice never affects `dayPlan.status`.
+- Daily Practice and Supporting Work never enter `MECHANICAL_TYPES`.
+- No combined adherence score exists.
+- No calendar advancement anywhere.
