@@ -267,6 +267,48 @@ describe('moderate soreness reduces the session the member is actually given', (
         expect(await badge()).toEqual({ soreness: false, deload: false });
     }, 90_000);
 
+    // ── The two screens that preview the prescription ──────────────────
+
+    /**
+     * Mission Select and the girth circuit card both print volume before
+     * the session starts, and both used to print the tier's raw numbers.
+     * On a reduced day they told the member one thing and the engine then
+     * did another, which is the same defect as PI1 one screen earlier.
+     * It was equally true of a deload week before this.
+     */
+    test('the Mission Select subtext previews what the engine will give', async () => {
+        const subtext = async soreness => {
+            await reset('length');
+            await page().evaluate(s => {
+                localStorage.setItem(getTodaySorenessKey(), s);
+                renderDashboard();
+                session.routineType = 'length';
+                goToStep(3);
+            }, soreness);
+            await page().waitForTimeout(250);
+            return page().evaluate(() => document.getElementById('diff-detail').innerHTML);
+        };
+        // Intermediate Length is 3 x 30s normally, 2 x 18s reduced, and
+        // those are exactly the numbers getCurEx() returns above.
+        expect(await subtext('none')).toContain('30s per set · 3 sets');
+        expect(await subtext('moderate')).toContain('18s per set · 2 sets');
+    }, 90_000);
+
+    test('the girth circuit card previews the shaped work intervals', async () => {
+        const card = async soreness => {
+            await reset('girth', { soreness });
+            return page().evaluate(() => document.getElementById('circuit-overview-steps').innerText);
+        };
+        const normal = await card('none');
+        const reduced = await card('moderate');
+        // Intermediate: 120s jelq / 45s uli, reduced to 72s / 27s. The round
+        // count is in the label and is not shaped on either side.
+        expect(normal).toContain('2m');
+        expect(normal).toContain('45s');
+        expect(reduced).toContain('72s');
+        expect(reduced).toContain('27s');
+    }, 90_000);
+
     // ── The guard: the estimate and the engine may not drift apart ─────
 
     /**

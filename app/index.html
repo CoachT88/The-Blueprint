@@ -3525,6 +3525,9 @@ function currentShapes(){
         (r&&r.modifiers&&r.modifiers.moderateSoreness) ? window.BP.MODERATE_SORENESS_SHAPE : null,
     ];
 }
+/* Minutes only when it divides cleanly. A shaped 120s becomes 72s, and
+   "1.2m" is not a thing anyone wants to read off a circuit card. */
+function _durLabel(sec){ return sec>=60 && sec%60===0 ? (sec/60)+'m' : sec+'s'; }
 /** Is any volume reduction live right now? Drives the badges, nothing else. */
 function sorenessReduced(){
     const r=currentPrescription();
@@ -3576,16 +3579,25 @@ function renderDifficultySelector(){
         if(isRecov){detail.innerHTML='';return}
         const d=getDiff();
         const diffKey=d.id;
+        /* These numbers are a preview of the prescription, so they go
+           through the same shaping the engine will. They used to show the
+           tier's raw volume, which meant a deload week and a
+           moderate-soreness day both over-stated the session on the way in
+           and then delivered less. One of the two places the member could
+           read a number the engine was never going to honour. */
+        const shapes=currentShapes();
         if(session.routineType==='girth'){
             const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
-            const jelqLabel=cfg.jelqDur>=60?(cfg.jelqDur/60)+'m':cfg.jelqDur+'s';
-            detail.innerHTML=`${d.label}: ${cfg.rounds} Rounds — ${jelqLabel} Wet Jelq / ${cfg.uliDur}s Uli`;
+            const jelq=shapeEx({sets:1,duration:cfg.jelqDur},shapes).duration;
+            const uli =shapeEx({sets:1,duration:cfg.uliDur },shapes).duration;
+            detail.innerHTML=`${d.label}: ${cfg.rounds} Rounds — ${_durLabel(jelq)} Wet Jelq / ${uli}s Uli`;
         } else if(session.routineType==='stamina'){
-            detail.innerHTML=`${d.label}: Edging Protocol — 3 sets · vascular conditioning`;
+            const applied=shapeEx(applyDifficulty(ROUTINES.stamina[0]),shapes);
+            detail.innerHTML=`${d.label}: Edging Protocol — ${applied.sets} sets · vascular conditioning`;
         } else {
             const sampleEx=ROUTINES[session.routineType]?.[0];
             if(sampleEx){
-                const applied=applyDifficulty(sampleEx);
+                const applied=shapeEx(applyDifficulty(sampleEx),shapes);
                 detail.innerHTML=`${d.label}: ${applied.duration}s per set · ${applied.sets} sets · ${SESSION_XP[d.id]||15} XP`;
             } else {
                 detail.innerHTML='';
@@ -4409,11 +4421,18 @@ function updateExUI(){
     if(session.routineType==='girth' && session.girthRound===1 && session.exerciseIndex===0){
         const diffKey=getDiff().id;
         const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
-        const jelqLabel=cfg.jelqDur>=60?(cfg.jelqDur/60)+'m':cfg.jelqDur+'s';
+        /* Shaped, for the same reason the difficulty subtext is: this card
+           is the member reading what the circuit is about to be, and it
+           used to show the unreduced work intervals on a deload week.
+           Rounds and the inter-round rest are not shaped by anything, here
+           or in the estimate, so they are printed as they stand. */
+        const _s=currentShapes();
+        const jelqLabel=_durLabel(shapeEx({sets:1,duration:cfg.jelqDur},_s).duration);
+        const uliDur=shapeEx({sets:1,duration:cfg.uliDur},_s).duration;
         document.getElementById('circuit-overview-label').innerHTML=`<i class="fas fa-list-check"></i> ${cfg.rounds}-Round Circuit`;
         document.getElementById('circuit-overview-steps').innerHTML=`
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">1</span><p class="text-[11px] text-slate-300">Wet Jelq <span class="text-emerald-500">${jelqLabel}</span> — 3s per stroke, 60-80% EQ</p></div>
-            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">2</span><p class="text-[11px] text-slate-300">Uli — Manual Clamp <span class="text-emerald-500">${cfg.uliDur}s</span> — OK grip at base, 80% EQ</p></div>
+            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">2</span><p class="text-[11px] text-slate-300">Uli — Manual Clamp <span class="text-emerald-500">${uliDur}s</span> — OK grip at base, 80% EQ</p></div>
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-[9px] font-black text-slate-400">↺</span><p class="text-[11px] u-text-2">${cfg.restDur}s rest + re-lube between rounds</p></div>`;
         circOv.classList.remove('hidden');
     } else {
