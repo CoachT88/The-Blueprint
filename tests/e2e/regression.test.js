@@ -62,8 +62,12 @@ const ELEMENT_IDS = [
     'last-measure-row', 'last-bpel', 'last-mseg', 'beginner-rec-note',
     'hydration-over', 'hydration-undo-btn', 'hydration-entry-note',
     'modal-stamina-btn', 'warmup-back-btn', 'notif-modal', 'export-btn', 'import-btn',
-    'hq-stat-chips', 'hq-level-badge', 'hq-calendar-card', 'hq-tip-card', 'hq-hydration-card',
+    'hq-stat-chips', 'hq-calendar-card', 'hq-hydration-card',
     'hq-records-card', 'hq-tools-row', 'hq-coach-row',
+    // Phase 3C.1: one context slot under the header. hq-level-badge and
+    // hq-tip-card are gone from the HQ; the Recovery Pass chip that was
+    // nested inside the badge survives, because passes are real state.
+    'hq-context', 'hq-pass-chip',
     // Phase 2A.3: the daily check-in moved off the HQ into the Ready screen,
     // where the answer actually changes the prescription. hq-checkin-card is
     // gone on purpose; these are its replacements.
@@ -228,11 +232,20 @@ describe('app wiring', () => {
         expect(r.welcome).toContain('Beginner and Intermediate are open from day one');
     }, 30_000);
 
-    test('the daily tip renders and the run produced no JS errors', async () => {
-        await app.page.evaluate(() => { persisted.lastTipDate = ''; renderDailyTip(); });
-        await app.page.waitForTimeout(200);
-        const tip = await app.page.evaluate(() => document.getElementById('daily-tip').textContent);
-        expect(tip.length).toBeGreaterThan(10);
+    test('the daily tip card is gone, and asking for it is harmless', async () => {
+        /* Phase 3C.1 removed it: 168px, the tallest block on the HQ, and
+           branded "Coach Tee" while being canned static text, which made it
+           read as assistant output. renderDailyTip() is null-guarded and
+           still advances the stored index, so calling it cannot throw. */
+        const r = await app.page.evaluate(() => {
+            persisted.lastTipDate = ''; renderDailyTip();
+            return { card: !!document.getElementById('hq-tip-card'),
+                     body: !!document.getElementById('daily-tip'),
+                     indexMoved: typeof persisted.tipIndex === 'number' };
+        });
+        expect(r.card).toBe(false);
+        expect(r.body).toBe(false);
+        expect(r.indexMoved).toBe(true);
         expect(app.errors).toEqual([]);
     }, 30_000);
 });

@@ -357,8 +357,12 @@ describe('how often the name is actually used', () => {
             expect(hq.statChips).toBe(0);
             expect(hq.records).toBe(0);
             expect(hq.nudgeBand).toBe(0);
-            // The Today card may only carry it through the liveness line.
-            expect(hq.todayCard).toBe(hq.liveness);
+            /* 3C.1 moved the liveness line out of the Today card and into
+               the shared context slot under the header, so the card itself
+               must now carry the name NOWHERE. The restraint rule is
+               unchanged: the name appears only in the greeting, the
+               extended-return line, and the Coach Tee context. */
+            expect(hq.todayCard).toBe(0);
             // And the whole HQ is only ever the greeting plus that line.
             expect(hq.hq).toBe(hq.greeting + hq.liveness);
             expect(hq.hq).toBeLessThanOrEqual(1);   // never twice on one screen

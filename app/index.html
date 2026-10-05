@@ -834,30 +834,46 @@
 <!-- STEP 0: HQ -->
 
 <div id="step-0" class="step-content hidden-step">
-    <div class="inner-step-wrapper pt-12 space-y-5">
+    <div class="inner-step-wrapper space-y-4">
         <!-- ── Header ──────────────────────────────────────────────────────
              Identity and controls, plus the one progress number that belongs
              above the fold. Streak and XP used to sit here; they are now in
              the level block near the bottom. A streak that breaks on a
              scheduled rest day cannot share billing with a weekly target that
              counts that same rest day as success. -->
-        <div class="flex justify-between items-end px-2">
-            <div>
-                <h1 class="text-4xl font-black tracking-tighter uppercase italic leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">The Blueprint</h1>
-                <p id="hq-user-email" class="hidden"></p>
-            </div>
-            <div class="flex items-center gap-2">
-                <span id="current-date" class="text-[10px] font-black uppercase bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700/50 text-slate-300">-- --</span>
-                <button id="notif-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 u-text-2" title="Notifications"><i id="notif-icon" class="fas fa-bell text-xs"></i></button>
-                <button id="account-btn" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 border border-slate-700/50 u-text-2" title="Account"><i class="fas fa-user text-xs"></i></button>
+        <!-- One 44px row. The lockup was 36px over two lines in a 72px
+             block: the loudest thing on screen, carrying no information,
+             and it clipped under text enlargement because "BLUEPRINT"
+             cannot fit beside the date chip at that size. The wordmark is
+             now 18px on one line and cannot wrap. Icon buttons keep a 32px
+             face on a 44px tap target. -->
+        <div class="flex justify-between items-center px-2" style="min-height:44px">
+            <h1 class="text-[18px] font-black tracking-tight uppercase italic leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent whitespace-nowrap">The Blueprint</h1>
+            <p id="hq-user-email" class="hidden"></p>
+            <div class="flex items-center gap-1">
+                <span id="current-date" class="text-[10px] font-black uppercase u-text-2 mr-1">-- --</span>
+                <button id="notif-btn" class="u-icon-btn" title="Notifications"><i id="notif-icon" class="fas fa-bell text-sm"></i></button>
+                <button id="account-btn" class="u-icon-btn" title="Account"><i class="fas fa-user text-sm"></i></button>
             </div>
         </div>
+
 
         <!-- One restrained line, and only on an ordinary opening. The brand
              lockup above is untouched: this does not replace it, and it is
              deliberately quieter than the Today headline below. Suppressed
              entirely whenever anything more useful has something to say. -->
-        <p id="hq-greeting" class="hidden px-2 text-[13px] text-slate-400"></p>
+        <!-- ONE context line. The greeting sat here and the liveness line
+             inside the Today card: two slots competing for one job.
+             livenessContext() already guarantees at most one is live,
+             so co-locating them makes that structural. Bounded so a
+             long preferred name cannot move Today: the greeting
+             truncates, since only the name varies, and the liveness
+             line clamps to two lines because it is a sentence that
+             carries meaning and must not be cut in half. -->
+        <div id="hq-context" class="px-2">
+            <p id="hq-greeting" class="hidden text-[13px] text-slate-400 truncate"></p>
+            <p id="today-liveness" class="hidden line-clamp-2 text-[12px] mt-2 leading-relaxed"></p>
+        </div>
 
         <!-- ── Critical band ───────────────────────────────────────────────
              Above the decision, so only the things that make the decision
@@ -924,7 +940,6 @@
                  livenessContext(): week complete, then return, then a week
                  that did not go to plan. It sits beside the prescription and
                  never in place of it. -->
-            <p id="today-liveness" class="hidden text-[12px] mt-2 leading-relaxed"></p>
             <ul id="today-changes" class="hidden mt-3 space-y-1"></ul>
             <div id="today-complete-summary" class="hidden mt-3 grid grid-cols-2 gap-2"></div>
             <div id="today-actions" class="mt-4 space-y-2">
@@ -1020,7 +1035,28 @@
              Everything below supports the decision above and must not compete
              with it. Nothing here was removed; it was reordered. -->
         <div id="hq-calendar-card" class="px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
-        <p class="text-[9px] font-black u-text-3 text-center tracking-widest uppercase px-2">Tap any day to change training type</p>
+
+        <!-- Hydration, collapsed by default. It is a log, not a decision, and
+             it was taking the best real estate on the screen. -->
+
+
+        <div class="px-2 space-y-3 hq-anim">
+            <!-- The XP / level badge stood here: a number that climbs whether or
+                 not the work qualified, in the place the real signal belongs. The
+                 Recovery Pass chip was nested inside it and is kept, because
+                 passes are actual programme state. -->
+            <div class="px-2 flex justify-center"><button id="hq-pass-chip" class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-200">
+                    <i class="fas fa-shield-halved text-amber-400/80"></i>
+                    <span id="hq-pass-count">Recovery Passes: 0 / 2</span>
+                    <i class="fas fa-circle-info text-[8px] u-text-2"></i>
+                </button></div>
+            <!-- Below the fold, deliberately.
+                 TEMPORARY HQ HOLD - MOVE TO PROGRESS IN 3E.
+                 Demoted in 3C.1 so these stop competing with Today. They are
+                 NOT moved into the current Progress Intel modal, which would be
+                 a worse home than the HQ until the real Progress redesign
+                 exists. Do not let this become permanent by inertia. -->
+            <div id="hq-secondary" class="space-y-3">
         <div id="last-measure-row" class="flex gap-3 mx-2">
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
             <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
@@ -1029,9 +1065,6 @@
             <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Avg EQ</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">last 7 sessions</p><p id="eq-avg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
             <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
         </div>
-
-        <!-- Hydration, collapsed by default. It is a log, not a decision, and
-             it was taking the best real estate on the screen. -->
         <div id="hq-hydration-card" class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
             <button id="hydration-toggle" class="w-full flex justify-between items-center">
                 <div class="flex items-center gap-2 min-w-0">
@@ -1067,14 +1100,11 @@
                 <p id="hydration-msg" class="text-[10px] u-text-2 italic mt-1 text-center">Sip through the day rather than drinking a lot at once.</p>
             </div>
         </div>
-
-        <div id="hq-tip-card" class="tip-card mx-2 hq-anim">
-            <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><i class="fas fa-comment-dots"></i> Coach Tee</p>
-            <p id="daily-tip-title" class="text-[11px] font-black text-white uppercase tracking-wide mb-1"></p>
-            <p id="daily-tip" class="text-[12px] text-slate-300 leading-relaxed italic"></p>
+        <div class="px-2 space-y-2">
+            <p class="text-[9px] font-black uppercase tracking-[0.25em] u-text-2 px-1">Recent Sessions</p>
+            <div id="session-log" class="space-y-1.5"></div>
         </div>
-
-        <div class="px-2 space-y-3 hq-anim">
+            </div>
             <div id="hq-tools-row" class="grid grid-cols-3 gap-2">
                 <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
                 <button id="weekly-report-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-calendar-week text-emerald-400 text-xs"></i> Week</button>
@@ -1086,41 +1116,9 @@
             </div>
         </div>
 
-        <div class="px-2 space-y-2">
-            <p class="text-[9px] font-black uppercase tracking-[0.25em] u-text-2 px-1">Recent Sessions</p>
-            <div id="session-log" class="space-y-1.5"></div>
-        </div>
 
         <!-- Level and XP, demoted. The streak used to live here too and is
              gone; see the note below the bar. -->
-        <div id="hq-level-badge" class="level-badge mx-2 hq-anim">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center gap-2"><i class="fas fa-shield-halved text-yellow-400 text-xs"></i><span id="hq-level-name" class="text-yellow-300 text-xs font-black uppercase tracking-widest">LVL 1 &middot; RECRUIT</span></div>
-                <span id="hq-level-next" class="text-[10px] u-text-2 font-semibold">65 XP to next level</span>
-            </div>
-            <div class="level-bar-track"><div id="hq-level-bar" class="level-bar-fill" style="width:0%"></div></div>
-            <!-- The daily streak used to sit here. It contradicted the weekly
-     target by construction: it broke on any day without a session, a
-     prescribed rest day included, so a member following the programme
-     exactly lost their streak twice a week while the week counter called
-     them on track. Display went first, then the mechanics, and in Phase
-     2B.2 the last of it: the server's streak warning and the calculation
-     behind it are gone, so no streak is computed, stored, shown or sent
-     anywhere. Only records.longestStreak remains, frozen, as history. -->
-            <!-- Recovery Passes. Here rather than anywhere louder because a
-                 banked Pass is useful to know about and not urgent, and the
-                 mechanic is small on purpose. Tapping it explains what a
-                 Pass does, which the member needs before one is spent for
-                 them rather than after. -->
-            <div class="flex items-center gap-3 mt-2.5">
-                <span id="hq-xp" class="text-[10px] font-bold text-yellow-100">0 XP</span>
-                <button id="hq-pass-chip" class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-200">
-                    <i class="fas fa-shield-halved text-amber-400/80"></i>
-                    <span id="hq-pass-count">Recovery Passes: 0 / 2</span>
-                    <i class="fas fa-circle-info text-[8px] u-text-2"></i>
-                </button>
-            </div>
-        </div>
 
         <div class="scroll-buffer"></div>
     </div>
@@ -4985,7 +4983,7 @@ const NUDGE_BAND=[
 ];
 let _storageFull=false, _passUsedThisRender=false, _coachNudgeLive=false, _nameNudgeLive=false;
 
-function _renderBand(entries){
+function _renderBand(entries,containerId){
     let shown=false;
     for(const entry of entries){
         const el=document.getElementById(entry.id);
@@ -4995,8 +4993,25 @@ function _renderBand(entries){
         el.classList.toggle('hidden',!live);
         if(live) shown=true;
     }
+    /* Hide the CONTAINER too when nothing in it is live. These bands are
+       siblings in a space-y stack, so an empty one still collects a 16px
+       margin: an invisible element pushing Today down the screen. */
+    if(containerId){
+        const box=document.getElementById(containerId);
+        if(box) box.classList.toggle('hidden',!shown);
+    }
+    return shown;
 }
-function renderAttentionBand(){ _renderBand(ATTENTION_BAND); _renderBand(NUDGE_BAND); }
+/** Collapse a wrapper with no visible children, for the same reason. */
+function _collapseIfEmpty(id){
+    const box=document.getElementById(id);
+    if(!box) return;
+    const any=[...box.children].some(c=>!c.classList.contains('hidden')
+        && (c.textContent||'').trim().length>0);
+    box.classList.toggle('hidden',!any);
+}
+
+function renderAttentionBand(){ _renderBand(ATTENTION_BAND,'hq-attention-band'); _renderBand(NUDGE_BAND,'hq-nudge-band'); }
 
 /**
  * Liveness, Phase 2B.2. Both answers are derived in exactly one place.
@@ -5385,6 +5400,7 @@ function renderToday(){
         live.classList.toggle('liveness-complete',key==='week-complete');
         renderGreeting(key==='greeting');
         _nameNudgeLive=nameNudgeEligible(r,key);
+        _collapseIfEmpty('hq-context');
     }
 
     // COMPLETE: closure, not a queue. What was done, and what is next.
@@ -5795,12 +5811,12 @@ function renderDashboard(){
         g.appendChild(d);
     });
     document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
-    document.getElementById('hq-xp').innerText=`${persisted.totalXp} XP`;
+    /* The XP and level writes stood here. The badge they painted is gone
+       from the HQ. persisted.totalXp is still written and still stored, so
+       nothing is lost and the decision stays reversible; getLevelInfo() is
+       still used by the Coach Tee context. The remaining XP surfaces retire
+       with Progress in 3E. */
     renderPassChip();
-    const lvl=getLevelInfo(persisted.totalXp);
-    document.getElementById('hq-level-name').innerText=lvl.displayName;
-    document.getElementById('hq-level-bar').style.width=`${lvl.pct}%`;
-    document.getElementById('hq-level-next').innerText=lvl.isMax?'MAX LEVEL':`${lvl.xpToNext} XP to next level`;
     const meas=persisted.measurements||[];
     const last=meas.length?meas[meas.length-1]:null;
     document.getElementById('last-bpel').innerText=last?.bpel?`${last.bpel}"`:'—';

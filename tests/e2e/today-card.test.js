@@ -415,8 +415,11 @@ describe('week completion is the primary progress signal', () => {
             summaryStat: !!document.getElementById('summary-streak'),
             calcExists: typeof getCurrentStreak !== 'undefined',
             recordStillStored: typeof (persisted.records || {}).longestStreak === 'number',
-            levelBelowToday: !!(document.getElementById('hq-today-card')
-                .compareDocumentPosition(document.getElementById('hq-level-badge'))
+            // The XP/level badge left the HQ in 3C.1. What this was really
+            // checking is that gamification sits below the prescription, so
+            // it now checks the demoted secondary block instead.
+            secondaryBelowToday: !!(document.getElementById('hq-today-card')
+                .compareDocumentPosition(document.getElementById('hq-secondary'))
                 & Node.DOCUMENT_POSITION_FOLLOWING),
         }));
         expect(r.hqChip).toBe(false);
@@ -424,7 +427,7 @@ describe('week completion is the primary progress signal', () => {
         expect(r.summaryStat).toBe(false);
         expect(r.calcExists).toBe(false);
         expect(r.recordStillStored).toBe(true);
-        expect(r.levelBelowToday).toBe(true);
+        expect(r.secondaryBelowToday).toBe(true);
     });
 
     test('no visible surface still says "streak"', async () => {
@@ -450,8 +453,10 @@ describe('the two bands', () => {
 
     test('the hierarchy is header, critical, Today, week, nudges, secondary', async () => {
         const order = await app.page.evaluate(() => {
-            const ids = ['hq-attention-band', 'hq-today-card', 'hq-stat-chips',
-                         'hq-nudge-band', 'hq-calendar-card', 'hq-level-badge'];
+            /* 3C.1 order: context under the header, then critical, Today,
+               week, nudges, and the demoted secondary block last. */
+            const ids = ['hq-context', 'hq-attention-band', 'hq-today-card', 'hq-stat-chips',
+                         'hq-nudge-band', 'hq-calendar-card', 'hq-secondary'];
             const nodes = ids.map(i => document.getElementById(i));
             const ok = nodes.every((n, k) => k === 0 ||
                 !!(nodes[k - 1].compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING));

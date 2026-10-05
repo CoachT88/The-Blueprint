@@ -149,13 +149,16 @@ describe('goal-aware surfaces', () => {
                 // Everything after the row swap must still render — these are
                 // written unguarded and would abort the rest of the function.
                 logRendered: document.getElementById('session-log').innerHTML.length > 0,
-                tipRendered: document.getElementById('daily-tip').textContent.length > 0,
+                // The daily tip card was removed in 3C.1. The Recovery Pass
+                // chip is now the last thing renderDashboard() paints, so it
+                // serves the same purpose: proving the function ran to the end.
+                passRendered: document.getElementById('hq-pass-count').textContent.length > 0,
             };
         }, goal);
         expect(r.eq).toBe(expectEq);
         expect(r.meas).toBe(!expectEq);
         expect(r.logRendered).toBe(true);
-        expect(r.tipRendered).toBe(true);
+        expect(r.passRendered).toBe(true);
         if (expectEq) expect(r.eqAvg).toBe('7.5');
     }, 30_000);
 
