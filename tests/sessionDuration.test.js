@@ -240,10 +240,39 @@ describe('fixtures still match app/index.html', () => {
         expect(html).toContain('if(session.setIndex<ex.sets)startRest();else advanceEx()');
     });
 
-    test('recovery takes neither difficulty nor deload, girth takes deload only', () => {
+    test('recovery takes no shape at all, and girth shapes the work interval only', () => {
         expect(html).toContain('if(ex.isRecovery) return ex;');
-        expect(html).toContain('return applyDeload({...ex, sets:1, duration:dur});');
-        expect(html).toContain('return applyDeload(applyDifficulty(ex));');
+        expect(html).toContain('return shapeEx({...ex, sets:1, duration:dur}, shapes);');
+        expect(html).toContain('return shapeEx(applyDifficulty(ex), shapes);');
+    });
+
+    /* The whole point of the PI1 fix: the engine and this module must reduce
+       a session by the same amount. They do that by sharing the constants
+       and the arithmetic rather than each carrying a copy, and these two
+       assertions are what stops someone quietly re-typing a number into
+       app/index.html again. The browser suite proves the totals agree; this
+       proves the engine is still wired to the shared source at all. */
+    test('the engine composes difficulty, then deload, then soreness', () => {
+        expect(html).toContain('isDeloadWeek() ? window.BP.DELOAD_SHAPE : null,');
+        expect(html).toContain('window.BP.MODERATE_SORENESS_SHAPE : null,');
+        expect(html).toContain('const shapes = currentShapes();');
+    });
+
+    test('the engine takes its arithmetic from this module, not a local copy', () => {
+        expect(html).toContain('window.BP.applyShapes(ex,shapes)');
+        expect(html).toContain("applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE } from '../src/sessionDuration.js'");
+        // applyDeload must no longer carry the 0.6 and the -1 itself.
+        expect(html).not.toContain('duration:Math.round(ex.duration*.6)');
+    });
+
+    test('soreness is read from the resolver, never from raw storage', () => {
+        // Reading localStorage directly would skip the precedence ladder and
+        // reduce a resumed session, a rest day and a completed day too.
+        expect(html).toContain('r.modifiers.moderateSoreness');
+        const shapes = html.slice(html.indexOf('function currentShapes()'),
+                                  html.indexOf('function sorenessReduced()'));
+        expect(shapes).not.toContain('getTodaySorenessKey');
+        expect(shapes).not.toContain('localStorage');
     });
 
     test('the per-exercise sets and durations', () => {
