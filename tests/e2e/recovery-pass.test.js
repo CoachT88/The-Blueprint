@@ -17,7 +17,23 @@ import { openApp, signIn, sessionEntry } from './harness.js';
  */
 describe('recovery pass', () => {
     let app;
-    beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'u7' }); }, 60_000);
+    /* Pinned to a Thursday, and that is load-bearing.
+     *
+     * These fixtures seed training days forward from Monday of the current
+     * week, which silently assumes enough of the week has elapsed to hold
+     * them. On a Monday it does not: three seeded sessions land on Mon, Tue
+     * and Wed, two of them in the future, the week scores one qualifying
+     * session against a three-session target, and the verdict comes back
+     * 'missed'. The suite therefore passed six days a week and failed on
+     * Mondays. Found on 2026-10-05, a Monday; the previous green run was the
+     * Sunday before.
+     *
+     * The helper's own comment already said a Pass cannot be earned before a
+     * week's third training day. That is true of the product, so rather than
+     * weaken the assertions the clock is pinned mid-week, which is the
+     * condition the fixtures were always written for. */
+    const THURSDAY = new Date(2026, 5, 18, 12, 0, 0);   // 18 June 2026, ISO week 25
+    beforeAll(async () => { app = await openApp({ clock: THURSDAY }); await signIn(app.page, { id: 'u7' }); }, 60_000);
     afterAll(async () => { await app?.close(); });
 
     const seed = (daysAgoList) => app.page.evaluate((list) => {
@@ -241,7 +257,7 @@ describe('recovery pass', () => {
         // stay quiet on a day a Pass is covering. Anything else silently
         // stops matching. This survived the streak retirement because it was
         // never about the streak.
-        const dates = await app.page.evaluate(() => {
+        const r = await app.page.evaluate(() => {
             persisted.sessionLog = [4, 3, 2].map(d => {
                 const x = new Date(); x.setDate(x.getDate() - d);
                 return { date: x.toISOString(), routineType: 'length', xpEarned: 15 };
@@ -249,12 +265,15 @@ describe('recovery pass', () => {
             persisted.streakPasses = 1;
             persisted.passProtectedDates = [];
             maybeConsumeStreakPass();
-            return persisted.passProtectedDates;
+            /* Yesterday is computed in the PAGE, not in node. The suite pins
+               the page clock, so a date derived test-side would be the real
+               yesterday and would never match. */
+            return { dates: persisted.passProtectedDates,
+                     yesterday: new Date(Date.now() - 864e5).toISOString().split('T')[0] };
         });
-        expect(dates).toHaveLength(1);
-        expect(dates[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-        const yesterday = new Date(Date.now() - 864e5).toISOString().split('T')[0];
-        expect(dates[0]).toBe(yesterday);
+        expect(r.dates).toHaveLength(1);
+        expect(r.dates[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(r.dates[0]).toBe(r.yesterday);
     }, 30_000);
 
     test('REGRESSION: earning a Pass does not inflate the week it was earned for', async () => {
