@@ -138,6 +138,27 @@ describe('vendored CSS covers every class the app can emit', () => {
         expect([...new Set(bad)]).toEqual([]);
     });
 
+    test('REGRESSION: every step screen closes its own tags', () => {
+        /* The whole app is one 7,900-line HTML document, so an unbalanced
+           <div> does not error: the browser silently re-nests, and #step-0
+           quietly swallows the Manual, #step-1 and every modal after it.
+           Phase 3C.1 did exactly that while moving blocks around, and only
+           an unrelated test noticed, several layers downstream. This walks
+           the depth between each step and the next. */
+        const ids = ['step-welcome','step-0','step-1','step-2','step-3','step-3b','step-4','step-5'];
+        const offenders = [];
+        for (let i = 0; i < ids.length - 1; i++) {
+            const from = HTML.indexOf(`<div id="${ids[i]}"`);
+            const to = HTML.indexOf(`<div id="${ids[i + 1]}"`);
+            if (from < 0 || to < 0 || to < from) continue;
+            let depth = 0;
+            for (const m of HTML.slice(from, to).matchAll(/<div\b[^>]*>|<\/div>/g))
+                depth += m[0].startsWith('</') ? -1 : 1;
+            if (depth !== 0) offenders.push(`${ids[i]} ends at depth ${depth}`);
+        }
+        expect(offenders).toEqual([]);
+    });
+
     test('REGRESSION: the styling CDNs stay out of the document', () => {
         for (const host of ['cdn.tailwindcss.com', 'cdnjs.cloudflare.com', 'fonts.googleapis.com'])
             expect(HTML, `${host} must not be referenced`).not.toContain(host);
