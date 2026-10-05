@@ -372,12 +372,17 @@ mode = rest   →   no Primary Training Session
                   Daily Practice continues
 ```
 
-Rest is still a prescription and still means no training. A two-minute daily
-practice is not training, which is exactly why it does not break the rule.
+Rest is still a prescription and still means no training. **Low-burden Daily
+Practice may continue on Rest without converting the day into a training
+day.**
+
+Stated without a duration deliberately. The Calm Arousal Breathing
+prescription is a count of breaths, not a span of minutes, and encoding an
+inferred time value into the architecture would smuggle back the number the
+document declined to invent.
 
 **This is a generic third work type, not a breathing carve-out.** Any future
-low-burden daily item (a mobility minute, a hydration prompt made
-prescriptive) uses the same slot and inherits the same rule.
+low-burden daily item uses the same slot and inherits the same rule.
 
 ### Three completion truths, never summed
 
@@ -761,6 +766,77 @@ Four consequences, and the third is the one that matters:
 4. **Daily Practice never enters `MECHANICAL_TYPES`** and so can never reach
    progression qualification, by the same structural guarantee that keeps
    Supporting Work out of it.
+
+### The legacy schedule projection is an external contract
+
+The persisted `schedule` jsonb column has a **server-side consumer outside the
+application**: `supabase/functions/_shared/notifyRules.js`. It expects
+
+- an array,
+- of **exactly 7 elements**,
+- with **Sunday-indexed** weekday semantics,
+
+and uses that representation for **rest-day notification suppression**. The
+column is selected in `supabase/functions/send-notifications/index.ts` and
+passed through to that rule.
+
+Therefore, during the day-plan migration:
+
+- Day plans may become the **authoritative programme model**.
+- The legacy `schedule` value becomes a **derived compatibility projection**.
+- That projection **must continue to be persisted in the exact current
+  7-element Sunday-indexed shape**.
+- The `schedule` column **may not change shape**.
+- The column **may not be retired**.
+- The projection **may not stop being written**.
+
+until `notifyRules.js` **and every other external consumer** have been
+explicitly migrated.
+
+**Retiring the projection must be a separate verified migration, not
+incidental cleanup.** The failure mode if this is forgotten is silent: rest-day
+push suppression breaks server-side, and nothing inside the app reports it.
+
+This is not internal backward compatibility. **Treat it as an external
+contract.**
+
+### One source of truth, temporarily multiple representations
+
+```
+day plans         ->  authoritative programme truth
+legacy schedule   ->  derived compatibility output
+```
+
+Day plans may become authoritative **without immediately becoming the only
+representation**. During migration the stack is intentionally
+
+```
+authoritative day-plan model
+  -> legacy 7-day schedule projection
+    -> existing client and server consumers
+```
+
+That duplication is acceptable **because it is an explicit compatibility
+bridge with a direction of flow**. The projection is derived from the
+authoritative model, never edited independently, and retired only once its
+consumers are migrated.
+
+**What is not acceptable is two independently editable programme truths.** If
+anything ever writes to the projection directly, the bridge has become a fork
+and the migration has failed.
+
+### Historical truth during migration
+
+Carried as migration invariants, not as defaults:
+
+- **No historical day-plan backfill.** For a date before day plans existed the
+  honest value is absent.
+- **Stored `progression_ledger.targetSessions` is historical truth** and is
+  never recomputed from day plans.
+- **A past week is never re-derived** from a model that did not exist when it
+  elapsed.
+- **`unknown` remains a legitimate state**, not a gap to fill.
+- **Policy changes never rewrite historical qualification.**
 
 ---
 
