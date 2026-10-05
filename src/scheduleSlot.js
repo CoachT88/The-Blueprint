@@ -59,6 +59,8 @@
  * Pure: no DOM, no clock, no globals, no mutation of inputs.
  */
 
+import { dateKeyForWeekday } from './weekUtils.js';
+
 /** What a slot is. Three answers, and the third is not a failure state. */
 export const SLOT_CLASS = Object.freeze({
     PRIMARY:    'primary',
@@ -82,7 +84,6 @@ export const PROJECTION_REFUSAL = Object.freeze({
     NO_PLAN:       'no_plan',
 });
 
-const DAY_MS = 86400000;
 
 /* Options are read the way weekCompletion already reads restTypes and
    mechanicalTypes, so a future programme can widen the vocabulary at a call
@@ -170,14 +171,6 @@ export function toLegacySlot(plan) {
     return { ok: false, reason: PROJECTION_REFUSAL.SUPPORT_ONLY };
 }
 
-/** Local YYYY-MM-DD for weekday `index` (Date#getDay) of ref's ISO week. */
-function dateKeyForWeekday(ref, index) {
-    const monday = new Date(ref);
-    monday.setHours(12, 0, 0, 0);
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-    const d = new Date(monday.getTime() + (((index + 6) % 7) * DAY_MS));
-    return d.toISOString().split('T')[0];
-}
 
 /**
  * A week of day plans to the legacy 7-slot array, or a refusal.
