@@ -238,12 +238,78 @@ describe('moderate soreness reduces the session the member is actually given', (
         await page().evaluate(() => localStorage.removeItem('bp_session_draft_' + currentUser.id));
     }, 60_000);
 
+    /**
+     * A real deload week, built the way progression-wiring.test.js builds
+     * one: four qualifying weeks of logged mechanical work finishing last
+     * week, which is deloadEveryQualifyingWeeks - 1, so this calendar week
+     * is the deload. Seeded as state and then read back through the real
+     * isDeloadWeek(), never stubbed.
+     */
+    const seedDeloadWeek = () => page().evaluate(() => {
+        persisted.sessionLog = [];
+        persisted.progressionLedger = [];
+        /* The weeks are recorded against a four-session week, not against
+           this suite's all-mission schedule. A seven-session week with
+           three logged misses four, which is not a qualifying week, so the
+           count would never reach the deload trigger. The ledger stores the
+           target that was true at the time, which is exactly what lets a
+           past week be recorded against a different shape from today's. */
+        const PAST = ['length', 'girth', 'rest', 'stamina', 'length', 'rest', 'rest'];
+        const mondayOf = d => { const x = new Date(d); x.setHours(12, 0, 0, 0);
+            x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+        for (let w = 4; w >= 1; w--) {
+            const monday = mondayOf(new Date(Date.now() - w * 7 * 86400000));
+            for (let i = 0; i < 3; i++) {
+                const d = new Date(monday); d.setDate(d.getDate() + i);
+                persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length' });
+            }
+            persisted.progressionLedger = window.BP.reconcileLedger(persisted.progressionLedger, {
+                weekKey: window.BP.weekKey(monday), schedule: PAST,
+                sessionLog: persisted.sessionLog, now: monday,
+            });
+        }
+        renderDashboard();
+        return isDeloadWeek();
+    });
+
+    const clearLedger = () => page().evaluate(() => {
+        persisted.sessionLog = []; persisted.progressionLedger = []; renderDashboard();
+    });
+
     test('sets never fall below one', async () => {
-        // Beginner is -1, and soreness is another -1, on a 2-set exercise.
+        // Three shapes stack here and only here: beginner is -1, the deload
+        // week is -1 and moderate soreness is -1, against exercises of 3
+        // sets. Without the floor in applyShape() that is zero sets, which
+        // is an exercise the member is shown and can never finish.
+        expect(await seedDeloadWeek()).toBe(true);
         const reduced = await run('stamina', 'moderate', { difficulty: 'beginner' });
-        for (const ex of reduced) expect(ex.sets).toBeGreaterThanOrEqual(1);
-        expect(Math.min(...reduced.map(e => e.sets))).toBe(1);
-    }, 60_000);
+        const ctx = await page().evaluate(() => currentShapes().filter(Boolean).length);
+        expect(ctx).toBe(2);                                  // deload + soreness, plus difficulty
+        for (const ex of reduced) expect(ex.sets).toBe(1);
+        await clearLedger();
+    }, 90_000);
+
+    test('a deload week and moderate soreness stack, and both are named', async () => {
+        expect(await seedDeloadWeek()).toBe(true);
+
+        const deloadOnly = await run('length', 'none');
+        const both = await run('length', 'moderate');
+        for (let i = 0; i < both.length; i++) {
+            expect(both[i].duration).toBeLessThan(deloadOnly[i].duration);
+        }
+        // Intermediate Length: 3x30 normally, 2x18 on deload, 1x11 with
+        // soreness on top. Rounding happens after each shape, which is why
+        // it is 11 and not 10.8 or 10.
+        expect(deloadOnly[0]).toMatchObject({ sets: 2, duration: 18 });
+        expect(both[0]).toMatchObject({ sets: 1, duration: 11 });
+
+        const badges = await page().evaluate(() => ({
+            soreness: !document.getElementById('soreness-ex-badge').classList.contains('hidden'),
+            deload: !document.getElementById('deload-ex-badge').classList.contains('hidden'),
+        }));
+        expect(badges).toEqual({ soreness: true, deload: true });
+        await clearLedger();
+    }, 90_000);
 
     // ── The member can see it ──────────────────────────────────────────
 
@@ -364,4 +430,32 @@ describe('moderate soreness reduces the session the member is actually given', (
             }
         }
     }
+
+    /**
+     * The same guard with a deload week underneath, which is the only
+     * place the ORDER of the shapes is observable.
+     *
+     * Difficulty, deload and soreness all round after themselves, so
+     * composing them in a different order changes the answer wherever the
+     * rounding falls differently. Applying difficulty last instead of
+     * first moves five of the sixty-four tier-by-shape combinations by a
+     * second: Directional Pulls and V-Stretch at beginner and advanced,
+     * and Lateral Compression at elite. Every one of them needs deload AND
+     * soreness together, which is why the matrix above could not see it.
+     *
+     * One second is nothing to a member. It is not nothing to the claim
+     * that these two paths cannot drift, so it is pinned.
+     */
+    test('with a deload week underneath, the engine and the estimate still agree', async () => {
+        expect(await seedDeloadWeek()).toBe(true);
+        for (const mission of ['length', 'stamina', 'girth']) {
+            for (const difficulty of ['beginner', 'intermediate', 'advanced', 'elite']) {
+                const { engine, estimate } = await agrees(mission, 'moderate', difficulty);
+                expect(await page().evaluate(() => isDeloadWeek())).toBe(true);
+                expect(estimate, `${mission}/${difficulty}`).toBeGreaterThan(0);
+                expect(engine, `${mission}/${difficulty}`).toBe(estimate);
+            }
+        }
+        await clearLedger();
+    }, 180_000);
 });
