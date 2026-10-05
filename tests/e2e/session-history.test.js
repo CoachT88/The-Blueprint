@@ -241,3 +241,92 @@ describe('storage safety', () => {
         expect(count).toBe(120);
     });
 });
+
+/**
+ * scheduledType and manualOverride are two halves of ONE snapshot.
+ *
+ * finishSession() used to resolve the scheduled type twice:
+ *
+ *     scheduledType:  getScheduledType(),
+ *     manualOverride: session.routineType !== getScheduledType(),
+ *
+ * and getScheduledType() reads the clock on every call. A date rollover
+ * between the two meant the fields could describe different days, and the
+ * entry could claim an override while recording a scheduled type that
+ * matched what was actually performed. Both fields are historical truth:
+ * manualOverride drives the calendar's substitution marker, and
+ * scheduledType is the only record of what the programme asked for.
+ *
+ * Racing a real clock here would be slow and flaky, so the rollover is
+ * simulated directly: getScheduledType() is made to answer differently on a
+ * second call. Against the fixed code it is never asked twice.
+ */
+describe('the scheduled type is resolved once per session', () => {
+    let app;
+    beforeAll(async () => {
+        app = await openApp();
+        await signIn(app.page, { id: 'snap', persisted: { schedule: Array(7).fill('length') } });
+    }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    /** Finish a session while the scheduled type changes under the engine. */
+    const finishAcrossRollover = () => app.page.evaluate(() => {
+        const real = getScheduledType;
+        let calls = 0;
+        // First answer is the truth. Any later answer is a different day.
+        getScheduledType = () => { calls += 1; return calls === 1 ? 'length' : 'girth'; };
+        try {
+            persisted.sessionLog = [];
+            session.routineType = 'length';          // matches the first answer
+            selectedEQ = 7; selectedRPE = 5;
+            _sessionStartTime = Date.now() - 6e5;
+            document.getElementById('input-bpel').value = '';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = '';
+            finishSession();
+            document.getElementById('session-summary-modal').classList.remove('show');
+        } finally {
+            getScheduledType = real;
+        }
+        const e = persisted.sessionLog[persisted.sessionLog.length - 1];
+        return { calls, scheduledType: e.scheduledType, manualOverride: e.manualOverride,
+                 routineType: e.routineType };
+    });
+
+    test('both fields come from the same resolution', async () => {
+        const r = await finishAcrossRollover();
+        // The session ran exactly what was scheduled, so it is not an override.
+        // Resolving twice would have compared 'length' against 'girth' and
+        // recorded an override that never happened.
+        expect(r.routineType).toBe('length');
+        expect(r.scheduledType).toBe('length');
+        expect(r.manualOverride).toBe(false);
+    }, 60_000);
+
+    test('getScheduledType is called exactly once', async () => {
+        const r = await finishAcrossRollover();
+        // The structural assertion. A value check alone could pass by luck on
+        // a day when both resolutions happened to agree; this cannot.
+        expect(r.calls).toBe(1);
+    }, 60_000);
+
+    test('a genuine substitution is still recorded as one', async () => {
+        // The fix must not flatten real overrides into false.
+        const r = await app.page.evaluate(() => {
+            persisted.sessionLog = [];
+            persisted.schedule = Array(7).fill('length');
+            session.routineType = 'girth';           // deliberately not the scheduled type
+            selectedEQ = 7; selectedRPE = 5;
+            _sessionStartTime = Date.now() - 6e5;
+            document.getElementById('input-bpel').value = '';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = '';
+            finishSession();
+            document.getElementById('session-summary-modal').classList.remove('show');
+            const e = persisted.sessionLog[persisted.sessionLog.length - 1];
+            return { scheduledType: e.scheduledType, manualOverride: e.manualOverride };
+        });
+        expect(r.scheduledType).toBe('length');
+        expect(r.manualOverride).toBe(true);
+    }, 60_000);
+});
