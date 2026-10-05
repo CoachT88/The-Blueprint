@@ -2940,6 +2940,17 @@ function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
  * a container failure rather than unread data: a string is not a programme in
  * any version of the model.
  *
+ * THE LEGACY SCHEDULE IS A CONTAINER TOO
+ *
+ * normaliseSchedule() used to be called on three of the eight paths, so a
+ * local-backup restore could leave persisted.schedule as a short array, a
+ * non-array, or seven strings naming types that no longer exist, while
+ * isBlackoutDay() and renderDashboard() index it without a guard. It runs
+ * here instead, unchanged, which gives every restored state the same repair
+ * the server-row path has always had. Nothing else about the schedule moves:
+ * no new vocabulary, no projection, and a valid hand-edited week is still
+ * left exactly as the member arranged it.
+ *
  * _persistedLoaded STAYS OUTSIDE
  *
  * Whether this state can be trusted enough to write back is a property of
@@ -2952,6 +2963,7 @@ function adoptPersisted(raw){
     persisted={...DEFAULT_PERSISTED,...src};
     if(!(persisted.programme&&typeof persisted.programme==='object'&&!Array.isArray(persisted.programme))) persisted.programme=null;
     if(!Array.isArray(persisted.dayPlans)) persisted.dayPlans=[];
+    normaliseSchedule();
     return persisted;
 }
 
@@ -3020,7 +3032,6 @@ async function loadPersisted(){
             persisted.xpMigrated=true;
             savePersisted();
         }
-        normaliseSchedule();
         // Auto-reset completedDays if we're in a new week
         const currentWeek = getCurrentWeekKey();
         if(persisted.weekKey !== currentWeek){
@@ -7217,7 +7228,6 @@ function importData(file){
             // hand-edited backup cannot leave the app in a state it cannot save.
             persisted.sessionLog=trimToByteBudget(persisted.sessionLog||[],SESSION_LOG_BUDGET_BYTES);
             persisted.measurements=trimToByteBudget(persisted.measurements||[],MEASUREMENTS_BUDGET_BYTES);
-            normaliseSchedule();
             savePersisted();renderDashboard();alert('Data restored.');
         }
         catch(err){alert('Import failed — invalid file.')}
