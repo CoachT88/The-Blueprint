@@ -557,6 +557,97 @@ describe('the account switch, as one flow', () => {
         expect(r.loaded).toBe(false);
     }, 60_000);
 
+    /**
+     * Every body-level overlay that shows one member's own data, not just
+     * the Account sheet.
+     *
+     * The first version of _closeMemberOverlays() swept 10 of these and left
+     * 11 open, so A could sign out with their charts, photos, weekly report
+     * or session summary on screen and B would inherit them on the next
+     * sign-in. Enumerating the whole set here is what stops it regressing by
+     * halves a second time.
+     */
+    test('ACCEPTANCE: no member-data overlay survives a sign-out', async () => {
+        await authSignIn(app.page, { ...A, user_metadata: { preferred_name: 'Marcus' }, row: established() });
+        const r = await app.page.evaluate(async () => {
+            const byHidden = ['account-modal','notif-modal','pass-info-modal','coach-modal','type-modal',
+                'tier-lock-modal','pelvic-screen-modal','pelvic-result-modal','pelvic-lock-modal',
+                'chart-modal','photo-log-modal','photo-viewer-overlay','measure-howto-modal',
+                'update-notice-modal','rest-overlay'];
+            const byShow = ['manual-modal','session-summary-modal','weekly-report-modal',
+                'milestone-modal','onboarding-overlay','tour-layer'];
+            // Open every one of them at once, bypassing their open functions
+            // so this test is about the sweep and not about how each opens.
+            const flagsBefore = { onboarded: localStorage.getItem('bp_onboarded_acct-a'),
+                                  tourDone: localStorage.getItem('bp_tour_done_acct-a') };
+            byHidden.forEach(id => document.getElementById(id).classList.remove('hidden'));
+            byShow.forEach(id => document.getElementById(id).classList.add('show'));
+            const openedBefore = [...byHidden.filter(id => !document.getElementById(id).classList.contains('hidden')),
+                                  ...byShow.filter(id => document.getElementById(id).classList.contains('show'))];
+            handleLogout();
+            await new Promise(r => setTimeout(r, 80));   // let SIGNED_OUT land too
+            const stillOpen = [...byHidden.filter(id => !document.getElementById(id).classList.contains('hidden')),
+                               ...byShow.filter(id => document.getElementById(id).classList.contains('show'))];
+            return { total: byHidden.length + byShow.length, openedBefore: openedBefore.length, stillOpen,
+                     flagsBefore,
+                     // the two persistence flags the sweep must not move
+                     flagsAfter: { onboarded: localStorage.getItem('bp_onboarded_acct-a'),
+                                   tourDone: localStorage.getItem('bp_tour_done_acct-a') } };
+        });
+        expect(r.openedBefore).toBe(r.total);      // all 21 really were open
+        expect(r.stillOpen).toEqual([]);
+        /* Closing the onboarding overlay and the tour must not record the
+           member as having completed either. hideOnboarding() and endTour()
+           both write a flag, which is why the sweep removes the class
+           directly instead of calling them. The invariant is that the sweep
+           does not MOVE these, not that they are absent: earlier tests in
+           this flow legitimately set them. */
+        expect(r.flagsAfter).toEqual(r.flagsBefore);
+    }, 60_000);
+
+    test('ACCEPTANCE: the sweep writes no flag even with a member still signed in', async () => {
+        /* The test above cannot see this on its own: handleLogout() nulls
+           currentUser before sweeping, so hideOnboarding()'s and endTour()'s
+           own `if(currentUser)` guards would suppress the write anyway, and
+           a sweep that wrongly called them would still pass. Calling the
+           sweep directly with a member present removes that cover and tests
+           the sweep's own behaviour. */
+        await authSignIn(app.page, { ...A, user_metadata: { preferred_name: 'Marcus' }, row: established() });
+        const r = await app.page.evaluate(() => {
+            localStorage.removeItem('bp_onboarded_acct-a');
+            localStorage.removeItem('bp_tour_done_acct-a');
+            document.getElementById('onboarding-overlay').classList.add('show');
+            document.getElementById('tour-layer').classList.add('show');
+            _closeMemberOverlays();                       // currentUser is still set
+            const out = { user: currentUser && currentUser.id,
+                          onboardingClosed: !document.getElementById('onboarding-overlay').classList.contains('show'),
+                          tourClosed: !document.getElementById('tour-layer').classList.contains('show'),
+                          onboarded: localStorage.getItem('bp_onboarded_acct-a'),
+                          tourDone: localStorage.getItem('bp_tour_done_acct-a') };
+            localStorage.setItem('bp_onboarded_acct-a','1');   // restore for later tests
+            return out;
+        });
+        expect(r.user).toBe('acct-a');          // the guard really is not doing the work
+        expect(r.onboardingClosed).toBe(true);  // they still close
+        expect(r.tourClosed).toBe(true);
+        expect(r.onboarded).toBeNull();         // and still write nothing
+        expect(r.tourDone).toBeNull();
+    }, 60_000);
+
+    test('ACCEPTANCE: the password reset sheet is left alone by the sweep', async () => {
+        // It belongs to the signed-out flow; closing it would interrupt a
+        // reset in progress.
+        const r = await app.page.evaluate(() => {
+            const el = document.getElementById('password-reset-modal');
+            el.classList.add('show');
+            _closeMemberOverlays();
+            const out = el.classList.contains('show');
+            el.classList.remove('show');
+            return out;
+        });
+        expect(r).toBe(true);
+    }, 30_000);
+
     test('the page threw nothing throughout the switch', () => {
         expect(app.errors).toEqual([]);
     });

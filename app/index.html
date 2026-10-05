@@ -7117,13 +7117,33 @@ async function handleForgotPassword(){
    NEXT sign-in uncovers them, and none of them re-render until reopened. The
    Account sheet was the live case: A signs out with it open, B signs in, and
    B's HQ comes up with A's name on screen. Withholding identity UI beats
-   showing the wrong member's. */
+   showing the wrong member's.
+
+   Phase 3A found the first pass swept 10 of 21 and missed the rest, so A's
+   charts, photos, weekly report and session summary could all still greet B.
+   The list below is every body-level overlay that shows one member's own
+   data, grouped by how each is hidden. */
 function _closeMemberOverlays(){
+    // Hidden by the `hidden` class.
     ['account-modal','notif-modal','pass-info-modal','coach-modal','type-modal',
-     'tier-lock-modal','pelvic-screen-modal','pelvic-result-modal']
+     'tier-lock-modal','pelvic-screen-modal','pelvic-result-modal','pelvic-lock-modal',
+     'chart-modal','photo-log-modal','photo-viewer-overlay','measure-howto-modal',
+     'update-notice-modal','rest-overlay']
         .forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden')});
+    // Hidden by the `show` class.
+    ['manual-modal','session-summary-modal','weekly-report-modal','milestone-modal',
+     'onboarding-overlay','tour-layer']
+        .forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('show')});
+    // The one hidden by an inline style.
     const hist=document.getElementById('history-modal'); if(hist) hist.style.display='none';
-    const man=document.getElementById('manual-modal'); if(man) man.classList.remove('show');
+    /* Deliberately NOT hideOnboarding() or endTour(): both write a
+       persistence flag (bp_onboarded_<uid>, bp_tour_done_<uid>), and a member
+       who signed out part-way through must not be recorded as having
+       finished. The class is removed directly instead. _tourUnfollow() is
+       pure cleanup, so the tour's rAF loop is still released.
+       #password-reset-modal is also left alone: it belongs to the signed-out
+       flow and closing it here would interrupt a reset in progress. */
+    try{ _tourUnfollow(); }catch(e){}
     closeAccountEditor();
 }
 async function handleLogout(){
