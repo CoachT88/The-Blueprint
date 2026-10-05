@@ -55,3 +55,29 @@ export function getCurrentWeekKey(date = new Date()) {
 export function shouldResetWeek(persistedWeekKey, date = new Date()) {
     return persistedWeekKey !== getCurrentWeekKey(date);
 }
+
+
+const DAY_MS = 86400000;
+
+/**
+ * Legacy weekday-to-date mapping shared by weekCompletion and scheduleSlot.
+ *
+ * SEMANTICS ARE INTENTIONALLY PRESERVED, NOT CLEANED UP:
+ * - anchor the ISO week at local noon
+ * - Monday is the ISO-week anchor
+ * - caller index uses Date#getDay() semantics (Sunday 0 ... Saturday 6)
+ * - Sunday therefore maps to the last day of the ISO week
+ * - the returned key is the UTC date portion of that local-noon timestamp via
+ *   toISOString().split('T')[0]
+ *
+ * That local-noon -> UTC-date combination is awkward and can shift a date in
+ * extreme positive UTC offsets. This helper preserves the behaviour exactly;
+ * changing those semantics belongs in a separate behavioural PR.
+ */
+export function dateKeyForWeekday(ref, index) {
+    const monday = new Date(ref);
+    monday.setHours(12, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const d = new Date(monday.getTime() + (((index + 6) % 7) * DAY_MS));
+    return d.toISOString().split('T')[0];
+}

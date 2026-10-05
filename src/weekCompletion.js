@@ -61,6 +61,7 @@
  */
 
 import { isScheduledPrimary } from './scheduleSlot.js';
+import { dateKeyForWeekday } from './weekUtils.js';
 
 /** Day types that are not a session. */
 export const REST_TYPES = ['rest'];
@@ -68,7 +69,6 @@ export const REST_TYPES = ['rest'];
 /** Routine types that are mechanical work. Mirrors MECHANICAL_MISSIONS. */
 export const MECHANICAL_TYPES = ['length', 'girth', 'stamina'];
 
-const DAY_MS = 86400000;
 
 /* Delegated to the canonical classifier in Phase 3S.1 PR E.
    This used to be `truthy and not rest`, which counted a slot nobody could
@@ -79,14 +79,6 @@ function isScheduledSession(type, restTypes, primaryTypes) {
     return isScheduledPrimary(type, { restTypes, primaryTypes });
 }
 
-/** Local YYYY-MM-DD for the weekday `index` (Date#getDay) of ref's ISO week. */
-function dateKeyForWeekday(ref, index) {
-    const monday = new Date(ref);
-    monday.setHours(12, 0, 0, 0);
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-    const d = new Date(monday.getTime() + (((index + 6) % 7) * DAY_MS));
-    return d.toISOString().split('T')[0];
-}
 
 /** What was logged on each date: whether anything, and whether mechanical. */
 function logByDate(sessionLog, mechanicalTypes) {

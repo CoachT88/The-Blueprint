@@ -307,6 +307,7 @@ describe('purity', () => {
         const src = readFileSync(new URL('../src/scheduleSlot.js', import.meta.url), 'utf8');
         expect(src).not.toMatch(/Date\.now/);
         expect(src).not.toMatch(/PROGRESSION_POLICY/);
-        expect(src).not.toMatch(/^import/m);                 // zero dependencies
+        const imports = src.match(/^import .*$/gm) || [];
+        expect(imports).toEqual(["import { dateKeyForWeekday } from './weekUtils.js';"]);
     });
 });
