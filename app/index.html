@@ -6041,6 +6041,38 @@ function syncProgression(reason){
         }
     }
 
+    /* Migration classification, once per account and never again.
+       Gated on programme===null rather than on a flag, because the absence of
+       a classification IS the "not yet done" state and a separate flag could
+       disagree with it. Nothing reads the result in this phase: it exists so
+       generation knows, later, whether it may project over this week.
+
+       It writes `programme` and nothing else. The legacy schedule is not
+       touched here, and a browser test drives every shape through a real load
+       to prove it. */
+    if(persisted.programme===null && window.BP.classifyLegacySchedule){
+        const verdict=window.BP.classifyLegacySchedule({
+            schedule:persisted.schedule,
+            /* Whether THIS load had to repair the stored week. A repaired
+               week may now equal a preset exactly and that coincidence is not
+               evidence, so it classifies custom. See normaliseSchedule. */
+            scheduleRepaired:_scheduleRepairedOnAdopt,
+            primaryGoal:persisted.primaryGoal,
+            /* The real arrays, passed rather than copied into the module.
+               GOALS lives here and a second definition there is how two
+               copies drift apart. */
+            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+            defaultSchedule:DEFAULT_PERSISTED.schedule,
+            /* Deliberately not supplied: allTimeSessionCount, sessionLog,
+               firstSessionDate, progressionLedger. None of them says whether
+               a week was EDITED. assignDay() predates sessions and goals
+               both, so zero sessions is not proof of an untouched schedule,
+               and passing one would only weaken the guarantee. */
+        });
+        persisted.programme=window.BP.migrationProgramme(verdict,{now:new Date()});
+        changed=true;
+    }
+
     const before=JSON.stringify(persisted.progressionLedger||[]);
     persisted.progressionLedger=window.BP.reconcileLedger(persisted.progressionLedger,{
         weekKey:getCurrentWeekKey(),
@@ -8409,6 +8441,11 @@ import { normaliseLedger, reconcileLedger, progressionState, PROGRESSION_STATE,
 import { toleranceHolds, programmeStartBackfill, programmeStartOnCompletion,
          isQualifyingSession, provablyFirstMechanicalSession } from '../src/progression.js';
 import { PROGRESSION_POLICY } from '../src/progressionPolicy.js';
+/* Phase 3S.1 PR D. Migration classification only: it decides whether a
+   member's existing week may be generated over, and nothing in this phase
+   generates anything. */
+import { classifyLegacySchedule, migrationProgramme, mayGenerateOver,
+         PROGRAMME_SOURCE, CLASSIFY_REASON } from '../src/programmeMigration.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -8422,7 +8459,9 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS,
               greetingBand, localDayKey, GREETING_BAND, GREETING_BANDS,
               validatePreferredName, readPreferredName, hasPreferredName,
-              nameLength, PREFERRED_NAME_MAX };
+              nameLength, PREFERRED_NAME_MAX,
+              classifyLegacySchedule, migrationProgramme, mayGenerateOver,
+              PROGRAMME_SOURCE, CLASSIFY_REASON };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();
