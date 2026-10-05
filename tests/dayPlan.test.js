@@ -311,12 +311,64 @@ describe('provenance is recorded, never invented', () => {
         expect(p.generatedAt).toBe('2026-10-01T00:00:00.000Z');
     });
 
-    test('generatedFrom is cloned, and absent becomes null rather than invented', () => {
+    test('a valid generatedFrom survives', () => {
         const from = { programmeKey: 'lastLonger', version: 1 };
+        expect(normaliseDayPlan(plan({ generatedFrom: from })).generatedFrom).toEqual(from);
+        expect(validateDayPlan(plan({ generatedFrom: from })).ok).toBe(true);
+    });
+
+    test('a valid generatedFrom is deep-cloned', () => {
+        const from = { programmeKey: 'lastLonger', version: 1, cycle: { position: 2 } };
         const p = normaliseDayPlan(plan({ generatedFrom: from }));
-        expect(p.generatedFrom).toEqual(from);
         expect(p.generatedFrom).not.toBe(from);
+        expect(p.generatedFrom.cycle).not.toBe(from.cycle);
+        from.version = 99; from.cycle.position = 99;
+        expect(p.generatedFrom).toEqual({ programmeKey: 'lastLonger', version: 1, cycle: { position: 2 } });
+    });
+
+    test('extra provenance fields survive for forward compatibility', () => {
+        const p = normaliseDayPlan(plan({
+            generatedFrom: { programmeKey: 'size', version: 2, futureField: true },
+        }));
+        expect(p.generatedFrom).toEqual({ programmeKey: 'size', version: 2, futureField: true });
+    });
+
+    test('a missing generatedFrom becomes null rather than invented', () => {
         expect(normaliseDayPlan(plan()).generatedFrom).toBeNull();
+        expect(normaliseDayPlan(plan({ generatedFrom: null })).generatedFrom).toBeNull();
+        expect(validateDayPlan(plan()).ok).toBe(true);        // absent is not a violation
+    });
+
+    test.each([
+        ['an empty object', {}],
+        ['an unrelated object', { foo: 'bar' }],
+        ['an empty programmeKey', { programmeKey: '', version: 1 }],
+        ['a whitespace programmeKey', { programmeKey: '   ', version: 1 }],
+        ['a non-string programmeKey', { programmeKey: 7, version: 1 }],
+        ['no version at all', { programmeKey: 'lastLonger' }],
+        ['a NaN version', { programmeKey: 'lastLonger', version: NaN }],
+        ['a fractional version', { programmeKey: 'lastLonger', version: 1.5 }],
+        ['a string version', { programmeKey: 'lastLonger', version: '1' }],
+        ['an Infinity version', { programmeKey: 'lastLonger', version: Infinity }],
+        ['not an object at all', 'lastLonger'],
+    ])('%s makes generatedFrom null, and is reported', (_label, generatedFrom) => {
+        // A known field must not be validated more loosely than the shape it
+        // promises: downstream code reads the promise, not the implementation.
+        const p = normaliseDayPlan(plan({ generatedFrom }));
+        expect(p.generatedFrom).toBeNull();
+        expect(p).not.toBeNull();                              // the PLAN is still readable
+        expect(codes(plan({ generatedFrom }))).toContain(VIOLATION.INVALID_GENERATED_FROM);
+    });
+
+    test('a programme key is never invented and nothing is looked up', () => {
+        // An unrecognised key still survives: whether a programme exists is a
+        // later phase's question, and answering it here would make old
+        // records unreadable the day a programme is renamed.
+        const p = normaliseDayPlan(plan({
+            generatedFrom: { programmeKey: 'aProgrammeThatDoesNotExistYet', version: 1 },
+        }));
+        expect(p.generatedFrom.programmeKey).toBe('aProgrammeThatDoesNotExistYet');
+        expect(validateDayPlan(plan({ generatedFrom: { programmeKey: 'x', version: 0 } })).ok).toBe(true);
     });
 });
 

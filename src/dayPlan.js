@@ -80,6 +80,7 @@ export const VIOLATION = Object.freeze({
     MALFORMED_WORK_ITEM:   'malformed_work_item',
     UNRESOLVED_DOSE:       'unresolved_dose',
     MALFORMED_DOSE:        'malformed_dose',
+    INVALID_GENERATED_FROM:'invalid_generated_from',
 });
 
 const MODES    = new Set(Object.values(DAY_MODE));
@@ -255,6 +256,34 @@ function normaliseWorkArray(raw, kind, violations) {
 }
 
 /**
+ * Provenance, or nothing.
+ *
+ * The documented shape is { programmeKey, version }, so that is what is
+ * required rather than "any object that happens to be JSON-safe": a known
+ * field validated more loosely than the shape it promises is worse than no
+ * validation, because downstream code reads the promise and not the code.
+ *
+ * Extra fields inside it ride along, same forward-compatibility rule as
+ * everywhere else. A key or version is never invented and nothing is looked
+ * up: this validates the SHAPE of the provenance, not whether the programme
+ * key is one the app currently knows about. That is a later phase's
+ * question, and answering it here would make an old record unreadable the
+ * day a programme is renamed.
+ */
+function normaliseGeneratedFrom(raw) {
+    if (raw === undefined || raw === null) return {};
+    if (!isPlainObject(raw)) return { violation: VIOLATION.INVALID_GENERATED_FROM };
+    const key = typeof raw.programmeKey === 'string' ? raw.programmeKey.trim() : '';
+    if (!key) return { violation: VIOLATION.INVALID_GENERATED_FROM };
+    if (typeof raw.version !== 'number' || !Number.isInteger(raw.version)) {
+        return { violation: VIOLATION.INVALID_GENERATED_FROM };
+    }
+    const cloned = cloneResolved(raw);
+    if (!cloned.ok) return { violation: VIOLATION.INVALID_GENERATED_FROM };
+    return { value: { ...cloned.value, programmeKey: key, version: raw.version } };
+}
+
+/**
  * The load boundary.
  *
  * jsonb enforces no shape, so anything arriving from storage is untrusted: it
@@ -313,9 +342,9 @@ export function normaliseDayPlan(raw) {
         violations.push({ code: VIOLATION.INVALID_STATUS, detail: { got: raw.status } });
     }
 
-    const generatedFrom = isPlainObject(raw.generatedFrom)
-        ? (cloneResolved(raw.generatedFrom).value ?? null)
-        : null;
+    const from = normaliseGeneratedFrom(raw.generatedFrom);
+    if (from.violation) violations.push({ code: from.violation, detail: { got: raw.generatedFrom } });
+    const generatedFrom = 'value' in from ? from.value : null;
 
     const out = {
         ...raw,                      // forward compatibility, then corrected below
@@ -388,6 +417,8 @@ export function validateDayPlan(raw) {
         && !(typeof raw.status === 'string' && STATUSES.has(raw.status))) {
         violations.push({ code: VIOLATION.INVALID_STATUS, detail: { got: raw.status } });
     }
+    const from = normaliseGeneratedFrom(raw.generatedFrom);
+    if (from.violation) violations.push({ code: from.violation, detail: { got: raw.generatedFrom } });
     return { ok: violations.length === 0, violations };
 }
 
