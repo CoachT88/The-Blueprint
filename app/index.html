@@ -1426,6 +1426,12 @@
         </div>
         <div id="ex-detail-card" class="ex-detail-card mx-2"></div>
         <div id="deload-ex-badge" class="hidden mx-2"><span class="text-[10px] font-black text-orange-400 uppercase tracking-widest bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-full"><i class="fas fa-battery-quarter mr-1.5"></i>Deload Volume</span></div>
+        <!-- The member was already being told on the Today card that a
+             moderate-soreness day is reduced. This is where they can see
+             that it landed. It sits beside the deload badge rather than
+             replacing it because the two shapes genuinely stack, and a
+             deload week with soreness on top is a double reduction. -->
+        <div id="soreness-ex-badge" class="hidden mx-2"><span class="text-[10px] font-black text-amber-400 uppercase tracking-widest bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full"><i class="fas fa-gauge-high mr-1.5"></i>Reduced Volume</span></div>
     </div>
 
     <!-- Active cue — only shown when running -->
@@ -3488,9 +3494,54 @@ function isDeloadWeek(){
     if(!window.BP) return false;
     return window.BP.deloadState(persisted.progressionLedger,persisted.sessionLog,{now:new Date()}).isDeloadWeek;
 }
+/**
+ * The volume shapes that apply to this member, right now, in order.
+ *
+ * WHAT THIS FIXES. The resolver has set modifiers.moderateSoreness since
+ * Phase 2A.1, the Today card has said "One set fewer and shorter holds than
+ * a normal session" since 3C.2, and estimateSessionSeconds() has applied
+ * MODERATE_SORENESS_SHAPE the whole time. getCurEx() applied difficulty and
+ * deload and nothing else, so the member was told the session was reduced,
+ * shown a shorter estimate, and then handed the full prescribed volume. A
+ * promise made to someone who had just reported a symptom.
+ *
+ * ORDER IS LOAD BEARING. The estimator composes [difficulty, deload,
+ * soreness] and rounds after each one, so this list must stay in that order
+ * and soreness must stay last, or the two paths round differently and
+ * disagree by a second here and there.
+ *
+ * SORENESS COMES FROM THE RESOLVER, NOT FROM localStorage. Reading the raw
+ * answer would skip the precedence ladder: nextBestAction() clears
+ * moderateSoreness in every state except MODIFIED, which is what keeps a
+ * resumed session, a rest day, a completed day and the pelvic gate from
+ * each picking up a reduction they were never meant to have. The engine
+ * applies the prescription; it does not re-decide it.
+ */
+function currentShapes(){
+    if(!window.BP) return [];
+    const r=currentPrescription();
+    return [
+        isDeloadWeek() ? window.BP.DELOAD_SHAPE : null,
+        (r&&r.modifiers&&r.modifiers.moderateSoreness) ? window.BP.MODERATE_SORENESS_SHAPE : null,
+    ];
+}
+/* Minutes only when it divides cleanly. A shaped 120s becomes 72s, and
+   "1.2m" is not a thing anyone wants to read off a circuit card. */
+function _durLabel(sec){ return sec>=60 && sec%60===0 ? (sec/60)+'m' : sec+'s'; }
+/** Is any volume reduction live right now? Drives the badges, nothing else. */
+function sorenessReduced(){
+    const r=currentPrescription();
+    return !!(r&&r.modifiers&&r.modifiers.moderateSoreness);
+}
+/* One arithmetic, shared with the estimator. The module loads after this
+   script, so fall through unshaped if it is not up yet, exactly as
+   isDeloadWeek() does. */
+function shapeEx(ex,shapes){ return window.BP ? window.BP.applyShapes(ex,shapes) : ex; }
+/* Kept as a named function because tests call it directly with a bare
+   exercise object, but it no longer carries its own copy of the numbers. */
 function applyDeload(ex){
     if(!isDeloadWeek())return ex;
-    return{...ex,sets:Math.max(1,ex.sets-1),duration:Math.round(ex.duration*.6)};
+    return shapeEx(ex,[window.BP&&window.BP.DELOAD_SHAPE]);
 }
 
 function setDifficulty(id){
@@ -3528,16 +3579,25 @@ function renderDifficultySelector(){
         if(isRecov){detail.innerHTML='';return}
         const d=getDiff();
         const diffKey=d.id;
+        /* These numbers are a preview of the prescription, so they go
+           through the same shaping the engine will. They used to show the
+           tier's raw volume, which meant a deload week and a
+           moderate-soreness day both over-stated the session on the way in
+           and then delivered less. One of the two places the member could
+           read a number the engine was never going to honour. */
+        const shapes=currentShapes();
         if(session.routineType==='girth'){
             const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
-            const jelqLabel=cfg.jelqDur>=60?(cfg.jelqDur/60)+'m':cfg.jelqDur+'s';
-            detail.innerHTML=`${d.label}: ${cfg.rounds} Rounds — ${jelqLabel} Wet Jelq / ${cfg.uliDur}s Uli`;
+            const jelq=shapeEx({sets:1,duration:cfg.jelqDur},shapes).duration;
+            const uli =shapeEx({sets:1,duration:cfg.uliDur },shapes).duration;
+            detail.innerHTML=`${d.label}: ${cfg.rounds} Rounds — ${_durLabel(jelq)} Wet Jelq / ${uli}s Uli`;
         } else if(session.routineType==='stamina'){
-            detail.innerHTML=`${d.label}: Edging Protocol — 3 sets · vascular conditioning`;
+            const applied=shapeEx(applyDifficulty(ROUTINES.stamina[0]),shapes);
+            detail.innerHTML=`${d.label}: Edging Protocol — ${applied.sets} sets · vascular conditioning`;
         } else {
             const sampleEx=ROUTINES[session.routineType]?.[0];
             if(sampleEx){
-                const applied=applyDifficulty(sampleEx);
+                const applied=shapeEx(applyDifficulty(sampleEx),shapes);
                 detail.innerHTML=`${d.label}: ${applied.duration}s per set · ${applied.sets} sets · ${SESSION_XP[d.id]||15} XP`;
             } else {
                 detail.innerHTML='';
@@ -4312,16 +4372,35 @@ function startRecoverySession(){
     updateExUI();
 }
 
+/**
+ * The exercise as this member will actually perform it today.
+ *
+ * Every number the member sees during a session comes through here: the
+ * timer face, the set pips, the set counter, the rest interval and the
+ * "last set done" copy. It is the single place the prescription is shaped,
+ * which is why fixing it here fixed all of them at once.
+ *
+ * Recovery is returned exactly as written, with no difficulty, no deload
+ * and no soreness reduction. The prescribed volume is already low and
+ * scaling it would mostly mean scaling it away. estimateSessionSeconds()
+ * does the same, deliberately, and the browser suite asserts both.
+ *
+ * Girth shapes the work intervals only. Rounds come from
+ * session.girthTotalRounds and the inter-round rest from cfg.restDur, and
+ * neither is shaped on either side. A reduced girth session is the same
+ * circuit with shorter work, not a shorter circuit.
+ */
 function getCurEx(){
     const ex = ROUTINES[session.routineType][session.exerciseIndex];
     if(ex.isRecovery) return ex;
+    const shapes = currentShapes();   // [deload?, moderate soreness?], in that order
     if(session.routineType==='girth'){
         const diffKey=getDiff().id;
         const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
         const dur=ex.title==='Wet Jelq'?cfg.jelqDur:cfg.uliDur;
-        return applyDeload({...ex, sets:1, duration:dur});
+        return shapeEx({...ex, sets:1, duration:dur}, shapes);
     }
-    return applyDeload(applyDifficulty(ex));
+    return shapeEx(applyDifficulty(ex), shapes);
 }
 function updateExUI(){
     const ex=getCurEx();
@@ -4342,11 +4421,18 @@ function updateExUI(){
     if(session.routineType==='girth' && session.girthRound===1 && session.exerciseIndex===0){
         const diffKey=getDiff().id;
         const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
-        const jelqLabel=cfg.jelqDur>=60?(cfg.jelqDur/60)+'m':cfg.jelqDur+'s';
+        /* Shaped, for the same reason the difficulty subtext is: this card
+           is the member reading what the circuit is about to be, and it
+           used to show the unreduced work intervals on a deload week.
+           Rounds and the inter-round rest are not shaped by anything, here
+           or in the estimate, so they are printed as they stand. */
+        const _s=currentShapes();
+        const jelqLabel=_durLabel(shapeEx({sets:1,duration:cfg.jelqDur},_s).duration);
+        const uliDur=shapeEx({sets:1,duration:cfg.uliDur},_s).duration;
         document.getElementById('circuit-overview-label').innerHTML=`<i class="fas fa-list-check"></i> ${cfg.rounds}-Round Circuit`;
         document.getElementById('circuit-overview-steps').innerHTML=`
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">1</span><p class="text-[11px] text-slate-300">Wet Jelq <span class="text-emerald-500">${jelqLabel}</span> — 3s per stroke, 60-80% EQ</p></div>
-            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">2</span><p class="text-[11px] text-slate-300">Uli — Manual Clamp <span class="text-emerald-500">${cfg.uliDur}s</span> — OK grip at base, 80% EQ</p></div>
+            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">2</span><p class="text-[11px] text-slate-300">Uli — Manual Clamp <span class="text-emerald-500">${uliDur}s</span> — OK grip at base, 80% EQ</p></div>
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-[9px] font-black text-slate-400">↺</span><p class="text-[11px] u-text-2">${cfg.restDur}s rest + re-lube between rounds</p></div>`;
         circOv.classList.remove('hidden');
     } else {
@@ -4381,8 +4467,13 @@ function updateExUI(){
             :'text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20';
     }
 
-    // Deload badge
+    /* Volume badges. Recovery is never shaped by either, so neither badge
+       appears on a Recovery session. Both can be up at once: a deload week
+       and a moderate-soreness day compose, and showing one would understate
+       what was taken off. */
     document.getElementById('deload-ex-badge').classList.toggle('hidden',!dl||isRecovSession);
+    const _sore=sorenessReduced();
+    document.getElementById('soreness-ex-badge').classList.toggle('hidden',!_sore||isRecovSession);
 
     // Engage button
     const eb=document.getElementById('ex-btn');
@@ -8109,7 +8200,16 @@ document.addEventListener('DOMContentLoaded', async ()=>{
      ─────────────────────────────────────────────────────────────────────── -->
 <script type="module">
 import { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED } from '../src/nextBestAction.js';
-import { estimateSessionMinutes } from '../src/sessionDuration.js';
+/* The ESTIMATE and the ACTUAL PRESCRIPTION now come from the same place.
+   They used to not: estimateSessionSeconds() applied MODERATE_SORENESS_SHAPE
+   and getCurEx() did not, so a member who reported moderate soreness was
+   told the session was reduced, shown a shorter estimate, and then given the
+   full volume. The shapes and the arithmetic are imported rather than
+   re-typed here, because a number duplicated in this file is exactly how
+   that happened. exerciseSeconds and estimateSessionSeconds are exported so
+   the browser suite can assert the two paths still agree. */
+import { estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
+         applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE } from '../src/sessionDuration.js';
 import { weekCompletion } from '../src/weekCompletion.js';
 // Phase 2B.2 liveness. Communication only: nothing here reaches the
 // prescription, and the browser suite asserts that.
@@ -8133,7 +8233,9 @@ import { toleranceHolds, programmeStartBackfill, programmeStartOnCompletion,
          isQualifyingSession, provablyFirstMechanicalSession } from '../src/progression.js';
 import { PROGRESSION_POLICY } from '../src/progressionPolicy.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
-              estimateSessionMinutes, weekCompletion, weekKey, normaliseLedger,
+              estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
+              applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
+              weekCompletion, weekKey, normaliseLedger,
               reconcileLedger, progressionState, PROGRESSION_STATE, WEEK_VERDICT,
               weekQualified, weekIsMemberFacingMiss, toleranceHolds,
               programmeStartBackfill, programmeStartOnCompletion, isQualifyingSession,
