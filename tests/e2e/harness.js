@@ -101,8 +101,11 @@ function launchOptions() {
  *   hangRead — never resolve the read, to exercise the 8s timeout path
  *   rejectColumns — reject any upsert containing these columns, to simulate a
  *                   table that has not had its ALTER TABLE run yet
- * Every upsert is recorded on window.__writes so tests can assert what would
- * have reached the database.
+ * Every ACCEPTED upsert is recorded on window.__writes so tests can assert
+ * what would have reached the database, and every ATTEMPT is recorded on
+ * window.__attempts, accepted or not. The two differ only when a fallback is
+ * running, and the number of attempts is the only way to see which tier of
+ * the schema fallback answered: a rejected payload never reaches __writes.
  *
  * Phase 2B.3.5 added a real session lifecycle on top, because until then
  * signOut() was a no-op, getSession() was hardcoded to null and the
@@ -115,6 +118,7 @@ function launchOptions() {
  */
 function installSupabaseStub(cfg) {
     window.__writes = [];
+    window.__attempts = [];
     window.__row = cfg.row;
     window.__files = cfg.files;
     /* Phase 2B.3.5. The session lifecycle, so the real auth path can run.
@@ -154,6 +158,7 @@ function installSupabaseStub(cfg) {
         q.single = () => (cfg.hangRead && table !== 'members' ? new Promise(() => {}) : Promise.resolve(result()));
         q.then = (res) => (cfg.hangRead && table !== 'members' ? new Promise(() => {}) : Promise.resolve(result()).then(res));
         q.upsert = (payload) => {
+            window.__attempts.push(payload);
             const bad = cfg.rejectColumns.find(c => c in payload);
             if (bad) return Promise.resolve({ error: { code: 'PGRST204', message: `Could not find the '${bad}' column of 'user_data' in the schema cache` } });
             window.__writes.push(payload);
