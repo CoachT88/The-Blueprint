@@ -99,6 +99,19 @@
            17 of the 39 HQ text nodes. These two classes carry the fix. */
         .u-text-2{color:var(--text-secondary)}
         .u-text-3{color:var(--text-muted)}
+        /* StateBadge. Icon plus label, the pair that makes a Today state
+           identifiable with every accent colour stripped out. Colour is
+           reinforcement; this is what actually carries the state. */
+        .u-state-badge{display:inline-flex;align-items:center;gap:6px;
+            font-size:var(--t-micro);font-weight:900;text-transform:uppercase;
+            letter-spacing:.18em;color:var(--text-secondary)}
+        .u-state-badge i{font-size:11px;line-height:1}
+        /* Caution-toned primary. For RECOVER, where the member reported high
+           soreness and the plan adjusted. It has to read as "this is the
+           right action today", not as a warning: amber rather than red,
+           solid rather than outlined, full width, same height and weight as
+           the normal primary. Distinct from TRAIN without looking disabled
+           or dangerous. */
         .u-surface{background:var(--surface);border:1px solid var(--border);
             border-radius:var(--r-lg);box-shadow:var(--e-1)}
         .u-surface-raised{background:var(--surface-raised);border:1px solid var(--border-strong);
@@ -147,6 +160,14 @@
         .btn-primary{background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white;padding:1.25rem;border-radius:1.25rem;font-weight:800;text-transform:uppercase;letter-spacing:.15em;transition:all .2s cubic-bezier(.4,0,.2,1);border:1px solid rgba(255,255,255,.15);border-top:1px solid rgba(255,255,255,.3);width:100%;flex-shrink:0;box-shadow:0 10px 30px -5px rgba(37,99,235,.4),inset 0 -2px 10px rgba(0,0,0,.2);cursor:pointer}
         .btn-primary:active{transform:scale(.96);opacity:.9}
         .btn-primary:disabled{background:#1e293b;border-color:#334155;color:#64748b;box-shadow:none;transform:none;opacity:.7;cursor:not-allowed}
+        /* A modifier ON .btn-primary, declared after it, because
+           .btn-primary sets a background GRADIENT and a bare .u-btn--caution
+           earlier in the sheet loses the tie on source order and renders
+           the ordinary blue. That is how RECOVER first shipped looking
+           identical to a normal training day. */
+        .btn-primary.u-btn--caution{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);
+            color:#1c1403;box-shadow:0 10px 30px -8px rgba(245,158,11,.45),inset 0 1px 0 rgba(255,255,255,.25)}
+        .btn-primary.u-btn--caution:active:not(:disabled){background:linear-gradient(135deg,#d97706 0%,#b45309 100%)}
         .btn-ai{background:linear-gradient(135deg,#7e22ce 0%,#9333ea 100%)!important;box-shadow:0 10px 30px -5px rgba(168,85,247,.3),inset 0 -2px 10px rgba(0,0,0,.2)!important}
         .btn-outline{background:rgba(255,255,255,.02);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);padding:1rem;border-radius:1.25rem;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.1em;transition:all .2s;color:#94a3b8;width:100%;cursor:pointer}
         .instruction-card{background:linear-gradient(145deg,rgba(30,41,59,.4) 0%,rgba(15,23,42,.6) 100%);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-top:1px solid rgba(255,255,255,.15);border-radius:1.5rem;padding:1.25rem;flex-shrink:0;box-shadow:0 15px 35px -10px rgba(0,0,0,.5)}
@@ -300,12 +321,29 @@
            padding and a lift than anything else on the HQ, and the state
            tints the left edge so RECOVER and REST never look like TRAIN. */
         .today-card{background:linear-gradient(160deg,rgba(30,41,59,.92) 0%,rgba(15,23,42,.96) 100%);border:1px solid rgba(148,163,184,.18);border-left:3px solid #3b82f6;border-radius:1.25rem;padding:1.15rem 1.25rem;box-shadow:0 10px 30px -12px rgba(0,0,0,.7)}
-        .today-card[data-state="MODIFIED"]{border-left-color:#f59e0b}
-        .today-card[data-state="RECOVER"]{border-left-color:#f59e0b}
-        .today-card[data-state="REST"]{border-left-color:#6366f1}
-        .today-card[data-state="COMPLETE"]{border-left-color:#10b981}
-        .today-card[data-state="RESUME"]{border-left-color:#10b981}
-        .today-card[data-state="PREPARE"]{border-left-color:#64748b}
+        /* One accent per state meaning. Two collisions were fixed here:
+           RECOVER shared amber with MODIFIED, and RESUME shared emerald
+           with COMPLETE, so in each pair the colour said nothing. TRAIN and
+           RESUME now share the action accent on purpose, because both mean
+           there is work to do now; the badge, headline and CTA separate
+           them. Nothing here is load-bearing: strip every colour and the
+           state is still legible from the badge alone. */
+        .today-card[data-state="MODIFIED"]{border-left-color:var(--caution)}
+        .today-card[data-state="RECOVER"]{border-left-color:var(--safety)}
+        .today-card[data-state="REST"]{border-left-color:var(--rest)}
+        .today-card[data-state="COMPLETE"]{border-left-color:var(--success)}
+        .today-card[data-state="RESUME"]{border-left-color:var(--accent)}
+        .today-card[data-state="PREPARE"]{border-left-color:var(--text-muted)}
+        /* The badge picks up the same accent, so icon and label reinforce it. */
+        .today-card[data-state="TRAIN"]    .u-state-badge{color:var(--accent)}
+        .today-card[data-state="MODIFIED"] .u-state-badge{color:var(--caution)}
+        .today-card[data-state="RECOVER"]  .u-state-badge{color:var(--safety)}
+        .today-card[data-state="REST"]     .u-state-badge{color:var(--rest)}
+        .today-card[data-state="COMPLETE"] .u-state-badge{color:var(--success)}
+        .today-card[data-state="RESUME"]   .u-state-badge{color:var(--accent)}
+        /* REST and COMPLETE are closure, not prompts. Quieter surfaces. */
+        .today-card[data-state="REST"],
+        .today-card[data-state="COMPLETE"]{background:linear-gradient(160deg,rgba(23,32,50,.9) 0%,rgba(12,18,32,.95) 100%)}
         /* COMPLETE is closure, not a prompt. Quieter, not louder. */
         .today-card[data-state="COMPLETE"] #today-headline{color:#6ee7b7}
         /* A day completed with a session other than the scheduled one. The
@@ -928,11 +966,16 @@
              reads state, mission, reason, duration, changes and
              withheldSession, and decides nothing for itself. See renderToday. -->
         <div id="hq-today-card" class="today-card mx-2 hq-anim">
-            <div class="flex items-baseline justify-between gap-3">
-                <p id="today-eyebrow" class="text-[10px] font-black uppercase tracking-[0.25em] u-text-2">Today</p>
+            <!-- Slot 1: state. Icon and label together, so the state reads
+                 without relying on the accent colour at all. -->
+            <div class="flex items-center justify-between gap-3">
+                <span id="today-eyebrow" class="u-state-badge"><i id="today-state-icon" class="fas"></i><span id="today-state-label">Today</span></span>
                 <p id="today-meta" class="text-[10px] font-bold u-text-2 hidden" style="font-family:'JetBrains Mono',monospace"></p>
             </div>
-            <h2 id="today-headline" class="text-3xl font-black uppercase italic tracking-tight leading-none mt-1.5 text-slate-50">&nbsp;</h2>
+            <!-- Slot 2: headline. 24px, down from 30px: at 30px RESUME's
+                 "Pick Up Where You Left Off" wrapped to two lines and the
+                 card height swung from 153 to 347 across states. -->
+            <h2 id="today-headline" class="text-[24px] font-black uppercase italic tracking-tight leading-tight mt-1.5 text-slate-50">&nbsp;</h2>
             <p id="today-sub" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
             <p id="today-why" class="text-[12px] text-slate-300 mt-2 leading-relaxed"></p>
             <p id="today-withheld" class="hidden text-[11px] mt-2 leading-relaxed px-3 py-2 rounded-xl" style="background:rgba(100,116,139,.12);color:#cbd5e1"></p>
@@ -944,17 +987,22 @@
             <div id="today-complete-summary" class="hidden mt-3 grid grid-cols-2 gap-2"></div>
             <div id="today-actions" class="mt-4 space-y-2">
                 <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
-                <button id="resume-btn" class="btn-primary hidden" style="background:linear-gradient(135deg,#059669 0%,#047857 100%)">RESUME SESSION</button>
+                <button id="resume-btn" class="btn-primary hidden">RESUME SESSION</button>
                 <button id="today-prepare-btn" class="btn-primary hidden">GET SET UP</button>
                 <p id="today-prepare-hint" class="hidden text-[10px] u-text-2 text-center"></p>
                 <button id="today-optional-btn" class="hidden w-full text-[11px] font-black uppercase tracking-widest text-slate-400 py-2.5 rounded-xl" style="background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.2)">Active Recovery</button>
-                <button id="today-why-btn" class="hidden w-full text-[10px] font-bold u-text-2 py-1.5">Why this today?</button>
+                <!-- Tertiary actions are peers and share a row. Stacked full
+                     width they made MODIFIED, the one state that shows both,
+                     the tallest card on the HQ. -->
+                <div class="flex items-center gap-3">
+                <button id="today-why-btn" class="hidden flex-1 text-[10px] font-bold u-text-2 py-1.5">Why this today?</button>
                 <!-- Meaningful now that the primary CTA goes straight to the
                      prescribed session. Deliberately a text link rather than
                      a button: this is what we recommend, and you still have
                      control, in that order. Never shown where choosing
                      something else would route around a safety block. -->
-                <button id="today-alt-btn" class="hidden w-full text-[11px] font-bold u-text-2 py-2 underline decoration-slate-700 underline-offset-4">Something else</button>
+                <button id="today-alt-btn" class="hidden flex-1 text-[11px] font-bold u-text-2 py-2 underline decoration-slate-700 underline-offset-4">Something else</button>
+                </div>
             </div>
         </div>
 
@@ -5234,14 +5282,21 @@ const LIVENESS_COPY={
 };
 
 /** Copy for each state. Kept here so the renderer stays shape, not prose. */
+/* One row per resolver state. `icon` and `eyebrow` are the pair that makes
+   the state readable with every accent colour removed, which is the actual
+   requirement: colour only reinforces. `ctaVariant` is how RECOVER's primary
+   action differs from a normal training day without looking like an error.
+
+   These are labels for states the resolver has already decided. Nothing here
+   participates in deciding anything. */
 const TODAY_COPY={
-    TRAIN:    {eyebrow:'Today', cta:t=>`START ${t.toUpperCase()} SESSION`},
-    MODIFIED: {eyebrow:'Today', headline:'Modified Session', cta:()=>'START MODIFIED SESSION'},
-    RECOVER:  {eyebrow:'Today', headline:'Recovery',         cta:()=>'START RECOVERY'},
-    REST:     {eyebrow:'Today', headline:'Rest Day'},
-    COMPLETE: {eyebrow:'',      headline:'Today Is Done'},
-    RESUME:   {eyebrow:'Unfinished', headline:'Pick Up Where You Left Off'},
-    PREPARE:  {eyebrow:'Before you start'},
+    TRAIN:    {eyebrow:'Today',             icon:'fa-bullseye',     cta:t=>`START ${t.toUpperCase()} SESSION`},
+    MODIFIED: {eyebrow:'Today · Adjusted',  icon:'fa-gauge-high',   headline:'Modified Session', cta:()=>'START MODIFIED SESSION'},
+    RECOVER:  {eyebrow:'Today · Protected', icon:'fa-shield-halved',headline:'Recovery',         cta:()=>'START RECOVERY', ctaVariant:'caution'},
+    REST:     {eyebrow:'Today · Rest',      icon:'fa-bed',          headline:'Rest Day'},
+    COMPLETE: {eyebrow:'Today · Done',      icon:'fa-circle-check', headline:'Today Is Done'},
+    RESUME:   {eyebrow:'Unfinished',        icon:'fa-rotate-left',  headline:'Pick Up Where You Left Off'},
+    PREPARE:  {eyebrow:'Before you start',  icon:'fa-sliders'},
 };
 const PREPARE_COPY={
     'loading':            {headline:'Loading',          cta:'' },
@@ -5282,7 +5337,14 @@ function renderToday(){
        scheduled session being done, which it was not. */
     const completedKind=r.state==='COMPLETE'?todayCompletionKind():null;
     if(completedKind==='recovery') headline='Recovery Complete';
-    set('today-eyebrow',prep?TODAY_COPY.PREPARE.eyebrow:copy.eyebrow);
+    /* The badge, not just a word. The icon is what survives when the accent
+       is stripped, so it is written from the same table as the label. */
+    const _badge=prep?TODAY_COPY.PREPARE:copy;
+    set('today-state-label',_badge.eyebrow||'');
+    const _ico=document.getElementById('today-state-icon');
+    if(_ico) _ico.className='fas '+(_badge.icon||'fa-circle');
+    const _eb=document.getElementById('today-eyebrow');
+    if(_eb) _eb.classList.toggle('hidden',!(_badge.eyebrow||''));
     set('today-headline',headline);
 
     // Outcome before mechanism: what this session is for, then why today.
@@ -5345,6 +5407,13 @@ function renderToday(){
     if(launch){
         launch.classList.toggle('hidden',!showLaunch);
         if(showLaunch) launch.textContent=(copy.cta||(()=>'BEGIN SESSION'))(dayTypeLabel(r.mission));
+        /* RECOVER's primary is caution-toned. The member reported high
+           soreness and the plan adjusted, so this is the correct action
+           today, not a warning: same height, same weight, full width,
+           solid fill. It must not read as disabled or dangerous, and it
+           must not be the identical blue "go" a normal training day uses,
+           which is what it was before. */
+        launch.classList.toggle('u-btn--caution',showLaunch&&copy.ctaVariant==='caution');
     }
     if(resume) resume.classList.toggle('hidden',r.state!=='RESUME');
     if(prepBtn){
