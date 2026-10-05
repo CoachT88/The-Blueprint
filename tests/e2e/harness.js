@@ -43,7 +43,11 @@ import path from 'node:path';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(HERE, '..', '..');
-export const SHIM_CSS = path.join(HERE, 'tw-shim.css');
+/* Phase 3B: the real, committed stylesheet. Until now this was a 59-line
+   hand-written approximation, because the CDNs are blocked in CI and the app
+   had no CSS of its own. Now app/vendor/tw.css ships with the app, so the
+   suites render what production renders and geometry assertions mean
+   something. tw-shim.css is gone. */
 
 /** Phone viewport. The app is a mobile PWA; desktop is not the target. */
 export const VIEWPORT = { width: 390, height: 844 };
@@ -245,7 +249,12 @@ export async function openApp(opts = {}) {
     page.on('pageerror', e => errors.push(`PAGEERROR: ${e.message}`));
     if (acceptDialogs) page.on('dialog', d => d.accept());
 
-    for (const pattern of ['**://unpkg.com/**', '**://cdn.tailwindcss.com/**', '**://cdnjs.cloudflare.com/**']) {
+    /* unpkg still serves the Supabase client, which the stub replaces. The
+       three styling CDNs are no longer referenced by the app at all; they
+       stay blocked so a regression that reintroduces one fails loudly here
+       rather than quietly depending on the network. */
+    for (const pattern of ['**://unpkg.com/**', '**://cdn.tailwindcss.com/**',
+                           '**://cdnjs.cloudflare.com/**', '**://fonts.googleapis.com/**']) {
         await page.route(pattern, r => r.abort());
     }
     await page.addInitScript(installSupabaseStub, { row, hangRead, rejectColumns, files, pngDataUri: PNG_1PX });
@@ -254,7 +263,6 @@ export async function openApp(opts = {}) {
     // own browser, so a loaded machine can push a cold navigation past the 30s
     // default. A flaky suite is worse than a slow one.
     await page.goto(`${srv.origin}/app/index.html`, { waitUntil: 'domcontentloaded', timeout: 90_000 });
-    await page.addStyleTag({ path: SHIM_CSS });
     await page.waitForTimeout(900); // let the inline script finish wiring
 
     const close = async () => { await browser.close(); await srv.close(); };

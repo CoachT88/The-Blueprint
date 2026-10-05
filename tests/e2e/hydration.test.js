@@ -121,8 +121,9 @@ describe('hydration', () => {
     });
 
     test('the unit choice survives a reload', async () => {
+        // No stylesheet re-injection after the reload: since Phase 3B the app
+        // links its own committed CSS, so a reload brings it back by itself.
         await app.page.reload({ waitUntil: 'domcontentloaded' });
-        await app.page.addStyleTag({ path: new URL('./tw-shim.css', import.meta.url).pathname });
         await app.page.waitForTimeout(900);
         await signIn(app.page, { id: 'hyd' });
         await app.page.evaluate(() => { loadHydrationUnit(); goToStep(0); });
