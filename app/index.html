@@ -2906,6 +2906,55 @@ function getISOWeek(){
 function _getISOYear(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+4-(d.getDay()||7));return d.getFullYear();}
 function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
 
+/**
+ * The one place a restored or imported state becomes `persisted`.
+ *
+ * Eight code paths used to assign `persisted` and only two of them validated
+ * anything. Four wrote the identical expression `{...DEFAULT_PERSISTED,...rest}`
+ * straight from a localStorage backup, so a file written by an older build, a
+ * hand-edited export or a half-finished write all reached the rest of the app
+ * unexamined. Adding fields to that surface without a single entry point only
+ * multiplies the problem, so there is now exactly one.
+ *
+ * IT TAKES THE INTERNAL SHAPE, NOT A ROW
+ *
+ * camelCase keys, the same ones DEFAULT_PERSISTED declares. Translating a
+ * Supabase row is a separate step with a separate function, _internalFromRow,
+ * because column naming is a storage concern and mixing the two would mean
+ * every caller had to know which kind of object it was holding.
+ *
+ * IT NORMALISES CONTAINERS, NOT CONTENTS
+ *
+ * A missing field gets its honest empty value. A field that is present is
+ * carried through exactly as it arrived, including records this build cannot
+ * read. That asymmetry is the whole rule: missing data may default, but
+ * unread data must not be silently erased. Dropping a day plan this version
+ * does not understand would persist the loss on the very next save, and the
+ * reader that does understand it arrives in a later phase.
+ *
+ * That is also why normaliseDayPlans() from src/dayPlan.js is deliberately
+ * not called here. It refuses records rather than repairing them, which is
+ * right at the point of use and wrong at the point of storage.
+ *
+ * A programme that is present but is not an object does become null. That is
+ * a container failure rather than unread data: a string is not a programme in
+ * any version of the model.
+ *
+ * _persistedLoaded STAYS OUTSIDE
+ *
+ * Whether this state can be trusted enough to write back is a property of
+ * which path produced it, not of whether it normalised cleanly. A restore
+ * from a stale backup normalises perfectly and is still not grounds to
+ * overwrite a server row. Each caller keeps its own decision.
+ */
+function adoptPersisted(raw){
+    const src=(raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:{};
+    persisted={...DEFAULT_PERSISTED,...src};
+    if(!(persisted.programme&&typeof persisted.programme==='object'&&!Array.isArray(persisted.programme))) persisted.programme=null;
+    if(!Array.isArray(persisted.dayPlans)) persisted.dayPlans=[];
+    return persisted;
+}
+
 async function loadPersisted(){
     if(!currentUser)return;
     _persistedLoaded=false;
@@ -2919,19 +2968,19 @@ async function loadPersisted(){
         const {data,error}=await Promise.race([_query,_timeout]).catch(e=>{
             // Timeout or network error — fall back to localStorage
             _queryFailed=true;
-            if(localData) try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};_persistedLoaded=true;}catch(e2){}
+            if(localData) try{const {_savedAt:_,...rest}=localData;adoptPersisted(rest);_persistedLoaded=true;}catch(e2){}
             return {};
         });
         if(!data){
             if(localData){
-                try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};_persistedLoaded=true;}catch(e){}
+                try{const {_savedAt:_,...rest}=localData;adoptPersisted(rest);_persistedLoaded=true;}catch(e){}
             }
             // Brand-new account starts at Beginner, matching what the intro promises.
             // Only when the query genuinely SUCCEEDED and found no row (PGRST116) and
             // there is no local backup — a timeout or error must never downgrade a
             // returning member who simply could not be read this time.
             else if(!_queryFailed && (!error || error.code==='PGRST116')){
-                persisted={...DEFAULT_PERSISTED, difficulty:'beginner'};
+                adoptPersisted({difficulty:'beginner'});
                 _persistedLoaded=true;
             }
             // Otherwise the read failed and we have no backup: stay unloaded so
@@ -2948,7 +2997,7 @@ async function loadPersisted(){
         const hasDirty=!!localStorage.getItem('bp_dirty_'+currentUser.id);
         if((localTime>dbTime || (hasDirty && localData && localTime>=dbTime)) && localData){
             const {_savedAt:_,...rest}=localData;
-            persisted={...DEFAULT_PERSISTED,...rest};
+            adoptPersisted(rest);
             // Re-sync Supabase with the newer local data
             try{
                 _persistedLoaded=true; // local backup is a known-good state
@@ -2956,7 +3005,7 @@ async function loadPersisted(){
                 if(!_err) localStorage.removeItem('bp_dirty_'+currentUser.id);
             }catch(e){}
         } else {
-            persisted = _internalFromRow(data);
+            adoptPersisted(_internalFromRow(data));
         }
         // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
         // Use allTimeSessionCount (never truncated) rather than sessionLog.length (capped at 50)
@@ -2982,7 +3031,7 @@ async function loadPersisted(){
     }catch(e){
         console.error('loadPersisted:',e);
         if(localData){
-            try{const {_savedAt:_,...rest}=localData;persisted={...DEFAULT_PERSISTED,...rest};_persistedLoaded=true;}catch(e2){}
+            try{const {_savedAt:_,...rest}=localData;adoptPersisted(rest);_persistedLoaded=true;}catch(e2){}
         } else { _showLoadFailedBanner(); }
     }
 }
@@ -7163,7 +7212,7 @@ function importData(file){
             if(p.measurements!==undefined&&!Array.isArray(p.measurements))throw new Error('invalid');
             if(p.schedule!==undefined&&!Array.isArray(p.schedule))throw new Error('invalid');
             if(!confirm('This will overwrite all current data. Continue?'))return;
-            persisted={...DEFAULT_PERSISTED,...p};
+            adoptPersisted(p);
             // Same bounds a normal session would be held to, so an oversized or
             // hand-edited backup cannot leave the app in a state it cannot save.
             persisted.sessionLog=trimToByteBudget(persisted.sessionLog||[],SESSION_LOG_BUDGET_BYTES);
