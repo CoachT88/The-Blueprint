@@ -18,6 +18,8 @@
  * Nothing in index.html calls this yet. Wiring is Phase 2A.2 onward; the shape
  * is deliberately presentation-free so that wiring is a thin adapter.
  */
+import { classifySlot, SLOT_CLASS } from './scheduleSlot.js';
+
 /** The seven states. OPTIONAL is not one of them: see `optional` on the result. */
 export const STATES = ['PREPARE', 'RESUME', 'TRAIN', 'MODIFIED', 'RECOVER', 'REST', 'COMPLETE'];
 
@@ -255,7 +257,7 @@ export function nextBestAction(input) {
         state = 'RECOVER'; mission = 'recovery'; reason = REASONS.highSoreness;
     } else if (scheduled === 'rest') {
         state = 'REST'; reason = REASONS.rest;
-    } else if (!trainingMissions.includes(scheduled)) {
+    } else if (classifySlot(scheduled, { primaryTypes: trainingMissions }) !== SLOT_CLASS.PRIMARY) {
         /* Missing, empty or unrecognised. getScheduledType() returns 'rest'
            here, which quietly turns a corrupt array into a week off; the
            earlier version of this file fell back to the goal's mission, which
