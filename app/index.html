@@ -3041,11 +3041,28 @@ function _buildSavePayload(){
         updated_at:            new Date().toISOString(),
     };
 }
-// Columns added after the original schema. If the deploy lands before the
-// matching ALTER TABLE has been run, Supabase rejects the whole upsert and the
-// member silently stops syncing. We detect that once and fall back to writing
-// the columns that do exist, so progress is never lost over a migration gap.
+/* Columns added after the original schema. If the deploy lands before the
+   matching ALTER TABLE has been run, Supabase rejects the whole upsert and the
+   member silently stops syncing. We detect that once and fall back to writing
+   the columns that do exist, so progress is never lost over a migration gap.
+
+   TWO TIERS, NEWEST FIRST, AND THE REASON IS NOT TIDINESS
+
+   This used to be one list and one strip. Appending each new migration to it
+   meant the newest column could cost a member every column before it: a
+   member whose table has the 2B.1 migration but not the next one would lose
+   progression_ledger as the price of two columns they are not using yet.
+
+   So the newest migration is stripped on its own first. Only if that is not
+   enough do we widen to everything added since the original schema, which is
+   the older behaviour and covers a table missing several migrations at once.
+
+   _NEWER_COLUMNS is deliberately left exactly as it was. The two lists are
+   separate and the strips are a union, so the broad tier always covers the
+   narrow one and neither list has to know about the other. */
+const _LATEST_SCHEMA_COLUMNS=['programme','day_plans'];
 const _NEWER_COLUMNS=['streak_passes','pass_protected_dates','last_pass_earned_date','primary_goal','pelvic_profile','pelvic_screen_date','programme_start_date','progression_ledger'];
+let _schemaMissingLatestCols=false;
 let _schemaMissingNewCols=false;
 function _isUnknownColumnError(err){
     if(!err) return false;
@@ -3057,11 +3074,25 @@ function _isUnknownColumnError(err){
 function _upsertPayload(){
     // upsert ensures the row is created if it doesn't exist (cross-device safe)
     const payload={id:currentUser.id,..._buildSavePayload()};
-    if(_schemaMissingNewCols) _NEWER_COLUMNS.forEach(c=>delete payload[c]);
+    if(_schemaMissingLatestCols) _LATEST_SCHEMA_COLUMNS.forEach(c=>delete payload[c]);
+    if(_schemaMissingNewCols)    _NEWER_COLUMNS.forEach(c=>delete payload[c]);
     return payload;
 }
 async function _upsertWithSchemaFallback(){
-    let {error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
+    const first=_upsertPayload();
+    let {error}=await sb.from('user_data').upsert(first,{onConflict:'id'});
+    if(error&&!_schemaMissingLatestCols&&_isUnknownColumnError(error)){
+        _schemaMissingLatestCols=true;
+        const trimmed=_upsertPayload();
+        /* If the narrow strip removed nothing, the retry would be the same
+           request byte for byte and could only waste a round trip. Skip it
+           and let the broad tier answer. This is also what keeps the two-tier
+           change inert until the newest columns are actually in the payload. */
+        if(Object.keys(trimmed).length<Object.keys(first).length){
+            console.warn('user_data is missing the newest columns; saving without them. Run the pending ALTER TABLE.');
+            ({error}=await sb.from('user_data').upsert(trimmed,{onConflict:'id'}));
+        }
+    }
     if(error&&!_schemaMissingNewCols&&_isUnknownColumnError(error)){
         console.warn('user_data is missing newer columns; saving without them. Run the pending ALTER TABLE.');
         _schemaMissingNewCols=true;
