@@ -230,18 +230,48 @@ describe('importing a backup goes through the same boundary', () => {
         return { programme: persisted.programme, dayPlans: persisted.dayPlans, xp: persisted.totalXp };
     }, obj);
 
-    test('a backup written before the fields existed gets the empty values', async () => {
-        const r = await importBackup({ sessionLog: [], totalXp: 7 });
+    /* ADOPTION is what these two assert, so they call it directly.
+       importData() ends with renderDashboard(), and migration classification
+       now fills a null programme during that render, so the state after an
+       import is adoption's answer plus a classification. Asserting
+       `programme === null` after an import would be asserting that
+       classification never ran. The contract under test here is narrower
+       than that and belongs to adoptPersisted(). */
+    const adopt = async (raw) => app.page.evaluate((r) => {
+        adoptPersisted(r);
+        return { programme: persisted.programme, dayPlans: persisted.dayPlans, xp: persisted.totalXp };
+    }, raw);
+
+    test('adoption gives a backup without the fields the empty values', async () => {
+        const r = await adopt({ sessionLog: [], totalXp: 7 });
         expect(r.xp).toBe(7);
         expect(r.programme).toBe(null);
         expect(r.dayPlans).toEqual([]);
     }, 30_000);
 
-    test('a hand-edited programme that is not an object is refused, not carried', async () => {
+    test('adoption refuses a programme that is not an object, rather than carrying it', async () => {
         /* A container failure rather than unread data: a string is not a
            programme in any version of the model. */
-        const r = await importBackup({ sessionLog: [], totalXp: 8, programme: 'size' });
+        const r = await adopt({ sessionLog: [], totalXp: 8, programme: 'size' });
         expect(r.programme).toBe(null);
+    }, 30_000);
+
+    test('an import of a backup without the fields ends up classified, not null', async () => {
+        /* The end-to-end consequence of the above, so the hand-off between
+           adoption and classification is pinned rather than assumed. */
+        const r = await importBackup({ sessionLog: [], totalXp: 7 });
+        expect(r.xp).toBe(7);
+        expect(r.dayPlans).toEqual([]);
+        expect(r.programme).not.toBe(null);
+        expect(r.programme.source).toBe('default');
+        expect(r.programme.custom).toBe(false);
+    }, 30_000);
+
+    test('an import whose programme is a string is refused and then classified', async () => {
+        const r = await importBackup({ sessionLog: [], totalXp: 8, programme: 'size' });
+        expect(typeof r.programme).toBe('object');
+        expect(r.programme.version).toBe(1);
+        expect(r.programme.source).toBe('default');
     }, 30_000);
 
     test('plans in a backup are carried through, unreadable records included', async () => {
