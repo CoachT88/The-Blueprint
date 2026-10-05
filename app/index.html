@@ -2906,6 +2906,15 @@ function getISOWeek(){
 function _getISOYear(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+4-(d.getDay()||7));return d.getFullYear();}
 function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
 
+/* Did THIS load have to repair the stored schedule?
+ *
+ * A per-load migration-safety fact and nothing more. It is not persisted, it
+ * is read by one caller, and it is not a second representation of the
+ * schedule. Migration classification needs it because PR B moved the repair
+ * inside adoption, so by the time anything reads persisted.schedule the
+ * repair has already happened and is invisible in the value. */
+let _scheduleRepairedOnAdopt=false;
+
 /**
  * The one place a restored or imported state becomes `persisted`.
  *
@@ -2963,7 +2972,9 @@ function adoptPersisted(raw){
     persisted={...DEFAULT_PERSISTED,...src};
     if(!(persisted.programme&&typeof persisted.programme==='object'&&!Array.isArray(persisted.programme))) persisted.programme=null;
     if(!Array.isArray(persisted.dayPlans)) persisted.dayPlans=[];
-    normaliseSchedule();
+    /* Assigned, never |=. Each adoption answers for its own state, so an
+       account switch cannot inherit the previous member's repair. */
+    _scheduleRepairedOnAdopt=normaliseSchedule().changed;
     return persisted;
 }
 
@@ -3599,11 +3610,19 @@ function renderMissionGuidance(blackout){
     note.innerHTML=msg?`<i class="fas fa-circle-info mr-1"></i>${msg}`:'';
     note.classList.toggle('hidden',!msg);
 }
+/* Returns { changed }, because migration classification has to know whether
+   this build had to repair the stored week before reading it. After the
+   repair the value looks like an ordinary schedule and may even equal a
+   preset exactly, and that coincidence is not evidence of anything. The
+   repair itself is unchanged: same condition, same assignment, same result.
+   See _scheduleRepairedOnAdopt. */
 function normaliseSchedule(){
     const def=DEFAULT_PERSISTED.schedule;
     const cur=Array.isArray(persisted.schedule)?persisted.schedule:[];
     const fixed=def.map((d,i)=>DAY_TYPES[cur[i]]?cur[i]:d);
-    if(JSON.stringify(fixed)!==JSON.stringify(cur)) persisted.schedule=fixed;
+    const changed=JSON.stringify(fixed)!==JSON.stringify(cur);
+    if(changed) persisted.schedule=fixed;
+    return {changed};
 }
 function isBlackoutDay(){
     const todayType=persisted.schedule[new Date().getDay()];
