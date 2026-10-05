@@ -49,6 +49,13 @@
  * The limitation is surfaced so it drives the notification migration instead
  * of being discovered after it ships.
  *
+ * Note the asymmetry in configurability. classifySlot and its predicates
+ * accept an explicit known set, because the resolver already passes its own
+ * missions and a future programme will widen what counts as training. The
+ * PROJECTION functions take no options at all: the persisted vocabulary is
+ * closed, and a caller must not be able to widen it through configuration
+ * and so reintroduce by the back door the sentinel we rejected at the front.
+ *
  * Pure: no DOM, no clock, no globals, no mutation of inputs.
  */
 
@@ -72,6 +79,7 @@ export const PROJECTION_REFUSAL = Object.freeze({
     SUPPORT_ONLY:  'support_only_not_representable',
     NOT_A_PLAN:    'not_a_plan',
     UNKNOWN_TYPE:  'primary_type_not_in_legacy_vocabulary',
+    NO_PLAN:       'no_plan',
 });
 
 const DAY_MS = 86400000;
@@ -135,7 +143,7 @@ export function countScheduledPrimary(slots, opts) {
  * error and must not be treated as one: it is this module declining to
  * express something the legacy shape cannot hold.
  */
-export function toLegacySlot(plan, opts) {
+export function toLegacySlot(plan) {
     if (!plan || typeof plan !== 'object' || Array.isArray(plan)) {
         return { ok: false, reason: PROJECTION_REFUSAL.NOT_A_PLAN };
     }
@@ -144,8 +152,13 @@ export function toLegacySlot(plan, opts) {
         /* A primary type outside the legacy vocabulary is refused rather than
            passed through. Writing it into the column would survive one save
            and then be repaired away by normaliseSchedule, and in the meantime
-           the calendar would render it as unknown. */
-        if (!primariesOf(opts).includes(primary.type)) {
+           the calendar would render it as unknown.
+
+           Note the fixed vocabulary: unlike classifySlot, this takes NO
+           options. The persisted compatibility vocabulary is closed, and a
+           caller must not be able to widen it through configuration and so
+           reintroduce by the back door the sentinel we rejected at the front. */
+        if (!LEGACY_PRIMARY_TYPES.includes(primary.type)) {
             return { ok: false, reason: PROJECTION_REFUSAL.UNKNOWN_TYPE, detail: primary.type };
         }
         return { ok: true, slot: primary.type };
@@ -167,34 +180,57 @@ function dateKeyForWeekday(ref, index) {
 }
 
 /**
- * A week of day plans to the legacy 7-slot array.
+ * A week of day plans to the legacy 7-slot array, or a refusal.
  *
- * ALWAYS exactly 7 elements, Sunday-indexed by Date#getDay, because that is
- * the external contract notifyRules depends on.
+ * ALL OR NOTHING, deliberately.
  *
- * A day with no plan, or a plan this module refuses to express, is left as
- * null and NAMED in `unrepresentable`. Nothing is fabricated for a hole:
- * choosing a value would mean choosing between suppressing a notification for
- * a day that has work and claiming training that was not prescribed, and that
- * is a wiring decision taken alongside the notification migration, not a
- * default buried in a pure helper.
+ *   { ok: true,  slots: [7 valid legacy values] }
+ *   { ok: false, reason: 'unrepresentable_days', unrepresentable: [...] }
+ *
+ * There is no `slots` key on the failure result, and that is the point. An
+ * earlier version returned a 7-element array with holes left as null
+ * alongside a list of what was missing, which reads like a valid projection
+ * and would be written by any caller that forgot to check. The legacy column
+ * is a persisted compatibility contract, so the helper has to make it
+ * impossible to persist an invalid one by accident rather than merely
+ * inadvisable.
+ *
+ * On success the array is exactly 7 elements, Sunday-indexed by
+ * Date#getDay, holding only values from the closed legacy vocabulary, which
+ * is what notifyRules depends on.
+ *
+ * Nothing is fabricated for an unrepresentable day. Choosing a value would
+ * mean choosing between suppressing a notification for a day that has work
+ * and claiming training that was not prescribed, and that is a wiring
+ * decision taken alongside the notification migration, not a default buried
+ * in a pure helper.
  */
-export function toLegacySchedule(plans, weekOf, opts) {
+export function toLegacySchedule(plans, weekOf) {
     const byDate = new Map();
     for (const p of (Array.isArray(plans) ? plans : [])) {
         if (p && typeof p === 'object' && typeof p.date === 'string') byDate.set(p.date, p);
     }
     const ref = weekOf instanceof Date && !isNaN(weekOf.getTime()) ? weekOf : new Date(0);
 
-    const slots = new Array(7).fill(null);
+    const slots = new Array(7);
     const unrepresentable = [];
     for (let i = 0; i < 7; i++) {
         const date = dateKeyForWeekday(ref, i);
         const plan = byDate.get(date);
-        if (!plan) { unrepresentable.push({ index: i, date, reason: 'no_plan' }); continue; }
-        const r = toLegacySlot(plan, opts);
+        if (!plan) {
+            unrepresentable.push({ index: i, date, reason: PROJECTION_REFUSAL.NO_PLAN });
+            continue;
+        }
+        const r = toLegacySlot(plan);
         if (r.ok) slots[i] = r.slot;
-        else unrepresentable.push({ index: i, date, reason: r.reason, detail: r.detail });
+        else {
+            const u = { index: i, date, reason: r.reason };
+            if (r.detail !== undefined) u.detail = r.detail;
+            unrepresentable.push(u);
+        }
     }
-    return { slots, unrepresentable };
+    if (unrepresentable.length) {
+        return { ok: false, reason: 'unrepresentable_days', unrepresentable };
+    }
+    return { ok: true, slots };
 }

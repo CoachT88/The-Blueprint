@@ -178,10 +178,20 @@ describe('toLegacySlot', () => {
         expect(r.detail).toBe('stopAndRecover');
     });
 
-    test('a widened vocabulary lets a new primary type project', () => {
-        const r = toLegacySlot(p({ primarySession: { type: 'pelvic' } }),
-                               { primaryTypes: [...LEGACY_PRIMARY_TYPES, 'pelvic'] });
-        expect(r).toEqual({ ok: true, slot: 'pelvic' });
+    test('the projection vocabulary is CLOSED and cannot be widened by a caller', () => {
+        /* classifySlot takes an explicit known set, because the resolver
+           passes its own missions and a future programme will widen what
+           counts as training. The projection takes no options at all: the
+           persisted vocabulary is a contract, and a caller must not be able
+           to reintroduce through configuration the sentinel we rejected. */
+        expect(toLegacySlot.length).toBe(1);                 // (plan) only
+        expect(toLegacySchedule.length).toBe(2);             // (plans, weekOf) only
+        for (const opts of [{ primaryTypes: [...LEGACY_PRIMARY_TYPES, 'pelvic'] },
+                            { primaryTypes: ['support'] }]) {
+            const r = toLegacySlot(p({ primarySession: { type: 'pelvic' } }), opts);
+            expect(r.ok).toBe(false);
+            expect(r.reason).toBe(PROJECTION_REFUSAL.UNKNOWN_TYPE);
+        }
     });
 
     test('junk is refused rather than throwing', () => {
@@ -196,56 +206,96 @@ describe('toLegacySlot', () => {
     });
 });
 
-describe('toLegacySchedule', () => {
+describe('toLegacySchedule is all or nothing', () => {
     const weekOf = new Date('2026-10-07T12:00:00Z');   // Wednesday of ISO week 41
     const day = (date, over) => ({ date, mode: 'prescribed', primarySession: null,
                                    supportingWork: [], dailyPractice: [], ...over });
+    /* ISO week of 2026-10-07 runs Mon 10-05 to Sun 10-11. */
+    const fullWeek = (over = {}) => [
+        day('2026-10-05', over['2026-10-05'] || { primarySession: { type: 'length' } }),
+        day('2026-10-06', over['2026-10-06'] || { mode: 'rest' }),
+        day('2026-10-07', over['2026-10-07'] || { primarySession: { type: 'girth' } }),
+        day('2026-10-08', over['2026-10-08'] || { mode: 'rest' }),
+        day('2026-10-09', over['2026-10-09'] || { primarySession: { type: 'stamina' } }),
+        day('2026-10-10', over['2026-10-10'] || { mode: 'rest' }),
+        day('2026-10-11', over['2026-10-11'] || { mode: 'rest' }),
+    ];
 
-    test('always exactly 7 elements, whatever the input', () => {
-        for (const plans of [[], null, undefined, 'x', 7, [day('2026-10-05', {})]]) {
-            expect(toLegacySchedule(plans, weekOf).slots).toHaveLength(7);
-        }
+    test('a fully representable week returns ok with exactly 7 slots', () => {
+        const r = toLegacySchedule(fullWeek(), weekOf);
+        expect(r.ok).toBe(true);
+        expect(r.slots).toHaveLength(7);
+        expect(r.unrepresentable).toBeUndefined();
     });
 
-    test('Sunday-indexed, matching the external contract', () => {
-        // ISO week of 2026-10-07 runs Mon 10-05 to Sun 10-11.
-        const r = toLegacySchedule([
-            day('2026-10-05', { primarySession: { type: 'length' } }),   // Monday  -> index 1
-            day('2026-10-11', { primarySession: { type: 'girth' } }),    // Sunday  -> index 0
-        ], weekOf);
-        expect(r.slots[1]).toBe('length');
-        expect(r.slots[0]).toBe('girth');
+    test('slots are Sunday-indexed, matching the external contract', () => {
+        const r = toLegacySchedule(fullWeek(), weekOf);
+        expect(r.slots[1]).toBe('length');      // Monday  10-05
+        expect(r.slots[3]).toBe('girth');       // Wednesday 10-07
+        expect(r.slots[0]).toBe('rest');        // Sunday  10-11, the LAST ISO day
     });
 
-    test('rest projects, and a day with no plan is a named hole', () => {
-        const r = toLegacySchedule([day('2026-10-05', { mode: 'rest' })], weekOf);
-        expect(r.slots[1]).toBe('rest');
-        expect(r.slots[2]).toBeNull();
-        expect(r.unrepresentable.map(u => u.reason)).toContain('no_plan');
+    test('every slot holds a value from the closed legacy vocabulary', () => {
+        const r = toLegacySchedule(fullWeek(), weekOf);
+        const allowed = new Set([...LEGACY_PRIMARY_TYPES, LEGACY_REST]);
+        for (const slot of r.slots) expect(allowed.has(slot)).toBe(true);
+    });
+
+    test('ONE support-only day refuses the WHOLE week, with no slots key', () => {
+        /* The correction that matters. An earlier version returned a
+           7-element array with holes left as null beside a list of what was
+           missing, which reads like a valid projection and would be written
+           by any caller that forgot to check. The legacy column is a
+           persisted contract, so persisting an invalid one has to be
+           impossible rather than merely inadvisable. */
+        const r = toLegacySchedule(
+            fullWeek({ '2026-10-06': { supportingWork: [{ type: 'mobility' }] } }), weekOf);
+        expect(r.ok).toBe(false);
+        expect(r.reason).toBe('unrepresentable_days');
+        expect(r).not.toHaveProperty('slots');          // nothing writable escapes
+        expect(r.unrepresentable).toEqual([
+            { index: 2, date: '2026-10-06', reason: PROJECTION_REFUSAL.SUPPORT_ONLY },
+        ]);
+    });
+
+    test('a primary type outside the vocabulary refuses the week and names the type', () => {
+        const r = toLegacySchedule(
+            fullWeek({ '2026-10-09': { primarySession: { type: 'stopAndRecover' } } }), weekOf);
+        expect(r.ok).toBe(false);
+        expect(r).not.toHaveProperty('slots');
+        expect(r.unrepresentable[0]).toMatchObject({
+            index: 5, date: '2026-10-09',
+            reason: PROJECTION_REFUSAL.UNKNOWN_TYPE, detail: 'stopAndRecover',
+        });
+    });
+
+    test('a missing day refuses the week and names the date', () => {
+        const partial = fullWeek().filter(p => p.date !== '2026-10-08');
+        const r = toLegacySchedule(partial, weekOf);
+        expect(r.ok).toBe(false);
+        expect(r).not.toHaveProperty('slots');
+        expect(r.unrepresentable).toEqual([
+            { index: 4, date: '2026-10-08', reason: PROJECTION_REFUSAL.NO_PLAN },
+        ]);
+    });
+
+    test('every unrepresentable day is reported, not just the first', () => {
+        const r = toLegacySchedule([day('2026-10-05', { primarySession: { type: 'length' } })], weekOf);
+        expect(r.ok).toBe(false);
         expect(r.unrepresentable).toHaveLength(6);
+        expect(r.unrepresentable.every(u => u.reason === PROJECTION_REFUSAL.NO_PLAN)).toBe(true);
     });
 
-    test('a support-only day is a hole, named with its reason, never fabricated', () => {
-        const r = toLegacySchedule([
-            day('2026-10-05', { supportingWork: [{ type: 'mobility' }] }),
-        ], weekOf);
-        expect(r.slots[1]).toBeNull();                       // not 'rest', not a type
-        const u = r.unrepresentable.find(x => x.index === 1);
-        expect(u).toMatchObject({ date: '2026-10-05', reason: PROJECTION_REFUSAL.SUPPORT_ONLY });
-    });
-
-    test('no slot ever holds a value outside the legacy vocabulary', () => {
-        const r = toLegacySchedule([
-            day('2026-10-05', { primarySession: { type: 'stopAndRecover' } }),
-            day('2026-10-06', { supportingWork: [{ type: 'mobility' }] }),
-            day('2026-10-07', { primarySession: { type: 'girth' } }),
-        ], weekOf);
-        const allowed = new Set([...LEGACY_PRIMARY_TYPES, LEGACY_REST, null]);
-        for (const s of r.slots) expect(allowed.has(s)).toBe(true);
+    test.each([['null', null], ['undefined', undefined], ['a string', 'x'],
+               ['a number', 7], ['an object', {}]])
+    ('%s as plans refuses rather than throwing', (_l, plans) => {
+        const r = toLegacySchedule(plans, weekOf);
+        expect(r.ok).toBe(false);
+        expect(r).not.toHaveProperty('slots');
     });
 
     test('the projection does not mutate its input', () => {
-        const plans = [day('2026-10-05', { primarySession: { type: 'length' } })];
+        const plans = fullWeek();
         const before = JSON.stringify(plans);
         toLegacySchedule(plans, weekOf);
         expect(JSON.stringify(plans)).toBe(before);
