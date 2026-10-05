@@ -55,6 +55,7 @@
 import { PROGRESSION_POLICY } from './progressionPolicy.js';
 import { qualifyingWeek, qualifyingSessionDays } from './progression.js';
 import { getCurrentWeekKey } from './weekUtils.js';
+import { countScheduledPrimary } from './scheduleSlot.js';
 
 const DAY_MS = 86400000;
 
@@ -237,7 +238,11 @@ export function reconcileLedger(ledger, { weekKey, schedule, sessionLog, now, re
 
     const rest = restTypes || ['rest'];
     const sched = Array.isArray(schedule) ? schedule : [];
-    const liveTarget = sched.filter(t => typeof t === 'string' && t && !rest.includes(t)).length;
+    /* Canonical since PR E. Was `truthy and not rest`, which made a slot
+       nobody could interpret into a session the member owed. Applies to the
+       LIVE week only: stored targetSessions on past rows is historical truth
+       and is never recomputed from a predicate that did not exist then. */
+    const liveTarget = countScheduledPrimary(sched, { restTypes: rest });
 
     const byKey = new Map(rows.map(r => [r.weekKey, r]));
 

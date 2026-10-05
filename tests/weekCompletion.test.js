@@ -74,12 +74,43 @@ describe('weekCompletion', () => {
         expect(weekCompletion(ALL, [true]).completed).toBe(1);
     });
 
-    test('unknown day types count as sessions, not as rest', () => {
-        // A stale cached shell can hold a type this build does not know. The
-        // safe reading is "something was scheduled", not "the week was empty".
+    /* REVERSED in Phase 3S.1 PR E, and the previous reasoning is worth
+       recording because it was not unreasonable. This used to assert that an
+       unknown day type counts as a session, on the grounds that a stale
+       cached shell may hold a type this build does not know and the safe
+       reading is "something was scheduled" rather than "the week was empty".
+
+       What that missed: nextBestAction already refused to prescribe anything
+       from such a slot, returning PREPARE with SCHEDULE_UNRESOLVED. So the
+       member was being judged against a session the app would not even
+       offer him. Counting it inflated the denominator for a day nobody could
+       act on, which is the opposite of safe.
+
+       One rule now, in scheduleSlot.js: a slot is scheduled work only if it
+       is in the known set. Unknown is unresolved and sits in neither the
+       numerator nor the denominator. */
+    test('an unknown day type is unresolved, in neither the target nor the count', () => {
         const r = weekCompletion(['mystery', 'rest'], [true, false]);
+        expect(r.target).toBe(0);
+        expect(r.completed).toBe(0);
+        expect(r.satisfied[0]).toBe(false);
+    });
+
+    test('an unknown type is still not rest, and does not make the week empty of meaning', () => {
+        // The distinction the old test was reaching for survives: a week whose
+        // only readable slot is a real session still has a target of one.
+        const r = weekCompletion(['mystery', 'length'], [false, true]);
         expect(r.target).toBe(1);
         expect(r.completed).toBe(1);
+        expect(r.label).toBe('1 of 1 this week');
+    });
+
+    test('a widened vocabulary is respected', () => {
+        // The known set is an option, so a future programme can add a type at
+        // the call site without this module learning about it.
+        const r = weekCompletion(['pelvic', 'rest'], [true, false],
+                                 { mechanicalTypes: ['length', 'girth', 'stamina', 'pelvic'] });
+        expect(r.target).toBe(1);
     });
 });
 

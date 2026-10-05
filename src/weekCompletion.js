@@ -60,6 +60,8 @@
  * Pure: no DOM, no globals, no clock. `now` is passed in.
  */
 
+import { isScheduledPrimary } from './scheduleSlot.js';
+
 /** Day types that are not a session. */
 export const REST_TYPES = ['rest'];
 
@@ -68,8 +70,13 @@ export const MECHANICAL_TYPES = ['length', 'girth', 'stamina'];
 
 const DAY_MS = 86400000;
 
-function isScheduledSession(type, restTypes) {
-    return typeof type === 'string' && type !== '' && !restTypes.includes(type);
+/* Delegated to the canonical classifier in Phase 3S.1 PR E.
+   This used to be `truthy and not rest`, which counted a slot nobody could
+   interpret toward the weekly target. nextBestAction already refused to
+   prescribe from such a slot, so the two disagreed about the same value;
+   there is now one rule and it is membership of the known set. */
+function isScheduledSession(type, restTypes, primaryTypes) {
+    return isScheduledPrimary(type, { restTypes, primaryTypes });
 }
 
 /** Local YYYY-MM-DD for the weekday `index` (Date#getDay) of ref's ISO week. */
@@ -143,9 +150,9 @@ export function weekCompletion(schedule, completedDays, options) {
        calendar used to ask completedDays directly and so could show a tick
        on a day the headline did not count. */
     const perDay = Array.from({ length: 7 }, (_, i) =>
-        isScheduledSession(sched[i], restTypes) && isSatisfied(i));
+        isScheduledSession(sched[i], restTypes, mechanicalTypes) && isSatisfied(i));
 
-    const target = sched.filter(t => isScheduledSession(t, restTypes)).length;
+    const target = sched.filter(t => isScheduledSession(t, restTypes, mechanicalTypes)).length;
     const completed = perDay.filter(Boolean).length;
 
     return {
