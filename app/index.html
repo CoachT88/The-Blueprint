@@ -6075,14 +6075,24 @@ function finishSession(){
     persisted.allTimeSessionCount=(persisted.allTimeSessionCount||0)+1;
     persisted.completedDays[new Date().getDay()]=true;
     _manualMission=null;
+    /* One clock read, one answer.
+       scheduledType and manualOverride are two halves of a single snapshot
+       of today's prescription, so they have to come from the same
+       resolution. getScheduledType() reads the clock on every call, and
+       calling it twice meant a date rollover between the two could make the
+       fields describe different days: the entry could claim an override
+       while recording a scheduled type that matched what was performed.
+       Both of these are historical truth that the calendar and the coming
+       day-plan model read, so the snapshot is taken once, here. */
+    const _scheduledType=getScheduledType();
     persisted.sessionLog.push({
         date:new Date().toISOString(),
         routineType:session.routineType,
         /* What the programme asked for, and whether this was a departure
            from it. Recorded so the history is honest about substitutions
            even though completedDays still has only one slot per day. */
-        scheduledType:getScheduledType(),
-        manualOverride:session.routineType!==getScheduledType(),
+        scheduledType:_scheduledType,
+        manualOverride:session.routineType!==_scheduledType,
         xpEarned:earnedXp,
         note,
         eq:selectedEQ,
