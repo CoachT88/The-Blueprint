@@ -825,6 +825,112 @@ consumers are migrated.
 anything ever writes to the projection directly, the bridge has become a fork
 and the migration has failed.
 
+### A member's own week is not generatable until they say so
+
+Three different things can have put the seven strings in the `schedule`
+column, and the stored value does not say which: the factory default, a goal
+preset applied in one go, or the member tapping days one at a time. A
+projection over a week somebody arranged themselves is not a migration, it is
+data loss.
+
+So every account is classified once, before anything generates.
+`src/programmeMigration.js` holds the rules and `programme.migration` holds
+the verdict.
+
+| `programme.migration.source` | What it means | What generation may do |
+|---|---|---|
+| `default` | the factory week, on an account that never stated a goal | generate |
+| `preset` | the week matches the preset for the goal the member stated | generate, and project back |
+| `custom` | anything else | **nothing** |
+
+### The stored programme
+
+`programme` is long-lived programme state, with the migration verdict nested
+inside it as provenance. The verdict is not the programme: writing it as one
+would mean generation had to replace the object rather than fill it in.
+
+```js
+{
+    key: null,              // future programme vocabulary. Migration never writes one.
+    version: 1,
+    adoptedAt: null,        // a date once the member explicitly adopts
+    custom: false,          // live state, and what gates generation
+    cyclePosition: null,
+    migration: {            // provenance, write-once, never programme truth
+        source: 'default' | 'preset' | 'custom',
+        presetKey: 'size' | 'stamina' | 'eq' | 'all' | null,
+        reason: '<classification reason code>',
+        classifiedAt: 'YYYY-MM-DD',
+    },
+}
+```
+
+Migration writes `key: null`, `adoptedAt: null` and `cyclePosition: null`.
+`custom` is deliberately duplicated at the top level because it is live state
+that gates generation, where `migration.source` is a historical fact a later
+phase must not rewrite; they agree at write time and a test holds them
+together.
+
+**`adoptedAt` is a date, not a boolean.** A boolean adoption model would have
+to be replaced the first time anything needed to know when, and "has the
+member adopted" is answerable from the date.
+
+**Two vocabularies, overlapping on one word:**
+
+| | Values |
+|---|---|
+| Legacy migration (`migration.presetKey`) | `size`, `stamina`, `eq`, `all` |
+| Future programme (`key`) | `size`, `lastLonger`, `erectionQuality`, `everything` |
+
+`size` appears in both and means different things in each, which is exactly
+how a later edit assigns one from the other and nobody notices. **Mapping
+between them is the authority transition and is not part of migration.**
+
+**The invariant:**
+
+> While `programme.custom === true` and `programme.adoptedAt` is null, the
+> legacy `schedule` remains **authoritative** and projection **must not
+> overwrite it**. Explicit adoption is what permits the authority transition,
+> and replacing the legacy week is then an intended consequence of that
+> adoption rather than a migration side effect.
+
+`mayGenerateOver(programme)` is that sentence as a function, so no caller has
+to remember to check both fields. **Absence of a classification is not
+permission**: a member with no verdict yet is not generatable either.
+
+The standard of proof is **corroboration, not merely an absence of
+contradiction**, the same bar `programmeStartBackfill` already holds itself
+to. Six of the classifier's eight exits are `custom`, which is the design
+working rather than a classifier that failed to decide. Three consequences
+are deliberate and worth stating because each one costs a false negative:
+
+- **Tenure is not evidence about editing.** `allTimeSessionCount === 0` is not
+  proof of an untouched schedule, because `assignDay()` has existed since the
+  first commit in the repository, before sessions could be logged and before
+  goals existed. Session count, session log, first-session date and the ledger
+  are **not inputs to classification at all**.
+- **A repaired schedule is never attributable.** If the build had to repair
+  the stored week before reading it, no attempt is made to reconstruct what
+  the broken value meant. A truncated week repaired into something that
+  happens to equal a preset must not become auto-migratable.
+- **The default week on an account whose stated goal wants a different one is
+  custom.** They either declined the schedule prompt or edited their way back,
+  and the stored state cannot say which. This may be a large share of the
+  cohort this programme is for, and they will be **asked rather than
+  assumed**.
+
+The `size` preset is **byte-identical to `DEFAULT_PERSISTED.schedule`**, and
+has been since both were introduced. That collision is why the default week
+is also a preset week and why the stated goal is what separates the two
+readings. If it ever stops being true, the classification table needs
+rereading before anything else changes.
+
+**No frozen copy of the legacy week is stored inside `programme`.** The
+`schedule` column is already that copy, classification does not write it, and
+projection may not overwrite it while a custom member is unadopted. A second
+representation would be another lifecycle to keep correct for no additional
+safety, which is the thing this section already warns against.
+
 ### Historical truth during migration
 
 Carried as migration invariants, not as defaults:

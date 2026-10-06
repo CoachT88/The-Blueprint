@@ -2906,6 +2906,15 @@ function getISOWeek(){
 function _getISOYear(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+4-(d.getDay()||7));return d.getFullYear();}
 function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
 
+/* Did THIS load have to repair the stored schedule?
+ *
+ * A per-load migration-safety fact and nothing more. It is not persisted, it
+ * is read by one caller, and it is not a second representation of the
+ * schedule. Migration classification needs it because PR B moved the repair
+ * inside adoption, so by the time anything reads persisted.schedule the
+ * repair has already happened and is invisible in the value. */
+let _scheduleRepairedOnAdopt=false;
+
 /**
  * The one place a restored or imported state becomes `persisted`.
  *
@@ -2963,7 +2972,9 @@ function adoptPersisted(raw){
     persisted={...DEFAULT_PERSISTED,...src};
     if(!(persisted.programme&&typeof persisted.programme==='object'&&!Array.isArray(persisted.programme))) persisted.programme=null;
     if(!Array.isArray(persisted.dayPlans)) persisted.dayPlans=[];
-    normaliseSchedule();
+    /* Assigned, never |=. Each adoption answers for its own state, so an
+       account switch cannot inherit the previous member's repair. */
+    _scheduleRepairedOnAdopt=normaliseSchedule().changed;
     return persisted;
 }
 
@@ -3599,11 +3610,19 @@ function renderMissionGuidance(blackout){
     note.innerHTML=msg?`<i class="fas fa-circle-info mr-1"></i>${msg}`:'';
     note.classList.toggle('hidden',!msg);
 }
+/* Returns { changed }, because migration classification has to know whether
+   this build had to repair the stored week before reading it. After the
+   repair the value looks like an ordinary schedule and may even equal a
+   preset exactly, and that coincidence is not evidence of anything. The
+   repair itself is unchanged: same condition, same assignment, same result.
+   See _scheduleRepairedOnAdopt. */
 function normaliseSchedule(){
     const def=DEFAULT_PERSISTED.schedule;
     const cur=Array.isArray(persisted.schedule)?persisted.schedule:[];
     const fixed=def.map((d,i)=>DAY_TYPES[cur[i]]?cur[i]:d);
-    if(JSON.stringify(fixed)!==JSON.stringify(cur)) persisted.schedule=fixed;
+    const changed=JSON.stringify(fixed)!==JSON.stringify(cur);
+    if(changed) persisted.schedule=fixed;
+    return {changed};
 }
 function isBlackoutDay(){
     const todayType=persisted.schedule[new Date().getDay()];
@@ -6022,6 +6041,38 @@ function syncProgression(reason){
         }
     }
 
+    /* Migration classification, once per account and never again.
+       Gated on programme===null rather than on a flag, because the absence of
+       a classification IS the "not yet done" state and a separate flag could
+       disagree with it. Nothing reads the result in this phase: it exists so
+       generation knows, later, whether it may project over this week.
+
+       It writes `programme` and nothing else. The legacy schedule is not
+       touched here, and a browser test drives every shape through a real load
+       to prove it. */
+    if(persisted.programme===null && window.BP.classifyLegacySchedule){
+        const verdict=window.BP.classifyLegacySchedule({
+            schedule:persisted.schedule,
+            /* Whether THIS load had to repair the stored week. A repaired
+               week may now equal a preset exactly and that coincidence is not
+               evidence, so it classifies custom. See normaliseSchedule. */
+            scheduleRepaired:_scheduleRepairedOnAdopt,
+            primaryGoal:persisted.primaryGoal,
+            /* The real arrays, passed rather than copied into the module.
+               GOALS lives here and a second definition there is how two
+               copies drift apart. */
+            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+            defaultSchedule:DEFAULT_PERSISTED.schedule,
+            /* Deliberately not supplied: allTimeSessionCount, sessionLog,
+               firstSessionDate, progressionLedger. None of them says whether
+               a week was EDITED. assignDay() predates sessions and goals
+               both, so zero sessions is not proof of an untouched schedule,
+               and passing one would only weaken the guarantee. */
+        });
+        persisted.programme=window.BP.migrationProgramme(verdict,{now:new Date()});
+        changed=true;
+    }
+
     const before=JSON.stringify(persisted.progressionLedger||[]);
     persisted.progressionLedger=window.BP.reconcileLedger(persisted.progressionLedger,{
         weekKey:getCurrentWeekKey(),
@@ -8390,6 +8441,11 @@ import { normaliseLedger, reconcileLedger, progressionState, PROGRESSION_STATE,
 import { toleranceHolds, programmeStartBackfill, programmeStartOnCompletion,
          isQualifyingSession, provablyFirstMechanicalSession } from '../src/progression.js';
 import { PROGRESSION_POLICY } from '../src/progressionPolicy.js';
+/* Phase 3S.1 PR D. Migration classification only: it decides whether a
+   member's existing week may be generated over, and nothing in this phase
+   generates anything. */
+import { classifyLegacySchedule, migrationProgramme, mayGenerateOver,
+         PROGRAMME_SOURCE, CLASSIFY_REASON } from '../src/programmeMigration.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -8403,7 +8459,9 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               daysSinceLastMechanical, RETURN_CONTEXT, LIVENESS,
               greetingBand, localDayKey, GREETING_BAND, GREETING_BANDS,
               validatePreferredName, readPreferredName, hasPreferredName,
-              nameLength, PREFERRED_NAME_MAX };
+              nameLength, PREFERRED_NAME_MAX,
+              classifyLegacySchedule, migrationProgramme, mayGenerateOver,
+              PROGRAMME_SOURCE, CLASSIFY_REASON };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

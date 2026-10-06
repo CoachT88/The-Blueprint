@@ -6,6 +6,14 @@ import { fileURLToPath } from 'node:url';
 const html = readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'index.html'), 'utf8');
 
+/* The file with block comments removed, for counting call sites.
+   A doc comment that explains why a function has exactly one caller
+   necessarily names that function, and a guard that cannot be documented is
+   a guard people route around. Same reasoning, and the same technique, as
+   tests/exerciseCopy.test.js. Block comments only: stripping `//` would take
+   every URL with it. */
+const code = html.replace(/\/\*[\s\S]*?\*\//g, ' ');
+
 /**
  * The adoption boundary, asserted against the source rather than against
  * behaviour.
@@ -94,11 +102,24 @@ describe('adoptPersisted keeps to its own job', () => {
 
     test('it owns schedule normalisation rather than sharing it', () => {
         expect(body).toContain('normaliseSchedule()');
-        /* Called from exactly one place now. Three callers is what let five
-           restore paths miss it. The definition reads `normaliseSchedule(){`
-           and the prose above it has no semicolon, so this counts calls. */
-        const calls = html.match(/normaliseSchedule\(\);/g) || [];
+        /* Exactly one caller. Three callers is what let five restore paths
+           miss it.
+
+           The pattern matches a CALL, which is `normaliseSchedule()` followed
+           by anything except the `{` that opens its own definition. It no
+           longer requires a trailing semicolon, because adoption now captures
+           the return value (`normaliseSchedule().changed`) so the migration
+           classifier can tell whether the stored week had to be repaired. */
+        const calls = (code.match(/normaliseSchedule\(\)(?!\s*\{)/g) || []);
         expect(calls).toHaveLength(1);
+    });
+
+    test('it records whether the schedule had to be repaired', () => {
+        /* The repaired flag is the only reason normaliseSchedule returns
+           anything. Dropping the capture would leave migration unable to
+           tell a repaired week from an authentic one, and a truncated week
+           repaired into a preset shape would become auto-migratable. */
+        expect(body).toContain('_scheduleRepairedOnAdopt=normaliseSchedule().changed');
     });
 });
 
