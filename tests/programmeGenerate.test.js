@@ -112,6 +112,24 @@ describe('which programme a member is on', () => {
             .toBe(null);
     });
 
+    test('the mapping does NOT protect a contradictory programme, and must not', () => {
+        /* custom true with preset provenance is contradictory, reachable from
+           a hand-edited backup. The mapping happily names a programme for it,
+           because naming which programme is not its job. Only
+           mayGenerateOver() refuses this member, which is why bypassing that
+           gate is a mutation the browser suite has to catch: here it would
+           sail straight through.
+
+           Written down so nobody "hardens" this function into a second gate
+           and leaves the first one untested. */
+        const contradictory = programme({ custom: true, migration: { source: 'preset', presetKey: 'eq' } });
+        expect(programmeKeyFor(contradictory)).toBe('erectionQuality');
+        expect(cutoverPlan({
+            permitted: true, programme: contradictory, existingPlans: [],
+            presets: PRESETS, tables: TABLES, tier: 'intermediate', now: at(3),
+        }).ok).toBe(true);        // permission was granted, so it proceeds
+    });
+
     test('an already-cut-over programme keeps the key it has', () => {
         const p = programme({ key: 'everything', migration: { source: 'preset', presetKey: 'size' } });
         expect(programmeKeyFor(p)).toBe('everything');

@@ -290,6 +290,50 @@ describe('a custom member is left entirely alone', () => {
     });
 });
 
+describe('the gate is what protects a contradictory programme', () => {
+    /* custom true with preset provenance. The key mapping names a programme
+       for it quite happily, because naming which programme is not its job, so
+       mayGenerateOver() is the ONLY thing that refuses this member. Without
+       this test, a mutation that bypasses the gate survives: every other
+       custom member is incidentally protected by having no preset to map. */
+    let app, state;
+    beforeAll(async () => {
+        app = await openApp({ row: null });
+        await app.page.evaluate(() => localStorage.clear());
+        await authSignIn(app.page, {
+            id: 'contra', email: 'contra@x.com',
+            row: row({
+                id: 'contra', schedule: HANDMADE, primary_goal: 'eq',
+                programme: {
+                    key: null, version: 1, adoptedAt: null, custom: true, cyclePosition: null,
+                    migration: { source: 'preset', presetKey: 'eq', reason: 'hand_edited', classifiedAt: '2026-01-01' },
+                },
+            }),
+        });
+        await app.page.evaluate(() => renderDashboard());
+        state = await app.page.evaluate(() => ({
+            mayGenerate: window.BP.mayGenerateOver(persisted.programme),
+            mappedKey: window.BP.programmeKeyFor(persisted.programme),
+            key: persisted.programme.key,
+            plans: persisted.dayPlans,
+            schedule: persisted.schedule,
+        }));
+    }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('the mapping would name a programme for them', () => {
+        expect(state.mappedKey).toBe('erectionQuality');
+    });
+
+    test('but the gate refuses, so nothing is generated or projected', () => {
+        expect(state.mayGenerate).toBe(false);
+        expect(state.key).toBe(null);
+        expect(state.plans).toEqual([]);
+        expect(state.schedule).toEqual(HANDMADE);
+        expect(app.errors).toEqual([]);
+    });
+});
+
 describe('after cutover the week cannot be edited directly', () => {
     let app;
     beforeAll(async () => {
