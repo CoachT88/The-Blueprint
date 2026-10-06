@@ -879,7 +879,15 @@ describe('deload follows accumulated work, not the calendar', () => {
         const after = await app.page.evaluate(() => {
             persisted.streakPasses = 2;
             persisted.passProtectedDates = [];
-            // Yesterday untrained, the day before trained, so a Pass applies.
+            /* Yesterday untrained, the day before trained, so a Pass applies.
+               The first half of that was only ever a comment: seedWeeks with
+               { live: 1 } seeds one session on MONDAY of the current week, and
+               on a Tuesday Monday is yesterday, so maybeConsumeStreakPass()
+               exited at its first guard with nothing to cover and this test
+               failed on Tuesdays only. The fixture now makes the condition it
+               claims to test actually true. */
+            persisted.sessionLog = persisted.sessionLog.filter(
+                s => !s.date.startsWith(_dayKey(1)));
             const d = new Date(); d.setDate(d.getDate() - 2);
             persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length' });
             const consumed = maybeConsumeStreakPass();
@@ -895,14 +903,22 @@ describe('deload follows accumulated work, not the calendar', () => {
         // And it cannot delay one that is due either.
         const due = await seedWeeks(app.page, qWeeks(4), {}, { live: 1 });
         expect(due.deload).toBe(true);
-        expect(await app.page.evaluate(() => {
+        /* Same precondition, and the consumed assertion is new. Without it
+           this half asserted that a due deload stays due while, on a Tuesday,
+           no Pass had been spent at all. It was vacuous rather than wrong,
+           which is worse. */
+        const delayed = await app.page.evaluate(() => {
             persisted.streakPasses = 2; persisted.passProtectedDates = [];
+            persisted.sessionLog = persisted.sessionLog.filter(
+                s => !s.date.startsWith(_dayKey(1)));
             const d = new Date(); d.setDate(d.getDate() - 2);
             persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length' });
-            maybeConsumeStreakPass();
+            const consumed = maybeConsumeStreakPass();
             syncProgression('test');
-            return isDeloadWeek();
-        })).toBe(true);
+            return { consumed, deload: isDeloadWeek() };
+        });
+        expect(delayed.consumed).toBe(true);
+        expect(delayed.deload).toBe(true);
     }, 60_000);
 
     test('when it is off, the prescription is untouched', async () => {
@@ -1072,6 +1088,104 @@ describe('the streak no longer decides anything', () => {
     }, 30_000);
 
     test('the page threw nothing throughout', () => {
+        expect(app.errors).toEqual([]);
+    });
+});
+
+/**
+ * The Recovery Pass regression, on every weekday.
+ *
+ * The test above failed on Tuesdays and only on Tuesdays, for eight months,
+ * because seedWeeks({ live: 1 }) seeds its one live session on MONDAY of the
+ * current week and on a Tuesday Monday is yesterday. maybeConsumeStreakPass()
+ * then exited at its first guard with nothing to cover, and the assertion
+ * that a Pass was spent was false. Nothing in the fixture made its own stated
+ * precondition true.
+ *
+ * Fixing the fixture is not enough on its own: the next fixture to seed a
+ * relative day would reintroduce it, and the failure would again be invisible
+ * six days out of seven. So the scenario runs against a pinned clock, stepped
+ * through a full week.
+ *
+ * Date.UTC and timezoneId 'UTC' rather than the at() helper in
+ * tests/e2e/clock-boundaries.test.js, which builds a LOCAL Date in the test
+ * process. Pinning both ends to UTC is what makes the weekday the only
+ * variable: at UTC+13 a local-noon fixture lands on the previous UTC day and
+ * the sweep would quietly test the wrong days. Noon for the same reason the
+ * shared week helper anchors at noon.
+ *
+ * This says nothing about whether the day boundary itself is in the right
+ * place. _dayKey() derives its key from toISOString(), so the Pass boundary
+ * is midnight UTC rather than the member's own midnight, while
+ * src/liveness.js already exports localDayKey(). That is a production
+ * question with session_log, pass_protected_dates, last_pass_earned_date,
+ * messaging and the notification rules all reading the same contract, and it
+ * is carried as debt rather than touched from a test.
+ */
+describe('spending a Recovery Pass works on every weekday', () => {
+    const atUtc = (y, m, d, h) => new Date(Date.UTC(y, m, d, h, 0, 0));
+    const MONDAY = atUtc(2026, 2, 9, 12);          // 2026-03-09 is a Monday
+    const DAY = 86400000;
+    const NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    let app;
+    beforeAll(async () => {
+        app = await openApp({ clock: MONDAY, timezoneId: 'UTC' });
+        await signIn(app.page, { id: UID });
+    }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    /* Every case establishes ALL of its own preconditions. seedWeeks resets
+       the session log, the ledger, the schedule, difficulty and the counts,
+       but NOT streakPasses or passProtectedDates, so one iteration could
+       otherwise be reading state the previous one left behind. */
+    const spendOn = async (offsetDays) => {
+        await app.page.clock.setFixedTime(new Date(MONDAY.getTime() + offsetDays * DAY));
+        await seedWeeks(app.page, qWeeks(3), {}, { live: 1 });
+        return app.page.evaluate(() => {
+            persisted.streakPasses = 2;                 // 4. banked Passes
+            persisted.passProtectedDates = [];          // 5. none spent yet
+            persisted.sessionLog = persisted.sessionLog // 2. yesterday untrained
+                .filter(s => !s.date.startsWith(_dayKey(1)));
+            const d = new Date(); d.setDate(d.getDate() - 2);
+            persisted.sessionLog.push({ date: d.toISOString(), routineType: 'length' }); // 3.
+            const consumed = maybeConsumeStreakPass();  // 6.
+            syncProgression('test');
+            return {
+                consumed,
+                protectedDays: persisted.passProtectedDates.length,
+                protecting: persisted.passProtectedDates[0],
+                yesterday: _dayKey(1),
+                weekday: new Date().getDay(),
+                passesLeft: persisted.streakPasses,
+                deload: isDeloadWeek(),
+                accumulated: window.BP.deloadState(persisted.progressionLedger,
+                    persisted.sessionLog, { now: new Date() }).accumulated,
+            };
+        });
+    };
+
+    test('the clock is pinned to the Monday the sweep starts from', async () => {
+        /* If this is not a Monday the offsets below name the wrong days and
+           every assertion after it is measuring something else. */
+        await app.page.clock.setFixedTime(MONDAY);
+        const d = await app.page.evaluate(() => ({ day: new Date().getDay(), key: _dayKey(0) }));
+        expect(d).toEqual({ day: 1, key: '2026-03-09' });
+    }, 30_000);
+
+    test.each(NAMES.map((name, i) => [name, i]))('%s', async (name, offset) => {
+        const r = await spendOn(offset);
+        expect(r.weekday, `${name} is not the day the offset claims`)
+            .toBe((1 + offset) % 7);
+        expect(r.consumed, `no Pass was spent on ${name}`).toBe(true);
+        expect(r.protectedDays).toBe(1);
+        expect(r.protecting).toBe(r.yesterday);
+        expect(r.passesLeft).toBe(1);
+        expect(r.accumulated).toBe(3);
+        expect(r.deload).toBe(false);
+    }, 30_000);
+
+    test('the page threw nothing across the week', () => {
         expect(app.errors).toEqual([]);
     });
 });
