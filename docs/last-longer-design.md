@@ -834,17 +834,61 @@ projection over a week somebody arranged themselves is not a migration, it is
 data loss.
 
 So every account is classified once, before anything generates.
-`src/programmeMigration.js` holds the rules and `programme` holds the verdict.
+`src/programmeMigration.js` holds the rules and `programme.migration` holds
+the verdict.
 
-| `programme.source` | What it means | What generation may do |
+| `programme.migration.source` | What it means | What generation may do |
 |---|---|---|
 | `default` | the factory week, on an account that never stated a goal | generate |
 | `preset` | the week matches the preset for the goal the member stated | generate, and project back |
 | `custom` | anything else | **nothing** |
 
+### The stored programme
+
+`programme` is long-lived programme state, with the migration verdict nested
+inside it as provenance. The verdict is not the programme: writing it as one
+would mean generation had to replace the object rather than fill it in.
+
+```js
+{
+    key: null,              // future programme vocabulary. Migration never writes one.
+    version: 1,
+    adoptedAt: null,        // a date once the member explicitly adopts
+    custom: false,          // live state, and what gates generation
+    cyclePosition: null,
+    migration: {            // provenance, write-once, never programme truth
+        source: 'default' | 'preset' | 'custom',
+        presetKey: 'size' | 'stamina' | 'eq' | 'all' | null,
+        reason: '<classification reason code>',
+        classifiedAt: 'YYYY-MM-DD',
+    },
+}
+```
+
+Migration writes `key: null`, `adoptedAt: null` and `cyclePosition: null`.
+`custom` is deliberately duplicated at the top level because it is live state
+that gates generation, where `migration.source` is a historical fact a later
+phase must not rewrite; they agree at write time and a test holds them
+together.
+
+**`adoptedAt` is a date, not a boolean.** A boolean adoption model would have
+to be replaced the first time anything needed to know when, and "has the
+member adopted" is answerable from the date.
+
+**Two vocabularies, overlapping on one word:**
+
+| | Values |
+|---|---|
+| Legacy migration (`migration.presetKey`) | `size`, `stamina`, `eq`, `all` |
+| Future programme (`key`) | `size`, `lastLonger`, `erectionQuality`, `everything` |
+
+`size` appears in both and means different things in each, which is exactly
+how a later edit assigns one from the other and nobody notices. **Mapping
+between them is the authority transition and is not part of migration.**
+
 **The invariant:**
 
-> While `programme.custom === true` and `programme.adopted !== true`, the
+> While `programme.custom === true` and `programme.adoptedAt` is null, the
 > legacy `schedule` remains **authoritative** and projection **must not
 > overwrite it**. Explicit adoption is what permits the authority transition,
 > and replacing the legacy week is then an intended consequence of that

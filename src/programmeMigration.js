@@ -49,11 +49,37 @@
  *
  * THE INVARIANT THIS HANDS TO GENERATION
  *
- * While programme.custom === true and programme.adopted !== true, the legacy
+ * While programme.custom === true and programme.adoptedAt is null, the legacy
  * schedule remains authoritative and projection must not overwrite it.
  * Explicit adoption is what permits the authority transition, and replacing
  * the legacy week is then an intended consequence of that adoption rather
  * than a migration side effect.
+ *
+ * WHERE THE VERDICT LIVES, AND WHY NOT AT THE TOP LEVEL
+ *
+ * `programme` is long-lived programme state: which programme the member is
+ * on, at what version, from when, where in its cycle. A migration verdict is
+ * not any of those things, so it lives under `programme.migration` and is
+ * provenance rather than programme truth. Writing the verdict AS the
+ * programme would mean generation had to replace the object rather than fill
+ * it in.
+ *
+ * `custom` is the exception and is deliberately duplicated at the top level,
+ * because it is live state that gates generation rather than a historical
+ * fact. mayGenerateOver() reads it, not migration.source, so a later phase
+ * can clear it on adoption without rewriting history.
+ *
+ * TWO VOCABULARIES, AND THEY OVERLAP ON ONE WORD
+ *
+ *   migration.presetKey   size | stamina | eq | all
+ *   key                   size | lastLonger | erectionQuality | everything
+ *
+ * The first is the legacy goal vocabulary, which is what the stored schedule
+ * can be attributed to. The second is the programme vocabulary generation
+ * will use. BOTH CONTAIN `size` AND IT MEANS DIFFERENT THINGS IN EACH, which
+ * is exactly how an edit assigns one from the other and nobody notices.
+ * Mapping between them is the authority transition and is not done here:
+ * this module always writes `key: null` and a named test holds it to that.
  *
  * Pure: no DOM, no clock, no globals, no mutation of inputs. The presets and
  * the default are injected rather than imported, because they live in the
@@ -100,6 +126,8 @@ export const CLASSIFY_REASON = Object.freeze({
 export const PROGRAMME_VERSION = 1;
 
 const isPlainObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/* A calendar date, optionally followed by a time. See mayGenerateOver. */
+const ADOPTED_AT = /^\d{4}-\d{2}-\d{2}/;
 const sameWeek = (a, b) =>
     Array.isArray(a) && Array.isArray(b) && a.length === b.length
         && a.every((v, i) => v === b[i]);
@@ -232,14 +260,24 @@ export function migrationProgramme(classification, opts) {
         ? c.reason : CLASSIFY_REASON.NO_RECOGNISED_SHAPE;
     const custom = verdict === PROGRAMME_SOURCE.CUSTOM;
     return {
+        /* Which programme, in the FUTURE vocabulary. Always null here:
+           translating a legacy preset into a programme is the authority
+           transition, not a migration record. */
+        key: null,
         version: PROGRAMME_VERSION,
-        source: verdict,
-        presetKey: (verdict === PROGRAMME_SOURCE.PRESET && typeof c.presetKey === 'string')
-            ? c.presetKey : null,
+        /* A date, not a boolean. A boolean adoption model would have to be
+           replaced the moment anything needs to know WHEN, and "has the
+           member adopted" is answerable from the date. */
+        adoptedAt: null,
         custom,
-        adopted: false,
-        reason,
-        classifiedAt: dayKey(opts && opts.now),
+        cyclePosition: null,
+        migration: {
+            source: verdict,
+            presetKey: (verdict === PROGRAMME_SOURCE.PRESET && typeof c.presetKey === 'string')
+                ? c.presetKey : null,
+            reason,
+            classifiedAt: dayKey(opts && opts.now),
+        },
     };
 }
 
@@ -259,12 +297,26 @@ function dayKey(now) {
 /**
  * May generation touch this member's week?
  *
- * The invariant in one place, so no caller has to remember to check both
- * fields. A member with no classification yet is not generatable: absence of
+ * The invariant in one place, so no caller has to remember which fields to
+ * check. A member with no classification yet is not generatable: absence of
  * a verdict is not permission.
+ *
+ * `custom` is what gates, not migration.source. A programme whose source says
+ * preset but which is flagged custom is contradictory, and the safe reading
+ * of a contradiction is no.
+ *
+ * adoptedAt has to look like a date rather than merely be truthy, so an
+ * `adoptedAt: true` in a hand-edited backup cannot buy generation and neither
+ * can a whitespace string. A prefix match rather than a full date-key check,
+ * because a later phase may choose to store a full timestamp and this gate
+ * must not be the thing that decides that. A malformed date is not proof of
+ * adoption, which is the same rule the classifier works under.
  */
 export function mayGenerateOver(programme) {
     if (!isPlainObject(programme)) return false;
-    if (programme.custom === true) return programme.adopted === true;
-    return Object.values(PROGRAMME_SOURCE).includes(programme.source);
+    const m = programme.migration;
+    if (!isPlainObject(m)) return false;
+    if (!Object.values(PROGRAMME_SOURCE).includes(m.source)) return false;
+    if (programme.custom === true) return ADOPTED_AT.test(programme.adoptedAt);
+    return true;
 }

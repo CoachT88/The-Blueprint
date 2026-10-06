@@ -263,7 +263,7 @@ describe('importing a backup goes through the same boundary', () => {
         expect(r.xp).toBe(7);
         expect(r.dayPlans).toEqual([]);
         expect(r.programme).not.toBe(null);
-        expect(r.programme.source).toBe('default');
+        expect(r.programme.migration.source).toBe('default');
         expect(r.programme.custom).toBe(false);
     }, 30_000);
 
@@ -271,7 +271,7 @@ describe('importing a backup goes through the same boundary', () => {
         const r = await importBackup({ sessionLog: [], totalXp: 8, programme: 'size' });
         expect(typeof r.programme).toBe('object');
         expect(r.programme.version).toBe(1);
-        expect(r.programme.source).toBe('default');
+        expect(r.programme.migration.source).toBe('default');
     }, 30_000);
 
     test('plans in a backup are carried through, unreadable records included', async () => {

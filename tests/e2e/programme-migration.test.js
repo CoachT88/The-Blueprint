@@ -108,10 +108,12 @@ describe('classification never moves a slot of a members week', () => {
                         before,
                         after: persisted.schedule,
                         written: (window.__writes[0] || {}).schedule,
-                        source: persisted.programme && persisted.programme.source,
-                        reason: persisted.programme && persisted.programme.reason,
-                        presetKey: persisted.programme && persisted.programme.presetKey,
+                        source: persisted.programme && persisted.programme.migration.source,
+                        reason: persisted.programme && persisted.programme.migration.reason,
+                        presetKey: persisted.programme && persisted.programme.migration.presetKey,
                         custom: persisted.programme && persisted.programme.custom,
+                        key: persisted.programme && persisted.programme.key,
+                        adoptedAt: persisted.programme && persisted.programme.adoptedAt,
                     });
                 }
             }
@@ -137,6 +139,18 @@ describe('classification never moves a slot of a members week', () => {
            that nothing writes a different one back to the row. */
         const wrong = results.filter(r => JSON.stringify(r.written) !== JSON.stringify(r.before));
         expect(wrong.map(r => `${r.name}/${r.goal || 'none'}`)).toEqual([]);
+    });
+
+    test('no combination writes a programme key or an adoption date', () => {
+        /* Migration records provenance. Which programme a member is on, and
+           from when, is the authority transition and belongs to a later
+           phase. `size` exists in both vocabularies and means different
+           things in each, so an edit that fills `key` from `presetKey` reads
+           plausibly and is wrong. */
+        results.forEach(r => {
+            expect(r.key, `${r.name}/${r.goal}`).toBe(null);
+            expect(r.adoptedAt, `${r.name}/${r.goal}`).toBe(null);
+        });
     });
 
     test('a hand-made week is always custom, whatever the stated goal', () => {
@@ -200,8 +214,8 @@ describe('a veteran with a week they built themselves', () => {
 
     test('they are custom, with no preset attributed', () => {
         expect(state.programme.custom).toBe(true);
-        expect(state.programme.source).toBe('custom');
-        expect(state.programme.presetKey).toBe(null);
+        expect(state.programme.migration.source).toBe('custom');
+        expect(state.programme.migration.presetKey).toBe(null);
     });
 
     test('their week is untouched', () => {
@@ -210,13 +224,15 @@ describe('a veteran with a week they built themselves', () => {
 
     test('generation may not touch them until they adopt', () => {
         expect(state.mayGenerate).toBe(false);
-        expect(state.programme.adopted).toBe(false);
+        expect(state.programme.adoptedAt).toBe(null);
     });
 
-    test('no copy of their week is stored inside the programme', () => {
-        /* The schedule column is already the preserved copy. */
+    test('the stored programme is programme state with provenance nested in it', () => {
+        /* And no copy of their week: the schedule column is already that. */
         expect(Object.keys(state.programme).sort()).toEqual(
-            ['adopted', 'classifiedAt', 'custom', 'presetKey', 'reason', 'source', 'version']);
+            ['adoptedAt', 'custom', 'cyclePosition', 'key', 'migration', 'version']);
+        expect(Object.keys(state.programme.migration).sort()).toEqual(
+            ['classifiedAt', 'presetKey', 'reason', 'source']);
         expect(app.errors).toEqual([]);
     });
 });
@@ -240,9 +256,10 @@ describe('a member whose week matches the goal they chose', () => {
     afterAll(async () => { await app?.close(); });
 
     test('they are a preset member and generation may proceed', () => {
-        expect(state.programme.source).toBe('preset');
-        expect(state.programme.presetKey).toBe('stamina');
+        expect(state.programme.migration.source).toBe('preset');
+        expect(state.programme.migration.presetKey).toBe('stamina');
         expect(state.programme.custom).toBe(false);
+        expect(state.programme.key).toBe(null);
         expect(state.mayGenerate).toBe(true);
     });
 
@@ -285,8 +302,8 @@ describe('a repaired schedule is never attributable', () => {
 
     test('and the member is custom, not the size preset their goal implies', () => {
         expect(state.programme.custom).toBe(true);
-        expect(state.programme.reason).toBe('repaired_before_classification');
-        expect(state.programme.presetKey).toBe(null);
+        expect(state.programme.migration.reason).toBe('repaired_before_classification');
+        expect(state.programme.migration.presetKey).toBe(null);
         expect(app.errors).toEqual([]);
     });
 });
@@ -316,7 +333,7 @@ describe('an imported goal from a vocabulary this build does not know', () => {
 
     test('an exact preset shape is still custom, because the goal is unreadable', () => {
         expect(state.programme.custom).toBe(true);
-        expect(state.programme.reason).toBe('unrecognised_goal_vocabulary');
+        expect(state.programme.migration.reason).toBe('unrecognised_goal_vocabulary');
     });
 
     test('the imported week is kept exactly', () => {
@@ -352,8 +369,8 @@ describe('classification happens once', () => {
     afterAll(async () => { await app?.close(); });
 
     test('the first load classified', () => {
-        expect(first.source).toBe('preset');
-        expect(first.presetKey).toBe('stamina');
+        expect(first.migration.source).toBe('preset');
+        expect(first.migration.presetKey).toBe('stamina');
     });
 
     test('the second load left the verdict exactly as it was', () => {

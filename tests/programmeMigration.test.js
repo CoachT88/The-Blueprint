@@ -349,101 +349,197 @@ describe('pure', () => {
 describe('the stored programme', () => {
     const NOW = new Date(2026, 9, 5, 23, 30);   // local, late evening
 
+    /* The shape is long-lived programme state with the migration verdict
+       nested under it, not the verdict itself. Writing the verdict AS the
+       programme would mean generation had to replace the object rather than
+       fill it in, and `adopted: false` would have to become a date the first
+       time anything needed to know when. */
+
     test('a default classification', () => {
         const p = migrationProgramme(classify(), { now: NOW });
         expect(p).toEqual({
+            key: null,
             version: PROGRAMME_VERSION,
-            source: 'default',
-            presetKey: null,
+            adoptedAt: null,
             custom: false,
-            adopted: false,
-            reason: CLASSIFY_REASON.DEFAULT_NO_GOAL,
-            classifiedAt: '2026-10-05',
+            cyclePosition: null,
+            migration: {
+                source: 'default',
+                presetKey: null,
+                reason: CLASSIFY_REASON.DEFAULT_NO_GOAL,
+                classifiedAt: '2026-10-05',
+            },
         });
     });
 
-    test('a preset classification keeps the key', () => {
+    test('a preset classification keeps the legacy key, under migration', () => {
         const p = migrationProgramme(
             classify({ schedule: PRESETS.eq, primaryGoal: 'eq' }), { now: NOW });
-        expect(p.source).toBe('preset');
-        expect(p.presetKey).toBe('eq');
+        expect(p.migration.source).toBe('preset');
+        expect(p.migration.presetKey).toBe('eq');
         expect(p.custom).toBe(false);
     });
 
     test('a custom classification sets custom and carries no key', () => {
         const p = migrationProgramme(classify({ schedule: HANDMADE }), { now: NOW });
-        expect(p.source).toBe('custom');
+        expect(p.migration.source).toBe('custom');
         expect(p.custom).toBe(true);
-        expect(p.presetKey).toBe(null);
-        expect(p.reason).toBe(CLASSIFY_REASON.NO_RECOGNISED_SHAPE);
+        expect(p.migration.presetKey).toBe(null);
+        expect(p.migration.reason).toBe(CLASSIFY_REASON.NO_RECOGNISED_SHAPE);
     });
 
-    test('custom is true for exactly the custom verdict', () => {
-        const shapes = [DEFAULT_WEEK, PRESETS.eq, HANDMADE];
-        const goals = ['', 'eq', 'eq'];
-        const got = shapes.map((s, i) =>
-            migrationProgramme(classify({ schedule: s, primaryGoal: goals[i] }), { now: NOW }).custom);
-        expect(got).toEqual([false, false, true]);
+    const EVERY_VERDICT = [
+        ['default', { }],
+        ['preset',  { schedule: PRESETS.eq, primaryGoal: 'eq' }],
+        ['custom',  { schedule: HANDMADE }],
+    ];
+
+    test.each(EVERY_VERDICT)('a %s classification writes no programme key', (_v, over) => {
+        /* THE TRAP THIS GUARDS. migration.presetKey is the legacy vocabulary
+           (size | stamina | eq | all) and `key` is the future programme
+           vocabulary (size | lastLonger | erectionQuality | everything). Both
+           contain `size` and it means different things in each, so an edit
+           that assigns one from the other reads plausibly and is wrong.
+           Mapping between them is the authority transition, not a migration
+           record, so this module never writes a key. */
+        const p = migrationProgramme(classify(over), { now: NOW });
+        expect(p.key).toBe(null);
+    });
+
+    test.each(EVERY_VERDICT)('a %s classification is not adopted and has no cycle position', (_v, over) => {
+        const p = migrationProgramme(classify(over), { now: NOW });
+        expect(p.adoptedAt).toBe(null);
+        expect(p.cyclePosition).toBe(null);
+    });
+
+    test.each(EVERY_VERDICT)('for %s, custom and migration.source cannot disagree', (_v, over) => {
+        /* `custom` is duplicated at the top level on purpose: it is live state
+           that gates generation, where migration.source is a historical fact
+           a later phase must not rewrite. Duplication is only safe while the
+           two agree at write time. */
+        const p = migrationProgramme(classify(over), { now: NOW });
+        expect(p.custom).toBe(p.migration.source === 'custom');
+    });
+
+    test('migration.presetKey only ever holds a legacy key', () => {
+        const LEGACY = ['size', 'stamina', 'eq', 'all'];
+        const FUTURE = ['lastLonger', 'erectionQuality', 'everything'];
+        const keys = Object.keys(PRESETS).map(g =>
+            migrationProgramme(classify({ schedule: PRESETS[g], primaryGoal: g }), { now: NOW })
+                .migration.presetKey);
+        expect(keys).toEqual(['size', 'stamina', 'eq', 'all']);
+        keys.forEach(k => {
+            expect(LEGACY).toContain(k);
+            expect(FUTURE).not.toContain(k);
+        });
     });
 
     test('the date is the local calendar day, not UTC', () => {
         /* Late evening in a timezone behind UTC would be tomorrow in UTC.
            The date recorded is the one the member would have seen. */
         const p = migrationProgramme(classify(), { now: new Date(2026, 0, 1, 23, 59) });
-        expect(p.classifiedAt).toBe('2026-01-01');
+        expect(p.migration.classifiedAt).toBe('2026-01-01');
     });
 
-    test('no snapshot of the legacy schedule is stored', () => {
-        /* The schedule column is already the preserved copy. A second frozen
-           representation here would be another lifecycle to keep correct. */
+    test('the stored shape is exactly these fields, at both levels', () => {
+        /* Pinned so a field cannot be added or dropped silently. In
+           particular there is no snapshot of the legacy schedule: the
+           schedule column is already the preserved copy, and a second frozen
+           representation would be another lifecycle to keep correct. */
         const p = migrationProgramme(classify({ schedule: HANDMADE }), { now: NOW });
         expect(Object.keys(p).sort()).toEqual(
-            ['adopted', 'classifiedAt', 'custom', 'presetKey', 'reason', 'source', 'version']);
+            ['adoptedAt', 'custom', 'cyclePosition', 'key', 'migration', 'version']);
+        expect(Object.keys(p.migration).sort()).toEqual(
+            ['classifiedAt', 'presetKey', 'reason', 'source']);
     });
 
     test('a malformed classification stores as custom rather than throwing', () => {
         expect(migrationProgramme(null, { now: NOW }).custom).toBe(true);
-        expect(migrationProgramme({ verdict: 'invented' }, { now: NOW }).source).toBe('custom');
-        expect(migrationProgramme({}, { now: NOW }).reason).toBe(CLASSIFY_REASON.NO_RECOGNISED_SHAPE);
+        expect(migrationProgramme({ verdict: 'invented' }, { now: NOW }).migration.source).toBe('custom');
+        expect(migrationProgramme({}, { now: NOW }).migration.reason)
+            .toBe(CLASSIFY_REASON.NO_RECOGNISED_SHAPE);
     });
 
     test('a presetKey on a non-preset verdict is dropped', () => {
         const p = migrationProgramme(
             { verdict: 'custom', reason: 'x', presetKey: 'stamina' }, { now: NOW });
-        expect(p.presetKey).toBe(null);
+        expect(p.migration.presetKey).toBe(null);
     });
 
     test('a missing clock gives a null date rather than a wrong one', () => {
-        expect(migrationProgramme(classify(), {}).classifiedAt).toBe(null);
-        expect(migrationProgramme(classify()).classifiedAt).toBe(null);
+        expect(migrationProgramme(classify(), {}).migration.classifiedAt).toBe(null);
+        expect(migrationProgramme(classify()).migration.classifiedAt).toBe(null);
     });
 });
 
 describe('may generation touch this member', () => {
-    /* The invariant in one place, so no caller has to remember both fields. */
+    /* The invariant in one place, so no caller has to remember which fields
+       to check. Built through migrationProgramme where possible, so these
+       cannot pass against a shape the writer no longer produces. */
+    const NOW = new Date(2026, 9, 5, 12, 0);
+    const stored = (over = {}) => migrationProgramme(classify(over), { now: NOW });
+
     test('an unadopted custom member is off limits', () => {
-        expect(mayGenerateOver({ source: 'custom', custom: true, adopted: false })).toBe(false);
+        const p = stored({ schedule: HANDMADE });
+        expect(p.custom).toBe(true);
+        expect(p.adoptedAt).toBe(null);
+        expect(mayGenerateOver(p)).toBe(false);
     });
 
-    test('an adopted custom member is not', () => {
-        expect(mayGenerateOver({ source: 'custom', custom: true, adopted: true })).toBe(true);
+    test('a custom member who has adopted is generatable', () => {
+        const p = { ...stored({ schedule: HANDMADE }), adoptedAt: '2026-10-06' };
+        expect(mayGenerateOver(p)).toBe(true);
     });
 
-    test('default and preset members are generatable', () => {
-        expect(mayGenerateOver({ source: 'default', custom: false })).toBe(true);
-        expect(mayGenerateOver({ source: 'preset', presetKey: 'eq', custom: false })).toBe(true);
+    test('default and preset members are generatable for migration', () => {
+        expect(mayGenerateOver(stored())).toBe(true);
+        expect(mayGenerateOver(stored({ schedule: PRESETS.eq, primaryGoal: 'eq' }))).toBe(true);
     });
 
     test('no classification is not permission', () => {
         expect(mayGenerateOver(null)).toBe(false);
         expect(mayGenerateOver(undefined)).toBe(false);
         expect(mayGenerateOver({})).toBe(false);
-        expect(mayGenerateOver({ source: 'invented' })).toBe(false);
+        expect(mayGenerateOver({ custom: false })).toBe(false);
+    });
+
+    test('a programme with no migration verdict is not permission either', () => {
+        /* The shape this module replaced put source and presetKey at the top
+           level. Such an object is not a classification this build wrote, so
+           it is not evidence of one. */
+        expect(mayGenerateOver({ source: 'preset', presetKey: 'eq', custom: false })).toBe(false);
+        expect(mayGenerateOver({ custom: false, migration: null })).toBe(false);
+        expect(mayGenerateOver({ custom: false, migration: { source: 'invented' } })).toBe(false);
+        expect(mayGenerateOver({ custom: false, migration: {} })).toBe(false);
     });
 
     test('custom is what gates, not the source string', () => {
         /* A programme whose source says preset but which is flagged custom is
            contradictory, and the safe reading of a contradiction is no. */
-        expect(mayGenerateOver({ source: 'preset', custom: true, adopted: false })).toBe(false);
+        const p = { ...stored({ schedule: PRESETS.eq, primaryGoal: 'eq' }), custom: true };
+        expect(p.migration.source).toBe('preset');
+        expect(mayGenerateOver(p)).toBe(false);
+    });
+
+    test('adoptedAt has to look like a date, not merely be truthy', () => {
+        /* A hand-edited backup must not be able to buy generation with a
+           boolean, which is also why the model stores a date rather than the
+           `adopted: true` this replaced. A malformed date is not proof of
+           adoption. */
+        const base = stored({ schedule: HANDMADE });
+        const refused = [true, 1, {}, [], ' ', '', 'yes', '2026', '06-10-2026', null, undefined];
+        refused.forEach(v => {
+            expect(mayGenerateOver({ ...base, adoptedAt: v }), JSON.stringify(v)).toBe(false);
+        });
+    });
+
+    test('either a date or a full timestamp is accepted', () => {
+        /* A later phase chooses which it stores. This gate must not be the
+           thing that decides, so it matches the date and ignores any time
+           after it. */
+        const base = stored({ schedule: HANDMADE });
+        ['2026-10-06', '2026-10-06T12:00:00Z', '2026-10-06T12:00:00.000+01:00'].forEach(v => {
+            expect(mayGenerateOver({ ...base, adoptedAt: v }), v).toBe(true);
+        });
     });
 });
