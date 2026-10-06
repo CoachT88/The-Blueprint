@@ -574,25 +574,41 @@ describe('the cutover', () => {
         expect(r.programme.version).toBe(PROGRAMME_CONTENT_VERSION);
     });
 
-    test('a projection refusal returns nothing to commit', () => {
-        /* Built by hand, because generation cannot produce a support-only day
-           in this phase. The refusal still has to be covered. */
-        const supportOnly = {
-            date: '2026-03-16', mode: 'prescribed', status: 'pending',
-            primarySession: null,
-            supportingWork: [{ type: 'pelvicFloor', category: 'strength' }],
-            dailyPractice: [],
-            generatedFrom: { programmeKey: 'size', version: 1 },
-            generatedAt: '2026-03-12T12:00:00.000Z',
-        };
+    test('a projection refusal commits nothing at all', () => {
+        /* THE REFUSAL PATH, reached the only way generation can reach it: a
+           weekly shape naming a day type the legacy column has no word for.
+           `recovery` is a real routine type and is deliberately NOT in the
+           legacy vocabulary, so a preset table carrying it produces plans
+           that are individually valid and a week that cannot be projected.
+
+           An earlier version of this test fed a hand-made support-only plan
+           in as existing history, which the generated plan for that date then
+           replaced, so it asserted ok: true and proved nothing. A mutation
+           that treated a refusal as success survived it. */
+        const broken = { ...PRESETS, size: ['recovery', 'girth', 'rest', 'length', 'girth', 'rest', 'rest'] };
         const r = cutoverPlan({
-            permitted: true, programme: programme(), existingPlans: [supportOnly],
-            presets: PRESETS, tables: TABLES, tier: 'intermediate', now: at(3),
+            permitted: true, programme: programme(), existingPlans: [],
+            presets: broken, tables: TABLES, tier: 'intermediate', now: at(3),
         });
-        /* The generated plan for that date replaces the hand-made one, so this
-           particular case still succeeds. The refusal path is proved by
-           feeding the projection directly, below. */
-        expect(r.ok).toBe(true);
+        expect(r.ok).toBe(false);
+        expect(r.reason).toBe(GENERATE_REFUSAL.PROJECTION);
+        expect(r.detail).toBe('unrepresentable_days');
+        expect(r.unrepresentable[0].reason).toBe('primary_type_not_in_legacy_vocabulary');
+        /* Nothing to commit: no plans, no schedule, no programme. */
+        expect('dayPlans' in r).toBe(false);
+        expect('schedule' in r).toBe(false);
+        expect('programme' in r).toBe(false);
+    });
+
+    test('a refusal names every day it could not represent', () => {
+        const allRecovery = { ...PRESETS, size: Array(7).fill('recovery') };
+        const r = cutoverPlan({
+            permitted: true, programme: programme(), existingPlans: [],
+            presets: allRecovery, tables: TABLES, tier: 'intermediate', now: at(3),
+        });
+        expect(r.ok).toBe(false);
+        expect(r.unrepresentable).toHaveLength(7);
+        expect(r.unrepresentable.map(u => u.index)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     });
 
     test('it does not mutate the programme it was given', () => {
