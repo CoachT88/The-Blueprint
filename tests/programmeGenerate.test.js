@@ -427,11 +427,107 @@ describe('retention and immutability', () => {
         expect(kept.primarySession.tier).toBe('beginner');   // not re-dosed at elite
     });
 
-    test('the generator owns today onward, so a tier change propagates forward', () => {
-        const stored = [past('2026-03-12', 'girth'), past('2026-03-13', 'length')];
+    /* The replaced test asserted "the generator owns today onward, so a tier
+       change propagates forward", which is the opposite of the product rule.
+       Once Today exists it is historical prescription truth. It is replaced
+       rather than renamed, because its assertion was wrong and not just its
+       name. */
+
+    test('1. a first cutover with no Today creates Today', () => {
+        const gen = generatePlans({ key: 'size', now: at(3), tier: 'intermediate', presets: PRESETS, tables: TABLES }).plans;
+        const merged = retainPlans([], gen, { today: '2026-03-12' });
+        const today = merged.find(p => p.date === '2026-03-12');
+        expect(today).toBeDefined();
+        expect(today.primarySession.tier).toBe('intermediate');
+    });
+
+    test('2. a stored valid Today survives a repeat load byte-identical', () => {
+        const gen = generatePlans({ key: 'size', now: at(3), tier: 'intermediate', presets: PRESETS, tables: TABLES }).plans;
+        const once = retainPlans([], gen, { today: '2026-03-12' });
+        const later = generatePlans({ key: 'size', now: at(3, 20), tier: 'intermediate', presets: PRESETS, tables: TABLES }).plans;
+        const twice = retainPlans(once, later, { today: '2026-03-12' });
+        expect(JSON.stringify(twice)).toBe(JSON.stringify(once));
+    });
+
+    test('3. a same-day tier change leaves Today untouched, dose and generatedAt', () => {
+        const gen = generatePlans({ key: 'size', now: at(3), tier: 'intermediate', presets: PRESETS, tables: TABLES }).plans;
+        const stored = retainPlans([], gen, { today: '2026-03-12' });
+        const before = stored.find(p => p.date === '2026-03-12');
+
+        const elite = generatePlans({ key: 'size', now: at(3, 20), tier: 'elite', presets: PRESETS, tables: TABLES }).plans;
+        const merged = retainPlans(stored, elite, { today: '2026-03-12' });
+        const after = merged.find(p => p.date === '2026-03-12');
+
+        expect(JSON.stringify(after)).toBe(JSON.stringify(before));
+        expect(after.primarySession.tier).toBe('intermediate');
+        expect(after.primarySession.dose.tier).toBe('intermediate');
+        expect(after.generatedAt).toBe(before.generatedAt);
+    });
+
+    test('4. tomorrow onward does pick up the new tier', () => {
+        const gen = generatePlans({ key: 'size', now: at(3), tier: 'intermediate', presets: PRESETS, tables: TABLES }).plans;
+        const stored = retainPlans([], gen, { today: '2026-03-12' });
+        const elite = generatePlans({ key: 'size', now: at(3, 20), tier: 'elite', presets: PRESETS, tables: TABLES }).plans;
+        const merged = retainPlans(stored, elite, { today: '2026-03-12' });
+        merged.filter(p => p.date > '2026-03-12' && p.primarySession).forEach(p =>
+            expect(p.primarySession.tier, p.date).toBe('elite'));
+    });
+
+    test('5. an existing past plan remains byte-identical', () => {
+        const stored = [past('2026-03-10', 'girth'), past('2026-03-11', 'length')];
         const gen = generatePlans({ key: 'size', now: at(3), tier: 'elite', presets: PRESETS, tables: TABLES }).plans;
         const merged = retainPlans(stored, gen, { today: '2026-03-12' });
-        merged.filter(p => p.date >= '2026-03-12' && p.primarySession).forEach(p =>
+        stored.forEach(s => expect(merged.find(p => p.date === s.date)).toEqual(s));
+    });
+
+    test('6. a CORRUPT stored Today is preserved, not replaced', () => {
+        /* An unreadable plan is not trustworthy programme truth, but neither
+           do we know what its original valid prescription was. Regenerating
+           it from the member's current programme and tier would manufacture a
+           replacement and destroy the evidence that the record became
+           corrupt. Preserve the ambiguity; the reader reports it and falls
+           back for the rest of the day. */
+        const corrupt = { date: '2026-03-12', mode: 'invented', status: 'pending' };
+        expect(normaliseDayPlan(corrupt)).toBe(null);          // genuinely unreadable
+        const gen = generatePlans({ key: 'size', now: at(3), tier: 'intermediate', presets: PRESETS, tables: TABLES }).plans;
+        const merged = retainPlans([corrupt], gen, { today: '2026-03-12' });
+        const today = merged.filter(p => p.date === '2026-03-12');
+        expect(today).toHaveLength(1);
+        expect(today[0]).toEqual(corrupt);
+    });
+
+    test('7. a corrupt Today does not stop tomorrow being generated', () => {
+        const corrupt = { date: '2026-03-12', mode: 'invented' };
+        const gen = generatePlans({ key: 'size', now: at(3), tier: 'intermediate', presets: PRESETS, tables: TABLES }).plans;
+        const merged = retainPlans([corrupt], gen, { today: '2026-03-12' });
+        expect(merged.filter(p => p.date > '2026-03-12')).toHaveLength(gen.length - 1);
+        merged.filter(p => p.date > '2026-03-12').forEach(p =>
+            expect(normaliseDayPlan(p), p.date).not.toBe(null));
+    });
+
+    test('8. after the date rolls, the new Today is generated normally', () => {
+        /* Yesterday's plan, valid or corrupt, is now past and frozen. The new
+           local date has no stored plan, so it is created, at the current
+           tier. */
+        const corrupt = { date: '2026-03-12', mode: 'invented' };
+        const day1 = retainPlans([corrupt],
+            generatePlans({ key: 'size', now: at(3), tier: 'intermediate', presets: PRESETS, tables: TABLES }).plans,
+            { today: '2026-03-12' });
+        const day2 = retainPlans(day1,
+            generatePlans({ key: 'size', now: at(4), tier: 'elite', presets: PRESETS, tables: TABLES }).plans,
+            { today: '2026-03-13' });
+        expect(day2.find(p => p.date === '2026-03-12')).toEqual(corrupt);   // frozen
+        const newToday = day2.find(p => p.date === '2026-03-13');
+        expect(normaliseDayPlan(newToday)).not.toBe(null);
+        /* 2026-03-13 was generated on day 1, at intermediate, and is now
+           Today, so it is frozen exactly as it was written. Asserted byte for
+           byte rather than on the tier, because that Friday is a rest day in
+           the Size preset and carries no primary session to read a tier
+           from. */
+        const asWritten = day1.find(p => p.date === '2026-03-13');
+        expect(JSON.stringify(newToday)).toBe(JSON.stringify(asWritten));
+        /* And the elite regeneration did reach the days beyond it. */
+        day2.filter(p => p.date > '2026-03-13' && p.primarySession).forEach(p =>
             expect(p.primarySession.tier, p.date).toBe('elite'));
     });
 

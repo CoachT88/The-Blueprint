@@ -325,14 +325,30 @@ const contentOf = (p) => {
 /**
  * Merge generated plans with retained history.
  *
- * A plan dated today or earlier is never rewritten: the generator emits no
- * past date and the stored one is carried through untouched. The generator
- * owns today onward, so a tier or programme change propagates forward for
- * free.
+ * THE RULE, AND TODAY IS THE INTERESTING CASE
  *
- * A regenerated plan whose content matches the stored one keeps the STORED
- * generatedAt. Otherwise every load would churn provenance and nothing would
- * ever be idempotent.
+ *   a past date               immutable
+ *   today, already stored     immutable, EVEN IF IT DOES NOT VALIDATE
+ *   today, absent             generate it
+ *   tomorrow onward           may regenerate
+ *
+ * So a first cutover still creates Today, and from then on Today is
+ * historical prescription truth for the rest of that local date: a second
+ * load, a tier change, a content-version recalculation all leave it
+ * byte-identical, generatedAt included.
+ *
+ * A CORRUPT TODAY IS PRESERVED RATHER THAN REPLACED, which is the part worth
+ * explaining. An unreadable plan is not trustworthy programme truth, but
+ * neither do we know what its original valid prescription was. Regenerating
+ * it from the member's CURRENT programme and tier would manufacture a
+ * replacement prescription and destroy the evidence that the stored record
+ * became corrupt. The safer failure mode is to preserve the ambiguity, report
+ * it, and let the reader fall back to the compatibility column for the
+ * remainder of the day. See getScheduledType in app/index.html.
+ *
+ * A regenerated FUTURE plan whose content matches the stored one keeps the
+ * stored generatedAt. Otherwise every load would churn provenance and nothing
+ * would ever be idempotent.
  */
 export function retainPlans(existing, generated, opts) {
     const o = isPlainObject(opts) ? opts : {};
@@ -356,12 +372,15 @@ export function retainPlans(existing, generated, opts) {
     }
 
     const out = [];
+    const kept = new Set();
     for (const [date, plan] of stored) {
-        if (today && date >= today) continue;          // the generator owns these
+        if (today && date > today) continue;           // the generator owns these
         if (oldestKept && date < oldestKept) continue; // beyond retention
         out.push(plan);
+        kept.add(date);                                // today included, as written
     }
     for (const p of (Array.isArray(generated) ? generated : [])) {
+        if (kept.has(p.date)) continue;                // already immutable
         const prev = stored.get(p.date);
         out.push(prev && contentOf(prev) === contentOf(p) ? prev : p);
     }

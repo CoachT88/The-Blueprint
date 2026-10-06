@@ -290,6 +290,140 @@ describe('a custom member is left entirely alone', () => {
     });
 });
 
+describe('a broken authoritative Today falls back, loudly', () => {
+    /* The programme says dated plans are authoritative and today's is
+       missing or unreadable. The member must stay usable, so the
+       compatibility column is read, but that is an EMERGENCY path after an
+       integrity failure and not normal dual authority, so it is reported.
+       Nothing about programme authority is touched by a read.
+
+       renderDashboard is stubbed around each probe, and that is the point
+       rather than a convenience: the cutover would regenerate a missing
+       Today before the assertion could see it, and a corrupt Today is
+       deliberately preserved so the evidence survives. */
+    let app;
+    beforeAll(async () => {
+        app = await openApp({ row: null });
+        await app.page.evaluate(() => localStorage.clear());
+        await authSignIn(app.page, {
+            id: 'brk', email: 'brk@x.com',
+            row: row({ id: 'brk', schedule: ALL_WEEK, primary_goal: 'all' }),
+        });
+        await app.page.evaluate(() => renderDashboard());
+    }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    const probe = (mutate) => app.page.evaluate((how) => {
+        const realRender = window.renderDashboard;
+        window.renderDashboard = () => {};
+        const key = window.BP.planDateKey(new Date());
+        const plansBefore = JSON.parse(JSON.stringify(persisted.dayPlans));
+        const keyBefore = persisted.programme.key;
+        const errs = [];
+        const realError = console.error;
+        console.error = (...a) => { errs.push(a.map(String).join(' ')); };
+        window.__writes = [];
+        /* Reset the once-per-date guard so each probe is independent rather
+           than quietly depending on which ran first. A top-level `let` in the
+           app's script is a global lexical binding, assignable by bare name
+           from here, same as currentUser in the harness. */
+        _planIntegrityReported = '';
+        try {
+            const i = persisted.dayPlans.findIndex(p => p.date === key);
+            if (how === 'missing') persisted.dayPlans.splice(i, 1);
+            if (how === 'corrupt') persisted.dayPlans[i] = { date: key, mode: 'invented' };
+            if (how === 'healthy') { /* leave it alone */ }
+            const today = getScheduledType();
+            const blackout = isBlackoutDay();
+            const again = getScheduledType();          // many calls per render
+            const thrice = getScheduledType();
+            return {
+                today, blackout, again, thrice,
+                reports: errs.filter(e => e.includes('integrity')).length,
+                reportText: errs.find(e => e.includes('integrity')) || '',
+                keyAfter: persisted.programme.key,
+                keyBefore,
+                plansLen: persisted.dayPlans.length,
+                plansBeforeLen: plansBefore.length,
+                stored: persisted.dayPlans.find(p => p.date === key) || null,
+                column: persisted.schedule,
+            };
+        } finally {
+            console.error = realError;
+            window.renderDashboard = realRender;
+            persisted.dayPlans = plansBefore;
+        }
+    }, mutate);
+
+    test('a healthy Today never takes the fallback and reports nothing', async () => {
+        const r = await probe('healthy');
+        expect(r.reports).toBe(0);
+        expect(r.today).toBe(ALL_WEEK[new Date().getDay()]);
+    }, 30_000);
+
+    test('a missing Today keeps the member usable and is reported once', async () => {
+        const r = await probe('missing');
+        /* Usable: Today still answers, from the compatibility column. */
+        expect(r.today).toBe(ALL_WEEK[new Date().getDay()]);
+        expect(r.blackout).toBe(ALL_WEEK[new Date().getDay()] === 'rest');
+        expect(r.again).toBe(r.today);
+        /* Reported, once, across four reader calls. */
+        expect(r.reports).toBe(1);
+        expect(r.reportText).toContain('missing');
+        /* And authority is untouched by a read. */
+        expect(r.keyAfter).toBe('everything');
+        expect(r.keyAfter).toBe(r.keyBefore);
+    }, 30_000);
+
+    test('an unreadable Today is reported rather than treated as a prescription', async () => {
+        const r = await probe('corrupt');
+        expect(r.today).toBe(ALL_WEEK[new Date().getDay()]);
+        expect(r.reports).toBe(1);
+        expect(r.reportText).toContain('unreadable');
+        expect(r.keyAfter).toBe('everything');
+        /* Preserved, not replaced: the record is still the corrupt one, so
+           the evidence that it became corrupt survives. */
+        expect(r.stored).toEqual({ date: expect.any(String), mode: 'invented' });
+        expect(r.plansLen).toBe(r.plansBeforeLen);
+    }, 30_000);
+
+    test('a second read on the same date does not report again', async () => {
+        /* Once per local date per kind. The guard resets by itself when the
+           date rolls, and the composite key is why a missing Today and an
+           unreadable one are both heard. */
+        const r = await app.page.evaluate(() => {
+            const realRender = window.renderDashboard;
+            window.renderDashboard = () => {};
+            const key = window.BP.planDateKey(new Date());
+            const plansBefore = JSON.parse(JSON.stringify(persisted.dayPlans));
+            const errs = [];
+            const realError = console.error;
+            console.error = (...a) => { errs.push(a.map(String).join(' ')); };
+            _planIntegrityReported = '';
+            try {
+                const i = persisted.dayPlans.findIndex(p => p.date === key);
+                persisted.dayPlans.splice(i, 1);
+                getScheduledType();
+                const afterFirst = errs.length;
+                for (let n = 0; n < 20; n++) getScheduledType();
+                return { afterFirst, afterMany: errs.length };
+            } finally {
+                console.error = realError;
+                window.renderDashboard = realRender;
+                persisted.dayPlans = plansBefore;
+            }
+        });
+        expect(r.afterFirst).toBe(1);
+        expect(r.afterMany).toBe(1);
+    }, 30_000);
+
+    test('the fallback does not rewrite the compatibility column either', async () => {
+        const r = await probe('corrupt');
+        expect(r.column).toEqual(ALL_WEEK);
+        expect(app.errors).toEqual([]);
+    }, 30_000);
+});
+
 describe('the gate is what protects a contradictory programme', () => {
     /* custom true with preset provenance. The key mapping names a programme
        for it quite happily, because naming which programme is not its job, so

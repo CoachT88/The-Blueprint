@@ -2503,11 +2503,47 @@ function isSizeLed(){ const k=getGoalKey(); return k==='size'||k==='all'; }
  * projection use, so a reader cannot miss a plan that exists because two
  * date formulas disagreed about one day.
  */
+/* Reported at most once per local date per kind of failure. getScheduledType
+   runs many times a render, so an unguarded track() would write an analytics
+   row per call. The composite key resets by itself when the date rolls. */
+let _planIntegrityReported='';
+function _reportPlanIntegrity(kind,key){
+    const seen=key+'|'+kind;
+    if(_planIntegrityReported===seen) return;
+    _planIntegrityReported=seen;
+    console.error('authoritative day plan integrity failure:',kind,key,
+        '- falling back to the compatibility schedule for today');
+    try{ track('day_plan_integrity',{kind:String(kind),date:String(key)}); }catch(e){}
+}
+/**
+ * Today's VALIDATED dated plan, or nothing.
+ *
+ * normaliseDayPlan decides what counts, rather than this trusting a raw
+ * object's shape. src/dayPlan.js is explicit that a record whose identity or
+ * mode cannot be read is a data-integrity condition and not a fifth kind of
+ * prescribed day, so a reader must not treat one as a prescription.
+ *
+ * Returning null here sends the caller to the compatibility column. For a
+ * member who is not on authoritative plans that is the normal, silent path.
+ * For a member who IS, it is an emergency path and says so out loud: the
+ * programme claims dated plans are authoritative and today's is missing or
+ * unreadable, which is a condition somebody needs to know about rather than
+ * something to absorb quietly.
+ *
+ * It reports and returns. It does not clear the key, rewrite the plans or
+ * trigger regeneration: a reader does not get to change programme authority,
+ * and a corrupt Today is deliberately preserved rather than replaced so the
+ * evidence survives. See retainPlans.
+ */
 function todayPlan(){
     if(!onAuthoritativePlans()) return null;
     if(!window.BP||!window.BP.planDateKey) return null;
     const key=window.BP.planDateKey(new Date());
-    return (persisted.dayPlans||[]).find(p=>p&&p.date===key)||null;
+    const raw=(persisted.dayPlans||[]).find(p=>p&&p.date===key);
+    if(!raw){ _reportPlanIntegrity('missing',key); return null; }
+    const valid=window.BP.normaliseDayPlan?window.BP.normaliseDayPlan(raw):null;
+    if(!valid){ _reportPlanIntegrity('unreadable',key); return null; }
+    return valid;
 }
 /**
  * What is today?
@@ -2526,6 +2562,8 @@ function todayPlan(){
 function getScheduledType(){
     const p=todayPlan();
     if(p) return p.mode==='rest'?'rest':((p.primarySession&&p.primarySession.type)||'rest');
+    /* Compatibility fallback. Normal and silent for a legacy member; for an
+       authoritative one todayPlan has already reported why we are here. */
     return (persisted.schedule||[])[new Date().getDay()]||'rest';
 }
 const DIRECTIONALS=['OUT','UP','DOWN','LEFT','RIGHT'];
@@ -8585,6 +8623,9 @@ import { classifyLegacySchedule, migrationProgramme, mayGenerateOver,
    them. It changes no prescription, only where the prescription lives. */
 import { cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
          PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL } from '../src/programmeGenerate.js';
+/* The validator, so a reader can tell a prescription from a data-integrity
+   condition instead of trusting a raw object's shape. */
+import { normaliseDayPlan } from '../src/dayPlan.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -8602,7 +8643,7 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               classifyLegacySchedule, migrationProgramme, mayGenerateOver,
               PROGRAMME_SOURCE, CLASSIFY_REASON,
               cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
-              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL };
+              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();
