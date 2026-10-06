@@ -73,7 +73,7 @@
 
 import { normaliseDayPlan, DAY_MODE, PLAN_STATUS } from './dayPlan.js';
 import { toLegacySchedule } from './scheduleSlot.js';
-import { localDateKeyForWeekday } from './weekUtils.js';
+import { localDateKeyForWeekday, localDateKey } from './weekUtils.js';
 
 /** The programme vocabulary. What a member is ON. */
 export const PROGRAMME_KEY = Object.freeze({
@@ -164,9 +164,10 @@ export function weekShapeFor(key, presets) {
 /**
  * Today through the end of next ISO week.
  *
- * Every key comes from dateKeyForWeekday, so the set is exactly the 14
- * consecutive dates of this ISO week and the next, and filtering to those at
- * or after today is what makes generation forward-only.
+ * Every key comes from localDateKeyForWeekday, so the set is exactly the 14
+ * consecutive dates of this ISO week and the next, in the member's own
+ * calendar, and filtering to those at or after today is what makes generation
+ * forward-only.
  */
 export function horizonFor(now) {
     const ref = now instanceof Date && !isNaN(now.getTime()) ? now : new Date();
@@ -366,9 +367,15 @@ export function retainPlans(existing, generated, opts) {
        older than the progression window answers no live question. */
     let oldestKept = '';
     if (today) {
+        /* `today` is an authoritative LOCAL date key, and the cutoff compared
+           against stored plan dates has to be one too. Parsing at T12:00:00
+           with no zone is local, and setDate is local arithmetic, so only the
+           formatting was wrong: toISOString() here put the cutoff a day early
+           at UTC+13 and UTC+14 and would have dropped a plan that is exactly
+           on the boundary. The same shift the generation side already shed. */
         const d = new Date(today + 'T12:00:00');
         d.setDate(d.getDate() - maxPastDays);
-        oldestKept = d.toISOString().split('T')[0];
+        oldestKept = localDateKey(d);
     }
 
     const out = [];

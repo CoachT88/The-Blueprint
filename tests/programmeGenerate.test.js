@@ -856,6 +856,69 @@ describe('authoritative dates are the member\'s own calendar dates', () => {
     }, 120_000);
 });
 
+describe('the retention cutoff is a local calendar date too', () => {
+    /* THE LAST UTC LEAK. `today` is an authoritative local date key, and the
+       cutoff compared against stored plan dates has to be one as well.
+       Deriving it through toISOString() put it a day early at UTC+13 and
+       UTC+14, which drops a plan sitting exactly on the boundary: the same
+       shift generation had already shed, left behind in retention.
+       Subprocess per zone, so the host timezone cannot decide the result. */
+    const probe = (tz) => {
+        const script = `
+            import { retainPlans, generatePlans } from '${process.cwd()}/src/programmeGenerate.js';
+            const PRESETS = ${JSON.stringify(PRESETS)};
+            const TABLES = ${JSON.stringify(TABLES)};
+            const TODAY = '2026-03-12';
+            const back = (n) => {
+                const d = new Date(TODAY + 'T12:00:00');
+                d.setDate(d.getDate() - n);
+                const p = (x) => String(x).padStart(2, '0');
+                return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+            };
+            const plan = (date) => ({
+                date, mode: 'prescribed', status: 'pending',
+                primarySession: { type: 'length', tier: 'beginner' },
+                supportingWork: [], dailyPractice: [],
+                generatedAt: '2020-01-01T00:00:00.000Z',
+                generatedFrom: { programmeKey: 'size', version: 1 },
+            });
+            const onBoundary = back(56);
+            const pastBoundary = back(57);
+            const gen = generatePlans({ key: 'size', now: new Date(2026, 2, 12, 12),
+                tier: 'intermediate', presets: PRESETS, tables: TABLES }).plans;
+            const merged = retainPlans([plan(pastBoundary), plan(onBoundary)], gen,
+                { today: TODAY, maxPastDays: 56, maxPlans: 999 });
+            const dates = merged.map(p => p.date);
+            console.log(JSON.stringify({
+                onBoundary, pastBoundary,
+                keptOnBoundary: dates.includes(onBoundary),
+                keptPastBoundary: dates.includes(pastBoundary),
+            }));
+        `;
+        const out = execFileSync(process.execPath, ['--input-type=module', '-e', script],
+            { env: { ...process.env, TZ: tz }, encoding: 'utf8' });
+        return JSON.parse(out.trim().split('\n').pop());
+    };
+
+    test.each([['UTC'], ['Pacific/Kiritimati']])('%s: exactly 56 days back is retained, 57 is dropped', (tz) => {
+        const r = probe(tz);
+        /* The dates themselves are local-calendar arithmetic from today, so
+           they are the same strings in every zone. */
+        expect(r.onBoundary).toBe('2026-01-15');
+        expect(r.pastBoundary).toBe('2026-01-14');
+        expect(r.keptOnBoundary, `${tz}: the boundary plan must survive`).toBe(true);
+        expect(r.keptPastBoundary, `${tz}: a day past the boundary must go`).toBe(false);
+    }, 30_000);
+
+    test('UTC+13 and a zone behind UTC agree as well', () => {
+        [['Pacific/Apia'], ['America/New_York']].forEach(([tz]) => {
+            const r = probe(tz);
+            expect(r.keptOnBoundary, tz).toBe(true);
+            expect(r.keptPastBoundary, tz).toBe(false);
+        });
+    }, 30_000);
+});
+
 describe('local dates survive a timezone behind UTC', () => {
     /* The W2 lesson. Every date key comes from dateKeyForWeekday, the same
        helper the projection uses to look plans up, so the two agree by

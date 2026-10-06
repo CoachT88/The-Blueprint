@@ -110,6 +110,25 @@ export function localDateKeyForWeekday(ref, index) {
     monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
     const d = new Date(monday);
     d.setDate(d.getDate() + ((index + 6) % 7));
+    return localDateKey(d);
+}
+
+/**
+ * A date as the member's own calendar writes it.
+ *
+ * The formatter the helper above uses, exported because an authoritative
+ * date is not only ever a weekday of a week: a retention cutoff is a date
+ * too, and deriving one through toISOString() reintroduces at UTC+13 and
+ * UTC+14 exactly the shift localDateKeyForWeekday exists to avoid. One
+ * formatter, so there is one answer.
+ *
+ * src/liveness.js localDayKey() is the same arithmetic for the same reason.
+ * It is not reused here only because weekUtils is the module the date
+ * helpers live in and importing liveness would add an edge for one
+ * expression; if a third caller appears, collapse them.
+ */
+export function localDateKey(date) {
+    const d = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
     const p = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
