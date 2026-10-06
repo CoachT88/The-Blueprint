@@ -1599,7 +1599,7 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">Your Weekly Schedule</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">Your home screen shows your 7-day training plan. Each day is assigned Length, Girth, Stamina or Rest. Tap any day to change it. Rest days are mandatory — your tissue adapts during recovery, not during training.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">Your home screen shows your 7-day training plan. Each day is assigned Length, Girth, Stamina or Rest. Tap a day to view it and update its completion status. Rest days are mandatory: your tissue adapts during recovery, not during training.</p>
         <div class="mt-6 flex gap-3 justify-center">
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 w-16"><i class="fas fa-up-right-and-down-left-from-center text-blue-400 text-lg"></i><span class="text-[9px] font-black text-blue-300 uppercase">Length</span></div>
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 w-16"><i class="fas fa-expand text-emerald-400 text-lg"></i><span class="text-[9px] font-black text-emerald-300 uppercase">Girth</span></div>
@@ -1755,7 +1755,7 @@
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-calendar-week text-slate-300 mr-1.5"></i>Weekly Calendar</p>
-                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, purple for Stamina, grey for Rest. Tap any day to change its assignment or mark it complete. Today is highlighted with a border, and today's training focus gets a ring.</p>
+                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, purple for Stamina, grey for Rest. Tap a day to view it and update its completion status. Today is highlighted with a border, and today's training focus gets a ring.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-moon text-slate-300 mr-1.5"></i>Daily Check-In</p>
@@ -7128,7 +7128,16 @@ function selectGoal(key){
     savePersisted();
     const note=document.getElementById('goal-confirm');
     if(note){
-        note.textContent=applied?`Weekly schedule set for ${GOALS[key].label.toLowerCase()}.`:`Focus set to ${GOALS[key].label.toLowerCase()}.`;
+        /* Three cases, each said plainly. For a member whose week is derived,
+           "Focus set to ..." would imply the app's focus moved when the
+           programme and the plans did not. primaryGoal is not inert for them,
+           since Coach Tee still reads it, so the note says what did happen
+           rather than nothing, and promises no feature that does not exist. */
+        note.textContent=onAuthoritativePlans()
+            ? 'Noted. This does not change your programme.'
+            : (applied
+                ? `Weekly schedule set for ${GOALS[key].label.toLowerCase()}.`
+                : `Focus set to ${GOALS[key].label.toLowerCase()}.`);
         note.classList.remove('hidden');
     }
     renderDashboard();
@@ -7187,7 +7196,11 @@ const TOUR_STOPS=[
     {sel:'#hq-today-card',    title:'Start here',       body:'This card is the app. It tells you what to do today, why, and how long it takes. If you only ever read one thing on this screen, read this.'},
     {sel:'#today-actions',    title:'Then do it',       body:'One button, already pointed at whatever today calls for. You do not have to decide anything first.'},
     {sel:'#hq-stat-chips',    title:'Your week',        body:'Sessions done out of sessions scheduled. Rest days are part of the plan, so they are not counted against you.'},
-    {sel:'#hq-calendar-card', title:'Change the plan',  body:'Tap any day to set it to Length, Girth, Stamina or Rest. Today\'s card follows whatever you put here.'},
+    /* Was "Change the plan. Tap any day to set it to Length, Girth, Stamina
+       or Rest." False for a member whose week is derived from their dated
+       plans: for them the day types are withdrawn until Change My Programme
+       exists. This is true for both cohorts. */
+    {sel:'#hq-calendar-card', title:'Your week',        body:'See what is scheduled across the week. Tap a day to view it and update its completion status.'},
     {sel:'#hq-tools-row',     title:'See it add up',    body:'Progress holds your charts and photos. Week is your summary. This is where the long view lives.'},
     {sel:'#hq-coach-row',     title:'When you need it', body:'Coach Tee answers questions any hour, and the Manual explains every exercise in depth. Neither is something you have to read first.'},
 ];

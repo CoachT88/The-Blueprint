@@ -547,6 +547,44 @@ describe('after cutover the week cannot be edited directly', () => {
         expect(r.after).toEqual(ALL_WEEK);
     });
 
+    test('the confirmation does not claim their programme changed', async () => {
+        /* "Focus set to lasting longer." would imply the app's focus moved
+           when programme.key and the plans did not. primaryGoal is not inert
+           for them, since Coach Tee reads it, so the note says what did
+           happen and promises no feature that does not exist. */
+        const r = await app.page.evaluate(() => {
+            window.confirm = () => true;
+            selectGoal('stamina');
+            const note = document.getElementById('goal-confirm');
+            return {
+                text: note.textContent,
+                hidden: note.classList.contains('hidden'),
+                key: persisted.programme.key,
+                goal: persisted.primaryGoal,
+            };
+        });
+        expect(r.hidden).toBe(false);
+        expect(r.text).toBe('Noted. This does not change your programme.');
+        expect(r.text).not.toContain('schedule set');
+        expect(r.text).not.toContain('Focus set');
+        /* The preference was recorded; the programme was not touched. */
+        expect(r.goal).toBe('stamina');
+        expect(r.key).toBe('everything');
+    }, 30_000);
+
+    test('a legacy member still gets the old confirmation', async () => {
+        const r = await app.page.evaluate(() => {
+            persisted.programme = null;
+            persisted.dayPlans = [];
+            persisted.allTimeSessionCount = 0;
+            persisted.schedule = DEFAULT_PERSISTED.schedule.slice();
+            persisted.primaryGoal = '';
+            selectGoal('stamina');
+            return document.getElementById('goal-confirm').textContent;
+        });
+        expect(r).toBe('Weekly schedule set for lasting longer.');
+    }, 30_000);
+
     test('the picker still works for a member who has not cut over', async () => {
         /* The feature is withdrawn for cutover members, not deleted. */
         const r = await app.page.evaluate(() => {
