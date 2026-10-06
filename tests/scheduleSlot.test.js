@@ -308,6 +308,10 @@ describe('purity', () => {
         expect(src).not.toMatch(/Date\.now/);
         expect(src).not.toMatch(/PROGRESSION_POLICY/);
         const imports = src.match(/^import .*$/gm) || [];
-        expect(imports).toEqual(["import { dateKeyForWeekday } from './weekUtils.js';"]);
+        /* The LOCAL sibling: a plan's date is the day the member lived
+           through, and the projection has to look it up by the same identity
+           the generator wrote. Still exactly one import, still nothing
+           policy-shaped. */
+        expect(imports).toEqual(["import { localDateKeyForWeekday } from './weekUtils.js';"]);
     });
 });

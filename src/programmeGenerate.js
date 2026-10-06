@@ -46,13 +46,25 @@
  * either the external consumers migrate or there is a reviewed compatibility
  * policy. See docs/last-longer-design.md section 9.
  *
- * DATES COME FROM THE PROJECTION'S OWN HELPER
+ * DATES ARE LOCAL CALENDAR DATES, AND THAT COST A CORRECTION
  *
- * Every date key is produced by dateKeyForWeekday, the same function
- * toLegacySchedule uses to look plans up. Deriving them with a second
- * equivalent formula would work until the two disagreed about a timezone
- * edge, and then the projection would silently find no plan for a day that
- * exists. Shared helper, byte-identical keys, by construction.
+ * A plan's date is the day the member lived through, so the key comes from
+ * localDateKeyForWeekday: formatted from getFullYear/getMonth/getDate, never
+ * through toISOString().
+ *
+ * The first version of this module used dateKeyForWeekday instead,
+ * specifically so the keys would match what toLegacySchedule looked plans up
+ * by, and said so approvingly. But src/weekUtils.js documents that helper as
+ * a frozen legacy compatibility path whose local-noon to UTC conversion
+ * shifts a date at extreme positive offsets, and its own tests pin the UTC+14
+ * case. Matching formulas was right; matching them on the one with a known
+ * date bug was not, and it would have made every authoritative plan identity
+ * inherit it.
+ *
+ * So the projection's internal lookup moved to the local sibling as well.
+ * Both still come from ONE helper, which is what keeps generation and lookup
+ * from drifting apart, and the legacy helper is untouched for its existing
+ * consumers.
  *
  * Pure: no DOM, no clock it was not handed, no globals, no mutation of
  * inputs. The routine tables live in the page and are injected, because a
@@ -61,7 +73,7 @@
 
 import { normaliseDayPlan, DAY_MODE, PLAN_STATUS } from './dayPlan.js';
 import { toLegacySchedule } from './scheduleSlot.js';
-import { dateKeyForWeekday } from './weekUtils.js';
+import { localDateKeyForWeekday } from './weekUtils.js';
 
 /** The programme vocabulary. What a member is ON. */
 export const PROGRAMME_KEY = Object.freeze({
@@ -167,11 +179,11 @@ export function horizonFor(now) {
        ISO week and index 1 is its Monday. Both weeks together are 14
        consecutive dates. */
     const all = [];
-    for (let i = 0; i < 7; i++) all.push(dateKeyForWeekday(monday, i));
-    for (let i = 0; i < 7; i++) all.push(dateKeyForWeekday(nextMonday, i));
+    for (let i = 0; i < 7; i++) all.push(localDateKeyForWeekday(monday, i));
+    for (let i = 0; i < 7; i++) all.push(localDateKeyForWeekday(nextMonday, i));
     all.sort();
 
-    const today = dateKeyForWeekday(ref, ref.getDay());
+    const today = localDateKeyForWeekday(ref, ref.getDay());
     const dates = all.filter(d => d >= today);
     return { today, monday, nextMonday, horizonEnd: dates[dates.length - 1], dates };
 }
@@ -185,7 +197,7 @@ export function horizonFor(now) {
  */
 export function planDateKey(now) {
     const ref = now instanceof Date && !isNaN(now.getTime()) ? now : new Date();
-    return dateKeyForWeekday(ref, ref.getDay());
+    return localDateKeyForWeekday(ref, ref.getDay());
 }
 
 /**

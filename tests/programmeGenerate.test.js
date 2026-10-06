@@ -664,6 +664,102 @@ describe('the projection still refuses what it always refused', () => {
     });
 });
 
+describe('authoritative dates are the member\'s own calendar dates', () => {
+    /* THE CORRECTION THIS SUITE EXISTS FOR.
+     *
+     * The first version keyed plans with dateKeyForWeekday, the frozen legacy
+     * helper, specifically so the keys would match what the projection looked
+     * them up by. src/weekUtils.js documents that helper's local-noon to UTC
+     * conversion as shifting a date at extreme positive offsets, and
+     * tests/weekUtils.test.js pins the UTC+14 case, so every authoritative
+     * plan identity inherited a known date bug in order to agree with the
+     * thing it replaces.
+     *
+     * These run in a subprocess per zone, because TZ is read once per
+     * process. */
+    const probe = (tz, dateArgs) => {
+        const script = `
+            import { horizonFor, planDateKey, cutoverPlan } from '${process.cwd()}/src/programmeGenerate.js';
+            import { dateKeyForWeekday, localDateKeyForWeekday } from '${process.cwd()}/src/weekUtils.js';
+            const PRESETS = ${JSON.stringify(PRESETS)};
+            const TABLES = ${JSON.stringify(TABLES)};
+            const P = { key: null, version: 1, adoptedAt: null, custom: false, cyclePosition: null,
+                migration: { source: 'preset', presetKey: 'size', reason: 'r', classifiedAt: '2026-01-01' } };
+            const now = new Date(${dateArgs});
+            const h = horizonFor(now);
+            const r = cutoverPlan({ permitted: true, programme: P, existingPlans: [],
+                presets: PRESETS, tables: TABLES, tier: 'intermediate', now });
+            console.log(JSON.stringify({
+                weekday: now.getDay(),
+                localDay: now.getDate(),
+                today: h.today,
+                planKey: planDateKey(now),
+                first: h.dates[0],
+                count: h.dates.length,
+                ok: r.ok,
+                firstPlanDate: r.ok ? r.dayPlans[0].date : null,
+                legacyKey: dateKeyForWeekday(now, now.getDay()),
+                localKey: localDateKeyForWeekday(now, now.getDay()),
+            }));
+        `;
+        const out = execFileSync(process.execPath, ['--input-type=module', '-e', script],
+            { env: { ...process.env, TZ: tz }, encoding: 'utf8' });
+        return JSON.parse(out.trim().split('\n').pop());
+    };
+
+    test('UTC+14: a Wednesday plan is keyed Wednesday, not Tuesday', () => {
+        /* 2026-03-11 is a Wednesday. At UTC+14 local noon is 22:00 UTC the
+           PREVIOUS day, so the legacy helper keys it Tuesday the 10th. */
+        const r = probe('Pacific/Kiritimati', '2026, 2, 11, 12');
+        expect(r.weekday).toBe(3);                 // Wednesday, locally
+        expect(r.localDay).toBe(11);
+        expect(r.localKey).toBe('2026-03-11');     // the corrected identity
+        expect(r.legacyKey).toBe('2026-03-10');    // the shift, still there
+        expect(r.today).toBe('2026-03-11');
+        expect(r.planKey).toBe('2026-03-11');
+        expect(r.first).toBe('2026-03-11');
+        expect(r.firstPlanDate).toBe('2026-03-11');
+        expect(r.count).toBe(12);                  // Wednesday cutover
+        expect(r.ok).toBe(true);                   // and it still projects
+    }, 30_000);
+
+    test('UTC+14 at 23:30 and 00:30 keeps the local date', () => {
+        const late = probe('Pacific/Kiritimati', '2026, 2, 11, 23, 30');
+        const early = probe('Pacific/Kiritimati', '2026, 2, 11, 0, 30');
+        [late, early].forEach(r => {
+            expect(r.today).toBe('2026-03-11');
+            expect(r.firstPlanDate).toBe('2026-03-11');
+            expect(r.ok).toBe(true);
+        });
+    }, 30_000);
+
+    test('UTC+13 and UTC-11 agree with the local calendar too', () => {
+        const cases = [['Pacific/Apia', 3], ['Pacific/Pago_Pago', 3]];
+        cases.forEach(([tz]) => {
+            const r = probe(tz, '2026, 2, 11, 12');
+            expect(r.today, tz).toBe('2026-03-11');
+            expect(r.localKey, tz).toBe('2026-03-11');
+            expect(r.firstPlanDate, tz).toBe('2026-03-11');
+            expect(r.ok, tz).toBe(true);
+        });
+    }, 30_000);
+
+    test('every generated plan is findable by the projection, in every zone', () => {
+        /* The property that made the original mistake tempting, now held by
+           one shared LOCAL helper instead of one shared legacy one. If
+           generation and lookup ever drift apart, the projection refuses with
+           no_plan and this fails. */
+        ['UTC', 'Pacific/Kiritimati', 'Pacific/Apia', 'Pacific/Pago_Pago',
+         'America/New_York', 'Asia/Kolkata'].forEach(tz => {
+            for (let d = 9; d <= 15; d++) {
+                const r = probe(tz, `2026, 2, ${d}, 12`);
+                expect(r.ok, `${tz} day ${d}`).toBe(true);
+                expect(r.firstPlanDate, `${tz} day ${d}`).toBe(r.today);
+            }
+        });
+    }, 120_000);
+});
+
 describe('local dates survive a timezone behind UTC', () => {
     /* The W2 lesson. Every date key comes from dateKeyForWeekday, the same
        helper the projection uses to look plans up, so the two agree by

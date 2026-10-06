@@ -59,7 +59,7 @@
  * Pure: no DOM, no clock, no globals, no mutation of inputs.
  */
 
-import { dateKeyForWeekday } from './weekUtils.js';
+import { localDateKeyForWeekday } from './weekUtils.js';
 
 /** What a slot is. Three answers, and the third is not a failure state. */
 export const SLOT_CLASS = Object.freeze({
@@ -208,7 +208,12 @@ export function toLegacySchedule(plans, weekOf) {
     const slots = new Array(7);
     const unrepresentable = [];
     for (let i = 0; i < 7; i++) {
-        const date = dateKeyForWeekday(ref, i);
+        /* The LOCAL key, because that is how an authoritative plan's date is
+           written. The projection's external contract is unchanged: seven
+           elements, Sunday-indexed, legacy vocabulary. Only the key it looks a
+           plan up by is internal, and it has to agree with the identity the
+           generator wrote rather than with the legacy helper's UTC shift. */
+        const date = localDateKeyForWeekday(ref, i);
         const plan = byDate.get(date);
         if (!plan) {
             unrepresentable.push({ index: i, date, reason: PROJECTION_REFUSAL.NO_PLAN });
