@@ -374,15 +374,29 @@ describe('after cutover the week cannot be edited directly', () => {
 
     test('assignDay refuses even when called directly', async () => {
         /* The buttons are gone, so this is only reachable from a stale shell
-           or a console. It must still not create a second authority. */
+           or a console. It must still not create a second authority.
+
+           renderDashboard is stubbed for the duration of the call, and that
+           is the whole point of the test rather than a convenience: without
+           the stub, assignDay's own render runs the cutover, which projects
+           the plans back over the illegal write and restores the slot. The
+           schedule then looks untouched whether assignDay refused or wrote
+           and was corrected, and a mutation deleting the refusal survived
+           exactly that. Stubbing the render isolates assignDay's own
+           behaviour, which is what the design requires of it. */
         const r = await app.page.evaluate(() => {
             const before = JSON.parse(JSON.stringify(persisted.schedule));
+            const realRender = window.renderDashboard;
+            let rendered = 0;
+            window.renderDashboard = () => { rendered += 1; };
             session.selectedDayIdx = 2;
-            assignDay('stamina');
-            return { before, after: persisted.schedule };
+            try { assignDay('stamina'); } finally { window.renderDashboard = realRender; }
+            return { before, after: persisted.schedule, rendered };
         });
         expect(r.after).toEqual(r.before);
         expect(r.after).toEqual(ALL_WEEK);
+        /* It short-circuited before doing any of its normal work. */
+        expect(r.rendered).toBe(0);
     });
 
     test('selecting a goal records the goal and does not move the week', async () => {
