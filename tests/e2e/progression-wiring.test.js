@@ -26,6 +26,11 @@ async function reset(page, patch = {}) {
         persisted.allTimeSessionCount = 0;
         persisted.firstSessionDate = '';
         persisted.difficulty = 'intermediate';
+        /* Same reason as seedWeeks: start unclassified, or a member cut over
+           by an earlier test keeps their programme and the authority
+           transition projects its week over the one being seeded here. */
+        persisted.programme = null;
+        persisted.dayPlans = [];
         Object.assign(persisted, patch);
         renderDashboard();
         return {
@@ -433,6 +438,15 @@ const seedWeeks = (page, specs, patch = {}, opts = {}) => page.evaluate(({ specs
     persisted.difficulty = 'intermediate';
     persisted.diffUnlockedDate = {};
     persisted.allTimeSessionCount = 0;
+    /* Phase 3S.1 PR C. Reset the programme too, or a member cut over by an
+       earlier test in this browser stays cut over, and the authority
+       transition then correctly projects THEIR programme's week over the
+       schedule this fixture just seeded. Two tests seed a deliberately
+       non-preset week (all-length, all-rest) and both silently became a
+       different scenario. Starting unclassified means classification runs
+       against the seeded week, which is what these tests are about. */
+    persisted.programme = null;
+    persisted.dayPlans = [];
     Object.assign(persisted, patch);
 
     const ALL_REST = ['rest', 'rest', 'rest', 'rest', 'rest', 'rest', 'rest'];

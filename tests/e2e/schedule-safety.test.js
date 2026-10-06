@@ -15,7 +15,19 @@ describe('goal presets never trample an existing schedule', () => {
     beforeAll(async () => { app = await openApp(); await signIn(app.page); }, 60_000);
     afterAll(async () => { await app?.close(); });
 
+    /* Phase 3S.1 PR C. These tests are about the LEGACY authority path, where
+       the seven-slot column is the programme and a preset may write it. A
+       render classifies and then cuts over, so without this every test after
+       the first would be running as a member whose week is derived, and the
+       preset writer is closed for those by design. The post-cutover cohort
+       has its own block at the bottom of this file. */
+    const legacy = () => app.page.evaluate(() => {
+        persisted.programme = null;
+        persisted.dayPlans = [];
+    });
+
     test('a brand-new account gets its preset applied silently', async () => {
+        await legacy();
         const r = await app.page.evaluate(() => {
             persisted.allTimeSessionCount = 0;
             persisted.schedule = DEFAULT_PERSISTED.schedule.slice();
@@ -28,6 +40,7 @@ describe('goal presets never trample an existing schedule', () => {
     });
 
     test('a member with history is asked first, and a decline changes nothing', async () => {
+        await legacy();
         const r = await app.page.evaluate((custom) => {
             persisted.allTimeSessionCount = 40;
             persisted.schedule = custom.slice();
@@ -43,6 +56,7 @@ describe('goal presets never trample an existing schedule', () => {
     });
 
     test('accepting the prompt applies the preset', async () => {
+        await legacy();
         const schedule = await app.page.evaluate(() => {
             window.confirm = () => true;
             selectGoal('size');
@@ -52,6 +66,7 @@ describe('goal presets never trample an existing schedule', () => {
     });
 
     test('a customised schedule with no history is still protected', async () => {
+        await legacy();
         const r = await app.page.evaluate((custom) => {
             persisted.allTimeSessionCount = 0;
             persisted.schedule = custom.slice();

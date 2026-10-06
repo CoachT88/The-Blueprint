@@ -177,6 +177,18 @@ export function horizonFor(now) {
 }
 
 /**
+ * Today's plan date, in exactly the form stored plans use.
+ *
+ * A reader looking a plan up has to spell the key the same way the generator
+ * and the projection do, or it finds nothing on the one day the formulas
+ * disagree. Same helper, same answer.
+ */
+export function planDateKey(now) {
+    const ref = now instanceof Date && !isNaN(now.getTime()) ? now : new Date();
+    return dateKeyForWeekday(ref, ref.getDay());
+}
+
+/**
  * The dose the existing engine would resolve, as resolved numbers.
  *
  * A stored dose has to be understandable later without consulting a policy

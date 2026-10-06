@@ -261,10 +261,17 @@ describe('importing a backup goes through the same boundary', () => {
            adoption and classification is pinned rather than assumed. */
         const r = await importBackup({ sessionLog: [], totalXp: 7 });
         expect(r.xp).toBe(7);
-        expect(r.dayPlans).toEqual([]);
         expect(r.programme).not.toBe(null);
         expect(r.programme.migration.source).toBe('default');
         expect(r.programme.custom).toBe(false);
+        /* dayPlans is NOT asserted empty here any more. importData ends with
+           renderDashboard, which classifies and then runs the authority
+           transition, so a default-shaped week is migrated and generated for
+           in the same render. Adoption's own contract, that an absent
+           dayPlans normalises to [], is asserted directly above against
+           adoptPersisted. */
+        expect(r.programme.key).toBe('size');          // the default week IS Size
+        expect(r.dayPlans.length).toBeGreaterThanOrEqual(8);
     }, 30_000);
 
     test('an import whose programme is a string is refused and then classified', async () => {
@@ -285,8 +292,10 @@ describe('importing a backup goes through the same boundary', () => {
         expect(r.dayPlans[1]).toEqual(UNREADABLE);
     }, 30_000);
 
-    test('a dayPlans value that is not an array becomes an empty list', async () => {
-        const r = await importBackup({ sessionLog: [], totalXp: 10, dayPlans: { '2026-10-05': {} } });
+    test('adoption turns a dayPlans value that is not an array into an empty list', async () => {
+        /* Adoption's contract, asserted at adoption. After a render the
+           authority transition may legitimately have filled it. */
+        const r = await adopt({ sessionLog: [], totalXp: 10, dayPlans: { '2026-10-05': {} } });
         expect(r.dayPlans).toEqual([]);
         expect(app.errors).toEqual([]);
     }, 30_000);

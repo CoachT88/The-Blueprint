@@ -141,15 +141,26 @@ describe('classification never moves a slot of a members week', () => {
         expect(wrong.map(r => `${r.name}/${r.goal || 'none'}`)).toEqual([]);
     });
 
-    test('no combination writes a programme key or an adoption date', () => {
-        /* Migration records provenance. Which programme a member is on, and
-           from when, is the authority transition and belongs to a later
-           phase. `size` exists in both vocabularies and means different
-           things in each, so an edit that fills `key` from `presetKey` reads
-           plausibly and is wrong. */
+    test('no combination writes an adoption date', () => {
+        /* Automatic migration is not member adoption, in any class. */
+        results.forEach(r => expect(r.adoptedAt, `${r.name}/${r.goal}`).toBe(null));
+    });
+
+    test('a programme key is written for exactly the members the gate permits', () => {
+        /* The key is the cutover marker and it comes from provenance, never
+           from a goal we invented. A custom member is never generated for, so
+           theirs stays null; a default or preset member is, so theirs is set.
+           This pins the gate across all thirty combinations rather than at
+           one example.
+
+           Classification on its own writes no key, which is asserted against
+           migrationProgramme directly in tests/programmeMigration.test.js. By
+           the time a render has finished, the authority transition has run. */
+        const KEYS = { size: 'size', stamina: 'lastLonger', eq: 'erectionQuality', all: 'everything' };
         results.forEach(r => {
-            expect(r.key, `${r.name}/${r.goal}`).toBe(null);
-            expect(r.adoptedAt, `${r.name}/${r.goal}`).toBe(null);
+            if (r.custom) expect(r.key, `custom ${r.name}/${r.goal}`).toBe(null);
+            else expect(r.key, `${r.name}/${r.goal}`)
+                .toBe(r.source === 'default' ? 'size' : KEYS[r.presetKey]);
         });
     });
 
@@ -259,8 +270,10 @@ describe('a member whose week matches the goal they chose', () => {
         expect(state.programme.migration.source).toBe('preset');
         expect(state.programme.migration.presetKey).toBe('stamina');
         expect(state.programme.custom).toBe(false);
-        expect(state.programme.key).toBe(null);
         expect(state.mayGenerate).toBe(true);
+        /* Cut over in the same render: the key is the marker, and it is the
+           future-vocabulary name for the legacy stamina preset. */
+        expect(state.programme.key).toBe('lastLonger');
     });
 
     test('their week is still untouched', () => {

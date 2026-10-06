@@ -289,6 +289,17 @@ export async function signIn(page, { id = 'testuser', email = 'test@example.com'
         // window properties. `window.currentUser = ...` would not be seen.
         currentUser = { id, email };
         if (loaded) _persistedLoaded = true;
+        /* Phase 3S.1 PR C. Start on the LEGACY authority path, where the
+           seven-slot schedule IS the programme. Every suite that reaches the
+           HQ this way and then seeds `persisted.schedule` directly is
+           describing a member whose column is their programme, which is what
+           they were all written against. Without this, a render classifies
+           and cuts the member over, and the next test's seeded schedule is
+           silently projected over from their programme instead. A suite that
+           wants a cut-over member loads a row that has one, or renders and
+           lets the transition run. */
+        persisted.programme = null;
+        persisted.dayPlans = [];
         if (patch) Object.assign(persisted, patch);
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('auth-screen').classList.add('hidden');
