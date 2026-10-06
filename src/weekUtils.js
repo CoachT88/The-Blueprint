@@ -81,3 +81,54 @@ export function dateKeyForWeekday(ref, index) {
     const d = new Date(monday.getTime() + (((index + 6) % 7) * DAY_MS));
     return d.toISOString().split('T')[0];
 }
+
+/**
+ * The same weekday mapping, in the member's own calendar.
+ *
+ * A SIBLING OF THE ABOVE, NOT A REPLACEMENT. The legacy helper's semantics
+ * are frozen because its existing consumers compare against keys derived the
+ * same awkward way, and tests/weekUtils.test.js pins that behaviour
+ * deliberately, UTC+14 shift included.
+ *
+ * This one exists because an authoritative record's IDENTITY must not inherit
+ * that shift. A day plan's date is the day the member lived through, so at
+ * UTC+14 a Wednesday plan has to be keyed Wednesday, where the legacy helper
+ * would key it Tuesday.
+ *
+ * Differences from the legacy helper, both deliberate:
+ * - the key is formatted from getFullYear/getMonth/getDate and NEVER through
+ *   toISOString(), so no UTC conversion happens at all
+ * - the day is advanced with setDate rather than by adding 86400000 ms, so a
+ *   DST transition inside the week cannot shift a date either
+ *
+ * Index semantics are unchanged: Date#getDay() order, so 0 is the Sunday that
+ * ENDS the ISO week and 1 is its Monday.
+ */
+export function localDateKeyForWeekday(ref, index) {
+    const monday = new Date(ref);
+    monday.setHours(12, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const d = new Date(monday);
+    d.setDate(d.getDate() + ((index + 6) % 7));
+    return localDateKey(d);
+}
+
+/**
+ * A date as the member's own calendar writes it.
+ *
+ * The formatter the helper above uses, exported because an authoritative
+ * date is not only ever a weekday of a week: a retention cutoff is a date
+ * too, and deriving one through toISOString() reintroduces at UTC+13 and
+ * UTC+14 exactly the shift localDateKeyForWeekday exists to avoid. One
+ * formatter, so there is one answer.
+ *
+ * src/liveness.js localDayKey() is the same arithmetic for the same reason.
+ * It is not reused here only because weekUtils is the module the date
+ * helpers live in and importing liveness would add an edge for one
+ * expression; if a third caller appears, collapse them.
+ */
+export function localDateKey(date) {
+    const d = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}

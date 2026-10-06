@@ -73,6 +73,42 @@ describe('claims the app may not make', () => {
     });
 });
 
+describe('no surface promises a calendar edit the app will not honour', () => {
+    /* Phase 3S.1 PR C. For a member whose week is derived from dated plans,
+       the day-type buttons are withdrawn until Change My Programme exists, so
+       any copy telling them to tap a day and set its type is false.
+       It was false in THREE places at once, which is the same shape as the
+       three copy defects this file was created for: the tour stop, the intro
+       screen and the Manual's calendar entry. A behavioural test cannot catch
+       this, because the copy is correct for the other cohort. */
+    const BANNED = [
+        ['tap any day to change',
+            'Withdrawn for authoritative-plan members. Say what a tap does for '
+            + 'both cohorts: view the day and update its completion status.'],
+        ['tap any day to set',
+            'Same as above.'],
+        ['change the plan',
+            'The tour stop title. Changing a week is Change My Programme, which '
+            + 'does not exist yet.'],
+        ['to change its assignment',
+            'The Manual phrasing of the same promise.'],
+    ];
+
+    test.each(BANNED)('no surface says "%s"', (phrase, why) => {
+        const i = visible.toLowerCase().indexOf(phrase.toLowerCase());
+        const context = i >= 0 ? visible.slice(Math.max(0, i - 140), i + 140) : '';
+        expect(i, `Found "${phrase}".\n\nWhy this is banned: ${why}\n\nIn:\n...${context}...`)
+            .toBe(-1);
+    });
+
+    test('the tour still has a stop pointed at the calendar', () => {
+        /* The stop was re-authored, not deleted. */
+        const stops = html.slice(html.indexOf('const TOUR_STOPS'), html.indexOf('function startTour'));
+        expect(stops).toContain("sel:'#hq-calendar-card'");
+        expect(stops).toContain('update its completion status');
+    });
+});
+
 describe('the stop-start exercise describes stop-start', () => {
     /* It is a version of the stop-start technique and it used to tell the
        member to do the opposite in three places: slow down rather than

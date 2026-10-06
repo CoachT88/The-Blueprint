@@ -1599,7 +1599,7 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-3">Your Weekly Schedule</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">Your home screen shows your 7-day training plan. Each day is assigned Length, Girth, Stamina or Rest. Tap any day to change it. Rest days are mandatory — your tissue adapts during recovery, not during training.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">Your home screen shows your 7-day training plan. Each day is assigned Length, Girth, Stamina or Rest. Tap a day to view it and update its completion status. Rest days are mandatory: your tissue adapts during recovery, not during training.</p>
         <div class="mt-6 flex gap-3 justify-center">
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 w-16"><i class="fas fa-up-right-and-down-left-from-center text-blue-400 text-lg"></i><span class="text-[9px] font-black text-blue-300 uppercase">Length</span></div>
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 w-16"><i class="fas fa-expand text-emerald-400 text-lg"></i><span class="text-[9px] font-black text-emerald-300 uppercase">Girth</span></div>
@@ -1755,7 +1755,7 @@
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-calendar-week text-slate-300 mr-1.5"></i>Weekly Calendar</p>
-                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, purple for Stamina, grey for Rest. Tap any day to change its assignment or mark it complete. Today is highlighted with a border, and today's training focus gets a ring.</p>
+                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, purple for Stamina, grey for Rest. Tap a day to view it and update its completion status. Today is highlighted with a border, and today's training focus gets a ring.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-moon text-slate-300 mr-1.5"></i>Daily Check-In</p>
@@ -2288,7 +2288,8 @@
 <div id="type-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[var(--z-popover)] hidden flex items-center justify-center p-6">
     <div class="bg-slate-900/90 border border-slate-700 w-full max-w-xs rounded-[2rem] p-8 space-y-4">
         <h3 class="text-center font-black uppercase italic text-slate-400 text-sm tracking-[0.2em] mb-6">Adjust intent</h3>
-        <div class="space-y-4">
+        <p id="type-modal-locked" class="hidden text-center text-xs text-slate-400 leading-relaxed mb-6">Your week is set by your programme now.</p>
+        <div id="type-modal-types" class="space-y-4">
             <button id="modal-length-btn" class="w-full py-5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 font-black uppercase italic cursor-pointer">Length</button>
             <button id="modal-girth-btn"  class="w-full py-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-black uppercase italic cursor-pointer">Girth</button>
             <button id="modal-stamina-btn" class="w-full py-5 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-300 font-black uppercase italic cursor-pointer">Stamina</button>
@@ -2495,7 +2496,76 @@ function allowedRecoveryIndices(list){ return (list||[]).filter(i=>!isExerciseBl
 function getGoal(){ return GOALS[persisted.primaryGoal]||GOALS.all; }
 function getGoalKey(){ return GOALS[persisted.primaryGoal]?persisted.primaryGoal:'all'; }
 function isSizeLed(){ const k=getGoalKey(); return k==='size'||k==='all'; }
-function getScheduledType(){ return (persisted.schedule||[])[new Date().getDay()]||'rest'; }
+/**
+ * Today's dated plan, or nothing.
+ *
+ * The key is spelled by planDateKey, the same helper the generator and the
+ * projection use, so a reader cannot miss a plan that exists because two
+ * date formulas disagreed about one day.
+ */
+/* Reported at most once per local date per kind of failure. getScheduledType
+   runs many times a render, so an unguarded track() would write an analytics
+   row per call. The composite key resets by itself when the date rolls. */
+let _planIntegrityReported='';
+function _reportPlanIntegrity(kind,key){
+    const seen=key+'|'+kind;
+    if(_planIntegrityReported===seen) return;
+    _planIntegrityReported=seen;
+    console.error('authoritative day plan integrity failure:',kind,key,
+        '- falling back to the compatibility schedule for today');
+    try{ track('day_plan_integrity',{kind:String(kind),date:String(key)}); }catch(e){}
+}
+/**
+ * Today's VALIDATED dated plan, or nothing.
+ *
+ * normaliseDayPlan decides what counts, rather than this trusting a raw
+ * object's shape. src/dayPlan.js is explicit that a record whose identity or
+ * mode cannot be read is a data-integrity condition and not a fifth kind of
+ * prescribed day, so a reader must not treat one as a prescription.
+ *
+ * Returning null here sends the caller to the compatibility column. For a
+ * member who is not on authoritative plans that is the normal, silent path.
+ * For a member who IS, it is an emergency path and says so out loud: the
+ * programme claims dated plans are authoritative and today's is missing or
+ * unreadable, which is a condition somebody needs to know about rather than
+ * something to absorb quietly.
+ *
+ * It reports and returns. It does not clear the key, rewrite the plans or
+ * trigger regeneration: a reader does not get to change programme authority,
+ * and a corrupt Today is deliberately preserved rather than replaced so the
+ * evidence survives. See retainPlans.
+ */
+function todayPlan(){
+    if(!onAuthoritativePlans()) return null;
+    if(!window.BP||!window.BP.planDateKey) return null;
+    const key=window.BP.planDateKey(new Date());
+    const raw=(persisted.dayPlans||[]).find(p=>p&&p.date===key);
+    if(!raw){ _reportPlanIntegrity('missing',key); return null; }
+    const valid=window.BP.normaliseDayPlan?window.BP.normaliseDayPlan(raw):null;
+    if(!valid){ _reportPlanIntegrity('unreadable',key); return null; }
+    return valid;
+}
+/**
+ * What is today?
+ *
+ * THE ONE READER SWITCHED TO PLAN AUTHORITY in this phase. The dated plan is
+ * the programme; the seven-slot column is a projection derived from it, so
+ * for a cutover member the two agree by construction and reading the plan is
+ * what proves the authoritative model is live rather than merely stored.
+ *
+ * The column remains the fallback, and it is a real one rather than
+ * defensive: a custom or unclassified member has no plans at all and is still
+ * entirely on the legacy path. Everything else that speaks about the week
+ * still reads the projection, which keeps one authority while limiting how
+ * much moves at once.
+ */
+function getScheduledType(){
+    const p=todayPlan();
+    if(p) return p.mode==='rest'?'rest':((p.primarySession&&p.primarySession.type)||'rest');
+    /* Compatibility fallback. Normal and silent for a legacy member; for an
+       authoritative one todayPlan has already reported why we are here. */
+    return (persisted.schedule||[])[new Date().getDay()]||'rest';
+}
 const DIRECTIONALS=['OUT','UP','DOWN','LEFT','RIGHT'];
 const SESSION_XP={beginner:10,intermediate:15,advanced:20,elite:25,recovery:5};
 
@@ -3625,8 +3695,9 @@ function normaliseSchedule(){
     return {changed};
 }
 function isBlackoutDay(){
-    const todayType=persisted.schedule[new Date().getDay()];
-    return todayType==='rest';
+    /* Through getScheduledType, so rest follows the same authority Today
+       does. Identical to the old expression for a member without plans. */
+    return getScheduledType()==='rest';
 }
 function applyDifficulty(ex){
     const d=getDiff();
@@ -6073,6 +6144,60 @@ function syncProgression(reason){
         changed=true;
     }
 
+    /* AUTHORITY TRANSITION. After this the member's dated plans ARE their
+       programme and `schedule` is a projection derived from them.
+
+       Every decision is made in src/programmeGenerate.js, purely, and
+       nothing here is assigned until it returns ok. So a refusal cannot
+       leave a half-written pair, and `schedule` is only ever written
+       together with the plans that produced it.
+
+       mayGenerateOver() is the only authority gate and it is read once,
+       here. Nothing in this block re-interprets custom, adoptedAt or
+       migration.source. */
+    if(window.BP.cutoverPlan){
+        const _cut=window.BP.cutoverPlan({
+            permitted:window.BP.mayGenerateOver(persisted.programme),
+            programme:persisted.programme,
+            existingPlans:persisted.dayPlans,
+            /* The real tables, passed rather than copied into the module. A
+               second dose table there is how two prescriptions drift. */
+            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+            tables:{
+                routines:ROUTINES,
+                difficulties:DIFFICULTIES,
+                girthCircuit:GIRTH_CIRCUIT,
+                directionals:DIRECTIONALS,
+                exExperience:EX_EXPERIENCE,
+            },
+            tier:getDiff().id,
+            now:new Date(),
+        });
+        if(_cut.ok){
+            /* Skip the write when nothing moved, so a repeat load on the same
+               local date costs no save. */
+            const _same=JSON.stringify(persisted.dayPlans)===JSON.stringify(_cut.dayPlans)
+                      && JSON.stringify(persisted.schedule)===JSON.stringify(_cut.schedule)
+                      && persisted.programme.key===_cut.programme.key;
+            if(!_same){
+                persisted.dayPlans=_cut.dayPlans;
+                persisted.schedule=_cut.schedule;
+                persisted.programme=_cut.programme;
+                changed=true;
+            }
+        } else if(_cut.reason!==window.BP.GENERATE_REFUSAL.NOT_PERMITTED
+               && _cut.reason!==window.BP.GENERATE_REFUSAL.NO_PROGRAMME_KEY){
+            /* Those two are the ordinary "not this member" answers and happen
+               on every load for a custom member, so they are not news. Anything
+               else means a generated week could not be represented, which is
+               a real condition and must not pass silently. Nothing was
+               written; the member stays on the legacy authority path. */
+            console.error('programme cutover refused:',_cut.reason,
+                _cut.detail||'',JSON.stringify(_cut.unrepresentable||[]));
+            track('cutover_refused',{reason:String(_cut.reason),detail:String(_cut.detail||'')});
+        }
+    }
+
     const before=JSON.stringify(persisted.progressionLedger||[]);
     persisted.progressionLedger=window.BP.reconcileLedger(persisted.progressionLedger,{
         weekKey:getCurrentWeekKey(),
@@ -6167,7 +6292,7 @@ function renderDashboard(){
             d.dataset.substituted='1';
             d.title=`${dayTypeLabel(_substituted[i])} done instead of ${dayTypeLabel(type)}`;
         }
-        d.addEventListener('click',()=>{session.selectedDayIdx=i;document.getElementById('type-modal').classList.remove('hidden')});
+        d.addEventListener('click',()=>openDayModal(i));
         g.appendChild(d);
     });
     document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
@@ -7003,7 +7128,16 @@ function selectGoal(key){
     savePersisted();
     const note=document.getElementById('goal-confirm');
     if(note){
-        note.textContent=applied?`Weekly schedule set for ${GOALS[key].label.toLowerCase()}.`:`Focus set to ${GOALS[key].label.toLowerCase()}.`;
+        /* Three cases, each said plainly. For a member whose week is derived,
+           "Focus set to ..." would imply the app's focus moved when the
+           programme and the plans did not. primaryGoal is not inert for them,
+           since Coach Tee still reads it, so the note says what did happen
+           rather than nothing, and promises no feature that does not exist. */
+        note.textContent=onAuthoritativePlans()
+            ? 'Noted. This does not change your programme.'
+            : (applied
+                ? `Weekly schedule set for ${GOALS[key].label.toLowerCase()}.`
+                : `Focus set to ${GOALS[key].label.toLowerCase()}.`);
         note.classList.remove('hidden');
     }
     renderDashboard();
@@ -7013,6 +7147,12 @@ function selectGoal(key){
 function maybeApplyGoalSchedule(key){
     const preset=GOALS[key].schedule;
     if(!preset) return false;
+    /* After cutover the week is derived from the dated plans, so writing a
+       preset here would be a second authority: the next load projects the
+       plans back over it. The goal is still recorded, because a stated
+       preference is not programme authority; moving a member to a different
+       programme belongs to Change My Programme. */
+    if(onAuthoritativePlans()) return false;
     const cur=persisted.schedule||[];
     if(JSON.stringify(cur)===JSON.stringify(preset)) return false; // already matches
     const untouched=(persisted.allTimeSessionCount||0)===0
@@ -7056,7 +7196,11 @@ const TOUR_STOPS=[
     {sel:'#hq-today-card',    title:'Start here',       body:'This card is the app. It tells you what to do today, why, and how long it takes. If you only ever read one thing on this screen, read this.'},
     {sel:'#today-actions',    title:'Then do it',       body:'One button, already pointed at whatever today calls for. You do not have to decide anything first.'},
     {sel:'#hq-stat-chips',    title:'Your week',        body:'Sessions done out of sessions scheduled. Rest days are part of the plan, so they are not counted against you.'},
-    {sel:'#hq-calendar-card', title:'Change the plan',  body:'Tap any day to set it to Length, Girth, Stamina or Rest. Today\'s card follows whatever you put here.'},
+    /* Was "Change the plan. Tap any day to set it to Length, Girth, Stamina
+       or Rest." False for a member whose week is derived from their dated
+       plans: for them the day types are withdrawn until Change My Programme
+       exists. This is true for both cohorts. */
+    {sel:'#hq-calendar-card', title:'Your week',        body:'See what is scheduled across the week. Tap a day to view it and update its completion status.'},
     {sel:'#hq-tools-row',     title:'See it add up',    body:'Progress holds your charts and photos. Week is your summary. This is where the long view lives.'},
     {sel:'#hq-coach-row',     title:'When you need it', body:'Coach Tee answers questions any hour, and the Manual explains every exercise in depth. Neither is something you have to read first.'},
 ];
@@ -7281,7 +7425,49 @@ function importData(file){
 // MODALS
 // ═══════════════════════════════════════════════════════════════════════════
 function toggleDayCompletion(){persisted.completedDays[session.selectedDayIdx]=!persisted.completedDays[session.selectedDayIdx];savePersisted();closeModal();renderDashboard()}
-function assignDay(type){persisted.schedule[session.selectedDayIdx]=type;savePersisted();closeModal();renderDashboard()}
+/**
+ * Is this member's week derived from their dated plans?
+ *
+ * `programme.key` is the cutover marker: it is written only by the authority
+ * transition, together with the plans and the projection, so a key means the
+ * seven-slot column is now OUTPUT rather than input.
+ */
+function onAuthoritativePlans(){
+    return !!(persisted.programme && persisted.programme.key);
+}
+/**
+ * Open the day picker, with direct editing withdrawn after cutover.
+ *
+ * The compatibility column is derived once a member is on authoritative
+ * plans, so editing it directly would create a second programme truth: the
+ * next load would project the plans back over the edit and the member would
+ * watch their change disappear. The types are hidden rather than disabled,
+ * and the log toggle stays, because completion is still theirs to record.
+ *
+ * This is a withdrawn feature, not a finished one. Changing a week belongs to
+ * Change My Programme, which does not exist yet. An editing path that can
+ * silently lose the edit is worse than no editing path.
+ */
+function openDayModal(idx){
+    session.selectedDayIdx=idx;
+    const locked=onAuthoritativePlans();
+    const types=document.getElementById('type-modal-types');
+    const note=document.getElementById('type-modal-locked');
+    if(types) types.classList.toggle('hidden',locked);
+    if(note) note.classList.toggle('hidden',!locked);
+    document.getElementById('type-modal').classList.remove('hidden');
+}
+function assignDay(type){
+    /* Defensive. The buttons are not rendered for a member on authoritative
+       plans, so this is unreachable from the UI; refusing here means a stale
+       cached shell or a console cannot create a second authority either. */
+    if(onAuthoritativePlans()){
+        console.warn('assignDay refused: this week is derived from the programme');
+        closeModal();
+        return;
+    }
+    persisted.schedule[session.selectedDayIdx]=type;savePersisted();closeModal();renderDashboard();
+}
 function closeModal(){document.getElementById('type-modal').classList.add('hidden')}
 // ── Coach Tee notices something ────────────────────────────────────────────
 // The nudge text is hand-written and the trigger is plain code, so showing one
@@ -8066,8 +8252,7 @@ function init(){
             // The repair interaction is the existing day-type picker, opened
             // on today. A dedicated reset-my-week flow is flagged for the
             // next subphase; this at least makes the state fixable now.
-            session.selectedDayIdx=new Date().getDay();
-            document.getElementById('type-modal').classList.remove('hidden');
+            openDayModal(new Date().getDay());
         }
     });
     document.getElementById('weekly-report-btn').addEventListener('click',showWeeklyReport);
@@ -8446,6 +8631,14 @@ import { PROGRESSION_POLICY } from '../src/progressionPolicy.js';
    generates anything. */
 import { classifyLegacySchedule, migrationProgramme, mayGenerateOver,
          PROGRAMME_SOURCE, CLASSIFY_REASON } from '../src/programmeMigration.js';
+/* Phase 3S.1 PR C. The authority transition: dated plans become the
+   programme and the seven-slot column becomes a projection derived from
+   them. It changes no prescription, only where the prescription lives. */
+import { cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
+         PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL } from '../src/programmeGenerate.js';
+/* The validator, so a reader can tell a prescription from a data-integrity
+   condition instead of trusting a raw object's shape. */
+import { normaliseDayPlan } from '../src/dayPlan.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -8461,7 +8654,9 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               validatePreferredName, readPreferredName, hasPreferredName,
               nameLength, PREFERRED_NAME_MAX,
               classifyLegacySchedule, migrationProgramme, mayGenerateOver,
-              PROGRAMME_SOURCE, CLASSIFY_REASON };
+              PROGRAMME_SOURCE, CLASSIFY_REASON,
+              cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
+              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

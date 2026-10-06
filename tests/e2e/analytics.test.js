@@ -228,6 +228,12 @@ describe('funnel correctness', () => {
     test('choosing a goal records the goal and whether the schedule changed', async () => {
         await clear(app.page);
         await app.page.evaluate(() => {
+            /* A legacy-authority member: a preset may still write their week.
+               An earlier render in this suite cuts the member over, and after
+               that the week is derived and selectGoal records the goal
+               without touching it. */
+            persisted.programme = null;
+            persisted.dayPlans = [];
             persisted.allTimeSessionCount = 0;
             persisted.schedule = DEFAULT_PERSISTED.schedule.slice();
             selectGoal('stamina');

@@ -931,6 +931,35 @@ projection may not overwrite it while a custom member is unadopted. A second
 representation would be another lifecycle to keep correct for no additional
 safety, which is the thing this section already warns against.
 
+### The projection reads next week, and that is a dated assumption
+
+The authority transition generates from **today** to the end of **next** ISO
+week, so no date before cutover is ever written. That leaves the current week
+partial on six days out of seven, and `toLegacySchedule()` refuses a week with
+a missing day, correctly. So the projection source is the **next complete
+Monday-to-Sunday week**, which the horizon always contains in full.
+
+**This is sound only while every week is the same week.** In the first
+content version the weekly prescription is the member's fixed preset array, so
+next week's seven slots are this week's seven slots and projecting either one
+gives the same answer. A stronger consequence follows: the projection writes
+back the slots the member already had, so the compatibility write is a no-op
+on the column for the entire migrated cohort, and the server-side notification
+contract cannot break for them.
+
+**A programme with week-varying orchestration cannot be represented
+indefinitely by one recurring seven-slot column.** The moment week two differs
+from week one, projecting next week describes a week the member is not in.
+Before that lands, either the external consumers migrate or there is an
+explicitly reviewed compatibility policy. This is not an implementation note:
+it is a constraint on every later phase, and the first phase that varies a
+week has to resolve it rather than discover it.
+
+The same phase will produce the first **support-only day**, which
+`toLegacySchedule()` also refuses and which no sentinel may paper over. Mapping
+supporting work to `rest` is not a free choice: `rest` is exactly what
+suppresses the member's reminder server-side.
+
 ### Historical truth during migration
 
 Carried as migration invariants, not as defaults:

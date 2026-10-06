@@ -185,6 +185,10 @@ describe('goal-aware surfaces', () => {
     test('mission select flags today\'s scheduled mission', async () => {
         const r = await app.page.evaluate(() => {
             const d = new Date().getDay();
+            /* Legacy authority, so today's type comes from the column this
+               test writes rather than from a generated plan. */
+            persisted.programme = null;
+            persisted.dayPlans = [];
             persisted.schedule[d] = 'stamina';
             persisted.primaryGoal = 'stamina';
             persisted.allTimeSessionCount = 0;
