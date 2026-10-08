@@ -226,9 +226,19 @@ describe('primarySatisfied: only a Primary can be satisfied', () => {
 
     test('a pre-3C.4 entry still satisfies through the historical fallback', () => {
         /* Upgrade safety. These entries have no prescriptionDate and there
-           are years of them. */
+           are years of them.
+
+           The timestamp is DERIVED from the clock rather than hand written,
+           which matters at the extremes. A pre-3C.4 completion stored
+           new Date().toISOString(), so its date part is a UTC date, and the
+           fallback compares against the same UTC-shifted relationship those
+           records were written under. At UTC+14 that is the previous
+           calendar day, so a hard-coded '2026-03-12T19:00Z' lines up near
+           UTC and nowhere near the date line. Deriving it keeps the test
+           about the fallback instead of about the host timezone. The shift
+           itself is the carried _dayKey() debt and is not repaired here. */
         const p = authP([primary('girth')]);
-        const old = { date: '2026-03-12T19:00:00.000Z', routineType: 'girth' };
+        const old = { date: THU.toISOString(), routineType: 'girth' };
         expect(primarySatisfied({ prescription: p, now: THU, sessionLog: [old] })).toBe(true);
     });
 
