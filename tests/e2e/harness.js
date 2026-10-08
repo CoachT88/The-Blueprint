@@ -336,10 +336,9 @@ export async function signIn(page, { id = 'testuser', email = 'test@example.com'
            describing a member whose column is their programme.
 
            NOTE the sentinel, because the first version of this got it wrong:
-           `null` is NOT legacy. See legacyProgramme() below. */
-        persisted.programme = { key: null, version: 1, adoptedAt: null, custom: true,
-            cyclePosition: null, migration: { source: 'custom', presetKey: null,
-                reason: 'no_recognised_shape', classifiedAt: '2026-01-01' } };
+           `null` is NOT legacy. See legacyProgramme() below. The injected
+           copy, so the shape has exactly one definition. */
+        persisted.programme = window.__legacyProgramme();
         persisted.dayPlans = [];
         if (patch) Object.assign(persisted, patch);
         document.getElementById('loading-screen').style.display = 'none';
