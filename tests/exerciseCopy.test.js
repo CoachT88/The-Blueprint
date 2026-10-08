@@ -15,10 +15,21 @@ const html = readFileSync(
  * people route around. Comments are not shown to anybody.
  *
  * Block comments only. Stripping `//` would take every URL with it.
+ *
+ * AND THEY ARE STRIPPED ONLY INSIDE <style> AND <script>, which is not
+ * fussiness. Stripping `/*` across the whole file meant `accept="image/*"`
+ * on a file input opened a comment that ran to the first real `*\/` three
+ * thousand lines later, inside the script. Roughly seventy thousand
+ * characters disappeared with it: every onboarding slide, the whole Manual,
+ * and the day modal. The banned-phrase scan was passing over all of it
+ * vacuously, which is the same failure mode as having no guard at all, and
+ * it was invisible because a test that cannot see anything still goes green.
  */
+const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g;
 const visible = html
     .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ');
+    .replace(/(<(style|script)\b[^>]*>)([\s\S]*?)(<\/\2>)/gi,
+        (_m, open, _tag, body, close) => open + body.replace(BLOCK_COMMENT, ' ') + close);
 
 /**
  * Claims and cues the app is not allowed to make.
@@ -40,6 +51,32 @@ const visible = html
  * whether copy is good, only whether it has regressed to something we
  * have already established is wrong.
  */
+describe('the scan can actually see the copy', () => {
+    /* The guard above is only worth the file it lives in if `visible` still
+       holds the member-facing text. It did not, for a long time, and nothing
+       said so: an `accept="image/*"` attribute opened a block comment that
+       ran into the script and took every onboarding slide and the entire
+       Manual with it. So the extractor is now checked against landmarks from
+       each region it has to cover, chosen because they sit on both sides of
+       the stray opener and were the text that went missing. */
+    test.each([
+        ['the onboarding slides',  'Rest days are mandatory'],
+        ['the Manual',             'Each day is color-coded'],
+        ['the day modal',          'Adjust intent'],
+        ['the HQ itself',          'This week'],
+        ['the inline script',      'function renderWeekStrip'],
+    ])('%s is still in view', (_where, landmark) => {
+        expect(visible).toContain(landmark);
+    });
+
+    test('and comments really are stripped, inside style and script alike', () => {
+        expect(html).toContain('The WeekStrip');          // a <style> comment
+        expect(visible).not.toContain('The WeekStrip');
+        expect(html).toContain('THE INTERACTION BOUNDARY');  // a <script> comment
+        expect(visible).not.toContain('THE INTERACTION BOUNDARY');
+    });
+});
+
 describe('claims the app may not make', () => {
     /* Each entry: the phrase, and why it is banned. The reason is in the
        failure message, so whoever trips it finds out why without having
@@ -83,8 +120,8 @@ describe('no surface promises a calendar edit the app will not honour', () => {
        this, because the copy is correct for the other cohort. */
     const BANNED = [
         ['tap any day to change',
-            'Withdrawn for authoritative-plan members. Say what a tap does for '
-            + 'both cohorts: view the day and update its completion status.'],
+            'Withdrawn for authoritative-plan members. Changing a week is Change '
+            + 'My Programme, which does not exist yet.'],
         ['tap any day to set',
             'Same as above.'],
         ['change the plan',
@@ -92,6 +129,23 @@ describe('no surface promises a calendar edit the app will not honour', () => {
             + 'does not exist yet.'],
         ['to change its assignment',
             'The Manual phrasing of the same promise.'],
+        /* Phase 3C.3. The second half of the same defect. The previous pass
+           replaced "change the plan" with "tap a day to view it and update
+           its completion status", which was true at the time because the
+           completion toggle survived cutover. It no longer does: a generic
+           tick against a dated prescription claims a session happened with
+           no record of it, so the toggle is withdrawn with the day types and
+           the copy that offered it has to go with them. */
+        ['tap a day to view',
+            'The toggle it points at is withdrawn for authoritative-plan '
+            + 'members, so this promises an interaction that does nothing.'],
+        ['update its completion status',
+            'Same as above. Manual completion is not a thing the strip offers '
+            + 'a member whose week comes from their programme.'],
+        ['change it any time from the manual',
+            'The goal picker said this. Changing the goal records a preference '
+            + 'and leaves the programme alone, so it offered a feature that '
+            + 'does not exist.'],
     ];
 
     test.each(BANNED)('no surface says "%s"', (phrase, why) => {
@@ -101,11 +155,30 @@ describe('no surface promises a calendar edit the app will not honour', () => {
             .toBe(-1);
     });
 
-    test('the tour still has a stop pointed at the calendar', () => {
-        /* The stop was re-authored, not deleted. */
+    test('the two week headings name a week, not a schedule the member builds', () => {
+        /* Headings rather than phrases, because the WORDS are still correct
+           elsewhere: "Weekly schedule set for lasting longer." and "Update
+           your weekly schedule to match this focus?" are what a LEGACY
+           member sees, and for that cohort the column genuinely is their
+           weekly schedule and they genuinely edited it. Banning the words
+           outright would have deleted two true sentences to satisfy a guard,
+           so the check is pinned to the two headings that became false. */
+        expect(visible).not.toContain('>Your Weekly Schedule<');
+        expect(visible).toContain('>Your Training Week<');
+        expect(visible).not.toContain('Weekly Calendar</p>');
+        expect(visible).toContain('Your Week</p>');
+    });
+
+    test('the tour has exactly one week stop, pointed at the WeekStrip', () => {
+        /* Two stops were titled "Your week": one on the dot row and one on the
+           calendar under it. That is a tour telling you it is touring two
+           surfaces that should have been one. Both are now one stop on one
+           surface, and the old ids are gone rather than merely unused. */
         const stops = html.slice(html.indexOf('const TOUR_STOPS'), html.indexOf('function startTour'));
-        expect(stops).toContain("sel:'#hq-calendar-card'");
-        expect(stops).toContain('update its completion status');
+        expect(stops).toContain("sel:'#hq-week-card'");
+        expect(stops).not.toContain("sel:'#hq-calendar-card'");
+        expect(stops).not.toContain("sel:'#hq-stat-chips'");
+        expect(stops.match(/title:'Your week'/g)).toHaveLength(1);
     });
 });
 
