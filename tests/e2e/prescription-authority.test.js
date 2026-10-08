@@ -1203,8 +1203,20 @@ describe('a throw at any pre-commit seam leaves nothing behind', () => {
         expect(guard).toBeGreaterThan(0);
         for (const write of ['persisted.sessionLog=', 'persisted.totalXp=',
                              'persisted.allTimeSessionCount=', 'persisted.measurements=',
-                             'persisted.completedDays[']) {
+                             'persisted.completedDays=']) {
             expect(idx(write), write).toBeGreaterThan(guard);
+        }
+        /* And every one of them is installed by REPLACEMENT or scalar
+           assignment, never assembled in place on the far side of the
+           boundary. completedDays was the last holdout: an in-place
+           persisted.completedDays[i]=true inside the commit still built
+           durable state after the guard, which is the shape of defect this
+           split exists to make impossible rather than merely unlikely. The
+           weekday write now happens on a local copy during derivation. */
+        expect(body, 'in-place completedDays write').not.toMatch(/persisted\.completedDays\s*\[/);
+        expect(body).toMatch(/persisted\.completedDays\s*=\s*_nextCompletedDays/);
+        for (const push of [/persisted\.sessionLog\.push\(/, /persisted\.measurements\.push\(/]) {
+            expect(body, String(push)).not.toMatch(push);
         }
         /* And no durable MUTATION sneaks in above the guard. Mutations only:
            the derivation half reads persisted.totalXp and persisted.sessionLog

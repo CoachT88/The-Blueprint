@@ -6817,6 +6817,23 @@ function finishSession(){
     }
     const _nextXp=(persisted.totalXp||0)+earnedXp;
     const _nextCount=(persisted.allTimeSessionCount||0)+1;
+    /* Compatibility only, and ONLY for the cohort whose completion model it
+       still is. Built WHOLE here, like the two lists, so the commit installs
+       it by replacement: an in-place persisted.completedDays[i]=true inside
+       the commit would have been the one durable value still assembled on the
+       far side of the boundary, which is the shape of defect this split
+       exists to make impossible rather than merely unlikely.
+
+       For an authoritative member the array is not written at all. It carries
+       a weekday with no date and no week identity, so a Sunday session
+       finished after the Monday rollover would tick the NEW week's upcoming
+       Sunday. Their completion comes from the log, attributed by prescription
+       date. The existing values are passed through untouched, by reference,
+       so nothing is rewritten for them either. */
+    const _nextCompletedDays=_authoritative
+        ? persisted.completedDays
+        : [...(persisted.completedDays||[])];
+    if(!_authoritative) _nextCompletedDays[completedAt.getDay()]=true;
 
     /* ══ THE COMMIT. Assignment only, no calls, nothing that can throw, and
           the guard goes up first so a re-entrant call cannot slip between the
@@ -6828,13 +6845,7 @@ function finishSession(){
     persisted.totalXp=_nextXp;
     persisted.allTimeSessionCount=_nextCount;
     if(_nextMeasurements) persisted.measurements=_nextMeasurements;
-    /* Compatibility only, and ONLY for the cohort whose completion model it
-       still is. For an authoritative member this array is not written at all:
-       it carries a weekday with no date and no week identity, so a Sunday
-       session finished after the Monday rollover would tick the NEW week's
-       upcoming Sunday. Their completion comes from the log, attributed by
-       prescription date. Existing values are left exactly as they are. */
-    if(!_authoritative) persisted.completedDays[completedAt.getDay()]=true;
+    if(!_authoritative) persisted.completedDays=_nextCompletedDays;
     _manualMission=null;
     _launchedPrescription=null;
     _launchLegacyDraft=false;
