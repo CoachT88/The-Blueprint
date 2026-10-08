@@ -225,6 +225,41 @@ function installSupabaseStub(cfg) {
     };
 }
 
+/**
+ * A member whose seven-slot column is still their programme.
+ *
+ * THE DISTINCTION THAT MATTERS, and the one this helper exists to stop
+ * anybody getting wrong again:
+ *
+ *   programme = null      UNCLASSIFIED. production will classify this
+ *                         account on the next syncProgression and, if its
+ *                         week is attributable, CUT IT OVER. Use this only
+ *                         when the test is exercising classification itself.
+ *
+ *   legacyProgramme()     CLASSIFIED CUSTOM. mayGenerateOver() refuses,
+ *                         nothing is generated, and the legacy schedule
+ *                         remains authoritative. Use this whenever a test
+ *                         seeds persisted.schedule and expects it to survive
+ *                         a render.
+ *
+ * Eleven fixtures used `null` meaning the second thing. It worked only
+ * because syncProgression used to run after the render surfaces, so a seeded
+ * column rendered before being replaced. Once the authority transition moved
+ * to the top of renderDashboard, which is where it belongs, those fixtures
+ * started measuring a cut-over member instead.
+ */
+export const legacyProgramme = () => ({
+    key: null,
+    version: 1,
+    adoptedAt: null,
+    custom: true,
+    cyclePosition: null,
+    migration: {
+        source: 'custom', presetKey: null,
+        reason: 'no_recognised_shape', classifiedAt: '2026-01-01',
+    },
+});
+
 /** 1x1 transparent PNG, so photo suites never need a network fetch. */
 export const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -263,6 +298,12 @@ export async function openApp(opts = {}) {
         await page.route(pattern, r => r.abort());
     }
     await page.addInitScript(installSupabaseStub, { row, hangRead, rejectColumns, files, pngDataUri: PNG_1PX });
+    /* The legacy-authority sentinel, reachable from inside page.evaluate.
+       Fixtures run in the browser, so they cannot call the Node-side export
+       directly. One definition, injected, rather than the literal repeated
+       in nine files. */
+    await page.addInitScript((p) => { window.__legacyProgramme = () => JSON.parse(JSON.stringify(p)); },
+        legacyProgramme());
 
     // Generous timeout: e2e files run serially but each describe block opens its
     // own browser, so a loaded machine can push a cold navigation past the 30s
@@ -289,16 +330,16 @@ export async function signIn(page, { id = 'testuser', email = 'test@example.com'
         // window properties. `window.currentUser = ...` would not be seen.
         currentUser = { id, email };
         if (loaded) _persistedLoaded = true;
-        /* Phase 3S.1 PR C. Start on the LEGACY authority path, where the
+        /* Phase 3C.3. Start on the LEGACY authority path, where the
            seven-slot schedule IS the programme. Every suite that reaches the
            HQ this way and then seeds `persisted.schedule` directly is
-           describing a member whose column is their programme, which is what
-           they were all written against. Without this, a render classifies
-           and cuts the member over, and the next test's seeded schedule is
-           silently projected over from their programme instead. A suite that
-           wants a cut-over member loads a row that has one, or renders and
-           lets the transition run. */
-        persisted.programme = null;
+           describing a member whose column is their programme.
+
+           NOTE the sentinel, because the first version of this got it wrong:
+           `null` is NOT legacy. See legacyProgramme() below. */
+        persisted.programme = { key: null, version: 1, adoptedAt: null, custom: true,
+            cyclePosition: null, migration: { source: 'custom', presetKey: null,
+                reason: 'no_recognised_shape', classifiedAt: '2026-01-01' } };
         persisted.dayPlans = [];
         if (patch) Object.assign(persisted, patch);
         document.getElementById('loading-screen').style.display = 'none';

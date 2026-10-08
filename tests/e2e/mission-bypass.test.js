@@ -18,6 +18,13 @@ const UID = 'byp';
 async function hq(page, { type = 'length', soreness = null, draft = null, patch = {} } = {}) {
     return page.evaluate(({ type, soreness, draft, patch, WEEK, UID }) => {
         const d = new Date().getDay();
+        /* Phase 3C.3. The legacy authority path, where this seeded column IS
+           the programme. `null` would mean unclassified, and an unclassified
+           member is cut over by the authority transition at the top of
+           renderDashboard, which would replace the slot just written here.
+           See legacyProgramme in harness.js. */
+        persisted.programme = window.__legacyProgramme();
+        persisted.dayPlans = [];
         persisted.schedule = [...WEEK];
         persisted.schedule[d] = type;
         persisted.completedDays = [false, false, false, false, false, false, false];

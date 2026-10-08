@@ -187,7 +187,7 @@ describe('goal-aware surfaces', () => {
             const d = new Date().getDay();
             /* Legacy authority, so today's type comes from the column this
                test writes rather than from a generated plan. */
-            persisted.programme = null;
+            persisted.programme = window.__legacyProgramme();
             persisted.dayPlans = [];
             persisted.schedule[d] = 'stamina';
             persisted.primaryGoal = 'stamina';

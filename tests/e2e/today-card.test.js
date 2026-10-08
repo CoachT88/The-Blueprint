@@ -20,6 +20,16 @@ const WEEK = ['length', 'girth', 'rest', 'stamina', 'length', 'rest', 'rest'];
 async function render(page, { type = 'length', patch = {}, soreness = null, draft = null } = {}) {
     return page.evaluate(({ type, patch, soreness, draft, WEEK }) => {
         const d = new Date().getDay();
+        /* Phase 3C.3. Stay on the LEGACY authority path, where the column IS
+           the programme. This helper writes today's slot directly, and every
+           test here is about the Today card and the completion engine rather
+           than about authority. Without the reset, the first render
+           classifies and cuts the member over, and from then on the week is
+           read from dated plans that start at the cutover date, so a midweek
+           run silently measures a smaller week than the one being seeded.
+           The authority-aware week has its own coverage. */
+        persisted.programme = window.__legacyProgramme();
+        persisted.dayPlans = [];
         persisted.schedule = [...WEEK];
         persisted.schedule[d] = type;
         persisted.completedDays = [false, false, false, false, false, false, false];

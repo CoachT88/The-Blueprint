@@ -327,6 +327,10 @@ describe('an imported goal from a vocabulary this build does not know', () => {
         app = await openApp({ row: null });
         await signIn(app.page, { id: 'imp' });
         state = await app.page.evaluate(async () => {
+            /* DELIBERATELY null, not legacyProgramme(): this test exercises
+               classification itself, so the account must be unclassified and
+               production must be the thing that classifies the imported
+               week. */
             persisted.programme = null;
             const backup = {
                 sessionLog: [], totalXp: 15, primaryGoal: 'girth-focus',

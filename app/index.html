@@ -5400,9 +5400,47 @@ function renderAttentionBand(){ _renderBand(ATTENTION_BAND,'hq-attention-band');
  * is prescribed, and the browser suite asserts the prescription is
  * byte-identical with and without them.
  */
+/**
+ * One canonical answer to "how is my week going", from the truthful source.
+ *
+ * The ENGINE is unchanged: weekCompletion still decides what counts, with
+ * the same precedence it always had, and still cross-checks the session log
+ * on the legacy date relationship. What changed is only WHICH seven-slot
+ * prescription array it is handed.
+ *
+ *   authoritative member   the dated plans, with `undefined` for any date
+ *                          this build cannot attribute a prescription to
+ *   legacy or custom       persisted.schedule, byte-identical to before
+ *
+ * THE MIDWEEK CUTOVER IS WHY. A member who cut over on a Thursday has no
+ * authoritative Monday plan. Handing the recurring compatibility projection
+ * in would count Monday as a commitment, which recreates at presentation
+ * time exactly the historical backfill storage refused. weekCompletion
+ * already treats an undescribed day as no commitment, so `undefined` keeps
+ * it out of the denominator without touching the engine.
+ *
+ * The honest cost, stated: for that one transition week the target is
+ * smaller, so a member who trained before cutting over reads a lower
+ * count. The alternative is claiming a dated prescription we do not have.
+ *
+ * Every caller is communication rather than prescription. Verified at
+ * 9322676: weekComplete enters the resolver and is echoed straight back out
+ * at nextBestAction.js:324 without any branch reading it, so no mission,
+ * dose, modifier, tier or ledger value depends on this number.
+ */
 function currentWeekCompletion(){
     if(!window.BP) return {completed:0,target:0,remaining:0,allDone:false,label:''};
-    return window.BP.weekCompletion(persisted.schedule,persisted.completedDays,
+    const slots=window.BP.weekStripSlots?window.BP.weekStripSlots({
+        now:new Date(),
+        authoritative:onAuthoritativePlans(),
+        dayPlans:persisted.dayPlans,
+        legacySchedule:persisted.schedule,
+    }):null;
+    /* A refusal keeps today's behaviour rather than emptying the week. It
+       cannot happen here, because a real Date is passed, but an empty week
+       would be the worst possible failure for a progress surface. */
+    const prescription=(slots&&slots.ok)?slots.slots:persisted.schedule;
+    return window.BP.weekCompletion(prescription,persisted.completedDays,
         {sessionLog:persisted.sessionLog,now:new Date()});
 }
 /* Everything that speaks about the week reads the line above. The strip and
@@ -6242,14 +6280,23 @@ function renderDashboard(){
     // Rest, deload, the button label and any unfinished session are all part
     // of today's prescription, so renderToday says them. renderCoachNudge
     // still picks a nudge; the band decides whether it is what gets shown.
+    /* BEFORE the surfaces, not after, and that ordering matters.
+       syncProgression keeps the ledger current AND commits the authority
+       transition, which writes programme, dayPlans and the projected
+       schedule. Running it afterwards meant the first render for a member
+       computed Today and the week from pre-cutover state while the calendar,
+       further down, read post-cutover state: two surfaces disagreeing about
+       the same week for one render. PR C hid that because its projection
+       write was a no-op on the column; an authority-aware denominator makes
+       it visible, as a dot row showing the projection's count beside a
+       headline showing the plans'. Cheap either way: it only writes when
+       something actually moved. */
+    syncProgression('render');
     renderCoachNudge();
     renderToday();
     renderWeekProgress();
     renderAttentionBand();
     window._bpHqRendered=true;
-    /* Keeps the current week's row current and fills any weeks the app was
-       not opened in. Cheap: it only writes when something moved. */
-    syncProgression('render');
     /* Which weekdays this week were completed with something other than
        the scheduled mission. Read from the session log, which is the only
        record of what was actually performed: completedDays has one boolean
@@ -8639,6 +8686,10 @@ import { cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
 /* The validator, so a reader can tell a prescription from a data-integrity
    condition instead of trusting a raw object's shape. */
 import { normaliseDayPlan } from '../src/dayPlan.js';
+/* Phase 3C.3. The week view model, and the authority-aware seven-slot
+   array the canonical completion engine is fed. */
+import { weekStripSlots, buildWeekStripModel,
+         WEEK_STRIP_STATE, WEEK_STRIP_DAYS } from '../src/weekStrip.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -8656,7 +8707,8 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               classifyLegacySchedule, migrationProgramme, mayGenerateOver,
               PROGRAMME_SOURCE, CLASSIFY_REASON,
               cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
-              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan };
+              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan,
+              weekStripSlots, buildWeekStripModel, WEEK_STRIP_STATE, WEEK_STRIP_DAYS };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

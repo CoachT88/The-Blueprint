@@ -29,7 +29,7 @@ async function reset(page, patch = {}) {
         /* Same reason as seedWeeks: start unclassified, or a member cut over
            by an earlier test keeps their programme and the authority
            transition projects its week over the one being seeded here. */
-        persisted.programme = null;
+        persisted.programme = window.__legacyProgramme();
         persisted.dayPlans = [];
         Object.assign(persisted, patch);
         renderDashboard();
@@ -445,7 +445,7 @@ const seedWeeks = (page, specs, patch = {}, opts = {}) => page.evaluate(({ specs
        non-preset week (all-length, all-rest) and both silently became a
        different scenario. Starting unclassified means classification runs
        against the seeded week, which is what these tests are about. */
-    persisted.programme = null;
+    persisted.programme = window.__legacyProgramme();
     persisted.dayPlans = [];
     Object.assign(persisted, patch);
 

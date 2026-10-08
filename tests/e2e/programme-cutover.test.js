@@ -574,7 +574,7 @@ describe('after cutover the week cannot be edited directly', () => {
 
     test('a legacy member still gets the old confirmation', async () => {
         const r = await app.page.evaluate(() => {
-            persisted.programme = null;
+            persisted.programme = window.__legacyProgramme();
             persisted.dayPlans = [];
             persisted.allTimeSessionCount = 0;
             persisted.schedule = DEFAULT_PERSISTED.schedule.slice();
@@ -588,7 +588,7 @@ describe('after cutover the week cannot be edited directly', () => {
     test('the picker still works for a member who has not cut over', async () => {
         /* The feature is withdrawn for cutover members, not deleted. */
         const r = await app.page.evaluate(() => {
-            persisted.programme = null;
+            persisted.programme = window.__legacyProgramme();
             persisted.dayPlans = [];
             openDayModal(2);
             const typesHidden = document.getElementById('type-modal-types').classList.contains('hidden');
@@ -607,20 +607,30 @@ describe('cutover is write-once per local date', () => {
     beforeAll(async () => {
         app = await openApp();
         await signIn(app.page, { id: 'idem', loaded: false });
-        const run = () => app.page.evaluate(async () => {
+        /* `first` has to start UNCLASSIFIED, because this test is about the
+           cutover happening and then not happening twice. signIn seeds the
+           legacy-custom sentinel, which would refuse generation outright, so
+           the first row carries null and later rows carry whatever the
+           previous load settled on. */
+        let carry = null;
+        const run = () => app.page.evaluate(async (programme) => {
             window.__row = {
                 id: 'idem', total_xp: 100, difficulty: 'intermediate', schedule:
                     ['length', 'girth', 'rest', 'length', 'girth', 'rest', 'rest'],
-                primary_goal: 'size', programme: persisted.programme, day_plans: persisted.dayPlans,
+                primary_goal: 'size', programme, day_plans: persisted.dayPlans,
                 completed_days: [false, false, false, false, false, false, false],
                 session_log: [], all_time_session_count: 5, xp_migrated: true,
                 week_key: '', updated_at: new Date().toISOString(),
             };
             await loadPersisted();
             renderDashboard();
-            return JSON.parse(JSON.stringify({ plans: persisted.dayPlans, schedule: persisted.schedule }));
-        });
+            return JSON.parse(JSON.stringify({
+                plans: persisted.dayPlans, schedule: persisted.schedule,
+                programme: persisted.programme,
+            }));
+        }, carry);
         first = await run();
+        carry = first.programme;
         second = await run();
     }, 90_000);
     afterAll(async () => { await app?.close(); });
@@ -632,6 +642,308 @@ describe('cutover is write-once per local date', () => {
     test('the second load changes nothing, including generatedAt', () => {
         expect(second.schedule).toEqual(first.schedule);
         expect(JSON.stringify(second.plans)).toBe(JSON.stringify(first.plans));
+        expect(app.errors).toEqual([]);
+    });
+});
+
+/**
+ * One canonical week answer, from the truthful prescription source.
+ *
+ * Phase 3C.3 step 1. weekCompletion's engine is untouched; what changed is
+ * which seven-slot array it is handed. For an authoritative member that is
+ * the dated plans, with `undefined` for any date no plan can be attributed
+ * to, which is what keeps a midweek cutover from counting commitments the
+ * projection merely recurs.
+ *
+ * Every caller of currentWeekCompletion is communication rather than
+ * prescription, verified by call graph at 9322676: weekComplete enters the
+ * resolver and is echoed straight back at nextBestAction.js:324 with no
+ * branch reading it. These tests hold that property rather than trusting it.
+ */
+describe('the week denominator follows authority, not the projection', () => {
+    let app;
+    beforeAll(async () => {
+        app = await openApp();
+        await signIn(app.page, { id: 'wk', loaded: false });
+    }, 60_000);
+    afterAll(async () => { await app?.close(); });
+
+    /** Load a member, render, and report every week-derived surface. */
+    const observe = (over) => app.page.evaluate(async (o) => {
+        window.__row = {
+            id: 'wk', total_xp: 100, difficulty: 'intermediate',
+            schedule: o.schedule, primary_goal: o.goal,
+            programme: o.programme === undefined ? null : o.programme,
+            day_plans: o.dayPlans || [],
+            completed_days: [false, false, false, false, false, false, false],
+            session_log: o.sessionLog || [], all_time_session_count: 9,
+            xp_migrated: true, week_key: '', updated_at: new Date().toISOString(),
+        };
+        await loadPersisted();
+        renderDashboard();
+        const w = currentWeekCompletion();
+        const r = window.BP.nextBestAction(buildResolverInput());
+        return {
+            target: w.target, completed: w.completed, remaining: w.remaining,
+            allDone: w.allDone, label: w.label, satisfied: w.satisfied,
+            dots: document.getElementById('hq-week-dots').children.length,
+            weekLabel: document.getElementById('hq-week-label').textContent,
+            key: persisted.programme && persisted.programme.key,
+            plans: persisted.dayPlans.length,
+            schedule: persisted.schedule,
+            /* The prescription, so a change in the denominator can be shown
+               NOT to have moved it. */
+            state: r.state, mission: r.mission, duration: r.duration,
+            modifiers: r.modifiers, weekComplete: r.weekComplete,
+        };
+    }, over);
+
+    const SIZE = ['length', 'girth', 'rest', 'length', 'girth', 'rest', 'rest'];
+
+    test('a legacy member is byte-identical to the old behaviour', async () => {
+        /* The slots ARE the column for them, so nothing about their week
+           moves. This is the regression guard for the whole change. */
+        const hand = ['girth', 'girth', 'rest', 'girth', 'rest', 'stamina', 'rest'];
+        const r = await observe({ schedule: hand, goal: 'size' });
+        expect(r.key).toBe(null);                   // custom, never cut over
+        expect(r.plans).toBe(0);
+        expect(r.schedule).toEqual(hand);
+        /* Four non-rest days in that hand-built week. */
+        expect(r.target).toBe(4);
+        expect(r.dots).toBe(4);
+        expect(r.weekLabel).toBe('0 of 4 this week');
+    }, 30_000);
+
+    test('a cutover member counts only dates with an attributable plan', async () => {
+        const r = await observe({ schedule: SIZE, goal: 'size' });
+        expect(r.key).toBe('size');
+        /* Generation runs from today, so the current week holds a plan only
+           from today onward. The denominator is the non-rest subset of
+           those, which is at most the four the projection would claim. */
+        const projectionTarget = SIZE.filter(t => t !== 'rest').length;
+        expect(projectionTarget).toBe(4);
+        expect(r.target).toBeLessThanOrEqual(projectionTarget);
+        expect(r.dots).toBe(r.target);
+        expect(r.weekLabel).toBe(`${r.completed} of ${r.target} this week`);
+    }, 30_000);
+
+    test('no date before cutover is counted, which is the whole point', async () => {
+        /* The projection recurs a full week; the plans do not reach back.
+           Any day before today must be absent from the denominator. */
+        const r = await observe({ schedule: SIZE, goal: 'size' });
+        const todayIdx = await app.page.evaluate(() => new Date().getDay());
+        const model = await app.page.evaluate(() => window.BP.buildWeekStripModel({
+            now: new Date(), authoritative: true, dayPlans: persisted.dayPlans,
+            legacySchedule: persisted.schedule, sessionLog: persisted.sessionLog,
+            satisfied: currentWeekCompletion().satisfied,
+        }));
+        const pastKnown = model.days.filter(d => d.isPast && d.prescriptionKnown);
+        expect(pastKnown).toEqual([]);              // nothing historical attributed
+        /* And the satisfied array cannot mark a day the denominator excludes. */
+        model.days.filter(d => !d.prescriptionKnown).forEach(d =>
+            expect(r.satisfied[d.weekdayIndex], d.weekday).toBe(false));
+        expect(todayIdx).toBeGreaterThanOrEqual(0);
+    }, 30_000);
+
+    test('the denominator moving does not move the prescription', async () => {
+        /* The proof the audit rests on, asserted rather than reasoned: the
+           same member, read as legacy and as authoritative, gets different
+           week numbers and the SAME mission, duration and modifiers. */
+        const legacy = await app.page.evaluate(async (sched) => {
+            window.__row = {
+                id: 'wk', total_xp: 100, difficulty: 'intermediate', schedule: sched,
+                primary_goal: 'size', programme: null, day_plans: [],
+                completed_days: [false, false, false, false, false, false, false],
+                session_log: [], all_time_session_count: 9, xp_migrated: true,
+                week_key: '', updated_at: new Date().toISOString(),
+            };
+            await loadPersisted();
+            /* Hold them on the legacy path by clearing what the render wrote. */
+            renderDashboard();
+            persisted.programme = window.__legacyProgramme(); persisted.dayPlans = [];
+            const w = currentWeekCompletion();
+            const r = window.BP.nextBestAction(buildResolverInput());
+            return { target: w.target, state: r.state, mission: r.mission,
+                     duration: r.duration, modifiers: r.modifiers };
+        }, SIZE);
+
+        const auth = await observe({ schedule: SIZE, goal: 'size' });
+
+        expect(auth.state).toBe(legacy.state);
+        expect(auth.mission).toBe(legacy.mission);
+        expect(auth.duration).toBe(legacy.duration);
+        expect(auth.modifiers).toEqual(legacy.modifiers);
+    }, 30_000);
+
+    test('weekComplete is echoed by the resolver and nothing else', async () => {
+        const r = await observe({ schedule: SIZE, goal: 'size' });
+        expect(r.weekComplete).toBe(r.allDone);
+        expect(app.errors).toEqual([]);
+    }, 30_000);
+});
+
+/**
+ * One render, one settled authority state.
+ *
+ * Phase 3C.3 pins this as a product invariant rather than a fixture repair.
+ * syncProgression commits the authority transition, which writes programme,
+ * dayPlans and the projected schedule. It used to run AFTER renderToday and
+ * renderWeekProgress and BEFORE the calendar, so on the single render where a
+ * member cut over, the dot row was computed from pre-cutover state while the
+ * calendar below it read post-cutover state: two surfaces disagreeing about
+ * the same week. PR C hid it because its projection write was a no-op on the
+ * column; an authority-aware denominator makes it visible.
+ *
+ * It now runs first, so every HQ surface in a pass sees the same state.
+ */
+describe('every week surface in one render sees the same authority state', () => {
+    let app, obs;
+    beforeAll(async () => {
+        app = await openApp();
+        await signIn(app.page, { id: 'ord', loaded: false });
+        obs = await app.page.evaluate(async () => {
+            /* Unclassified, so THIS render is the cutover render: the only
+               pass where a mixed state was ever possible. */
+            window.__row = {
+                id: 'ord', total_xp: 100, difficulty: 'intermediate',
+                schedule: ['length', 'girth', 'rest', 'length', 'girth', 'rest', 'rest'],
+                primary_goal: 'size', programme: null, day_plans: [],
+                completed_days: [false, false, false, false, false, false, false],
+                session_log: [], all_time_session_count: 9, xp_migrated: true,
+                week_key: '', updated_at: new Date().toISOString(),
+            };
+            await loadPersisted();
+            const keyBefore = persisted.programme && persisted.programme.key;
+            renderDashboard();
+            /* Read the surfaces as the DOM left them, plus the canonical
+               answer, all after the one render. */
+            const dots = document.getElementById('hq-week-dots').children.length;
+            const label = document.getElementById('hq-week-label').textContent;
+            const w = currentWeekCompletion();
+            const r = window.BP.nextBestAction(buildResolverInput());
+            return {
+                keyBefore,
+                keyAfter: persisted.programme && persisted.programme.key,
+                plans: persisted.dayPlans.length,
+                dots, label,
+                target: w.target, completed: w.completed, allDone: w.allDone,
+                satisfiedLen: w.satisfied.length,
+                weekComplete: r.weekComplete,
+                /* The calendar renders one cell per schedule slot and marks
+                   the satisfied ones, so its tick count is the other
+                   surface that used to read a different state. */
+                cells: document.getElementById('dashboard-grid').children.length,
+                ticks: [...document.getElementById('dashboard-grid').children]
+                    .filter(c => c.classList.contains('completed')).length,
+            };
+        });
+    }, 90_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('the cutover really happened on that render', () => {
+        expect(obs.keyBefore).toBe(null);
+        expect(obs.keyAfter).toBe('size');
+        expect(obs.plans).toBeGreaterThanOrEqual(8);
+    });
+
+    test('the dot row matches the canonical target, not the projection', () => {
+        /* THE REGRESSION THIS PINS. Before the reorder these differed on the
+           cutover render: four dots from the recurring projection beside a
+           target counted from the dated plans. */
+        expect(obs.dots).toBe(obs.target);
+        expect(obs.label).toBe(`${obs.completed} of ${obs.target} this week`);
+    });
+
+    test('the resolver and the week agree in the same pass', () => {
+        expect(obs.weekComplete).toBe(obs.allDone);
+    });
+
+    test('the calendar ticks come from the same satisfied array', () => {
+        expect(obs.cells).toBe(7);
+        expect(obs.satisfiedLen).toBe(7);
+        expect(obs.ticks).toBe(obs.completed);
+    });
+
+    test('nothing threw across the cutover render', () => {
+        expect(app.errors).toEqual([]);
+    });
+});
+
+/**
+ * Moving syncProgression earlier must change WHEN the settled state is seen
+ * and nothing else. These four paths were the ones worth checking by name.
+ */
+describe('the earlier sync changes no behaviour but the ordering', () => {
+    let app, r;
+    beforeAll(async () => {
+        app = await openApp();
+        await signIn(app.page, { id: 'eq', loaded: false });
+        r = await app.page.evaluate(async () => {
+            window.__row = {
+                id: 'eq', total_xp: 400, difficulty: 'intermediate',
+                schedule: ['length', 'girth', 'rest', 'length', 'girth', 'rest', 'rest'],
+                primary_goal: 'size', programme: null, day_plans: [],
+                completed_days: [false, false, false, false, false, false, false],
+                session_log: [{ date: new Date(Date.now() - 2 * 864e5).toISOString(), routineType: 'length' }],
+                progression_ledger: [], streak_passes: 2, pass_protected_dates: [],
+                all_time_session_count: 40, xp_migrated: true, week_key: '',
+                updated_at: new Date().toISOString(),
+            };
+            await loadPersisted();
+            const ledgerBefore = JSON.stringify(persisted.progressionLedger);
+            renderDashboard();
+            const ledgerAfter = JSON.stringify(persisted.progressionLedger);
+            /* Reconciling again must be a fixed point: if moving sync earlier
+               changed what the ledger sees, a second reconcile would move. */
+            const again = JSON.stringify(window.BP.reconcileLedger(persisted.progressionLedger, {
+                weekKey: getCurrentWeekKey(), schedule: persisted.schedule,
+                sessionLog: persisted.sessionLog, now: new Date(),
+            }));
+            const band = (id) => !document.getElementById(id).classList.contains('hidden');
+            return {
+                ledgerBefore, ledgerAfter, again,
+                /* Storage and load failure still surface: renderAttentionBand
+                   now runs after sync rather than before. */
+                attentionRendered: !!document.getElementById('hq-attention-band'),
+                loadFailedHidden: !band('hq-load-failed-banner'),
+                storageFullHidden: !band('hq-storage-full-banner'),
+                /* Recovery Pass machinery still reachable and still visible.
+                   renderPassChip writes #hq-pass-count, so its text is the
+                   evidence the surface ran after the reorder. */
+                passLabel: (document.getElementById('hq-pass-count') || {}).innerText || '',
+                passes: persisted.streakPasses,
+                protectedDays: (persisted.passProtectedDates || []).length,
+                /* Coach nudge still chosen, and the nudge band still renders. */
+                nudgeBand: !!document.getElementById('hq-nudge-band'),
+            };
+        });
+    }, 90_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('ledger reconciliation is a fixed point after the render', () => {
+        expect(r.again).toBe(r.ledgerAfter);
+    });
+
+    test('storage and load failure banners still render in their band', () => {
+        expect(r.attentionRendered).toBe(true);
+        /* Healthy member, so both are correctly hidden rather than missing. */
+        expect(r.loadFailedHidden).toBe(true);
+        expect(r.storageFullHidden).toBe(true);
+    });
+
+    test('Recovery Pass consumption still fires after the reorder', () => {
+        /* The fixture is the consumption case on purpose: trained two days
+           ago, nothing yesterday, two passes banked. One is spent during the
+           render, which is stronger evidence than the surface merely being
+           present. 2 -> 1 proves maybeConsumeStreakPass still runs and still
+           reaches renderPassChip in the new order. */
+        expect(r.passes).toBe(1);
+        expect(r.protectedDays).toBe(1);
+        expect(r.passLabel).toContain('Recovery Passes: 1 / 2');
+    });
+
+    test('the nudge band still renders after the reorder', () => {
+        expect(r.nudgeBand).toBe(true);
         expect(app.errors).toEqual([]);
     });
 });
