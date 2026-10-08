@@ -470,12 +470,38 @@ describe('Next up on a Sunday reads the week that was generated', () => {
             return document.getElementById('today-complete-summary').textContent;
         });
         expect(summary).toContain('Next up');
-        /* The size week is girth on Monday. The recurring column would have
-           wrapped to index 0, which is 'length', so the two answers differ
-           and the chip proves which source was read. */
+        /* Monday, which is girth in the size week.
+           NOT a discriminating assertion on its own, and saying otherwise
+           would be the kind of comment that makes a test look stronger than
+           it is: the old loop also walked forward from i=1, so from a Sunday
+           it reached Monday too. In version one the projection IS the preset
+           the plans were generated from, so the two sources agree on the
+           type as well. What separates them is whether a plan exists at all,
+           which the next two tests are for. */
         expect(summary).toContain('MON');
         expect(summary).toContain('Girth');
-        expect(summary).not.toContain('Length · ');
+    }, 60_000);
+
+    test('a gap in the week is honoured: it names the day that has a plan', async () => {
+        /* THE DISCRIMINATING CASE for which source was read. Monday's plan is
+           removed and Tuesday's is left, so the dated answer is Tuesday and
+           the recurring column's answer is Monday. They cannot both be
+           right, and only one of them is reading what exists. */
+        const summary = await app.page.evaluate(() => {
+            persisted.dayPlans = persisted.dayPlans.filter(p => p.date !== '2026-03-16');
+            const tue = persisted.dayPlans.find(p => p.date === '2026-03-17');
+            /* Tuesday is rest in the size week, so it is made a training day
+               to be findable. A seeded plan, not a seeded answer: the page
+               still has to go and read it. */
+            tue.mode = 'prescribed';
+            tue.primarySession = { type: 'stamina', title: 'Stamina', durationSec: 900 };
+            document.getElementById('today-complete-summary').innerHTML = completeSummaryHtml();
+            return document.getElementById('today-complete-summary').textContent;
+        });
+        expect(summary).toContain('Next up');
+        expect(summary).toContain('TUE');
+        expect(summary).toContain('Stamina');
+        expect(summary).not.toContain('MON');
     }, 60_000);
 
     test('with next week absent the chip is dropped, not invented', async () => {
