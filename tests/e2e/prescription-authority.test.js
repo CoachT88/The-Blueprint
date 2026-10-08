@@ -1191,6 +1191,59 @@ describe('a throw at any pre-commit seam leaves nothing behind', () => {
         expect(r.retried.xp).toBe(r.before.xp + 15);
     }, 90_000);
 
+    test('a throw AFTER the lists are built still leaves nothing behind', async () => {
+        /* The last derivation seam, and the one that makes the "build a copy"
+           rule observable rather than merely tidy. trimToByteBudget runs
+           after the compatibility array has been assembled, so if that
+           assembly ticked the LIVE array instead of a copy, a throw here
+           would leave the member's week changed with nothing committed. */
+        const r = await app.page.evaluate(() => {
+            persisted.sessionLog = []; persisted.totalXp = 100;
+            persisted.allTimeSessionCount = 5; persisted.measurements = [];
+            persisted.completedDays = [false, false, false, false, false, false, false];
+            /* A LEGACY member, because they are the only cohort whose
+               compatibility array is written at all. */
+            persisted.programme = window.__legacyProgramme();
+            persisted.dayPlans = [];
+            persisted.schedule = Array(7).fill('length');
+            renderToday();
+            const res = window.BP.nextBestAction(buildResolverInput());
+            readyPlan(res).go();
+            selectedEQ = 8; selectedRPE = 5;
+            _sessionStartTime = Date.now() - 6e5;
+            document.getElementById('input-bpel').value = '';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = '';
+
+            const before = { log: persisted.sessionLog.length, xp: persisted.totalXp,
+                             count: persisted.allTimeSessionCount,
+                             ticks: persisted.completedDays.filter(Boolean).length };
+            const real = trimToByteBudget;
+            let fired = false;
+            trimToByteBudget = (...a) => {
+                if (!fired) { fired = true; throw new Error('seam:trim'); }
+                return real(...a);
+            };
+            let threw = null;
+            try { finishSession(); } catch (e) { threw = String(e); }
+            trimToByteBudget = real;
+            const after = { log: persisted.sessionLog.length, xp: persisted.totalXp,
+                            count: persisted.allTimeSessionCount,
+                            ticks: persisted.completedDays.filter(Boolean).length };
+            finishSession();
+            const retried = { log: persisted.sessionLog.length,
+                              ticks: persisted.completedDays.filter(Boolean).length };
+            closeSessionSummary();
+            return { threw, before, after, retried };
+        });
+        expect(r.threw).toContain('seam:trim');
+        /* Including the compatibility array, which is the point. */
+        expect(r.after).toEqual(r.before);
+        expect(r.after.ticks).toBe(0);
+        expect(r.retried.log).toBe(1);
+        expect(r.retried.ticks).toBe(1);
+    }, 90_000);
+
     test('the commit itself is five writes and one guard, in one place', async () => {
         /* Structural, because the invariant is about ORDER and a behavioural
            test can only catch the seams somebody thought to force. The guard

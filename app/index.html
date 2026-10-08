@@ -6783,6 +6783,30 @@ function finishSession(){
     const _prescriptionDate=_snap?_snap.prescriptionDate:null;
     const _scheduledType=_snap?_snap.scheduledType:null;
     const _authoritative=onAuthoritativePlans();
+    /* Compatibility only, and ONLY for the cohort whose completion model it
+       still is. Built WHOLE here, like the two lists, so the commit installs
+       it by replacement: an in-place persisted.completedDays[i]=true inside
+       the commit would have been the one durable value still assembled on the
+       far side of the boundary, which is the shape of defect this split
+       exists to make impossible rather than merely unlikely.
+
+       A COPY, and built EARLY on purpose. Ticking the live array here instead
+       would reach the same end state, and would differ only if the finish
+       threw between this line and the commit, which is exactly the window the
+       split exists to keep empty. Building it early rather than last puts the
+       remaining derivation seams AFTER it, so that difference is observable
+       and a mutation reintroducing the in-place tick dies.
+
+       For an authoritative member the array is not written at all. It carries
+       a weekday with no date and no week identity, so a Sunday session
+       finished after the Monday rollover would tick the NEW week's upcoming
+       Sunday. Their completion comes from the log, attributed by prescription
+       date. The existing values are passed through untouched, by reference,
+       so nothing is rewritten for them either. */
+    const _nextCompletedDays=_authoritative
+        ? persisted.completedDays
+        : [...(persisted.completedDays||[])];
+    if(!_authoritative) _nextCompletedDays[completedAt.getDay()]=true;
 
     const _entry={
         /* The real completion timestamp, never rewritten to the prescription
@@ -6817,23 +6841,6 @@ function finishSession(){
     }
     const _nextXp=(persisted.totalXp||0)+earnedXp;
     const _nextCount=(persisted.allTimeSessionCount||0)+1;
-    /* Compatibility only, and ONLY for the cohort whose completion model it
-       still is. Built WHOLE here, like the two lists, so the commit installs
-       it by replacement: an in-place persisted.completedDays[i]=true inside
-       the commit would have been the one durable value still assembled on the
-       far side of the boundary, which is the shape of defect this split
-       exists to make impossible rather than merely unlikely.
-
-       For an authoritative member the array is not written at all. It carries
-       a weekday with no date and no week identity, so a Sunday session
-       finished after the Monday rollover would tick the NEW week's upcoming
-       Sunday. Their completion comes from the log, attributed by prescription
-       date. The existing values are passed through untouched, by reference,
-       so nothing is rewritten for them either. */
-    const _nextCompletedDays=_authoritative
-        ? persisted.completedDays
-        : [...(persisted.completedDays||[])];
-    if(!_authoritative) _nextCompletedDays[completedAt.getDay()]=true;
 
     /* ══ THE COMMIT. Assignment only, no calls, nothing that can throw, and
           the guard goes up first so a re-entrant call cannot slip between the
