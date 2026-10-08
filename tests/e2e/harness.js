@@ -225,6 +225,91 @@ function installSupabaseStub(cfg) {
     };
 }
 
+/**
+ * A member whose seven-slot column is still their programme.
+ *
+ * THE DISTINCTION THAT MATTERS, and the one this helper exists to stop
+ * anybody getting wrong again:
+ *
+ *   programme = null      UNCLASSIFIED. production will classify this
+ *                         account on the next syncProgression and, if its
+ *                         week is attributable, CUT IT OVER. Use this only
+ *                         when the test is exercising classification itself.
+ *
+ *   legacyProgramme()     CLASSIFIED CUSTOM. mayGenerateOver() refuses,
+ *                         nothing is generated, and the legacy schedule
+ *                         remains authoritative. Use this whenever a test
+ *                         seeds persisted.schedule and expects it to survive
+ *                         a render.
+ *
+ * Eleven fixtures used `null` meaning the second thing. It worked only
+ * because syncProgression used to run after the render surfaces, so a seeded
+ * column rendered before being replaced. Once the authority transition moved
+ * to the top of renderDashboard, which is where it belongs, those fixtures
+ * started measuring a cut-over member instead.
+ */
+export const legacyProgramme = () => ({
+    key: null,
+    version: 1,
+    adoptedAt: null,
+    custom: true,
+    cyclePosition: null,
+    migration: {
+        source: 'custom', presetKey: null,
+        reason: 'no_recognised_shape', classifiedAt: '2026-01-01',
+    },
+});
+
+/**
+ * A reader for the WeekStrip, injected so suites can ask what rendered.
+ *
+ * A READER, not a fixture. It reports what the production renderer actually
+ * put in the DOM and computes nothing about the week: no state is derived
+ * here, no prescription is looked up, no completion is decided. Every field
+ * is a value read straight off a cell. Seeding state is fine and seeding the
+ * answer is not, and this seeds neither.
+ *
+ * It exists because the alternative is nine files each re-deriving "which
+ * cell is Wednesday" from a Monday-first list, which is exactly the kind of
+ * index arithmetic that already produced one wrong assertion in this phase.
+ * `bySunday` is keyed by Date#getDay(), because every other week structure in
+ * the app is, so a test can say "Wednesday" without counting cells.
+ */
+function installWeekStripReader() {
+    window.__weekStrip = () => {
+        const strip = document.getElementById('hq-week-strip');
+        const label = document.getElementById('hq-week-label');
+        const card = document.getElementById('hq-week-card');
+        const cells = strip ? [...strip.children] : [];
+        const read = (c) => ({
+            weekday: Number(c.dataset.weekday),
+            name: (c.querySelector('span') || {}).textContent || '',
+            state: c.dataset.state,
+            date: c.dataset.date,
+            today: c.dataset.today === '1',
+            past: c.dataset.past === '1',
+            substituted: c.dataset.substituted === '1',
+            title: c.title || '',
+            aria: c.getAttribute('aria-label'),
+            role: c.getAttribute('role'),
+            tabbable: c.tabIndex === 0,
+            cls: c.className,
+            icon: ((c.querySelector('i') || {}).className || ''),
+        });
+        const days = cells.map(read);
+        return {
+            exists: !!strip,
+            authority: strip ? strip.dataset.authority : null,
+            label: label ? label.textContent : null,
+            complete: !!(card && card.classList.contains('week-complete')),
+            order: days.map(d => d.name),
+            days,
+            satisfied: days.filter(d => d.state === 'satisfied').length,
+            bySunday: Object.fromEntries(days.map(d => [d.weekday, d.state])),
+        };
+    };
+}
+
 /** 1x1 transparent PNG, so photo suites never need a network fetch. */
 export const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -263,6 +348,13 @@ export async function openApp(opts = {}) {
         await page.route(pattern, r => r.abort());
     }
     await page.addInitScript(installSupabaseStub, { row, hangRead, rejectColumns, files, pngDataUri: PNG_1PX });
+    /* The legacy-authority sentinel, reachable from inside page.evaluate.
+       Fixtures run in the browser, so they cannot call the Node-side export
+       directly. One definition, injected, rather than the literal repeated
+       in nine files. */
+    await page.addInitScript((p) => { window.__legacyProgramme = () => JSON.parse(JSON.stringify(p)); },
+        legacyProgramme());
+    await page.addInitScript(installWeekStripReader);
 
     // Generous timeout: e2e files run serially but each describe block opens its
     // own browser, so a loaded machine can push a cold navigation past the 30s
@@ -289,16 +381,15 @@ export async function signIn(page, { id = 'testuser', email = 'test@example.com'
         // window properties. `window.currentUser = ...` would not be seen.
         currentUser = { id, email };
         if (loaded) _persistedLoaded = true;
-        /* Phase 3S.1 PR C. Start on the LEGACY authority path, where the
+        /* Phase 3C.3. Start on the LEGACY authority path, where the
            seven-slot schedule IS the programme. Every suite that reaches the
            HQ this way and then seeds `persisted.schedule` directly is
-           describing a member whose column is their programme, which is what
-           they were all written against. Without this, a render classifies
-           and cuts the member over, and the next test's seeded schedule is
-           silently projected over from their programme instead. A suite that
-           wants a cut-over member loads a row that has one, or renders and
-           lets the transition run. */
-        persisted.programme = null;
+           describing a member whose column is their programme.
+
+           NOTE the sentinel, because the first version of this got it wrong:
+           `null` is NOT legacy. See legacyProgramme() below. The injected
+           copy, so the shape has exactly one definition. */
+        persisted.programme = window.__legacyProgramme();
         persisted.dayPlans = [];
         if (patch) Object.assign(persisted, patch);
         document.getElementById('loading-screen').style.display = 'none';

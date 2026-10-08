@@ -174,17 +174,48 @@
         .glass-input{background:rgba(15,23,42,.4);border:1px solid rgba(255,255,255,.1);border-radius:1rem;color:#f8fafc;padding:1rem;width:100%;outline:none;resize:none;transition:border-color .2s;font-family:inherit;font-size:.875rem}
         .glass-input:focus{border-color:rgba(168,85,247,.4)}
         .timer-glow{font-family:'JetBrains Mono',monospace;text-shadow:0 0 40px rgba(59,130,246,.5)}
-                                .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;width:100%;flex-shrink:0}
-        .calendar-day{aspect-ratio:1/1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:1rem;border:1px solid rgba(255,255,255,.05);transition:all .3s cubic-bezier(.2,.8,.2,1);cursor:pointer;position:relative;background:linear-gradient(145deg,rgba(30,41,59,.3) 0%,rgba(15,23,42,.5) 100%);box-shadow:0 4px 15px -5px rgba(0,0,0,.3)}
-        .calendar-day span{font-size:.6rem;font-weight:800;margin-bottom:6px;color:var(--text-secondary);text-transform:uppercase}
-        .calendar-day.active{border-color:rgba(59,130,246,.6);border-top-color:rgba(96,165,250,.8);background:linear-gradient(145deg,rgba(59,130,246,.15) 0%,rgba(37,99,235,.05) 100%);box-shadow:inset 0 0 20px rgba(59,130,246,.1),0 8px 20px -5px rgba(59,130,246,.25);transform:translateY(-2px)}
-        .calendar-day.completed::after{content:'\f058';font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;top:-6px;right:-6px;color:var(--accent-emerald);font-size:1rem;background:var(--bg-deep);border-radius:50%;padding:1px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+        /* ── The WeekStrip ──────────────────────────────────────────────
+           Four base states and nothing else: satisfied, pending, rest,
+           unknown. Today is a MODIFIER on top of whichever of those applies,
+           not a fifth thing to recognise, which is why the today rule is
+           defined last and overrides a state's background rather than
+           replacing it. There is deliberately no missed treatment: a past
+           unfinished day renders exactly as a future planned one, because
+           the strip is not the place to pass a judgement a day may not
+           deserve.
+
+           The state is read from data-state rather than from a parallel
+           state-* class. The renderer sets the attribute either way, and two
+           representations of one fact in one element is one too many: the
+           pair drifts, and the second one exists only so CSS has something
+           to hook, which an attribute selector does just as well. */
+        .week-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:.35rem;width:100%}
+        .week-cell{aspect-ratio:1/1.3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-radius:.85rem;border:1px solid rgba(255,255,255,.05);position:relative;background:linear-gradient(145deg,rgba(30,41,59,.3) 0%,rgba(15,23,42,.5) 100%);box-shadow:0 4px 15px -5px rgba(0,0,0,.3);transition:all .3s cubic-bezier(.2,.8,.2,1)}
+        .week-cell>span{font-size:.55rem;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em}
+        .week-cell>i{font-size:.8rem}
+        /* Only the cohort whose column IS their programme can edit a day, so
+           only their cells offer the affordance. See openDayModal(). */
+        .week-strip[data-authority="legacy"] .week-cell{cursor:pointer}
+        .week-cell[data-state="satisfied"]::after{content:'\f058';font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;top:-5px;right:-5px;color:var(--accent-emerald);font-size:.85rem;background:var(--bg-deep);border-radius:50%;padding:1px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+        /* Rest was prescribed and resting met it, so it borrows nothing from
+           the unfinished treatment: no tick, because there was no work to
+           satisfy, and no hollowing out either. Quieter, and that is all. */
+        .week-cell[data-state="rest"]>i{opacity:.45}
+        /* No prescription this build can attribute to the date, which is what
+           a midweek cutover leaves behind. Dashed and empty says "not part of
+           your plan" without claiming rest and without claiming failure. */
+        .week-cell[data-state="unknown"]{border-style:dashed;border-color:rgba(148,163,184,.18);background:none;box-shadow:none}
+        .week-cell[data-state="unknown"]>i{opacity:.4}
+        /* ::before, not ::after: satisfied already owns ::after, and the two
+           collided on exactly the day both applied. */
+        .week-cell[data-substituted="1"]::before{content:'';position:absolute;top:4px;right:4px;width:5px;height:5px;border-radius:999px;background:#f59e0b}
         .type-length{border-bottom:4px solid var(--accent-blue);color:#93c5fd}
         .type-girth{border-bottom:4px solid var(--accent-emerald);color:#6ee7b7}
         .type-rest{border-bottom:4px solid #475569;color:#94a3b8}
         .type-stamina{border-bottom:4px solid #a855f7;color:#d8b4fe}
         .type-unknown{border-bottom:4px solid #334155;color:#64748b}
-        .calendar-day.scheduled-focus{box-shadow:0 0 0 2px rgba(59,130,246,.55)}
+        /* LAST, so the highlight wins over every state's own background. */
+        .week-cell[data-today="1"]{border-color:rgba(59,130,246,.6);border-top-color:rgba(96,165,250,.8);border-style:solid;background:linear-gradient(145deg,rgba(59,130,246,.15) 0%,rgba(37,99,235,.05) 100%);box-shadow:inset 0 0 20px rgba(59,130,246,.1),0 8px 20px -5px rgba(59,130,246,.25);transform:translateY(-2px)}
         .mission-focus{box-shadow:0 0 0 2px rgba(59,130,246,.55)!important}
         .goal-opt{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.9rem .5rem;border-radius:1rem;
             background:rgba(30,41,59,.5);border:1px solid rgba(148,163,184,.15);cursor:pointer;transition:all .2s;text-align:center}
@@ -246,7 +277,7 @@
            that gets colour, and it is a quiet green rather than a fanfare. */
         #today-liveness{color:#94a3b8}
         #today-liveness.liveness-complete{color:#6ee7b7;font-weight:700}
-        #hq-stat-chips.week-complete #hq-week-label{color:#6ee7b7}
+        #hq-week-card.week-complete #hq-week-label{color:#6ee7b7}
         .deload-banner{background:linear-gradient(135deg,rgba(249,115,22,.12) 0%,rgba(234,88,12,.06) 100%);border:1px solid rgba(249,115,22,.25);border-radius:1rem;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem}
         /* Box breathing */
         .box-done{stroke-dasharray:105;stroke-dashoffset:0;opacity:.35}
@@ -346,12 +377,10 @@
         .today-card[data-state="COMPLETE"]{background:linear-gradient(160deg,rgba(23,32,50,.9) 0%,rgba(12,18,32,.95) 100%)}
         /* COMPLETE is closure, not a prompt. Quieter, not louder. */
         .today-card[data-state="COMPLETE"] #today-headline{color:#6ee7b7}
-        /* A day completed with a session other than the scheduled one. The
-           cell still reads as done, because it was, but it no longer claims
-           the scheduled mission specifically was the thing performed. */
-        .calendar-day[data-substituted="1"]::after{content:'';position:absolute;top:4px;right:4px;width:5px;height:5px;border-radius:999px;background:#f59e0b}
-        .week-dot{width:9px;height:9px;border-radius:999px;background:rgba(148,163,184,.22);display:inline-block}
-        .week-dot.done{background:#10b981;box-shadow:0 0 0 2px rgba(16,185,129,.18)}
+        /* The dot row stood here. It said how many sessions were done and
+           could not say which days they were, directly above a calendar that
+           said which days and could not say how the week was going. One
+           surface now; see .week-strip. */
         .tip-card{background:linear-gradient(135deg,rgba(168,85,247,.08) 0%,rgba(15,23,42,.6) 100%);border:1px solid rgba(168,85,247,.2);border-radius:1.25rem;padding:.9rem 1rem}
         /* EQ check-in */
         .eq-btn{flex:1;padding:.5rem .2rem;border-radius:.75rem;font-size:.85rem;font-weight:900;text-align:center;cursor:pointer;transition:all .2s;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:#475569}
@@ -1006,17 +1035,30 @@
             </div>
         </div>
 
-        <!-- ── Week progress ───────────────────────────────────────────────
-             Directly under the decision: what to do, then how the week is
-             going. The streak that used to compete with this is gone
+        <!-- ── The week ────────────────────────────────────────────────────
+             Directly under the decision: what to do, then where that sits in
+             the week. The streak that used to compete with this is gone
              entirely as of Phase 2B.2; a counter that broke on a prescribed
              rest day could never share billing with a target that counts
              that day as success. When every scheduled session is done this
              reads as complete, quietly: the Today card carries the moment,
-             and this is supporting evidence. -->
-        <div id="hq-stat-chips" class="flex items-center gap-2.5 px-3 hq-anim">
-            <div id="hq-week-dots" class="flex items-center gap-1.5"></div>
-            <span id="hq-week-label" class="text-[11px] font-bold text-slate-400">This week</span>
+             and this is supporting evidence.
+
+             ONE weekly surface, as of Phase 3C.3. There used to be two: an
+             anonymous dot row here saying how many sessions were done, and a
+             seven-cell calendar down in the secondary block saying which
+             days they were. Two displays of one week, in two places, and the
+             dots could not say which day anything belonged to while the
+             calendar could not say how the week was going. Both are absorbed
+             here: the cells are the days, the line beneath is the count.
+
+             Monday first, which is the member's week. The seven-slot storage
+             column is Sunday-indexed because notifyRules.js needs it to be,
+             and that is a storage detail the member should never have been
+             shown: it put the ISO week's LAST day in the leftmost cell. -->
+        <div id="hq-week-card" class="px-3 hq-anim">
+            <div id="hq-week-strip" class="week-strip"></div>
+            <p id="hq-week-label" class="mt-2 text-[11px] font-bold text-slate-400">This week</p>
         </div>
 
         <!-- ── Nudge band ──────────────────────────────────────────────────
@@ -1081,8 +1123,17 @@
 
         <!-- ── Secondary ───────────────────────────────────────────────────
              Everything below supports the decision above and must not compete
-             with it. Nothing here was removed; it was reordered. -->
-        <div id="hq-calendar-card" class="px-2 hq-anim"><div class="calendar-grid" id="dashboard-grid"></div></div>
+             with it. Nothing here was removed; it was reordered.
+
+             The weekly calendar stood here until Phase 3C.3. It is not gone,
+             it moved: it is the strip under the Today card now, merged with
+             the dot row that used to describe the same week a thumb-length
+             higher up the screen. Its editing affordance moved with it for
+             members whose column is still their programme, and is withdrawn
+             for members whose week comes from their dated plans, because
+             editing a derived projection would be an edit that disappears on
+             the next load. -->
+
 
         <!-- Hydration, collapsed by default. It is a log, not a decision, and
              it was taking the best real estate on the screen. -->
@@ -1598,8 +1649,14 @@
                 <i class="fas fa-calendar-week text-5xl text-blue-400"></i>
             </div>
         </div>
-        <h2 class="text-3xl font-black italic uppercase text-white mb-3">Your Weekly Schedule</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">Your home screen shows your 7-day training plan. Each day is assigned Length, Girth, Stamina or Rest. Tap a day to view it and update its completion status. Rest days are mandatory: your tissue adapts during recovery, not during training.</p>
+        <!-- Phase 3C.3. Was "Your Weekly Schedule", describing a calendar the
+             member assigned day by day and tapped to mark complete. Both
+             halves became false: the week comes from the programme, and the
+             surface that shows it is an orientation strip rather than an
+             editor. Promising a tap that does nothing is worse than
+             promising nothing. -->
+        <h2 class="text-3xl font-black italic uppercase text-white mb-3">Your Training Week</h2>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs">Today stays front and center. Underneath it, the week view shows what is planned, what is complete, and when you are resting. Rest days are mandatory: your tissue adapts during recovery, not during training.</p>
         <div class="mt-6 flex gap-3 justify-center">
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 w-16"><i class="fas fa-up-right-and-down-left-from-center text-blue-400 text-lg"></i><span class="text-[9px] font-black text-blue-300 uppercase">Length</span></div>
             <div class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 w-16"><i class="fas fa-expand text-emerald-400 text-lg"></i><span class="text-[9px] font-black text-emerald-300 uppercase">Girth</span></div>
@@ -1666,7 +1723,12 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-2">What are you here for?</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">This sets your weekly schedule and what I focus on. You can change it any time from the Manual.</p>
+        <!-- Phase 3C.3. "You can change it any time from the Manual" promised
+             a thing that no longer exists for a member whose week comes from
+             their programme: changing the goal records a preference and
+             leaves the programme alone. Changing a programme is Change My
+             Programme, which is not built, so the copy stops offering it. -->
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">This is what I build your week around, and what I lead with when you ask me something.</p>
         <div class="grid grid-cols-2 gap-2.5 w-full max-w-xs" id="goal-options">
             <button class="goal-opt" data-goal="size"><i class="fas fa-up-right-and-down-left-from-center text-blue-400"></i><span>Size</span><em>Length and girth work</em></button>
             <button class="goal-opt" data-goal="stamina"><i class="fas fa-fire-flame-curved text-purple-400"></i><span>Lasting longer</span><em>Control and endurance</em></button>
@@ -1754,8 +1816,8 @@
                         <p>XP is earned every session. The progress bar shows how close you are to the next rank. Ranks go: Recruit → Operative → Specialist → Expert → Master → Legend. Higher difficulty earns more XP per session.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-calendar-week text-slate-300 mr-1.5"></i>Weekly Calendar</p>
-                        <p>Shows your 7-day training schedule. Each day is color-coded: blue for Length, green for Girth, purple for Stamina, grey for Rest. Tap a day to view it and update its completion status. Today is highlighted with a border, and today's training focus gets a ring.</p>
+                        <p class="text-white font-bold text-xs mb-1"><i class="fas fa-calendar-week text-slate-300 mr-1.5"></i>Your Week</p>
+                        <p>The seven days under your Today card. It shows what is planned, what is complete, and when you are resting. Each day is color-coded: blue for Length, green for Girth, purple for Stamina, grey for Rest. Today is highlighted, and a day you finished carries a tick.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-1"><i class="fas fa-moon text-slate-300 mr-1.5"></i>Daily Check-In</p>
@@ -5400,9 +5462,47 @@ function renderAttentionBand(){ _renderBand(ATTENTION_BAND,'hq-attention-band');
  * is prescribed, and the browser suite asserts the prescription is
  * byte-identical with and without them.
  */
+/**
+ * One canonical answer to "how is my week going", from the truthful source.
+ *
+ * The ENGINE is unchanged: weekCompletion still decides what counts, with
+ * the same precedence it always had, and still cross-checks the session log
+ * on the legacy date relationship. What changed is only WHICH seven-slot
+ * prescription array it is handed.
+ *
+ *   authoritative member   the dated plans, with `undefined` for any date
+ *                          this build cannot attribute a prescription to
+ *   legacy or custom       persisted.schedule, byte-identical to before
+ *
+ * THE MIDWEEK CUTOVER IS WHY. A member who cut over on a Thursday has no
+ * authoritative Monday plan. Handing the recurring compatibility projection
+ * in would count Monday as a commitment, which recreates at presentation
+ * time exactly the historical backfill storage refused. weekCompletion
+ * already treats an undescribed day as no commitment, so `undefined` keeps
+ * it out of the denominator without touching the engine.
+ *
+ * The honest cost, stated: for that one transition week the target is
+ * smaller, so a member who trained before cutting over reads a lower
+ * count. The alternative is claiming a dated prescription we do not have.
+ *
+ * Every caller is communication rather than prescription. Verified at
+ * 9322676: weekComplete enters the resolver and is echoed straight back out
+ * at nextBestAction.js:324 without any branch reading it, so no mission,
+ * dose, modifier, tier or ledger value depends on this number.
+ */
 function currentWeekCompletion(){
     if(!window.BP) return {completed:0,target:0,remaining:0,allDone:false,label:''};
-    return window.BP.weekCompletion(persisted.schedule,persisted.completedDays,
+    const slots=window.BP.weekStripSlots?window.BP.weekStripSlots({
+        now:new Date(),
+        authoritative:onAuthoritativePlans(),
+        dayPlans:persisted.dayPlans,
+        legacySchedule:persisted.schedule,
+    }):null;
+    /* A refusal keeps today's behaviour rather than emptying the week. It
+       cannot happen here, because a real Date is passed, but an empty week
+       would be the worst possible failure for a progress surface. */
+    const prescription=(slots&&slots.ok)?slots.slots:persisted.schedule;
+    return window.BP.weekCompletion(prescription,persisted.completedDays,
         {sessionLog:persisted.sessionLog,now:new Date()});
 }
 /* Everything that speaks about the week reads the line above. The strip and
@@ -5543,32 +5643,114 @@ function currentMissedWeek(){
 }
 
 /**
- * Week completion: the primary progress signal.
+ * The one weekly orientation surface.
  *
- * Scheduled non-rest sessions are the denominator, so a rest day taken as
- * written reads as the programme being followed rather than as a gap.
+ * Seven cells and a line of text, replacing the dot row that said how many
+ * and the calendar that said which days. Scheduled non-rest sessions are the
+ * denominator, so a rest day taken as written reads as the programme being
+ * followed rather than as a gap.
+ *
+ * THIS FUNCTION DECIDES NOTHING ABOUT THE WEEK.
+ *
+ * Every truth it paints arrives already decided: buildWeekStripModel() turns
+ * the prescription, the session log and the canonical satisfied array into
+ * seven records, and this walks them. It does not look at persisted.schedule,
+ * it does not look at completedDays, it does not ask which cohort the member
+ * is in except to decide whether a cell is tappable. A renderer that
+ * re-derives any of that becomes a second opinion about the week, and the
+ * whole point of the model is that there is one.
+ *
+ * The satisfied array is passed IN from currentWeekCompletion(), the same
+ * call that writes the label, so a cell and the fraction beneath it cannot
+ * disagree about a day.
  */
-function renderWeekProgress(){
+function renderWeekStrip(){
     if(!window.BP) return;
     const w=currentWeekCompletion();
-    const dots=document.getElementById('hq-week-dots');
     const label=document.getElementById('hq-week-label');
-    if(dots){
-        dots.innerHTML='';
-        for(let i=0;i<w.target;i++){
-            const d=document.createElement('span');
-            d.className='week-dot'+(i<w.completed?' done':'');
-            dots.appendChild(d);
+    const card=document.getElementById('hq-week-card');
+    const strip=document.getElementById('hq-week-strip');
+    const authoritative=onAuthoritativePlans();
+    const model=window.BP.buildWeekStripModel?window.BP.buildWeekStripModel({
+        now:new Date(),
+        authoritative,
+        dayPlans:persisted.dayPlans,
+        legacySchedule:persisted.schedule,
+        satisfied:w.satisfied,
+        sessionLog:persisted.sessionLog,
+    }):null;
+    if(strip&&model&&model.ok){
+        /* The authority marker lives on the container rather than each cell:
+           it drives the cursor affordance in CSS and it is the one thing a
+           test needs to read to know which cohort rendered. */
+        strip.dataset.authority=authoritative?'programme':'legacy';
+        strip.innerHTML='';
+        for(const d of model.days){
+            const cell=document.createElement('div');
+            /* The state and the today flag live in data attributes and NOT
+               also in a class. One fact, one representation: a state-* class
+               beside data-state would exist only to give CSS a hook, which
+               an attribute selector provides without a second thing to keep
+               in step. type-* stays a class because those rules carry the
+               colour language the rest of the app already shares. */
+            cell.className=`week-cell type-${d.prescriptionKnown?d.prescriptionType:'unknown'}`;
+            cell.dataset.state=d.state;
+            cell.dataset.date=d.date;
+            cell.dataset.weekday=String(d.weekdayIndex);
+            if(d.isToday) cell.dataset.today='1';
+            if(d.isPast) cell.dataset.past='1';
+            /* fa-minus for an unattributable day rather than a question mark:
+               the member is not being asked anything and nothing is wrong
+               with their data, there is simply no plan on that date. */
+            const icon=d.prescriptionKnown?dayTypeIcon(d.prescriptionType):'fa-minus';
+            cell.innerHTML=`<span>${DAY_NAMES[d.weekdayIndex]}</span><i class="fas ${icon}"></i>`;
+            cell.setAttribute('aria-label',weekCellLabel(d));
+            if(d.substituted&&d.performedType){
+                cell.dataset.substituted='1';
+                cell.title=d.prescriptionKnown
+                    ?`${dayTypeLabel(d.performedType)} done instead of ${dayTypeLabel(d.prescriptionType)}`
+                    :`${dayTypeLabel(d.performedType)} done`;
+            }
+            /* THE INTERACTION BOUNDARY. A member whose week is derived from
+               dated plans gets orientation only: no listener, no role, no
+               tab stop. Editing the projection would be an edit the next
+               load silently overwrites, and a generic completion toggle
+               would let the strip assert work that never happened. For the
+               cohort whose column IS their programme, nothing is withdrawn:
+               the same day picker the calendar opened, on the same index. */
+            if(!authoritative){
+                cell.setAttribute('role','button');
+                cell.tabIndex=0;
+                cell.addEventListener('click',()=>openDayModal(d.weekdayIndex));
+                cell.addEventListener('keydown',e=>{
+                    if(e.key==='Enter'||e.key===' '){e.preventDefault();openDayModal(d.weekdayIndex);}
+                });
+            }
+            strip.appendChild(cell);
         }
     }
-    /* allDone comes from the same calculation as the dots, deliberately,
+    /* allDone comes from the same calculation as the cells, deliberately,
        rather than being re-derived here. Quiet on purpose: the Today card
        carries the moment and this is the supporting evidence. */
     if(label) label.textContent=w.target
         ?(w.allDone?`Week complete · ${w.completed} of ${w.target}`:`${w.completed} of ${w.target} this week`)
         :'No sessions scheduled';
-    const strip=document.getElementById('hq-stat-chips');
-    if(strip) strip.classList.toggle('week-complete',!!w.allDone);
+    if(card) card.classList.toggle('week-complete',!!w.allDone);
+}
+/**
+ * What one cell says out loud.
+ *
+ * Past and future pending read identically on purpose, exactly as they look
+ * identically: inventing a spoken distinction a sighted member does not get
+ * would be a fifth state admitted through the back door. Rest is named as
+ * rest and never as anything unfinished.
+ */
+function weekCellLabel(d){
+    const when=d.isToday?'Today':DAY_NAMES[d.weekdayIndex];
+    if(!d.prescriptionKnown) return `${when}, nothing planned`;
+    if(d.isRest) return `${when}, rest day`;
+    const what=dayTypeLabel(d.prescriptionType);
+    return d.satisfied?`${when}, ${what}, done`:`${when}, ${what}`;
 }
 
 /**
@@ -5869,16 +6051,54 @@ function completeSummaryHtml(){
     if(last&&last.eq) out.push(cell('EQ',`${last.eq}/10`));
     if(last&&last.rpe) out.push(cell('RPE',`${last.rpe}/10`));
     out.push(cell('This week',w.target?`${w.completed} of ${w.target}`:'—'));
-    // Next scheduled session, so closure still points somewhere.
+    const next=nextUpChip();
+    if(next) out.push(cell('Next up',next));
+    return out.join('');
+}
+
+/**
+ * Where the next session sits, so closure still points somewhere.
+ *
+ * TWO COHORTS, TWO SOURCES, AND THE DIFFERENCE IS NOT COSMETIC.
+ *
+ * The recurring column wraps. Walking it from Sunday reads index 0 again and
+ * announces whatever the recurring week prescribes, which for a member on
+ * dated plans is an answer with no plan behind it. It would usually sound
+ * plausible, because a week repeats, and that is the dangerous kind of wrong.
+ * So an authoritative member's next session is read forward through real
+ * dates: generation already reaches the end of next ISO week, so a Sunday
+ * finds that Monday because that Monday was genuinely generated.
+ *
+ * A legacy member keeps the wrap, because for them the column IS the
+ * programme and a recurring week is exactly what they were promised.
+ *
+ * Returns null rather than a placeholder when there is no answer. An absent
+ * chip is honest; "Next up: none" invites a question nobody can answer.
+ */
+function nextUpChip(){
+    if(onAuthoritativePlans()){
+        const r=window.BP.nextTrainingDay?window.BP.nextTrainingDay({
+            now:new Date(),
+            dayPlans:persisted.dayPlans,
+        }):null;
+        if(!r||!r.ok||!r.found) return null;
+        /* A weekday name only identifies a day inside the coming week. Seven
+           days out is the same weekday as today, so the name stops being an
+           answer and the chip is dropped instead of being made ambiguous.
+           Not reachable from any current programme, every one of which
+           trains at least once in any six days; it is here so widening the
+           generator later cannot quietly produce a lying label. */
+        if(r.daysAway>6) return null;
+        return `${DAY_NAMES[r.weekdayIndex]} · ${dayTypeLabel(r.type)}`;
+    }
     const sched=persisted.schedule||[];
     for(let i=1;i<=7;i++){
         const idx=(new Date().getDay()+i)%7;
         if(DAY_TYPES[sched[idx]]&&sched[idx]!=='rest'){
-            out.push(cell('Next up',`${DAY_NAMES[idx]} · ${dayTypeLabel(sched[idx])}`));
-            break;
+            return `${DAY_NAMES[idx]} · ${dayTypeLabel(sched[idx])}`;
         }
     }
-    return out.join('');
+    return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -6242,59 +6462,37 @@ function renderDashboard(){
     // Rest, deload, the button label and any unfinished session are all part
     // of today's prescription, so renderToday says them. renderCoachNudge
     // still picks a nudge; the band decides whether it is what gets shown.
+    /* BEFORE the surfaces, not after, and that ordering matters.
+       syncProgression keeps the ledger current AND commits the authority
+       transition, which writes programme, dayPlans and the projected
+       schedule. Running it afterwards meant the first render for a member
+       computed Today and the week from pre-cutover state while the calendar,
+       further down, read post-cutover state: two surfaces disagreeing about
+       the same week for one render. PR C hid that because its projection
+       write was a no-op on the column; an authority-aware denominator makes
+       it visible, as a dot row showing the projection's count beside a
+       headline showing the plans'. Cheap either way: it only writes when
+       something actually moved. */
+    syncProgression('render');
     renderCoachNudge();
     renderToday();
-    renderWeekProgress();
+    renderWeekStrip();
     renderAttentionBand();
     window._bpHqRendered=true;
-    /* Keeps the current week's row current and fills any weeks the app was
-       not opened in. Cheap: it only writes when something moved. */
-    syncProgression('render');
-    /* Which weekdays this week were completed with something other than
-       the scheduled mission. Read from the session log, which is the only
-       record of what was actually performed: completedDays has one boolean
-       per weekday and cannot hold the distinction. */
-    const _substituted={};
-    if(window.BP){
-        const _thisWeek=window.BP.weekKey(new Date());
-        for(const e of (persisted.sessionLog||[])){
-            if(!e||!e.date||!e.manualOverride) continue;
-            const when=new Date(e.date);
-            if(isNaN(when.getTime())||window.BP.weekKey(when)!==_thisWeek) continue;
-            _substituted[when.getDay()]=e.routineType;
-        }
-    }
-    /* THE TICK MEANS ONE THING: the scheduled mechanical work for that day
-       was satisfied. It reads the per-day array returned by the same
-       currentWeekCompletion() call the weekly headline and Week Complete
-       use, rather than persisted.completedDays, so the calendar and the
-       headline cannot disagree about a day.
+    /* The weekly calendar was built here, from persisted.schedule, with its
+       own substitution map and its own satisfied lookup. All three moved
+       into renderWeekStrip() above, which paints them from one model rather
+       than reassembling the week a second time a few hundred lines down.
 
-       The visible consequence is that Recovery on a scheduled mechanical day
-       no longer draws a tick, even though completedDays stays true for it.
-       That boolean is accepted legacy debt and is still written; it is
-       simply no longer what the member is shown. A scheduled rest day never
-       ticks either: there is no mechanical work scheduled to satisfy, which
-       is the same reason it is in neither side of the weekly fraction.
-
-       Recovery deliberately gets no icon of its own in this phase. The tick
-       is reserved for satisfied mechanical work; acknowledging Recovery is
-       a later design question, not a thing to improvise here. */
-    const _satisfied=currentWeekCompletion().satisfied;
-    const g=document.getElementById('dashboard-grid');g.innerHTML='';
-    persisted.schedule.forEach((type,i)=>{
-        const d=document.createElement('div');
-        const _known=!!DAY_TYPES[type];
-        const _isToday=i===new Date().getDay();
-        d.className=`calendar-day type-${_known?type:'unknown'} ${_isToday?'active':''} ${_satisfied[i]?'completed':''} ${_isToday&&type!=='rest'?'scheduled-focus':''}`;
-        d.innerHTML=`<span>${DAY_NAMES[i]}</span><i class="fas ${dayTypeIcon(type)}"></i>`;
-        if(_substituted[i]){
-            d.dataset.substituted='1';
-            d.title=`${dayTypeLabel(_substituted[i])} done instead of ${dayTypeLabel(type)}`;
-        }
-        d.addEventListener('click',()=>openDayModal(i));
-        g.appendChild(d);
-    });
+       THE TICK STILL MEANS ONE THING: the scheduled mechanical work for that
+       day was satisfied. It comes from the per-day array the weekly label
+       and Week Complete read, so a cell and the fraction beneath it cannot
+       disagree about a day. Recovery on a scheduled mechanical day still
+       draws no tick even though completedDays stays true for it; that
+       boolean is accepted legacy debt and is still written, it is simply not
+       what the member is shown. A rest day never ticks either: there was no
+       mechanical work scheduled to satisfy, which is the same reason it is
+       in neither side of the fraction. */
     document.getElementById('current-date').innerText=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
     /* The XP and level writes stood here. The badge they painted is gone
        from the HQ. persisted.totalXp is still written and still stored, so
@@ -7195,12 +7393,14 @@ function finishOnboarding(){
 const TOUR_STOPS=[
     {sel:'#hq-today-card',    title:'Start here',       body:'This card is the app. It tells you what to do today, why, and how long it takes. If you only ever read one thing on this screen, read this.'},
     {sel:'#today-actions',    title:'Then do it',       body:'One button, already pointed at whatever today calls for. You do not have to decide anything first.'},
-    {sel:'#hq-stat-chips',    title:'Your week',        body:'Sessions done out of sessions scheduled. Rest days are part of the plan, so they are not counted against you.'},
-    /* Was "Change the plan. Tap any day to set it to Length, Girth, Stamina
-       or Rest." False for a member whose week is derived from their dated
-       plans: for them the day types are withdrawn until Change My Programme
-       exists. This is true for both cohorts. */
-    {sel:'#hq-calendar-card', title:'Your week',        body:'See what is scheduled across the week. Tap a day to view it and update its completion status.'},
+    /* ONE week stop, as of Phase 3C.3. There were two, both titled "Your
+       week", one on the dot row and one on the calendar below it, which is
+       how a tour tells you it is touring two surfaces that should have been
+       one. The second said "Tap a day to view it and update its completion
+       status", which is false for a member whose week is derived from their
+       dated plans: for them the strip is orientation and the day types are
+       withdrawn until Change My Programme exists. */
+    {sel:'#hq-week-card',     title:'Your week',        body:'Today stays front and center. The week view shows what is planned, what is complete, and when you are resting. Rest days are part of the plan, so they are never counted against you.'},
     {sel:'#hq-tools-row',     title:'See it add up',    body:'Progress holds your charts and photos. Week is your summary. This is where the long view lives.'},
     {sel:'#hq-coach-row',     title:'When you need it', body:'Coach Tee answers questions any hour, and the Manual explains every exercise in depth. Neither is something you have to read first.'},
 ];
@@ -7424,7 +7624,36 @@ function importData(file){
 // ═══════════════════════════════════════════════════════════════════════════
 // MODALS
 // ═══════════════════════════════════════════════════════════════════════════
-function toggleDayCompletion(){persisted.completedDays[session.selectedDayIdx]=!persisted.completedDays[session.selectedDayIdx];savePersisted();closeModal();renderDashboard()}
+/**
+ * The legacy manual completion tick, withdrawn after cutover.
+ *
+ * completedDays is the fallback weekCompletion() reads when a day has no
+ * session log entry, so a tick here is the app asserting work with no record
+ * of it. For a member whose week is their own column that is a feature they
+ * have always had and it stays exactly as it was.
+ *
+ * For a member on dated plans it is a generic completion claim against a
+ * specific prescribed session, which is a different thing from recording
+ * what happened, and marking a plan satisfied with nothing behind it is the
+ * one lie the strip must never tell. Acknowledging work done outside the app
+ * belongs to a later phase that records WHAT was done; until then the honest
+ * answer is that the strip reports sessions, and sessions come from
+ * finishing one.
+ *
+ * Defensive as well as hidden: the strip binds no handler for that cohort
+ * and openDayModal hides the button, so this is unreachable from the UI, and
+ * refusing here means a stale cached shell or a console cannot assert it
+ * either.
+ */
+function toggleDayCompletion(){
+    if(onAuthoritativePlans()){
+        console.warn('toggleDayCompletion refused: this week is derived from the programme');
+        closeModal();
+        return;
+    }
+    persisted.completedDays[session.selectedDayIdx]=!persisted.completedDays[session.selectedDayIdx];
+    savePersisted();closeModal();renderDashboard();
+}
 /**
  * Is this member's week derived from their dated plans?
  *
@@ -7453,8 +7682,15 @@ function openDayModal(idx){
     const locked=onAuthoritativePlans();
     const types=document.getElementById('type-modal-types');
     const note=document.getElementById('type-modal-locked');
+    const toggle=document.getElementById('modal-toggle-btn');
     if(types) types.classList.toggle('hidden',locked);
     if(note) note.classList.toggle('hidden',!locked);
+    /* The completion tick goes with the day types as of Phase 3C.3. It was
+       kept at cutover on the grounds that completion is still the member's
+       to record, which was the wrong call: a generic tick against a dated
+       prescription claims that specific session was satisfied with nothing
+       behind it. See toggleDayCompletion(). */
+    if(toggle) toggle.classList.toggle('hidden',locked);
     document.getElementById('type-modal').classList.remove('hidden');
 }
 function assignDay(type){
@@ -8639,6 +8875,13 @@ import { cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
 /* The validator, so a reader can tell a prescription from a data-integrity
    condition instead of trusting a raw object's shape. */
 import { normaliseDayPlan } from '../src/dayPlan.js';
+/* Phase 3C.3. The week view model, and the authority-aware seven-slot
+   array the canonical completion engine is fed. */
+import { weekStripSlots, buildWeekStripModel,
+         WEEK_STRIP_STATE, WEEK_STRIP_DAYS } from '../src/weekStrip.js';
+/* Separate from weekStrip on purpose: the strip answers a question about ONE
+   ISO week and this one's answer regularly lands in the week after. */
+import { nextTrainingDay, NEXT_UP_HORIZON_DAYS } from '../src/nextUp.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -8656,7 +8899,9 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               classifyLegacySchedule, migrationProgramme, mayGenerateOver,
               PROGRAMME_SOURCE, CLASSIFY_REASON,
               cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
-              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan };
+              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan,
+              weekStripSlots, buildWeekStripModel, WEEK_STRIP_STATE, WEEK_STRIP_DAYS,
+              nextTrainingDay, NEXT_UP_HORIZON_DAYS };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

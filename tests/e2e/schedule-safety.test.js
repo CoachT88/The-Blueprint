@@ -22,7 +22,7 @@ describe('goal presets never trample an existing schedule', () => {
        preset writer is closed for those by design. The post-cutover cohort
        has its own block at the bottom of this file. */
     const legacy = () => app.page.evaluate(() => {
-        persisted.programme = null;
+        persisted.programme = window.__legacyProgramme();
         persisted.dayPlans = [];
     });
 

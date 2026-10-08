@@ -232,7 +232,7 @@ describe('funnel correctness', () => {
                An earlier render in this suite cuts the member over, and after
                that the week is derived and selectGoal records the goal
                without touching it. */
-            persisted.programme = null;
+            persisted.programme = window.__legacyProgramme();
             persisted.dayPlans = [];
             persisted.allTimeSessionCount = 0;
             persisted.schedule = DEFAULT_PERSISTED.schedule.slice();

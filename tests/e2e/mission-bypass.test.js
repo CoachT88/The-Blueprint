@@ -18,6 +18,13 @@ const UID = 'byp';
 async function hq(page, { type = 'length', soreness = null, draft = null, patch = {} } = {}) {
     return page.evaluate(({ type, soreness, draft, patch, WEEK, UID }) => {
         const d = new Date().getDay();
+        /* Phase 3C.3. The legacy authority path, where this seeded column IS
+           the programme. `null` would mean unclassified, and an unclassified
+           member is cut over by the authority transition at the top of
+           renderDashboard, which would replace the slot just written here.
+           See legacyProgramme in harness.js. */
+        persisted.programme = window.__legacyProgramme();
+        persisted.dayPlans = [];
         persisted.schedule = [...WEEK];
         persisted.schedule[d] = type;
         persisted.completedDays = [false, false, false, false, false, false, false];
@@ -484,12 +491,12 @@ describe('schedule repair and manual-session accounting', () => {
             persisted.sessionLog = [{ date: new Date().toISOString(), routineType: 'girth',
                                       scheduledType: 'length', manualOverride: true }];
             renderDashboard();
-            const cell = document.querySelectorAll('#dashboard-grid .calendar-day')[d];
-            return { substituted: cell.dataset.substituted, title: cell.title,
-                     completed: cell.classList.contains('completed') };
+            const cell = window.__weekStrip().days.find(x => x.weekday === d);
+            return { substituted: cell.substituted, title: cell.title,
+                     completed: cell.state === 'satisfied' };
         });
         expect(r.completed).toBe(true);
-        expect(r.substituted).toBe('1');
+        expect(r.substituted).toBe(true);
         expect(r.title).toBe('Girth done instead of Length');
     }, 30_000);
 
@@ -501,10 +508,10 @@ describe('schedule repair and manual-session accounting', () => {
             persisted.sessionLog = [{ date: new Date().toISOString(), routineType: 'length',
                                       scheduledType: 'length', manualOverride: false }];
             renderDashboard();
-            const cell = document.querySelectorAll('#dashboard-grid .calendar-day')[d];
-            return { substituted: cell.dataset.substituted, title: cell.title };
+            const cell = window.__weekStrip().days.find(x => x.weekday === d);
+            return { substituted: cell.substituted, title: cell.title };
         });
-        expect(r.substituted).toBeUndefined();
+        expect(r.substituted).toBe(false);
         expect(r.title).toBe('');
     }, 30_000);
 
@@ -516,10 +523,10 @@ describe('schedule repair and manual-session accounting', () => {
             persisted.sessionLog = [{ date: new Date(Date.now() - 14 * 86400000).toISOString(),
                                       routineType: 'girth', scheduledType: 'length', manualOverride: true }];
             renderDashboard();
-            const cell = document.querySelectorAll('#dashboard-grid .calendar-day')[d];
-            return cell.dataset.substituted;
+            const cell = window.__weekStrip().days.find(x => x.weekday === d);
+            return cell.substituted;
         });
-        expect(r).toBeUndefined();
+        expect(r).toBe(false);
     }, 30_000);
 
     test('DOCUMENTED LIMITATION: a substitution still counts toward the weekly target', async () => {

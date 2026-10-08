@@ -294,7 +294,7 @@ describe('how often the name is actually used', () => {
             liveness: seen('today-liveness'),
             todayHeadline: count(document.getElementById('today-headline').innerText),
             todayCard: count(document.getElementById('hq-today-card').innerText),
-            statChips: count(document.getElementById('hq-stat-chips').innerText),
+            weekCard: count(document.getElementById('hq-week-card').innerText),
             records: count(document.getElementById('hq-records-card').innerText),
             nudgeBand: count(document.getElementById('hq-nudge-band').innerText),
         };
@@ -354,7 +354,7 @@ describe('how often the name is actually used', () => {
             expect(other.tierLock).toBe(0);
             expect(other.milestone).toBe(0);
             expect(hq.todayHeadline).toBe(0);
-            expect(hq.statChips).toBe(0);
+            expect(hq.weekCard).toBe(0);
             expect(hq.records).toBe(0);
             expect(hq.nudgeBand).toBe(0);
             /* 3C.1 moved the liveness line out of the Today card and into

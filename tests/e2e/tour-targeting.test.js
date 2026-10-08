@@ -23,7 +23,10 @@ import { openApp, signIn } from './harness.js';
  * These assert what a user sees, not what the code says.
  */
 
-const STOP_COUNT = 6;
+/* Five as of Phase 3C.3. Two stops were both titled "Your week", one on the
+   dot row and one on the calendar below it, which is a tour admitting it is
+   touring two surfaces that should have been one. They are now one stop. */
+const STOP_COUNT = 5;
 
 describe('the tour starts at all', () => {
     let app;

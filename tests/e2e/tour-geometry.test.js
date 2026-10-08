@@ -24,9 +24,11 @@ describe('tour geometry', () => {
     }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    test('resolves all six stops, in the order the new hierarchy teaches', () => {
+    test('resolves all five stops, in the order the new hierarchy teaches', () => {
+        /* Five, not six. Two stops were both titled "Your week", one on the
+           dot row and one on the calendar under it. One surface, one stop. */
         expect(stops).toEqual([
-            '#hq-today-card', '#today-actions', '#hq-stat-chips', '#hq-calendar-card',
+            '#hq-today-card', '#today-actions', '#hq-week-card',
             '#hq-tools-row', '#hq-coach-row',
         ]);
     });

@@ -76,14 +76,21 @@ describe('stamina as a fourth calendar day type', () => {
             persisted.schedule[d] = 'stamina';
             persisted.primaryGoal = 'stamina';
             renderDashboard();
-            const cell = document.querySelectorAll('#dashboard-grid .calendar-day')[d];
-            return { cls: cell.className, icon: cell.querySelector('i').className, blackout: isBlackoutDay() };
+            const cell = window.__weekStrip().days.find(x => x.weekday === d);
+            return { cls: cell.cls, icon: cell.icon, state: cell.state,
+                     today: cell.today, blackout: isBlackoutDay() };
         });
         expect(r.cls).toMatch(/type-stamina/);
         expect(r.icon).toMatch(/fa-fire-flame-curved/);
         expect(r.icon).not.toMatch(/fa-bed/);
         expect(r.blackout).toBe(false);      // stamina is a training day
-        expect(r.cls).toMatch(/scheduled-focus/);
+        /* The scheduled-focus ring is gone as of Phase 3C.3. It was a second
+           ring around today drawn only when today was not rest, beside the
+           today highlight that was already there. Today is ONE modifier now,
+           so the assertion is that today is marked and that the day reads as
+           training still to do. */
+        expect(r.today).toBe(true);
+        expect(r.state).toBe('pending');
     });
 
     test('an unknown day type renders neutrally rather than as a rest day', async () => {
@@ -187,7 +194,7 @@ describe('goal-aware surfaces', () => {
             const d = new Date().getDay();
             /* Legacy authority, so today's type comes from the column this
                test writes rather than from a generated plan. */
-            persisted.programme = null;
+            persisted.programme = window.__legacyProgramme();
             persisted.dayPlans = [];
             persisted.schedule[d] = 'stamina';
             persisted.primaryGoal = 'stamina';

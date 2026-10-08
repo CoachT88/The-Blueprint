@@ -700,19 +700,22 @@ describe('the calendar tick', () => {
         renderDashboard();
     });
 
-    /** What the member can actually see on today's calendar cell. */
+    /** What the member can actually see on today's WeekStrip cell. */
     const todayCell = (page) => page.evaluate(() => {
         renderDashboard();
         const i = new Date().getDay();
-        const cells = document.getElementById('dashboard-grid').children;
+        /* The strip is Monday-first, so the cell is found by its Sunday
+           weekday index rather than by position. Counting cells is how the
+           first version of a 3C.3 assertion got the wrong day. */
+        const cell = window.__weekStrip().days.find(d => d.weekday === i);
         const w = currentWeekCompletion();
         return {
-            ticked: cells[i].classList.contains('completed'),
+            ticked: cell.state === 'satisfied',
             rawCompletedDays: persisted.completedDays[i] === true,
             satisfied: w.satisfied[i],
             weekCompleted: w.completed,
             // No Recovery-specific icon was introduced in this phase.
-            icon: cells[i].querySelector('i').className,
+            icon: cell.icon,
         };
     });
 
@@ -790,9 +793,11 @@ describe('the calendar tick', () => {
             });
             renderDashboard();
             const w = currentWeekCompletion();
-            const cells = [...document.getElementById('dashboard-grid').children];
+            const seen = window.__weekStrip().bySunday;
             return {
-                ticks: cells.map(c => c.classList.contains('completed')),
+                /* Sunday-indexed, so it lines up element for element with
+                   weekCompletion()'s own array. */
+                ticks: Array.from({ length: 7 }, (_, i) => seen[i] === 'satisfied'),
                 satisfied: w.satisfied,
                 completed: w.completed,
                 strip: document.getElementById('hq-week-label').textContent.trim(),
@@ -817,8 +822,8 @@ describe('the calendar tick', () => {
             persisted.completedDays = [true, true, true, true, true, true, true];
             persisted.sessionLog = [{ date: monday.toISOString(), routineType: 'length', duration: 30 }];
             renderDashboard();
-            return [...document.getElementById('dashboard-grid').children]
-                .map(c => c.classList.contains('completed'));
+            const seen = window.__weekStrip().bySunday;
+            return Array.from({ length: 7 }, (_, i) => seen[i] === 'satisfied');
         });
         expect(r.every(t => t === false)).toBe(true);
     }, 30_000);
@@ -880,7 +885,7 @@ describe('today complete versus weekly mechanical completion', () => {
             optional: shown('today-optional-btn'),
             alt: shown('today-alt-btn'),
             resume: shown('resume-btn'),
-            ticked: [...document.getElementById('dashboard-grid').children][i].classList.contains('completed'),
+            ticked: window.__weekStrip().days.find(d => d.weekday === i).state === 'satisfied',
             weekCompleted: w.completed,
             weekComplete: r.weekComplete,
         };

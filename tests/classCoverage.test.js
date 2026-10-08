@@ -74,10 +74,12 @@ const isUtility = (t) => t.includes('[') || BARE.has(t)
  */
 const RUNTIME_COMPOSED = [{
     pattern: 'type-${...}',
-    where: 'renderDashboard(), the weekly calendar tiles',
-    // DAY_TYPES has exactly four keys and the expression is
-    // `type-${_known?type:'unknown'}` with _known = !!DAY_TYPES[type], so the
-    // emitted value is one of these five and nothing else.
+    where: 'renderWeekStrip(), the WeekStrip cells',
+    /* The expression is `type-${d.prescriptionKnown?d.prescriptionType:'unknown'}`.
+       prescriptionKnown is true only where classifySlot() did NOT answer
+       UNRESOLVED, and with no options that classifier accepts exactly 'rest'
+       plus LEGACY_PRIMARY_TYPES, which is exactly DAY_TYPES' four keys. So the
+       emitted value is one of these five and nothing else. */
     expandsTo: ['type-length', 'type-girth', 'type-stamina', 'type-rest', 'type-unknown'],
     definedIn: "the app's own <style>",
 }];

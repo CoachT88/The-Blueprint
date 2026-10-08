@@ -62,7 +62,9 @@ const ELEMENT_IDS = [
     'last-measure-row', 'last-bpel', 'last-mseg', 'beginner-rec-note',
     'hydration-over', 'hydration-undo-btn', 'hydration-entry-note',
     'modal-stamina-btn', 'warmup-back-btn', 'notif-modal', 'export-btn', 'import-btn',
-    'hq-stat-chips', 'hq-calendar-card', 'hq-hydration-card',
+    // Phase 3C.3: one weekly surface. hq-stat-chips (the dot row) and
+    // hq-calendar-card (the calendar below it) are both absorbed into it.
+    'hq-week-card', 'hq-week-strip', 'hq-week-label', 'hq-hydration-card',
     'hq-records-card', 'hq-tools-row', 'hq-coach-row',
     // Phase 3C.1: one context slot under the header. hq-level-badge and
     // hq-tip-card are gone from the HQ; the Recovery Pass chip that was

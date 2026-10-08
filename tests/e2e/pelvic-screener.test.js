@@ -236,20 +236,25 @@ describe('the check is offered on the HQ, not only in the Manual', () => {
     beforeAll(async () => { app = await openApp(); await signIn(app.page, { id: 'pfh' }); }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    test('an unscreened member sees the prompt, above the calendar', async () => {
+    test('an unscreened member sees the prompt, below the week', async () => {
+        /* The nudge band used to sit above the weekly calendar in the
+           secondary block. As of Phase 3C.3 the week IS the strip under
+           Today, so the band comes after it: nothing in the band is urgent
+           and none of it should compete with what to do today or with where
+           the member is in the week. */
         const r = await app.page.evaluate(() => {
             persisted.pelvicProfile = '';
             goToStep(0);
             const prompt = document.getElementById('hq-pelvic-prompt');
-            const cal = document.getElementById('hq-calendar-card');
+            const week = document.getElementById('hq-week-card');
             return {
                 shown: !prompt.classList.contains('hidden'),
-                // compareDocumentPosition: 4 means prompt precedes calendar
-                aboveCalendar: !!(prompt.compareDocumentPosition(cal) & Node.DOCUMENT_POSITION_FOLLOWING),
+                // DOCUMENT_POSITION_PRECEDING: the week comes first.
+                belowWeek: !!(prompt.compareDocumentPosition(week) & Node.DOCUMENT_POSITION_PRECEDING),
             };
         });
         expect(r.shown).toBe(true);
-        expect(r.aboveCalendar).toBe(true);
+        expect(r.belowWeek).toBe(true);
     }, 30_000);
 
     test('it opens the check', async () => {

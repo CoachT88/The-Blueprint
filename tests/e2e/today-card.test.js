@@ -20,6 +20,16 @@ const WEEK = ['length', 'girth', 'rest', 'stamina', 'length', 'rest', 'rest'];
 async function render(page, { type = 'length', patch = {}, soreness = null, draft = null } = {}) {
     return page.evaluate(({ type, patch, soreness, draft, WEEK }) => {
         const d = new Date().getDay();
+        /* Phase 3C.3. Stay on the LEGACY authority path, where the column IS
+           the programme. This helper writes today's slot directly, and every
+           test here is about the Today card and the completion engine rather
+           than about authority. Without the reset, the first render
+           classifies and cuts the member over, and from then on the week is
+           read from dated plans that start at the cutover date, so a midweek
+           run silently measures a smaller week than the one being seeded.
+           The authority-aware week has its own coverage. */
+        persisted.programme = window.__legacyProgramme();
+        persisted.dayPlans = [];
         persisted.schedule = [...WEEK];
         persisted.schedule[d] = type;
         persisted.completedDays = [false, false, false, false, false, false, false];
@@ -61,8 +71,13 @@ async function render(page, { type = 'length', patch = {}, soreness = null, draf
             optional: shown('today-optional-btn') ? txt('today-optional-btn') : null,
             whyBtn: shown('today-why-btn'),
             weekLabel: txt('hq-week-label'),
-            weekDots: document.getElementById('hq-week-dots').children.length,
-            weekDone: document.querySelectorAll('#hq-week-dots .week-dot.done').length,
+            /* The dot row is gone. The strip is always seven cells, so the
+               target is no longer a count of elements: it is read off the
+               label, which is the only place it is now stated, and the
+               finished days are the satisfied cells. Per day rather than
+               anonymous, which is what absorbing the calendar bought. */
+            weekCells: window.__weekStrip().days.length,
+            weekDone: window.__weekStrip().satisfied,
             criticalShown: live(crit),
             nudgesShown: live(nudges),
         };
@@ -382,17 +397,19 @@ describe('week completion is the primary progress signal', () => {
         const n = targetFor('length');
         expect(n).toBeLessThan(7);                 // rest days are excluded
         const r = await render(app.page, { type: 'length' });
-        expect(r.weekDots).toBe(n);
         expect(r.weekLabel).toBe(`0 of ${n} this week`);
+        /* Seven cells always, because a week has seven days. The denominator
+           lives in the label; what the cells carry is which days. */
+        expect(r.weekCells).toBe(7);
     });
 
     test('a rest day is not a failure and is not in the target', async () => {
         const r = await render(app.page, { type: 'rest' });
-        expect(r.weekDots).toBe(targetFor('rest'));
+        expect(r.weekLabel).toBe(`0 of ${targetFor('rest')} this week`);
         expect(r.weekDone).toBe(0);
     });
 
-    test('finished days fill the dots', async () => {
+    test('finished days are the cells that are marked', async () => {
         const n = targetFor('length');
         const r = await render(app.page, { type: 'length', patch: { completedDays: [true, true, false, false, false, false, false] } });
         expect(r.weekLabel).toMatch(new RegExp(`of ${n} this week$`));
@@ -455,8 +472,10 @@ describe('the two bands', () => {
         const order = await app.page.evaluate(() => {
             /* 3C.1 order: context under the header, then critical, Today,
                week, nudges, and the demoted secondary block last. */
-            const ids = ['hq-context', 'hq-attention-band', 'hq-today-card', 'hq-stat-chips',
-                         'hq-nudge-band', 'hq-calendar-card', 'hq-secondary'];
+            /* 3C.3: one weekly surface between Today and the nudges, where
+               the dot row used to be, with the calendar absorbed into it. */
+            const ids = ['hq-context', 'hq-attention-band', 'hq-today-card', 'hq-week-card',
+                         'hq-nudge-band', 'hq-secondary'];
             const nodes = ids.map(i => document.getElementById(i));
             const ok = nodes.every((n, k) => k === 0 ||
                 !!(nodes[k - 1].compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING));
