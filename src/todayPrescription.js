@@ -238,11 +238,32 @@ export function primarySatisfied(input) {
    to the wrong date and possibly the wrong type.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/** Why a stored launch snapshot was not adopted. */
+/**
+ * Why a stored launch snapshot was not adopted. THREE answers, not two.
+ *
+ *   ABSENT      the `prescription` key is not there at all. That can only be
+ *               a draft written before Phase 3C.4 existed, so the honest
+ *               answer is the behaviour that existed then: resolve the
+ *               prescription at completion. Historical absence is not
+ *               new-world unknown identity, and converting one into the other
+ *               would take programme credit away from a session that was in
+ *               flight across the upgrade.
+ *
+ *   UNKNOWN     the key is there and holds null. That is what THIS code
+ *               writes when a session had no identity to capture, so it is a
+ *               deliberate 3C.4-era statement rather than a gap. Strict: the
+ *               performed work is kept and no prescription is claimed.
+ *
+ *   MALFORMED   present and unreadable. Strict, and reported, because unlike
+ *               the other two it is evidence that something wrote badly.
+ *
+ * ABSENT and UNKNOWN were one answer in the first draft of this phase. They
+ * are not the same question: one is "this predates the field" and the other
+ * is "the field says we could not tell", and only the first may fall back.
+ */
 export const SNAPSHOT_REFUSAL = Object.freeze({
-    /** No snapshot at all. A pre-3C.4 draft, or a session with nothing to record. */
     ABSENT:    'absent',
-    /** Present and unreadable. Never demoted to ABSENT; see below. */
+    UNKNOWN:   'unknown',
     MALFORMED: 'malformed',
 });
 
@@ -288,12 +309,15 @@ export function launchSnapshotFrom(prescription, now) {
  *
  * ABSENT and MALFORMED are deliberately different answers.
  *
- *   no `prescription` key at all   a draft written before this field existed
- *   `prescription: null`           ABSENT too, because null is what THIS code
- *                                  writes when a session had no Primary
- *                                  identity to record. Calling our own
- *                                  correct write malformed would make the app
- *                                  raise an integrity failure against itself.
+ *   no `prescription` key at all   ABSENT. A draft written before this field
+ *                                  existed, and the only case that may use
+ *                                  the pre-3C.4 compatibility behaviour.
+ *   `prescription: null`           UNKNOWN. null is what THIS code writes
+ *                                  when a session had no identity to record,
+ *                                  so it is a deliberate statement and not a
+ *                                  gap. Strict, and not reported, because our
+ *                                  own correct write is not an integrity
+ *                                  failure.
  *   `{}`, a partial object, a
  *   wrong-type value, a bad enum,
  *   a bad date key                 MALFORMED. Quarantined, never demoted to
@@ -307,9 +331,11 @@ export function launchSnapshotFrom(prescription, now) {
  * performed work, and records that the prescription identity is unknown.
  */
 export function normaliseLaunchSnapshot(raw, opts) {
-    if (raw === undefined || raw === null) {
-        return { ok: false, reason: SNAPSHOT_REFUSAL.ABSENT };
-    }
+    /* The key is missing, which only a pre-3C.4 draft can be. */
+    if (raw === undefined) return { ok: false, reason: SNAPSHOT_REFUSAL.ABSENT };
+    /* The key is there and says "no identity". Our own write; not an
+       integrity failure, and not a licence to fall back either. */
+    if (raw === null) return { ok: false, reason: SNAPSHOT_REFUSAL.UNKNOWN };
     const bad = { ok: false, reason: SNAPSHOT_REFUSAL.MALFORMED };
     if (!isPlainObject(raw)) return bad;
     if (raw.source !== PRESCRIPTION_SOURCE.DATED_PLAN && raw.source !== PRESCRIPTION_SOURCE.LEGACY) return bad;

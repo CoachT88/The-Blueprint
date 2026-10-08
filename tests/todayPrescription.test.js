@@ -343,12 +343,33 @@ describe('reading a stored snapshot back', () => {
         expect(Object.isFrozen(r.value)).toBe(true);
     });
 
-    test('ABSENT covers both no field and an explicit null', () => {
-        /* null is what THIS code writes when there is no identity to record,
-           so calling it malformed would make the app raise an integrity
-           failure against its own correct write. */
+    test('THREE answers: absent, unknown and malformed are all different', () => {
+        /* These were two in the first draft of this phase, with null folded
+           into ABSENT on the grounds that null is our own write. That was
+           wrong, and in exactly the direction that costs a member something:
+           ABSENT is the only reason allowed to use the pre-3C.4
+           compatibility path, so folding null into it would have let the
+           strict attribution rule be bypassed, while folding ABSENT into
+           null took programme credit away from a session that happened to be
+           in flight across the upgrade.
+
+           no key   historical absence. May fall back.
+           null     a deliberate 3C.4 statement. Strict, and not an integrity
+                    failure, so it is not reported.
+           invalid  evidence of a bad write. Strict, and reported. */
         expect(normaliseLaunchSnapshot(undefined).reason).toBe(SNAPSHOT_REFUSAL.ABSENT);
-        expect(normaliseLaunchSnapshot(null).reason).toBe(SNAPSHOT_REFUSAL.ABSENT);
+        expect(normaliseLaunchSnapshot(null).reason).toBe(SNAPSHOT_REFUSAL.UNKNOWN);
+        expect(normaliseLaunchSnapshot({}).reason).toBe(SNAPSHOT_REFUSAL.MALFORMED);
+        const all = [SNAPSHOT_REFUSAL.ABSENT, SNAPSHOT_REFUSAL.UNKNOWN, SNAPSHOT_REFUSAL.MALFORMED];
+        expect(new Set(all).size).toBe(3);
+    });
+
+    test('neither UNKNOWN nor MALFORMED may be mistaken for ABSENT', () => {
+        /* The guard on the compatibility door. Only ABSENT opens it. */
+        for (const raw of [null, {}, 'x', 7, [], { source: 'legacy' }]) {
+            expect(normaliseLaunchSnapshot(raw).reason, JSON.stringify(raw) ?? String(raw))
+                .not.toBe(SNAPSHOT_REFUSAL.ABSENT);
+        }
     });
 
     const MALFORMED = [
@@ -375,10 +396,10 @@ describe('reading a stored snapshot back', () => {
         expect(r.reason).toBe(SNAPSHOT_REFUSAL.MALFORMED);
     });
 
-    test('malformed and absent are different answers, deliberately', () => {
-        /* Demoting malformed to absent would let a typo regain
-           completion-date attribution, which is the one way the conservative
-           rule could be routed around. */
+    test('malformed and unknown are different answers, deliberately', () => {
+        /* Both are strict, so they agree about attribution, and they differ
+           about whether anybody should be told: a null is our own correct
+           write and a malformed value is evidence something wrote badly. */
         expect(normaliseLaunchSnapshot({}).reason)
             .not.toBe(normaliseLaunchSnapshot(null).reason);
     });

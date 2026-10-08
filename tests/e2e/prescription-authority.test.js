@@ -915,3 +915,313 @@ describe('nothing in the Today or session funnel reads the projection', () => {
                                   dayPicker: true, goalPreset: true });
     });
 });
+
+/**
+ * A DRAFT FROM BEFORE THE SNAPSHOT EXISTED.
+ *
+ * Kept apart from the malformed-snapshot block on purpose, because these are
+ * the two halves of a distinction that collapsed once already and must not
+ * collapse again.
+ *
+ *   no `prescription` key      historical absence. The behaviour that existed
+ *                              before 3C.4 applies, which was to resolve the
+ *                              prescription at completion. The member keeps
+ *                              their programme credit.
+ *   `prescription: null`       a deliberate 3C.4 statement that the identity
+ *                              could not be proven. Strict.
+ *   a malformed snapshot       strict, and reported.
+ *
+ * The first draft of this phase turned absence into the second case, which
+ * silently took credit away from any session in flight across the upgrade.
+ */
+describe('a genuine pre-3C.4 draft keeps the compatibility path', () => {
+    let app, r;
+    beforeAll(async () => {
+        app = await openApp({ clock: THURSDAY, timezoneId: 'UTC' });
+        await signIn(app.page, { id: 'pa', loaded: false });
+        await load(app.page, row());
+        r = await app.page.evaluate(() => {
+            persisted.sessionLog = [];
+            /* EXACTLY the shape an older shell wrote: the six fields it had,
+               and no `prescription` key at all. Hand-built on purpose, because
+               the point is a record this build never produces. */
+            const legacyDraft = {
+                /* A REAL position: the girth circuit has two stations, so an
+                   index of 2 would make resumeSession throw inside the engine
+                   before the identity question was ever reached. */
+                exerciseIndex: 0, setIndex: 1, routineType: 'girth',
+                directionalIndex: 0, xp: 0,
+                sessionStartTime: Date.now() - 6e5, savedAt: Date.now(),
+            };
+            expect_hasNoKey = !('prescription' in legacyDraft);
+            localStorage.setItem('bp_session_draft_' + currentUser.id, JSON.stringify(legacyDraft));
+            /* Nothing in memory, as after a reload. */
+            _launchedPrescription = null;
+            _launchLegacyDraft = false;
+            const errs = [];
+            const realError = console.error;
+            console.error = (...a) => { errs.push(a.map(String).join(' ')); };
+            _planIntegrityReported = '';
+            try {
+                resumeSession();
+                const afterResume = { snapshot: _launchedPrescription, legacy: _launchLegacyDraft };
+                selectedEQ = 8; selectedRPE = 5;
+                document.getElementById('input-bpel').value = '';
+                document.getElementById('input-mseg').value = '';
+                document.getElementById('session-note-input').value = '';
+                finishSession();
+                const e = persisted.sessionLog[persisted.sessionLog.length - 1];
+                const w = currentWeekCompletion();
+                closeSessionSummary();
+                return { hasNoKey: expect_hasNoKey, afterResume,
+                         reports: errs.filter(x => x.includes('integrity')).length,
+                         recorded: { date: e.date, prescriptionDate: e.prescriptionDate,
+                                     scheduledType: e.scheduledType, routineType: e.routineType,
+                                     manualOverride: e.manualOverride },
+                         satisfied: w.satisfied, weekCompleted: w.completed };
+            } finally { console.error = realError; }
+        });
+    }, 120_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('the fixture really has no prescription key', () => {
+        expect(r.hasNoKey).toBe(true);
+    });
+
+    test('resume marks it as a legacy draft rather than adopting a snapshot', () => {
+        expect(r.afterResume.snapshot).toBeNull();
+        expect(r.afterResume.legacy).toBe(true);
+    });
+
+    test('and it is NOT reported, because absence is not a bad write', () => {
+        expect(r.reports).toBe(0);
+    });
+
+    test('the completion resolves the prescription, exactly as it did before 3C.4', () => {
+        /* Thursday in the size week is girth, and the resumed draft is girth,
+           so the programme is followed and recorded as followed. */
+        expect(r.recorded.prescriptionDate).toBe('2026-03-12');
+        expect(r.recorded.scheduledType).toBe('girth');
+        expect(r.recorded.routineType).toBe('girth');
+        expect(r.recorded.manualOverride).toBe(false);
+    });
+
+    test('so the member keeps their programme credit', () => {
+        /* The behaviour the first draft of this phase removed. Thursday is
+           Sunday-index 4. */
+        expect(r.satisfied[4]).toBe(true);
+        expect(r.weekCompleted).toBeGreaterThanOrEqual(1);
+    });
+
+    test('an explicit null draft does NOT take this door', async () => {
+        /* The guard. Same resume path, same session, and the only difference
+           is that the key is present and says null. */
+        const n = await app.page.evaluate(() => {
+            persisted.sessionLog = [];
+            const d = { exerciseIndex: 0, setIndex: 1, routineType: 'girth',
+                        directionalIndex: 0, xp: 0,
+                        sessionStartTime: Date.now() - 6e5, savedAt: Date.now(),
+                        prescription: null };
+            localStorage.setItem('bp_session_draft_' + currentUser.id, JSON.stringify(d));
+            _launchedPrescription = null; _launchLegacyDraft = false;
+            resumeSession();
+            const legacy = _launchLegacyDraft;
+            selectedEQ = 8; selectedRPE = 5;
+            document.getElementById('input-bpel').value = '';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = '';
+            finishSession();
+            const e = persisted.sessionLog[persisted.sessionLog.length - 1];
+            const w = currentWeekCompletion();
+            closeSessionSummary();
+            return { legacy, prescriptionDate: e.prescriptionDate,
+                     scheduledType: e.scheduledType, routineType: e.routineType,
+                     satisfied: w.satisfied };
+        });
+        expect(n.legacy).toBe(false);
+        expect(n.prescriptionDate).toBeNull();
+        expect(n.scheduledType).toBeNull();
+        /* The work is still kept. */
+        expect(n.routineType).toBe('girth');
+        /* And it still satisfies nothing. */
+        expect(n.satisfied[4]).toBe(false);
+    }, 60_000);
+
+    test('a malformed snapshot does not take it either, and IS reported', async () => {
+        const m = await app.page.evaluate(() => {
+            persisted.sessionLog = [];
+            const d = { exerciseIndex: 0, setIndex: 1, routineType: 'girth',
+                        directionalIndex: 0, xp: 0,
+                        sessionStartTime: Date.now() - 6e5, savedAt: Date.now(),
+                        prescription: { source: 'dated-plan', prescriptionDate: '2026-3-12',
+                                        scheduledType: 'girth' } };
+            localStorage.setItem('bp_session_draft_' + currentUser.id, JSON.stringify(d));
+            _launchedPrescription = null; _launchLegacyDraft = false;
+            const errs = [];
+            const realError = console.error;
+            console.error = (...a) => { errs.push(a.map(String).join(' ')); };
+            _planIntegrityReported = '';
+            try {
+                resumeSession();
+                const legacy = _launchLegacyDraft;
+                selectedEQ = 8; selectedRPE = 5;
+                document.getElementById('input-bpel').value = '';
+                document.getElementById('input-mseg').value = '';
+                document.getElementById('session-note-input').value = '';
+                finishSession();
+                const e = persisted.sessionLog[persisted.sessionLog.length - 1];
+                closeSessionSummary();
+                return { legacy, reports: errs.filter(x => x.includes('integrity')).length,
+                         prescriptionDate: e.prescriptionDate, routineType: e.routineType };
+            } finally { console.error = realError; }
+        });
+        expect(m.legacy).toBe(false);
+        expect(m.reports).toBe(1);
+        expect(m.prescriptionDate).toBeNull();
+        expect(m.routineType).toBe('girth');
+        expect(app.errors).toEqual([]);
+    }, 60_000);
+});
+
+/**
+ * THE COMMIT BOUNDARY IS REAL, not a comment above a line.
+ *
+ * It used to sit above sessionLog.push() with the XP award and the lifetime
+ * count already applied, so a throw between the increment and the push left
+ * durable state moved and the guard still unset. The retry then awarded XP
+ * twice for one session. A boundary you can throw inside is not a boundary.
+ *
+ * Every pre-commit seam is forced to throw in turn, and after each one the
+ * five durable facts must be untouched and the finish must still work.
+ */
+describe('a throw at any pre-commit seam leaves nothing behind', () => {
+    let app;
+    beforeAll(async () => {
+        app = await openApp({ clock: THURSDAY, timezoneId: 'UTC' });
+        await signIn(app.page, { id: 'pa', loaded: false });
+        await load(app.page, row());
+    }, 90_000);
+    afterAll(async () => { await app?.close(); });
+
+    /* The DOM reads and the one function call that happen before the commit.
+       Each is made to throw once. */
+    const SEAMS = ['input-bpel', 'input-mseg', 'session-note-input'];
+
+    test.each(SEAMS.map(s => [s]))('a throw reading %s leaves state untouched', async (seam) => {
+        const r = await app.page.evaluate((id) => {
+            persisted.sessionLog = []; persisted.totalXp = 100;
+            persisted.allTimeSessionCount = 5; persisted.measurements = [];
+            persisted.completedDays = [false, false, false, false, false, false, false];
+            const res = window.BP.nextBestAction(buildResolverInput());
+            readyPlan(res).go();
+            selectedEQ = 8; selectedRPE = 5;
+            _sessionStartTime = Date.now() - 6e5;
+            document.getElementById('input-bpel').value = '1.5';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = 'note';
+
+            const before = { log: persisted.sessionLog.length, xp: persisted.totalXp,
+                             count: persisted.allTimeSessionCount,
+                             meas: persisted.measurements.length,
+                             ticks: persisted.completedDays.filter(Boolean).length };
+            const realGet = document.getElementById.bind(document);
+            let fired = false;
+            document.getElementById = (x) => {
+                if (x === id && !fired) { fired = true; throw new Error('seam:' + x); }
+                return realGet(x);
+            };
+            let threw = null;
+            try { finishSession(); } catch (e) { threw = String(e); }
+            document.getElementById = realGet;
+            const after = { log: persisted.sessionLog.length, xp: persisted.totalXp,
+                            count: persisted.allTimeSessionCount,
+                            meas: persisted.measurements.length,
+                            ticks: persisted.completedDays.filter(Boolean).length };
+            /* And the retry must work, which is the other half of the rule. */
+            finishSession();
+            const retried = { log: persisted.sessionLog.length, xp: persisted.totalXp,
+                              count: persisted.allTimeSessionCount,
+                              meas: persisted.measurements.length };
+            closeSessionSummary();
+            return { threw, before, after, retried };
+        }, seam);
+
+        expect(r.threw).toContain('seam:' + seam);
+        /* NOTHING durable moved. */
+        expect(r.after).toEqual(r.before);
+        /* And exactly one completion on the retry. */
+        expect(r.retried.log).toBe(1);
+        expect(r.retried.xp).toBe(r.before.xp + 15);        // intermediate tier
+        expect(r.retried.count).toBe(r.before.count + 1);
+        expect(r.retried.meas).toBe(1);
+    }, 90_000);
+
+    test('a throw resolving the prescription leaves state untouched too', async () => {
+        /* The one non-DOM pre-commit call, reached on the legacy-draft path. */
+        const r = await app.page.evaluate(() => {
+            persisted.sessionLog = []; persisted.totalXp = 100;
+            persisted.allTimeSessionCount = 5; persisted.measurements = [];
+            const res = window.BP.nextBestAction(buildResolverInput());
+            readyPlan(res).go();
+            selectedEQ = 8; selectedRPE = 5;
+            _sessionStartTime = Date.now() - 6e5;
+            document.getElementById('input-bpel').value = '';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = '';
+            /* Force the legacy-draft branch, then break what it calls. */
+            _launchedPrescription = null;
+            _launchLegacyDraft = true;
+            const real = window.BP.launchSnapshotFrom;
+            window.BP.launchSnapshotFrom = () => { throw new Error('seam:resolve'); };
+            const before = { log: persisted.sessionLog.length, xp: persisted.totalXp,
+                             count: persisted.allTimeSessionCount };
+            let threw = null;
+            try { finishSession(); } catch (e) { threw = String(e); }
+            window.BP.launchSnapshotFrom = real;
+            const after = { log: persisted.sessionLog.length, xp: persisted.totalXp,
+                            count: persisted.allTimeSessionCount };
+            finishSession();
+            const retried = { log: persisted.sessionLog.length, xp: persisted.totalXp };
+            closeSessionSummary();
+            return { threw, before, after, retried };
+        });
+        expect(r.threw).toContain('seam:resolve');
+        expect(r.after).toEqual(r.before);
+        expect(r.retried.log).toBe(1);
+        expect(r.retried.xp).toBe(r.before.xp + 15);
+    }, 90_000);
+
+    test('the commit itself is five writes and one guard, in one place', async () => {
+        /* Structural, because the invariant is about ORDER and a behavioural
+           test can only catch the seams somebody thought to force. The guard
+           must be raised before the first durable write, so a re-entrant call
+           cannot land between them. */
+        const body = await app.page.evaluate(() => finishSession.toString()
+            .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/.*$/gm, ' '));
+        const idx = (needle) => body.indexOf(needle);
+        const guard = idx("_finishState='committed'");
+        expect(guard).toBeGreaterThan(0);
+        for (const write of ['persisted.sessionLog=', 'persisted.totalXp=',
+                             'persisted.allTimeSessionCount=', 'persisted.measurements=',
+                             'persisted.completedDays[']) {
+            expect(idx(write), write).toBeGreaterThan(guard);
+        }
+        /* And no durable MUTATION sneaks in above the guard. Mutations only:
+           the derivation half reads persisted.totalXp and persisted.sessionLog
+           to compute the next values, which is the whole point of splitting
+           the function in two. */
+        const head = body.slice(0, guard);
+        const MUTATIONS = [
+            [/persisted\.totalXp\s*(\+?=)/, 'totalXp assignment'],
+            [/persisted\.allTimeSessionCount\s*(\+?=)/, 'allTimeSessionCount assignment'],
+            [/persisted\.sessionLog\s*=/, 'sessionLog assignment'],
+            [/persisted\.sessionLog\.push\(/, 'sessionLog.push'],
+            [/persisted\.measurements\s*=/, 'measurements assignment'],
+            [/persisted\.measurements\.push\(/, 'measurements.push'],
+            [/persisted\.completedDays\[/, 'completedDays write'],
+        ];
+        for (const [re, label] of MUTATIONS) {
+            expect(head, `${label} before the guard`).not.toMatch(re);
+        }
+    });
+});

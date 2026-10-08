@@ -6233,6 +6233,22 @@ let _manualMission=null;
  * which prescription it satisfied.
  */
 let _launchedPrescription=null;
+/**
+ * Is this session resuming a draft written before the snapshot existed?
+ *
+ * The one case that may fall back to the pre-3C.4 behaviour, which was to
+ * resolve the prescription at completion time. A draft with no `prescription`
+ * key at all can only have been written by an older shell, and historical
+ * absence is not the same statement as "we could not tell": recording it as
+ * an explicit unknown would take programme credit away from a session that
+ * happened to be in flight across the upgrade, for no reason the member could
+ * see or avoid.
+ *
+ * It is deliberately NOT set for a null or malformed snapshot. Those are
+ * 3C.4-era statements and stay strict, which is what stops the compatibility
+ * door being a way around the attribution rule.
+ */
+let _launchLegacyDraft=false;
 
 /** What this trip through the funnel will actually run. */
 function effectiveMission(r){
@@ -6264,6 +6280,8 @@ function effectiveMission(r){
  * day whose plan could not be read.
  */
 function captureLaunchPrescription(){
+    /* A fresh launch is never a legacy draft, whatever the last one was. */
+    _launchLegacyDraft=false;
     _launchedPrescription=window.BP&&window.BP.launchSnapshotFrom
         ? window.BP.launchSnapshotFrom(currentTodayPrescription(),new Date())
         : null;
@@ -6668,16 +6686,27 @@ function resumeSession(){
     session.xp=draft.xp;
     _sessionStartTime=draft.sessionStartTime||Date.now();
     /* The stored identity is validated, not trusted. It came out of
-       localStorage, so it is untrusted input however plausible it looks.
-       ABSENT is a pre-3C.4 draft and is silent. MALFORMED is reported and
-       refused: adopting a half-readable snapshot, or demoting it to absent so
-       it regains completion-date attribution, would let a corrupt field
-       decide which prescription this session satisfied. Either way the member
-       finishes their session; only the identity claim is withheld. */
+       localStorage, so it is untrusted input however plausible it looks, and
+       the three answers mean three different things.
+
+       ABSENT      the key is not there, so an older shell wrote this draft.
+                   The pre-3C.4 behaviour applies and finishSession resolves
+                   the prescription at completion, exactly as it did then.
+       UNKNOWN     the key holds null, which is our own deliberate write.
+                   Strict, silent, no fallback.
+       MALFORMED   present and unreadable. Strict, and reported, because it is
+                   the only one of the three that is evidence of a bad write.
+
+       Adopting a half-readable snapshot, or letting UNKNOWN or MALFORMED take
+       the ABSENT door, would let a corrupt field decide which prescription
+       this session satisfied. Either way the member finishes their session;
+       only the identity claim is withheld. */
     const _snap=window.BP&&window.BP.normaliseLaunchSnapshot
-        ? window.BP.normaliseLaunchSnapshot(draft.prescription) : {ok:false,reason:'absent'};
+        ? window.BP.normaliseLaunchSnapshot(draft.prescription)
+        : {ok:false,reason:'absent'};
     _launchedPrescription=_snap.ok?_snap.value:null;
-    if(!_snap.ok&&_snap.reason==='malformed'){
+    _launchLegacyDraft=!_snap.ok&&_snap.reason===window.BP.SNAPSHOT_REFUSAL.ABSENT;
+    if(!_snap.ok&&_snap.reason===window.BP.SNAPSHOT_REFUSAL.MALFORMED){
         _reportPlanIntegrity('launch-snapshot-malformed',
             window.BP&&window.BP.planDateKey?window.BP.planDateKey(new Date()):'');
     }
@@ -6716,6 +6745,18 @@ function finishSession(){
     /* A duplicate call is refused and writes nothing. Deliberately not
        cleared here: a second tap is not a reason to unlock. */
     if(_finishState==='committed') return;
+
+    /* ══ DERIVATION. Nothing here is durable, so every line may throw and a
+          retry is free. Every read of the DOM, the tables, the clock and the
+          prescription happens in this half, and the next half is assignment
+          only.
+
+          That split is the whole point. The boundary used to be a comment
+          above sessionLog.push(), with the XP award and the lifetime count
+          already applied above it, so a throw between the increment and the
+          push left durable state moved and the guard still unset: the retry
+          then awarded XP twice for one session. A boundary you can throw
+          inside is not a boundary. ══ */
     const bpel=parseFloat(document.getElementById('input-bpel').value);
     const mseg=parseFloat(document.getElementById('input-mseg').value);
     const note=document.getElementById('session-note-input').value.trim().slice(0,NOTE_MAX_CHARS);
@@ -6724,36 +6765,26 @@ function finishSession(){
        new Date() four separate times, so a rollover mid-function could make
        its own fields describe different days. */
     const completedAt=new Date();
-    const _snap=_launchedPrescription;
     /* The prescription this session LAUNCHED under, never a fresh resolve.
        Asking "what is scheduled now" at completion time is what credited a
        Thursday session finished at 00:10 to Friday's rest day and then called
        the member's perfect compliance a manual override.
 
-       null when the identity could not be proven, which is an explicit answer
+       The ONE exception is a draft written before the snapshot existed. That
+       is historical absence rather than unknown identity, so it gets the
+       behaviour that existed then, which was exactly this resolve. See
+       _launchLegacyDraft; a null or malformed snapshot does NOT come here. */
+    const _snap=_launchedPrescription||(_launchLegacyDraft&&window.BP&&window.BP.launchSnapshotFrom
+        ? window.BP.launchSnapshotFrom(currentTodayPrescription(),completedAt)
+        : null);
+    /* null when the identity could not be proven, which is an explicit answer
        and not a missing field: the performed work is kept and the claim about
-       which prescription it satisfied is withheld. An absent field means a
-       record written before this existed; the two are not the same and
-       sessionAttribution.js treats them differently on purpose. */
+       which prescription it satisfied is withheld. */
     const _prescriptionDate=_snap?_snap.prescriptionDate:null;
     const _scheduledType=_snap?_snap.scheduledType:null;
+    const _authoritative=onAuthoritativePlans();
 
-    /* ── THE COMMIT BOUNDARY ───────────────────────────────────────────────
-       Everything above is derivation and can be retried freely. From the push
-       below the completion exists: it has its identity, it cannot be appended
-       again, and a later save failure retries the same row rather than
-       creating a second completion. */
-    persisted.totalXp+=earnedXp;
-    persisted.allTimeSessionCount=(persisted.allTimeSessionCount||0)+1;
-    /* Compatibility only, and ONLY for the cohort whose completion model it
-       still is. For an authoritative member this array is not written at all:
-       it carries a weekday with no date and no week identity, so a Sunday
-       session finished after the Monday rollover would tick the NEW week's
-       upcoming Sunday. Their completion comes from the log, attributed by
-       prescription date. Existing values are left exactly as they are. */
-    if(!onAuthoritativePlans()) persisted.completedDays[completedAt.getDay()]=true;
-    _manualMission=null;
-    persisted.sessionLog.push({
+    const _entry={
         /* The real completion timestamp, never rewritten to the prescription
            date. Performed-when and prescribed-for are two separate truths. */
         date:completedAt.toISOString(),
@@ -6772,10 +6803,43 @@ function finishSession(){
         eq:selectedEQ,
         rpe:selectedRPE,
         duration:_sessionStartTime?Math.round((completedAt.getTime()-_sessionStartTime)/60000):null,
-    });
+    };
+    /* Both lists are built WHOLE, so the commit replaces a reference rather
+       than mutating an array in place. trimToByteBudget returns a new array
+       and touches neither input. */
+    const _nextLog=trimToByteBudget([...(persisted.sessionLog||[]),_entry],SESSION_LOG_BUDGET_BYTES);
+    let _nextMeasurements=null;
+    if(!isNaN(bpel)||!isNaN(mseg)){
+        const e={date:completedAt.toISOString()};
+        if(!isNaN(bpel))e.bpel=bpel;
+        if(!isNaN(mseg))e.mseg=mseg;
+        _nextMeasurements=trimToByteBudget([...(persisted.measurements||[]),e],MEASUREMENTS_BUDGET_BYTES);
+    }
+    const _nextXp=(persisted.totalXp||0)+earnedXp;
+    const _nextCount=(persisted.allTimeSessionCount||0)+1;
+
+    /* ══ THE COMMIT. Assignment only, no calls, nothing that can throw, and
+          the guard goes up first so a re-entrant call cannot slip between the
+          writes. After this line the completion exists exactly once: a
+          duplicate finish is a no-op and a save failure retries the same
+          state rather than creating a second completion. ══ */
     _finishState='committed';
+    persisted.sessionLog=_nextLog;
+    persisted.totalXp=_nextXp;
+    persisted.allTimeSessionCount=_nextCount;
+    if(_nextMeasurements) persisted.measurements=_nextMeasurements;
+    /* Compatibility only, and ONLY for the cohort whose completion model it
+       still is. For an authoritative member this array is not written at all:
+       it carries a weekday with no date and no week identity, so a Sunday
+       session finished after the Monday rollover would tick the NEW week's
+       upcoming Sunday. Their completion comes from the log, attributed by
+       prescription date. Existing values are left exactly as they are. */
+    if(!_authoritative) persisted.completedDays[completedAt.getDay()]=true;
+    _manualMission=null;
     _launchedPrescription=null;
-    persisted.sessionLog=trimToByteBudget(persisted.sessionLog,SESSION_LOG_BUDGET_BYTES);
+    _launchLegacyDraft=false;
+    /* ══ POST COMMIT. Derived state and side effects. A throw here cannot
+          duplicate a completion, because the guard is already up. ══ */
 
     /* The programme starts on the first completed mechanical session, and
        on nothing else: not sign-up, not choosing a goal, not opening
@@ -6817,13 +6881,15 @@ function finishSession(){
             allTimeSessionCount:persisted.allTimeSessionCount,
         });
     }
-    if(!isNaN(bpel)||!isNaN(mseg)){const e={date:completedAt.toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
+    /* The measurement write moved up into the commit, because it is durable
+       completion state too: a throw between it and the log push used to leave
+       a measurement with no session behind it. */
     updateRecords(earnedXp);
     // The ledger's current-week row is now out of date by one session.
     syncProgression('session-completed');
     track('session_completed',{
         mission:session.routineType, xp:earnedXp,
-        duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0,
+        duration:_sessionStartTime?Math.round((completedAt.getTime()-_sessionStartTime)/60000):0,
         eq:selectedEQ||0, rpe:selectedRPE||0,
         sessionNumber:persisted.allTimeSessionCount||0,
     });
