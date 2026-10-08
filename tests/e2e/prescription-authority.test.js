@@ -857,3 +857,61 @@ describe('the Weekly Report reads the canonical week', () => {
         expect(app.errors).toEqual([]);
     }, 60_000);
 });
+
+/**
+ * THE NO-FALLBACK INVARIANT, as a test rather than a grep I ran once.
+ *
+ * Once onAuthoritativePlans() is true, persisted.schedule may not manufacture
+ * today's Primary prescription. It stays present, it stays a projection, and
+ * it stays required by consumers outside this path: notifyRules server side,
+ * the progression ledger's live-week target, the legacy cohort's own
+ * programme, the goal preset writer and the day picker.
+ *
+ * Structural, because a behavioural test can only cover the divergences
+ * somebody thought of. If a future change reintroduces a read inside the
+ * funnel, this fails whether or not a fixture happens to expose it.
+ */
+describe('nothing in the Today or session funnel reads the projection', () => {
+    let app;
+    beforeAll(async () => {
+        app = await openApp({ clock: THURSDAY, timezoneId: 'UTC' });
+        await signIn(app.page, { id: 'pa', loaded: false });
+    }, 90_000);
+    afterAll(async () => { await app?.close(); });
+
+    const FUNNEL = ['currentTodayPrescription', 'currentPrimarySatisfied', 'scheduledPrimaryType',
+                    'isBlackoutDay', 'buildResolverInput', 'captureLaunchPrescription',
+                    'startMission', 'finishSession', 'renderToday', 'renderReady', 'readyPlan',
+                    'effectiveMission', 'resumeSession', 'getCurEx'];
+
+    test.each(FUNNEL.map(n => [n]))('%s does not read persisted.schedule', async (name) => {
+        const body = await app.page.evaluate((n) => {
+            // eslint-disable-next-line no-eval
+            return eval(n).toString().replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/.*$/gm, ' ');
+        }, name);
+        const reads = body.split('\n').filter(l => l.includes('persisted.schedule'));
+        /* The ONE permitted mention: handing the column to the single
+           interpreter as its LEGACY input. The adapter discards it when the
+           member is authoritative, which is the boundary this phase built,
+           and the mutation gate proves it discards it. Anything else is the
+           projection deciding something. */
+        for (const line of reads) {
+            expect(line.trim(), `${name}: ${line.trim()}`).toMatch(/^legacySchedule:persisted\.schedule,$/);
+        }
+    });
+
+    test('the compatibility consumers OUTSIDE the funnel still read it', async () => {
+        /* The other half of the invariant. Removing the column is not the
+           goal and would break the notification contract, the ledger's live
+           target and the legacy cohort's programme. */
+        const present = await app.page.evaluate(() => ({
+            ledger: syncProgression.toString().includes('schedule:persisted.schedule'),
+            savePayload: _buildSavePayload.toString().includes('persisted.schedule'),
+            legacyWeek: renderWeekStrip.toString().includes('legacySchedule:persisted.schedule'),
+            dayPicker: assignDay.toString().includes('persisted.schedule'),
+            goalPreset: maybeApplyGoalSchedule.toString().includes('persisted.schedule'),
+        }));
+        expect(present).toEqual({ ledger: true, savePayload: true, legacyWeek: true,
+                                  dayPicker: true, goalPreset: true });
+    });
+});

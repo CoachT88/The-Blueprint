@@ -325,14 +325,27 @@ describe('the prescription identity is frozen at launch', () => {
     }, 60_000);
 
     test('a genuine substitution is still recorded as one', async () => {
-        /* The freeze must not flatten real overrides into false. The capture
-           happens in startMission BEFORE routineType is assigned, which is
-           what keeps the performed type from becoming the scheduled truth. */
+        /* THROUGH THE REAL MANUAL DOOR, which matters more than it looks.
+           An earlier version of this test called startMission('length') and
+           then overwrote session.routineType, which is not how production
+           substitutes: the Mission Select handler sets _manualMission and
+           then calls startMission with the CHOSEN mission, so the argument
+           is 'girth' and the prescription is still 'length'. A mutation that
+           built the snapshot from startMission's argument survived the
+           approximation and dies against this.
+
+           The real handler is used, not a reimplementation of it. */
         const r = await app.page.evaluate(() => {
             persisted.sessionLog = [];
             persisted.schedule = Array(7).fill('length');
-            startMission('length', 'test');          // the programme's day
-            session.routineType = 'girth';           // what the member did instead
+            try { localStorage.setItem(getTodaySorenessKey(), 'none'); } catch (e) {}
+            renderToday();
+            goToStep(3);
+            /* Tap Girth on a Length day. readinessAnswered() is true, so this
+               goes straight into startMission('girth', 'manual'). */
+            document.getElementById('mission-girth-btn').click();
+            const launchedAs = session.routineType;
+            const snapshot = _launchedPrescription ? { ..._launchedPrescription } : null;
             selectedEQ = 7; selectedRPE = 5;
             _sessionStartTime = Date.now() - 6e5;
             document.getElementById('input-bpel').value = '';
@@ -341,9 +354,16 @@ describe('the prescription identity is frozen at launch', () => {
             finishSession();
             const e = persisted.sessionLog[persisted.sessionLog.length - 1];
             closeSessionSummary();
-            return { scheduledType: e.scheduledType, manualOverride: e.manualOverride };
+            try { localStorage.removeItem(getTodaySorenessKey()); } catch (e2) {}
+            return { launchedAs, snapshot, scheduledType: e.scheduledType,
+                     routineType: e.routineType, manualOverride: e.manualOverride };
         });
+        /* startMission really was called with the member's choice. */
+        expect(r.launchedAs).toBe('girth');
+        /* And the snapshot is the PROGRAMME's day, not the argument. */
+        expect(r.snapshot.scheduledType).toBe('length');
         expect(r.scheduledType).toBe('length');
+        expect(r.routineType).toBe('girth');
         expect(r.manualOverride).toBe(true);
     }, 60_000);
 });

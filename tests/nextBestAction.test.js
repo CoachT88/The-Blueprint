@@ -87,6 +87,59 @@ const input = (over) => {
     };
 };
 
+/**
+ * COMPLETE belongs to a Primary prescription and to nothing else.
+ *
+ * The adapter already refuses to report primarySatisfied for a rest or
+ * support-only day, so the resolver's own guard is defence in depth. These
+ * assert it anyway, by handing the resolver a satisfied flag it should not
+ * trust: without the guard here, a single adapter bug would put "Today Is
+ * Done" on a rest day, and the two layers would have to be wrong together
+ * instead of either one catching it.
+ *
+ * This is the only block that hands nextBestAction a prescription directly.
+ * It has to: the point is a combination the adapter cannot produce.
+ */
+describe('COMPLETE requires a Primary, whatever the flag says', () => {
+    const raw = (prescription, over) => nextBestAction({
+        dataLoaded: true, now: MON, goals: GOALS, goalKey: 'all', dayTypes: DAY_TYPES,
+        sessionDraft: null, soreness: '', pelvicProfile: 'standard', deload: false,
+        recoveryPlan: NIGHT_RECOVERY, contractionIndices: CONTRACTION,
+        todayPrescription: prescription, primarySatisfied: true, ...over,
+    });
+    const base = { ok: true, source: 'legacy', date: '2025-01-06', planMode: null, dose: null };
+
+    test('a satisfied flag on a REST day is still REST', () => {
+        const r = raw({ ...base, dayKind: 'rest', primaryType: null });
+        expect(r.state).toBe('REST');
+        expect(r.state).not.toBe('COMPLETE');
+    });
+
+    test('a satisfied flag on a SUPPORT ONLY day is still SUPPORT_ONLY', () => {
+        const r = raw({ ...base, dayKind: 'support-only', primaryType: null });
+        expect(r.state).toBe('SUPPORT_ONLY');
+        expect(r.state).not.toBe('COMPLETE');
+    });
+
+    test('a satisfied flag on an unreadable prescription is still PREPARE', () => {
+        const r = raw({ ok: false, source: 'dated-plan', date: '2025-01-06',
+                        reason: 'plan_missing' });
+        expect(r.state).toBe('PREPARE');
+        expect(r.state).not.toBe('COMPLETE');
+    });
+
+    test('and a satisfied Primary really is COMPLETE', () => {
+        const r = raw({ ...base, dayKind: 'primary', primaryType: 'girth' });
+        expect(r.state).toBe('COMPLETE');
+    });
+
+    test('an unsatisfied Primary is not', () => {
+        const r = raw({ ...base, dayKind: 'primary', primaryType: 'girth' },
+                      { primarySatisfied: false });
+        expect(r.state).toBe('TRAIN');
+    });
+});
+
 // ---------------------------------------------------------------------------
 // The helpers the ladder is built from
 // ---------------------------------------------------------------------------
