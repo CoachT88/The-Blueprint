@@ -947,3 +947,84 @@ describe('the earlier sync changes no behaviour but the ordering', () => {
         expect(app.errors).toEqual([]);
     });
 });
+
+/**
+ * The denominator on a KNOWN midweek cutover, with exact numbers.
+ *
+ * The first version of this coverage asserted `target <= projectionTarget`,
+ * which passes when the two are equal, so a mutation that ignored authority
+ * entirely and handed the projection straight back survived it. Weak
+ * assertion, not a weak subject.
+ *
+ * The clock is pinned to a Thursday so the arithmetic is fixed rather than
+ * depending on the day the suite runs:
+ *
+ *   size preset, Sunday-indexed: [length, girth, rest, length, girth, rest, rest]
+ *   projection would count       Sun, Mon, Wed, Thu              = 4
+ *   plans exist from Thursday    Thu girth, Fri rest, Sat rest, Sun length
+ *   attributable non-rest        Thu, Sun                        = 2
+ */
+describe('a Thursday cutover counts exactly two sessions, not four', () => {
+    const THURSDAY = new Date(Date.UTC(2026, 2, 12, 12));   // 2026-03-12 is a Thursday
+    const SIZE = ['length', 'girth', 'rest', 'length', 'girth', 'rest', 'rest'];
+    let app, obs;
+    beforeAll(async () => {
+        app = await openApp({ clock: THURSDAY, timezoneId: 'UTC' });
+        await signIn(app.page, { id: 'thu', loaded: false });
+        obs = await app.page.evaluate(async (schedule) => {
+            window.__row = {
+                id: 'thu', total_xp: 100, difficulty: 'intermediate', schedule,
+                primary_goal: 'size', programme: null, day_plans: [],
+                completed_days: [false, false, false, false, false, false, false],
+                session_log: [], all_time_session_count: 9, xp_migrated: true,
+                week_key: '', updated_at: new Date().toISOString(),
+            };
+            await loadPersisted();
+            renderDashboard();
+            const w = currentWeekCompletion();
+            const slots = window.BP.weekStripSlots({
+                now: new Date(), authoritative: true,
+                dayPlans: persisted.dayPlans, legacySchedule: persisted.schedule,
+            });
+            return {
+                weekday: new Date().getDay(),
+                key: persisted.programme && persisted.programme.key,
+                target: w.target,
+                dots: document.getElementById('hq-week-dots').children.length,
+                label: document.getElementById('hq-week-label').textContent,
+                slots: slots.slots,
+                planDates: persisted.dayPlans.map(p => p.date),
+            };
+        }, SIZE);
+    }, 90_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('the clock really is pinned to the Thursday', () => {
+        expect(obs.weekday).toBe(4);
+        expect(obs.key).toBe('size');
+        expect(obs.planDates[0]).toBe('2026-03-12');
+    });
+
+    test('Monday, Tuesday and Wednesday have no attributable prescription', () => {
+        /* Sunday-indexed: 1 Mon, 2 Tue, 3 Wed. */
+        expect(obs.slots[1]).toBeUndefined();
+        expect(obs.slots[2]).toBeUndefined();
+        expect(obs.slots[3]).toBeUndefined();
+        expect(obs.slots[4]).toBe('girth');      // Thu
+        expect(obs.slots[0]).toBe('length');     // Sun
+    });
+
+    test('the target is EXACTLY two, where the projection would say four', () => {
+        /* The assertion that kills "ignore authority, use the projection". */
+        const projectionTarget = SIZE.filter(t => t !== 'rest').length;
+        expect(projectionTarget).toBe(4);
+        expect(obs.target).toBe(2);
+        expect(obs.target).toBeLessThan(projectionTarget);
+    });
+
+    test('the dot row and label carry the same two', () => {
+        expect(obs.dots).toBe(2);
+        expect(obs.label).toBe('0 of 2 this week');
+        expect(app.errors).toEqual([]);
+    });
+});
