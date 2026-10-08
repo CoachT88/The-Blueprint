@@ -260,6 +260,56 @@ export const legacyProgramme = () => ({
     },
 });
 
+/**
+ * A reader for the WeekStrip, injected so suites can ask what rendered.
+ *
+ * A READER, not a fixture. It reports what the production renderer actually
+ * put in the DOM and computes nothing about the week: no state is derived
+ * here, no prescription is looked up, no completion is decided. Every field
+ * is a value read straight off a cell. Seeding state is fine and seeding the
+ * answer is not, and this seeds neither.
+ *
+ * It exists because the alternative is nine files each re-deriving "which
+ * cell is Wednesday" from a Monday-first list, which is exactly the kind of
+ * index arithmetic that already produced one wrong assertion in this phase.
+ * `bySunday` is keyed by Date#getDay(), because every other week structure in
+ * the app is, so a test can say "Wednesday" without counting cells.
+ */
+function installWeekStripReader() {
+    window.__weekStrip = () => {
+        const strip = document.getElementById('hq-week-strip');
+        const label = document.getElementById('hq-week-label');
+        const card = document.getElementById('hq-week-card');
+        const cells = strip ? [...strip.children] : [];
+        const read = (c) => ({
+            weekday: Number(c.dataset.weekday),
+            name: (c.querySelector('span') || {}).textContent || '',
+            state: c.dataset.state,
+            date: c.dataset.date,
+            today: c.dataset.today === '1',
+            past: c.dataset.past === '1',
+            substituted: c.dataset.substituted === '1',
+            title: c.title || '',
+            aria: c.getAttribute('aria-label'),
+            role: c.getAttribute('role'),
+            tabbable: c.tabIndex === 0,
+            cls: c.className,
+            icon: ((c.querySelector('i') || {}).className || ''),
+        });
+        const days = cells.map(read);
+        return {
+            exists: !!strip,
+            authority: strip ? strip.dataset.authority : null,
+            label: label ? label.textContent : null,
+            complete: !!(card && card.classList.contains('week-complete')),
+            order: days.map(d => d.name),
+            days,
+            satisfied: days.filter(d => d.state === 'satisfied').length,
+            bySunday: Object.fromEntries(days.map(d => [d.weekday, d.state])),
+        };
+    };
+}
+
 /** 1x1 transparent PNG, so photo suites never need a network fetch. */
 export const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -304,6 +354,7 @@ export async function openApp(opts = {}) {
        in nine files. */
     await page.addInitScript((p) => { window.__legacyProgramme = () => JSON.parse(JSON.stringify(p)); },
         legacyProgramme());
+    await page.addInitScript(installWeekStripReader);
 
     // Generous timeout: e2e files run serially but each describe block opens its
     // own browser, so a loaded machine can push a cold navigation past the 30s

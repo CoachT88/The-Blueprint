@@ -502,8 +502,26 @@ describe('after cutover the week cannot be edited directly', () => {
         expect(r.typesHidden).toBe(true);
         expect(r.noteShown).toBe(true);
         expect(r.note).toContain('programme');
-        /* Completion is still theirs to record. */
-        expect(r.toggleAvailable).toBe(true);
+        /* Phase 3C.3 withdraws the completion tick with the day types, which
+           reverses the cutover's call that "completion is still theirs to
+           record". It is, but a generic tick against a dated prescription
+           claims that specific session was satisfied with no record of it,
+           and the strip reads satisfaction from the session log. Recording
+           work done elsewhere needs a surface that captures WHAT was done. */
+        expect(r.toggleAvailable).toBe(false);
+    });
+
+    test('and toggleDayCompletion refuses even when called directly', async () => {
+        /* The button is hidden, so this is only reachable from a stale shell
+           or a console. It must not be able to assert a satisfied session
+           either way. */
+        const r = await app.page.evaluate(() => {
+            const before = JSON.stringify(persisted.completedDays);
+            session.selectedDayIdx = 2;
+            toggleDayCompletion();
+            return { before, after: JSON.stringify(persisted.completedDays) };
+        });
+        expect(r.after).toBe(r.before);
     });
 
     test('assignDay refuses even when called directly', async () => {
@@ -686,7 +704,12 @@ describe('the week denominator follows authority, not the projection', () => {
         return {
             target: w.target, completed: w.completed, remaining: w.remaining,
             allDone: w.allDone, label: w.label, satisfied: w.satisfied,
-            dots: document.getElementById('hq-week-dots').children.length,
+            /* The dot row is absorbed into the strip. Seven cells always, so
+               what the surface now says about the denominator is the label,
+               and what it says per day is the state of each cell. */
+            cells: window.__weekStrip().days.length,
+            pending: window.__weekStrip().days.filter(d => d.state === 'pending').length,
+            unknown: window.__weekStrip().days.filter(d => d.state === 'unknown').length,
             weekLabel: document.getElementById('hq-week-label').textContent,
             key: persisted.programme && persisted.programme.key,
             plans: persisted.dayPlans.length,
@@ -710,7 +733,11 @@ describe('the week denominator follows authority, not the projection', () => {
         expect(r.schedule).toEqual(hand);
         /* Four non-rest days in that hand-built week. */
         expect(r.target).toBe(4);
-        expect(r.dots).toBe(4);
+        expect(r.cells).toBe(7);
+        /* Their column IS their programme, so every day is attributable and
+           nothing reads as unknown. The four non-rest days are still to do. */
+        expect(r.unknown).toBe(0);
+        expect(r.pending).toBe(4);
         expect(r.weekLabel).toBe('0 of 4 this week');
     }, 30_000);
 
@@ -723,7 +750,7 @@ describe('the week denominator follows authority, not the projection', () => {
         const projectionTarget = SIZE.filter(t => t !== 'rest').length;
         expect(projectionTarget).toBe(4);
         expect(r.target).toBeLessThanOrEqual(projectionTarget);
-        expect(r.dots).toBe(r.target);
+        expect(r.pending).toBe(r.target);
         expect(r.weekLabel).toBe(`${r.completed} of ${r.target} this week`);
     }, 30_000);
 
@@ -817,7 +844,6 @@ describe('every week surface in one render sees the same authority state', () =>
             renderDashboard();
             /* Read the surfaces as the DOM left them, plus the canonical
                answer, all after the one render. */
-            const dots = document.getElementById('hq-week-dots').children.length;
             const label = document.getElementById('hq-week-label').textContent;
             const w = currentWeekCompletion();
             const r = window.BP.nextBestAction(buildResolverInput());
@@ -825,16 +851,15 @@ describe('every week surface in one render sees the same authority state', () =>
                 keyBefore,
                 keyAfter: persisted.programme && persisted.programme.key,
                 plans: persisted.dayPlans.length,
-                dots, label,
+                label,
                 target: w.target, completed: w.completed, allDone: w.allDone,
                 satisfiedLen: w.satisfied.length,
                 weekComplete: r.weekComplete,
-                /* The calendar renders one cell per schedule slot and marks
-                   the satisfied ones, so its tick count is the other
-                   surface that used to read a different state. */
-                cells: document.getElementById('dashboard-grid').children.length,
-                ticks: [...document.getElementById('dashboard-grid').children]
-                    .filter(c => c.classList.contains('completed')).length,
+                /* ONE surface now, which is why there is one read. The dot
+                   row and the calendar below it are the two things that
+                   could read different states on this render; the strip is
+                   what they became. */
+                strip: window.__weekStrip(),
             };
         });
     }, 90_000);
@@ -846,11 +871,13 @@ describe('every week surface in one render sees the same authority state', () =>
         expect(obs.plans).toBeGreaterThanOrEqual(8);
     });
 
-    test('the dot row matches the canonical target, not the projection', () => {
+    test('the strip matches the canonical target, not the projection', () => {
         /* THE REGRESSION THIS PINS. Before the reorder these differed on the
            cutover render: four dots from the recurring projection beside a
-           target counted from the dated plans. */
-        expect(obs.dots).toBe(obs.target);
+           target counted from the dated plans. Nothing completed on this
+           fixture, so every attributable non-rest day reads as pending and
+           their count is the denominator. */
+        expect(obs.strip.days.filter(d => d.state === 'pending').length).toBe(obs.target);
         expect(obs.label).toBe(`${obs.completed} of ${obs.target} this week`);
     });
 
@@ -858,10 +885,10 @@ describe('every week surface in one render sees the same authority state', () =>
         expect(obs.weekComplete).toBe(obs.allDone);
     });
 
-    test('the calendar ticks come from the same satisfied array', () => {
-        expect(obs.cells).toBe(7);
+    test('the cells come from the same satisfied array', () => {
+        expect(obs.strip.days.length).toBe(7);
         expect(obs.satisfiedLen).toBe(7);
-        expect(obs.ticks).toBe(obs.completed);
+        expect(obs.strip.satisfied).toBe(obs.completed);
     });
 
     test('nothing threw across the cutover render', () => {
@@ -990,7 +1017,7 @@ describe('a Thursday cutover counts exactly two sessions, not four', () => {
                 weekday: new Date().getDay(),
                 key: persisted.programme && persisted.programme.key,
                 target: w.target,
-                dots: document.getElementById('hq-week-dots').children.length,
+                strip: window.__weekStrip(),
                 label: document.getElementById('hq-week-label').textContent,
                 slots: slots.slots,
                 planDates: persisted.dayPlans.map(p => p.date),
@@ -1022,8 +1049,18 @@ describe('a Thursday cutover counts exactly two sessions, not four', () => {
         expect(obs.target).toBeLessThan(projectionTarget);
     });
 
-    test('the dot row and label carry the same two', () => {
-        expect(obs.dots).toBe(2);
+    test('the strip and the label carry the same two', () => {
+        /* Thursday and Sunday are the attributable training days, so exactly
+           two cells read as pending. The three days before cutover read as
+           unknown, which is the strip refusing to claim a prescription for a
+           date that has no plan, and Friday and Saturday are rest. */
+        expect(obs.strip.days.filter(d => d.state === 'pending').length).toBe(2);
+        expect(obs.strip.days.filter(d => d.state === 'unknown').length).toBe(3);
+        expect(obs.strip.days.filter(d => d.state === 'rest').length).toBe(2);
+        expect(obs.strip.bySunday).toMatchObject({
+            1: 'unknown', 2: 'unknown', 3: 'unknown',
+            4: 'pending', 5: 'rest', 6: 'rest', 0: 'pending',
+        });
         expect(obs.label).toBe('0 of 2 this week');
         expect(app.errors).toEqual([]);
     });
