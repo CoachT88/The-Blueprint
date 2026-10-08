@@ -5947,6 +5947,11 @@ function renderToday(){
         MODIFIED:()=>`${dayTypeLabel(r.mission)} training, reduced today.`,
         RECOVER:()=>'Pelvic floor and mobility work, no mechanical load.',
         REST:()=>'',
+        /* Says what is absent and nothing more. The supporting work on the
+           day is deliberately not described, because that surface does not
+           exist yet: claiming the day is empty would be the lie, and calling
+           it rest would be a worse one. */
+        SUPPORT_ONLY:()=>"There's no primary training session scheduled for today.",
         RESUME:()=>r.mission?`${dayTypeLabel(r.mission)} session`:'Session',
         /* Recovery closes the day and says nothing about the week. The
            strip below is where mechanical progress is reported, and it is
