@@ -134,6 +134,7 @@ describe('the personalization hierarchy, all of it', () => {
             persisted.sessionLog = []; persisted.progressionLedger = [];
             persisted.programmeStartDate = null; persisted.allTimeSessionCount = 0;
             persisted.firstSessionDate = '';
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = 'length';
             _sessionStartTime = Date.now() - 30 * 60000;
             selectedEQ = 8; selectedRPE = 5;
@@ -321,6 +322,7 @@ describe('how often the name is actually used', () => {
     /** Finish a session for real and read the summary before closing it. */
     const summaryCensus = (page, routineType) => page.evaluate(({ NAME, routineType }) => {
         const count = (s) => (String(s || '').match(new RegExp(NAME, 'g')) || []).length;
+        captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
         session.routineType = routineType;
         _sessionStartTime = Date.now() - 30 * 60000;
         selectedEQ = 8; selectedRPE = 5;

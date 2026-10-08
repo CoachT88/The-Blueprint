@@ -4,6 +4,7 @@ import {
     STATES, TRAINING_MISSIONS, PREPARE_REASONS, SCHEDULE_UNRESOLVED,
 } from '../src/nextBestAction.js';
 import { estimateSessionMinutes } from '../src/sessionDuration.js';
+import { todayPrescription, primarySatisfied } from '../src/todayPrescription.js';
 
 /**
  * The precedence IS the product decision, so most of this file is about which
@@ -38,21 +39,105 @@ const TUE = new Date(2025, 0, 7);        // schedule[2] rest
 const WED = new Date(2025, 0, 8);        // schedule[3] stamina
 const THU = new Date(2025, 0, 9);        // schedule[4] length
 
-const input = (over) => ({
-    dataLoaded: true,
-    now: MON,
-    goals: GOALS,
-    goalKey: 'all',
-    dayTypes: DAY_TYPES,
-    schedule: SCHEDULE,
-    completedDays: NO_DAYS,
-    sessionDraft: null,
-    soreness: '',
-    pelvicProfile: 'standard',
-    deload: false,
-    recoveryPlan: NIGHT_RECOVERY,
-    contractionIndices: CONTRACTION,
-    ...over,
+/**
+ * The resolver's input, built the way the page builds it.
+ *
+ * Phase 3C.4 replaced the seven-slot `schedule` input with one truthful Today
+ * prescription from src/todayPrescription.js. These fixtures still SAY
+ * `schedule` and `completedDays`, because that is what a legacy member's
+ * state actually is, and the builder runs them through the real adapter
+ * rather than hand-assembling the record. Seeding state is fine; seeding the
+ * answer is not, and a hand-written prescription record here would let the
+ * adapter and the resolver drift apart while both suites stayed green.
+ *
+ * Every case in this file is therefore a LEGACY member unless it passes
+ * `todayPrescription` explicitly. The authoritative cohort is covered in
+ * tests/todayPrescription.test.js and in the browser suite, where the real
+ * dated plans exist.
+ */
+const input = (over) => {
+    const o = {
+        dataLoaded: true,
+        now: MON,
+        goals: GOALS,
+        goalKey: 'all',
+        dayTypes: DAY_TYPES,
+        schedule: SCHEDULE,
+        completedDays: NO_DAYS,
+        sessionDraft: null,
+        soreness: '',
+        pelvicProfile: 'standard',
+        deload: false,
+        recoveryPlan: NIGHT_RECOVERY,
+        contractionIndices: CONTRACTION,
+        ...over,
+    };
+    const { schedule, completedDays, ...rest } = o;
+    if ('todayPrescription' in o) return rest;
+    const prescription = todayPrescription({
+        now: rest.now,
+        authoritative: false,
+        legacySchedule: schedule,
+        primaryTypes: rest.trainingMissions,
+    });
+    return {
+        ...rest,
+        todayPrescription: prescription,
+        primarySatisfied: primarySatisfied({ prescription, now: rest.now, completedDays }),
+    };
+};
+
+/**
+ * COMPLETE belongs to a Primary prescription and to nothing else.
+ *
+ * The adapter already refuses to report primarySatisfied for a rest or
+ * support-only day, so the resolver's own guard is defence in depth. These
+ * assert it anyway, by handing the resolver a satisfied flag it should not
+ * trust: without the guard here, a single adapter bug would put "Today Is
+ * Done" on a rest day, and the two layers would have to be wrong together
+ * instead of either one catching it.
+ *
+ * This is the only block that hands nextBestAction a prescription directly.
+ * It has to: the point is a combination the adapter cannot produce.
+ */
+describe('COMPLETE requires a Primary, whatever the flag says', () => {
+    const raw = (prescription, over) => nextBestAction({
+        dataLoaded: true, now: MON, goals: GOALS, goalKey: 'all', dayTypes: DAY_TYPES,
+        sessionDraft: null, soreness: '', pelvicProfile: 'standard', deload: false,
+        recoveryPlan: NIGHT_RECOVERY, contractionIndices: CONTRACTION,
+        todayPrescription: prescription, primarySatisfied: true, ...over,
+    });
+    const base = { ok: true, source: 'legacy', date: '2025-01-06', planMode: null, dose: null };
+
+    test('a satisfied flag on a REST day is still REST', () => {
+        const r = raw({ ...base, dayKind: 'rest', primaryType: null });
+        expect(r.state).toBe('REST');
+        expect(r.state).not.toBe('COMPLETE');
+    });
+
+    test('a satisfied flag on a SUPPORT ONLY day is still SUPPORT_ONLY', () => {
+        const r = raw({ ...base, dayKind: 'support-only', primaryType: null });
+        expect(r.state).toBe('SUPPORT_ONLY');
+        expect(r.state).not.toBe('COMPLETE');
+    });
+
+    test('a satisfied flag on an unreadable prescription is still PREPARE', () => {
+        const r = raw({ ok: false, source: 'dated-plan', date: '2025-01-06',
+                        reason: 'plan_missing' });
+        expect(r.state).toBe('PREPARE');
+        expect(r.state).not.toBe('COMPLETE');
+    });
+
+    test('and a satisfied Primary really is COMPLETE', () => {
+        const r = raw({ ...base, dayKind: 'primary', primaryType: 'girth' });
+        expect(r.state).toBe('COMPLETE');
+    });
+
+    test('an unsatisfied Primary is not', () => {
+        const r = raw({ ...base, dayKind: 'primary', primaryType: 'girth' },
+                      { primarySatisfied: false });
+        expect(r.state).toBe('TRAIN');
+    });
 });
 
 // ---------------------------------------------------------------------------
@@ -392,11 +477,19 @@ describe('nextBestAction: an unfinished session under high soreness', () => {
         expect(r.prepare).toBe('loading');
     });
 
-    test('a withheld draft plus a broken schedule still routes to Recovery', () => {
-        // Rule 5 is above rule 7, so soreness answers before the schedule does.
+    test('INVERTED in 3C.4: a withheld draft plus a broken schedule says so', () => {
+        /* This asserted RECOVER, because high soreness used to sit above the
+           unreadable-prescription rung. It no longer does: readiness withholds
+           work, and it can only withhold work we can prove was prescribed.
+           Answering an unreadable prescription with a Recovery day hid the
+           integrity condition behind a safety state. The withheld draft is
+           still reported, so nothing about the member's unfinished session is
+           lost by saying the honest thing about today. */
         const r = nextBestAction(input({ sessionDraft: draft('girth'), soreness: 'high', schedule: null }));
-        expect(r.state).toBe('RECOVER');
-        expect(r.mission).toBe('recovery');
+        expect(r.state).toBe('PREPARE');
+        expect(r.prepare).toBe(SCHEDULE_UNRESOLVED);
+        expect(r.mission).toBeNull();
+        expect(r.withheldSession).not.toBeNull();
     });
 });
 
@@ -473,9 +566,13 @@ describe('nextBestAction: unresolved schedule', () => {
         expect(r.modifiers.moderateSoreness).toBe(false);
     });
 
-    test('high soreness outranks an unreadable schedule', () => {
+    test('INVERTED in 3C.4: an unreadable schedule outranks high soreness', () => {
+        /* The reverse of what this file asserted until 3C.4. Day identity is
+           resolved before readiness transforms it, so a prescription we
+           cannot read is reported rather than replaced. */
         const r = nextBestAction(input({ now: MON, schedule: ['length'], soreness: 'high' }));
-        expect(r.state).toBe('RECOVER');
+        expect(r.state).toBe('PREPARE');
+        expect(r.prepare).toBe(SCHEDULE_UNRESOLVED);
     });
 
     test('an unfinished session outranks an unreadable schedule', () => {
@@ -483,12 +580,18 @@ describe('nextBestAction: unresolved schedule', () => {
         expect(r.state).toBe('RESUME');
     });
 
-    test('a finished day outranks an unreadable schedule', () => {
+    test('INVERTED in 3C.4: an unreadable schedule is not a finished day', () => {
+        /* COMPLETE now requires a PRIMARY prescription to have been satisfied.
+           With nothing readable there is no Primary, so there is nothing the
+           tick can be a completion OF, and claiming "today is done" when we
+           cannot say what today was is the kind of confident wrong answer
+           this ladder exists to avoid. */
         const r = nextBestAction(input({
             now: MON, schedule: null,
             completedDays: [false, true, false, false, false, false, false],
         }));
-        expect(r.state).toBe('COMPLETE');
+        expect(r.state).toBe('PREPARE');
+        expect(r.prepare).toBe(SCHEDULE_UNRESOLVED);
     });
 
     test('SCHEDULE_UNRESOLVED is a recognised prepare reason', () => {
@@ -544,11 +647,20 @@ describe('nextBestAction: precedence', () => {
         expect(r.state).toBe('COMPLETE');
     });
 
-    test('5 over 6: high soreness beats a scheduled rest day', () => {
-        // Both point away from training, but the reason the member is shown
-        // has to be the one that matters.
+    test('INVERTED in 3C.4: a prescribed rest day beats high soreness', () => {
+        /* Both point away from training, and the one the member is shown is
+           now the programme's. Rest is a prescription with no Primary to
+           withhold, so answering it with RECOVER manufactured a Recovery day
+           the programme never prescribed.
+
+           A LEGACY-VISIBLE CHANGE, recorded deliberately: that cohort used to
+           be offered recovery work on a sore rest day and now is not, because
+           REST offers nothing at all. Whether REST should carry an optional
+           recovery affordance is a 3C.5 question, not something to improvise
+           here. */
         const r = nextBestAction(input({ now: TUE, soreness: 'high' }));
-        expect(r.state).toBe('RECOVER');
+        expect(r.state).toBe('REST');
+        expect(r.mission).toBeNull();
         expect(r.overrideAllowed).toBe(false);
     });
 

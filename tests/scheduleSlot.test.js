@@ -8,6 +8,7 @@ import {
 import { weekCompletion } from '../src/weekCompletion.js';
 import { reconcileLedger, normaliseLedger, WEEK_VERDICT } from '../src/progressionLedger.js';
 import { nextBestAction, SCHEDULE_UNRESOLVED } from '../src/nextBestAction.js';
+import { todayPrescription } from '../src/todayPrescription.js';
 
 /**
  * One meaning for one slot.
@@ -93,10 +94,21 @@ describe('one rule across all three consumers', () => {
     });
 
     test('the resolver still calls an unresolved slot unresolved', () => {
+        /* Phase 3C.4: the resolver no longer indexes a seven-slot array, so
+           the slot is interpreted by the adapter and handed over as one
+           prescription. The point of the test is unchanged and is in fact
+           stronger: the same unreadable value still has to travel all the way
+           to the same PREPARE reason, through one more boundary than before.
+
+           The adapter is driven for a LEGACY member, because that is the only
+           cohort whose prescription a seven-slot column still is. */
+        const now = new Date('2026-10-04T12:00:00Z');                  // Sunday, index 0
+        const prescription = todayPrescription({ now, authoritative: false, legacySchedule: SCHED });
+        expect(prescription.ok).toBe(false);
         const r = nextBestAction({
-            dataLoaded: true, now: new Date('2026-10-04T12:00:00Z'),   // Sunday, index 0
+            dataLoaded: true, now,
             goals: { all: { label: 'All' } }, goalKey: 'all',
-            schedule: SCHED, completedDays: new Array(7).fill(false),
+            todayPrescription: prescription, primarySatisfied: false,
         });
         expect(r.state).toBe('PREPARE');
         expect(r.prepare).toBe(SCHEDULE_UNRESOLVED);

@@ -38,7 +38,11 @@ const FUNCTIONS = [
     'maybePromptPush', 'isBlackoutDay', 'getDiff', 'getLevelInfo', 'getHydration',
     'getHydrationLitres', 'undoHydration', 'exportData', 'importData',
     'togglePhotoCompare', 'onGalleryTap', 'openPhotoLog', 'closePhotoLog', 'renderGalleryInto',
-    'dayTypeIcon', 'dayTypeLabel', 'getGoal', 'getGoalKey', 'isSizeLed', 'getScheduledType',
+    'dayTypeIcon', 'dayTypeLabel', 'getGoal', 'getGoalKey', 'isSizeLed',
+    // Phase 3C.4 retired getScheduledType(). These three replaced it: the
+    // canonical record, the Primary satisfaction answer, and the display type.
+    'currentTodayPrescription', 'currentPrimarySatisfied', 'scheduledPrimaryType',
+    'captureLaunchPrescription',
 ];
 
 const ELEMENT_IDS = [
@@ -111,6 +115,7 @@ describe('app wiring', () => {
             persisted.sessionLog = []; persisted.totalXp = 0; persisted.allTimeSessionCount = 0;
             persisted.measurements = []; persisted.records = { longestStreak: 0, bestWeekXp: 0, bestSessionXp: 0 };
             persisted.streakPasses = 0; persisted.passProtectedDates = [];
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = 'length'; selectedEQ = 7; selectedRPE = 5;
             _sessionStartTime = Date.now() - 600000;
             document.getElementById('input-bpel').value = '6.25';

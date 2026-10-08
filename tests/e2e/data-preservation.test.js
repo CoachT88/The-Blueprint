@@ -100,12 +100,14 @@ describe('an existing member keeps everything', () => {
         await app.page.evaluate(() => { goToStep(0); });
         await app.page.waitForTimeout(300);
         await app.page.evaluate(() => {
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = 'length'; selectedEQ = 8; selectedRPE = 5;
             _sessionStartTime = Date.now() - 6e5;
             document.getElementById('input-bpel').value = '';
             document.getElementById('input-mseg').value = '';
             document.getElementById('session-note-input').value = '';
             finishSession();
+            closeSessionSummary();   // releases the one-shot finish guard
         });
         await app.page.waitForTimeout(1_000);
         const after = await app.page.evaluate(() => ({

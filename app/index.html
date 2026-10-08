@@ -2565,7 +2565,7 @@ function isSizeLed(){ const k=getGoalKey(); return k==='size'||k==='all'; }
  * projection use, so a reader cannot miss a plan that exists because two
  * date formulas disagreed about one day.
  */
-/* Reported at most once per local date per kind of failure. getScheduledType
+/* Reported at most once per local date per kind of failure. The reader
    runs many times a render, so an unguarded track() would write an analytics
    row per call. The composite key resets by itself when the date rolls. */
 let _planIntegrityReported='';
@@ -2621,12 +2621,61 @@ function todayPlan(){
  * still reads the projection, which keeps one authority while limiting how
  * much moves at once.
  */
-function getScheduledType(){
-    const p=todayPlan();
-    if(p) return p.mode==='rest'?'rest':((p.primarySession&&p.primarySession.type)||'rest');
-    /* Compatibility fallback. Normal and silent for a legacy member; for an
-       authoritative one todayPlan has already reported why we are here. */
-    return (persisted.schedule||[])[new Date().getDay()]||'rest';
+/**
+ * THE one answer to "what does the programme prescribe today".
+ *
+ * getScheduledType() stood here. It returned a legacy type string and that is
+ * exactly why it could not be handed to the resolver: it collapsed three
+ * different conditions onto 'rest'. A prescribed rest day, a support-only day
+ * and a primary session with no readable type all came back identical, so a
+ * support-only day became a rest day by contract rather than by accident. And
+ * when an authoritative member's dated plan was missing or corrupt it
+ * reported the integrity failure and then quietly read the compatibility
+ * column anyway, so the programme said "dated plans are authoritative", the
+ * plan was unreadable, and the member was prescribed mechanical work from a
+ * recurring projection.
+ *
+ * Every reader now shares this record. Nothing in the Today or session funnel
+ * reads persisted.schedule for an authoritative member, and a test greps for
+ * that rather than trusting it.
+ *
+ * The integrity report stays on this path, because this is the reader that
+ * discovers the condition. It reports and refuses; it does not clear the key,
+ * rewrite the plans or trigger regeneration, because a reader does not get to
+ * change programme authority and a corrupt Today is preserved on purpose so
+ * the evidence survives.
+ */
+function currentTodayPrescription(){
+    if(!window.BP||!window.BP.todayPrescription) return null;
+    const authoritative=onAuthoritativePlans();
+    const p=window.BP.todayPrescription({
+        now:new Date(),
+        authoritative,
+        dayPlans:persisted.dayPlans,
+        legacySchedule:persisted.schedule,
+    });
+    if(authoritative&&p.ok!==true){
+        const R=window.BP.PRESCRIPTION_REFUSAL;
+        if(p.reason===R.PLAN_MISSING) _reportPlanIntegrity('missing',p.date);
+        else if(p.reason===R.PLAN_UNREADABLE) _reportPlanIntegrity('unreadable',p.date);
+        else if(p.reason===R.SLOT_UNRESOLVED) _reportPlanIntegrity('unrunnable-type',p.date);
+    }
+    return p;
+}
+/** Has today's prescribed PRIMARY work been done? Authority decides how. */
+function currentPrimarySatisfied(p){
+    if(!window.BP||!window.BP.primarySatisfied) return false;
+    return window.BP.primarySatisfied({
+        prescription:p,
+        now:new Date(),
+        sessionLog:persisted.sessionLog,
+        completedDays:persisted.completedDays,
+    });
+}
+/** The prescribed Primary type for display and analytics, or null. */
+function scheduledPrimaryType(){
+    const p=currentTodayPrescription();
+    return (p&&p.ok===true&&p.dayKind==='primary')?p.primaryType:null;
 }
 const DIRECTIONALS=['OUT','UP','DOWN','LEFT','RIGHT'];
 const SESSION_XP={beginner:10,intermediate:15,advanced:20,elite:25,recovery:5};
@@ -3719,7 +3768,7 @@ function renderMissionGuidance(blackout){
     if(!note) return;
     if(blackout){ note.classList.add('hidden'); return; }
 
-    const scheduled=getScheduledType();
+    const scheduled=scheduledPrimaryType();
     const goalKey=getGoalKey();
     const newish=getDiff().id==='beginner' && (persisted.allTimeSessionCount||0)<5;
 
@@ -3757,9 +3806,13 @@ function normaliseSchedule(){
     return {changed};
 }
 function isBlackoutDay(){
-    /* Through getScheduledType, so rest follows the same authority Today
-       does. Identical to the old expression for a member without plans. */
-    return getScheduledType()==='rest';
+    /* "May mechanical work run today?" rather than "is today rest?". Asked of
+       the canonical record, so it blocks a support-only day and an unreadable
+       prescription too, not only rest. The old string test could not: for
+       both of those getScheduledType() returned 'rest' in one reader while
+       the resolver prescribed a projection mission in another. */
+    const p=currentTodayPrescription();
+    return !p||p.ok!==true||p.dayKind!=='primary';
 }
 function applyDifficulty(ex){
     const d=getDiff();
@@ -4307,7 +4360,7 @@ function _coachContext(){
     const log=persisted.sessionLog||[];
     if(!log.length){
         const _n=preferredName();
-        return `LIVE USER DATA\n${_n?`Preferred name: ${_n}\n`:''}This member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(getScheduledType())}.`;
+        return `LIVE USER DATA\n${_n?`Preferred name: ${_n}\n`:''}This member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(scheduledPrimaryType())}.`;
     }
     const lines=[];
     /* Deterministic context, like every other line here. The model may use
@@ -4320,7 +4373,7 @@ function _coachContext(){
     if(isFloorTight()) lines.push(`Pelvic floor screener: HYPERTONIC (tight). Do NOT recommend kegels or any contraction work to this member under any circumstances. Lead with reverse kegels, diaphragmatic breathing, hip openers and myofascial release. Contraction work has been removed from their protocol in the app.`);
     else if(hasPelvicScreen()) lines.push(`Pelvic floor screener: no signs of a tight floor. Contraction and release work are both appropriate, but tell them to stop the kegels if urgency, perineal ache or post-ejaculation discomfort appear.`);
     else lines.push(`Pelvic floor screener: not taken yet. Assess hypertonic vs weak before recommending any contraction work.`);
-    lines.push(`Today's scheduled focus: ${dayTypeLabel(getScheduledType())}.`);
+    lines.push(`Today's scheduled focus: ${dayTypeLabel(scheduledPrimaryType())}.`);
     // Streak is retired. Weeks of work is the signal that matches the
     // programme, and unlike a streak a prescribed rest day does not break it.
     try{ lines.push(`Qualifying training weeks in the last 8: ${window.BP.progressionEligibility(persisted.progressionLedger).qualifyingWeeks}.`); }catch(e){}
@@ -4397,7 +4450,12 @@ function goToStep(step){
         });
     }
     if(session.step===4 && step===0 && !session._aborting && currentUser){
-        const draft={exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,sessionStartTime:_sessionStartTime,savedAt:Date.now()};
+        /* The launch identity rides along. Without it, resuming tomorrow
+           would re-resolve tomorrow's prescription and attach the session to
+           the wrong date and possibly the wrong type. Explicitly null when
+           there was nothing to capture, so a reader can tell "this draft
+           predates the field" from "we knew there was no identity". */
+        const draft={exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,sessionStartTime:_sessionStartTime,savedAt:Date.now(),prescription:_launchedPrescription||null};
         localStorage.setItem('bp_session_draft_'+currentUser.id,JSON.stringify(draft));
     }
     if(session.timer){session.timer.cancel();session.timer=null}
@@ -5330,14 +5388,23 @@ function buildResolverInput(){
         else if(parsed) localStorage.removeItem(draftKey);
     }catch(e){}
 
+    const _prescription=currentTodayPrescription();
     return {
         dataLoaded:_persistedLoaded,
         now:new Date(),
         goals:GOALS,
         goalKey:persisted.primaryGoal,
         dayTypes:DAY_TYPES,
-        schedule:persisted.schedule,
-        completedDays:persisted.completedDays,
+        /* ONE truthful Today prescription, and the satisfaction answer that
+           goes with it. The resolver used to receive the seven-slot
+           compatibility projection and index it itself, which for an
+           authoritative member meant a derived output decided what they
+           trained. It also read completedDays directly, which is a weekday
+           array with no date or week identity; the adapter answers that
+           question per cohort instead. Neither authority decision is made
+           inside the resolver any more. */
+        todayPrescription:_prescription,
+        primarySatisfied:currentPrimarySatisfied(_prescription),
         sessionDraft:draft,
         soreness:localStorage.getItem(getTodaySorenessKey())||'',
         pelvicProfile:persisted.pelvicProfile,
@@ -5806,6 +5873,14 @@ const TODAY_COPY={
     MODIFIED: {eyebrow:'Today · Adjusted',  icon:'fa-gauge-high',   headline:'Modified Session', cta:()=>'START MODIFIED SESSION'},
     RECOVER:  {eyebrow:'Today · Protected', icon:'fa-shield-halved',headline:'Recovery',         cta:()=>'START RECOVERY', ctaVariant:'caution'},
     REST:     {eyebrow:'Today · Rest',      icon:'fa-bed',          headline:'Rest Day'},
+    /* A VALID programme state: supporting work and no Primary. Deliberately
+       not worded as rest, and deliberately carrying no hint that anything
+       needs fixing, because nothing does. It is also deliberately silent
+       about the supporting work itself, which has no surface yet: saying the
+       day is empty would be the lie and saying it is rest would be worse.
+       When Supporting Work and Daily Practice arrive they list underneath
+       this headline rather than replacing it. */
+    SUPPORT_ONLY:{eyebrow:'Today',          icon:'fa-list-check',   headline:'No Main Session Today'},
     COMPLETE: {eyebrow:'Today · Done',      icon:'fa-circle-check', headline:'Today Is Done'},
     RESUME:   {eyebrow:'Unfinished',        icon:'fa-rotate-left',  headline:'Pick Up Where You Left Off'},
     PREPARE:  {eyebrow:'Before you start',  icon:'fa-sliders'},
@@ -5818,6 +5893,13 @@ const PREPARE_COPY={
     // that and no more. A real week-reset flow is a later subphase.
     'schedule-unresolved':{headline:'Your Plan Needs Attention', cta:"FIX TODAY'S PLAN",
                            hint:'Or tap any day in your week below to change it.'},
+    /* Phase 3C.4. An authoritative member whose dated plan for today is
+       missing or unreadable. NO repair CTA, which is the whole reason this is
+       a separate reason from schedule-unresolved: the day picker cannot fix a
+       missing day plan, and offering it would invite an edit the next load
+       overwrites. The integrity path has already reported the condition. */
+    'prescription-unavailable':{headline:"Today's Plan Is Unavailable", cta:'',
+                           hint:'Your programme could not be read for today. Nothing has been lost.'},
 };
 
 /**
@@ -5865,6 +5947,11 @@ function renderToday(){
         MODIFIED:()=>`${dayTypeLabel(r.mission)} training, reduced today.`,
         RECOVER:()=>'Pelvic floor and mobility work, no mechanical load.',
         REST:()=>'',
+        /* Says what is absent and nothing more. The supporting work on the
+           day is deliberately not described, because that surface does not
+           exist yet: claiming the day is empty would be the lie, and calling
+           it rest would be a worse one. */
+        SUPPORT_ONLY:()=>"There's no primary training session scheduled for today.",
         RESUME:()=>r.mission?`${dayTypeLabel(r.mission)} session`:'Session',
         /* Recovery closes the day and says nothing about the week. The
            strip below is where mechanical progress is reported, and it is
@@ -6131,6 +6218,38 @@ const FULL_SAFETY_SESSIONS = 3;
  */
 let _manualMission=null;
 
+/**
+ * The prescription this session launched under. Immutable once set.
+ *
+ * NOT _today. That one is the render-time prescription and is overwritten by
+ * every resolver call, of which one member journey makes at least three. This
+ * is the durable identity of a session already underway, and nothing that
+ * happens after launch may rewrite it: not a rerender, not a soreness change,
+ * not midnight, not a week rollover, not a regenerated plan.
+ *
+ * null means "no identity could be captured", which is a real answer and not
+ * a missing value. finishSession() records it as an explicit null rather than
+ * guessing, and such a session keeps its performed work without claiming
+ * which prescription it satisfied.
+ */
+let _launchedPrescription=null;
+/**
+ * Is this session resuming a draft written before the snapshot existed?
+ *
+ * The one case that may fall back to the pre-3C.4 behaviour, which was to
+ * resolve the prescription at completion time. A draft with no `prescription`
+ * key at all can only have been written by an older shell, and historical
+ * absence is not the same statement as "we could not tell": recording it as
+ * an explicit unknown would take programme credit away from a session that
+ * happened to be in flight across the upgrade, for no reason the member could
+ * see or avoid.
+ *
+ * It is deliberately NOT set for a null or malformed snapshot. Those are
+ * 3C.4-era statements and stay strict, which is what stops the compatibility
+ * door being a way around the attribution rule.
+ */
+let _launchLegacyDraft=false;
+
 /** What this trip through the funnel will actually run. */
 function effectiveMission(r){
     if(!r) return null;
@@ -6148,8 +6267,34 @@ function effectiveMission(r){
  * Length and Girth run the warmup first. Stamina goes straight to the
  * engine. Recovery goes to its picker.
  */
+/**
+ * Freeze what the programme prescribed, for the session about to start.
+ *
+ * The one writer of _launchedPrescription. It reads the prescription and
+ * NOTHING about what the member chose to perform, which is what lets a manual
+ * substitution be recorded as a departure rather than redefining the
+ * prescription it departed from.
+ *
+ * Returns the snapshot so a caller can see what was captured. null is a real
+ * answer: a support-only day has no legacy identity to record, and so does a
+ * day whose plan could not be read.
+ */
+function captureLaunchPrescription(){
+    /* A fresh launch is never a legacy draft, whatever the last one was. */
+    _launchLegacyDraft=false;
+    _launchedPrescription=window.BP&&window.BP.launchSnapshotFrom
+        ? window.BP.launchSnapshotFrom(currentTodayPrescription(),new Date())
+        : null;
+    return _launchedPrescription;
+}
 function startMission(mission,source){
     if(!mission) return;
+    /* BEFORE session.routineType is assigned, deliberately. The snapshot is
+       what the PROGRAMME prescribed; routineType is what the member is about
+       to perform. Capturing after the assignment would make no difference to
+       this function, which never reads routineType, and the ordering is kept
+       anyway so the dependency cannot be introduced later by accident. */
+    captureLaunchPrescription();
     session.routineType=mission;
     track('mission_selected',{mission,source:source||'prescribed'});
     if(mission==='recovery'){ goToRecoveryPicker(); return; }
@@ -6540,6 +6685,31 @@ function resumeSession(){
     session.directionalIndex=draft.directionalIndex;
     session.xp=draft.xp;
     _sessionStartTime=draft.sessionStartTime||Date.now();
+    /* The stored identity is validated, not trusted. It came out of
+       localStorage, so it is untrusted input however plausible it looks, and
+       the three answers mean three different things.
+
+       ABSENT      the key is not there, so an older shell wrote this draft.
+                   The pre-3C.4 behaviour applies and finishSession resolves
+                   the prescription at completion, exactly as it did then.
+       UNKNOWN     the key holds null, which is our own deliberate write.
+                   Strict, silent, no fallback.
+       MALFORMED   present and unreadable. Strict, and reported, because it is
+                   the only one of the three that is evidence of a bad write.
+
+       Adopting a half-readable snapshot, or letting UNKNOWN or MALFORMED take
+       the ABSENT door, would let a corrupt field decide which prescription
+       this session satisfied. Either way the member finishes their session;
+       only the identity claim is withheld. */
+    const _snap=window.BP&&window.BP.normaliseLaunchSnapshot
+        ? window.BP.normaliseLaunchSnapshot(draft.prescription)
+        : {ok:false,reason:'absent'};
+    _launchedPrescription=_snap.ok?_snap.value:null;
+    _launchLegacyDraft=!_snap.ok&&_snap.reason===window.BP.SNAPSHOT_REFUSAL.ABSENT;
+    if(!_snap.ok&&_snap.reason===window.BP.SNAPSHOT_REFUSAL.MALFORMED){
+        _reportPlanIntegrity('launch-snapshot-malformed',
+            window.BP&&window.BP.planDateKey?window.BP.planDateKey(new Date()):'');
+    }
     goToStep(4);
     session._resuming=false;
 }
@@ -6558,40 +6728,136 @@ function renderLog(){
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION FINISH
 // ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Is a completion in flight or already committed?
+ *
+ * There was no guard at all, and showSessionSummary() only opens a modal
+ * rather than navigating, so the finish button stays mounted underneath it. A
+ * double tap before the modal painted wrote two log entries, awarded XP twice
+ * and incremented the lifetime count twice.
+ *
+ * TWO states, not one, because a permanent lock is its own bug: if the finish
+ * throws BEFORE the entry is committed, the member must be able to try again,
+ * and if it throws AFTER, a retry must not append a second completion.
+ */
+let _finishState='idle';          // 'idle' | 'committed'
 function finishSession(){
+    /* A duplicate call is refused and writes nothing. Deliberately not
+       cleared here: a second tap is not a reason to unlock. */
+    if(_finishState==='committed') return;
+
+    /* ══ DERIVATION. Nothing here is durable, so every line may throw and a
+          retry is free. Every read of the DOM, the tables, the clock and the
+          prescription happens in this half, and the next half is assignment
+          only.
+
+          That split is the whole point. The boundary used to be a comment
+          above sessionLog.push(), with the XP award and the lifetime count
+          already applied above it, so a throw between the increment and the
+          push left durable state moved and the guard still unset: the retry
+          then awarded XP twice for one session. A boundary you can throw
+          inside is not a boundary. ══ */
     const bpel=parseFloat(document.getElementById('input-bpel').value);
     const mseg=parseFloat(document.getElementById('input-mseg').value);
     const note=document.getElementById('session-note-input').value.trim().slice(0,NOTE_MAX_CHARS);
     const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100);
-    persisted.totalXp+=earnedXp;
-    persisted.allTimeSessionCount=(persisted.allTimeSessionCount||0)+1;
-    persisted.completedDays[new Date().getDay()]=true;
-    _manualMission=null;
-    /* One clock read, one answer.
-       scheduledType and manualOverride are two halves of a single snapshot
-       of today's prescription, so they have to come from the same
-       resolution. getScheduledType() reads the clock on every call, and
-       calling it twice meant a date rollover between the two could make the
-       fields describe different days: the entry could claim an override
-       while recording a scheduled type that matched what was performed.
-       Both of these are historical truth that the calendar and the coming
-       day-plan model read, so the snapshot is taken once, here. */
-    const _scheduledType=getScheduledType();
-    persisted.sessionLog.push({
-        date:new Date().toISOString(),
+    /* ONE clock read for the whole completion. finishSession() used to call
+       new Date() four separate times, so a rollover mid-function could make
+       its own fields describe different days. */
+    const completedAt=new Date();
+    /* The prescription this session LAUNCHED under, never a fresh resolve.
+       Asking "what is scheduled now" at completion time is what credited a
+       Thursday session finished at 00:10 to Friday's rest day and then called
+       the member's perfect compliance a manual override.
+
+       The ONE exception is a draft written before the snapshot existed. That
+       is historical absence rather than unknown identity, so it gets the
+       behaviour that existed then, which was exactly this resolve. See
+       _launchLegacyDraft; a null or malformed snapshot does NOT come here. */
+    const _snap=_launchedPrescription||(_launchLegacyDraft&&window.BP&&window.BP.launchSnapshotFrom
+        ? window.BP.launchSnapshotFrom(currentTodayPrescription(),completedAt)
+        : null);
+    /* null when the identity could not be proven, which is an explicit answer
+       and not a missing field: the performed work is kept and the claim about
+       which prescription it satisfied is withheld. */
+    const _prescriptionDate=_snap?_snap.prescriptionDate:null;
+    const _scheduledType=_snap?_snap.scheduledType:null;
+    const _authoritative=onAuthoritativePlans();
+    /* Compatibility only, and ONLY for the cohort whose completion model it
+       still is. Built WHOLE here, like the two lists, so the commit installs
+       it by replacement: an in-place persisted.completedDays[i]=true inside
+       the commit would have been the one durable value still assembled on the
+       far side of the boundary, which is the shape of defect this split
+       exists to make impossible rather than merely unlikely.
+
+       A COPY, and built EARLY on purpose. Ticking the live array here instead
+       would reach the same end state, and would differ only if the finish
+       threw between this line and the commit, which is exactly the window the
+       split exists to keep empty. Building it early rather than last puts the
+       remaining derivation seams AFTER it, so that difference is observable
+       and a mutation reintroducing the in-place tick dies.
+
+       For an authoritative member the array is not written at all. It carries
+       a weekday with no date and no week identity, so a Sunday session
+       finished after the Monday rollover would tick the NEW week's upcoming
+       Sunday. Their completion comes from the log, attributed by prescription
+       date. The existing values are passed through untouched, by reference,
+       so nothing is rewritten for them either. */
+    const _nextCompletedDays=_authoritative
+        ? persisted.completedDays
+        : [...(persisted.completedDays||[])];
+    if(!_authoritative) _nextCompletedDays[completedAt.getDay()]=true;
+
+    const _entry={
+        /* The real completion timestamp, never rewritten to the prescription
+           date. Performed-when and prescribed-for are two separate truths. */
+        date:completedAt.toISOString(),
         routineType:session.routineType,
+        /* Which dated prescription this session belongs to. The stable
+           identity every authoritative completion question now reads. */
+        prescriptionDate:_prescriptionDate,
         /* What the programme asked for, and whether this was a departure
-           from it. Recorded so the history is honest about substitutions
-           even though completedDays still has only one slot per day. */
+           from it. The performed type can never become the scheduled truth,
+           because the snapshot is captured in startMission() BEFORE
+           session.routineType is assigned. */
         scheduledType:_scheduledType,
-        manualOverride:session.routineType!==_scheduledType,
+        manualOverride:!!_scheduledType&&session.routineType!==_scheduledType,
         xpEarned:earnedXp,
         note,
         eq:selectedEQ,
         rpe:selectedRPE,
-        duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):null,
-    });
-    persisted.sessionLog=trimToByteBudget(persisted.sessionLog,SESSION_LOG_BUDGET_BYTES);
+        duration:_sessionStartTime?Math.round((completedAt.getTime()-_sessionStartTime)/60000):null,
+    };
+    /* Both lists are built WHOLE, so the commit replaces a reference rather
+       than mutating an array in place. trimToByteBudget returns a new array
+       and touches neither input. */
+    const _nextLog=trimToByteBudget([...(persisted.sessionLog||[]),_entry],SESSION_LOG_BUDGET_BYTES);
+    let _nextMeasurements=null;
+    if(!isNaN(bpel)||!isNaN(mseg)){
+        const e={date:completedAt.toISOString()};
+        if(!isNaN(bpel))e.bpel=bpel;
+        if(!isNaN(mseg))e.mseg=mseg;
+        _nextMeasurements=trimToByteBudget([...(persisted.measurements||[]),e],MEASUREMENTS_BUDGET_BYTES);
+    }
+    const _nextXp=(persisted.totalXp||0)+earnedXp;
+    const _nextCount=(persisted.allTimeSessionCount||0)+1;
+
+    /* ══ THE COMMIT. Assignment only, no calls, nothing that can throw, and
+          the guard goes up first so a re-entrant call cannot slip between the
+          writes. After this line the completion exists exactly once: a
+          duplicate finish is a no-op and a save failure retries the same
+          state rather than creating a second completion. ══ */
+    _finishState='committed';
+    persisted.sessionLog=_nextLog;
+    persisted.totalXp=_nextXp;
+    persisted.allTimeSessionCount=_nextCount;
+    if(_nextMeasurements) persisted.measurements=_nextMeasurements;
+    if(!_authoritative) persisted.completedDays=_nextCompletedDays;
+    _manualMission=null;
+    _launchedPrescription=null;
+    _launchLegacyDraft=false;
+    /* ══ POST COMMIT. Derived state and side effects. A throw here cannot
+          duplicate a completion, because the guard is already up. ══ */
 
     /* The programme starts on the first completed mechanical session, and
        on nothing else: not sign-up, not choosing a goal, not opening
@@ -6604,7 +6870,7 @@ function finishSession(){
         const _start=window.BP.programmeStartOnCompletion({
             programmeStartDate:persisted.programmeStartDate,
             completedEntry:_entry,
-            now:new Date(),
+            now:completedAt,
         });
         if(_start) persisted.programmeStartDate=_start;
         /* Exactly-once by construction, and no storage is needed for it.
@@ -6633,13 +6899,15 @@ function finishSession(){
             allTimeSessionCount:persisted.allTimeSessionCount,
         });
     }
-    if(!isNaN(bpel)||!isNaN(mseg)){const e={date:new Date().toISOString()};if(!isNaN(bpel))e.bpel=bpel;if(!isNaN(mseg))e.mseg=mseg;persisted.measurements.push(e);persisted.measurements=trimToByteBudget(persisted.measurements,MEASUREMENTS_BUDGET_BYTES);}
+    /* The measurement write moved up into the commit, because it is durable
+       completion state too: a throw between it and the log push used to leave
+       a measurement with no session behind it. */
     updateRecords(earnedXp);
     // The ledger's current-week row is now out of date by one session.
     syncProgression('session-completed');
     track('session_completed',{
         mission:session.routineType, xp:earnedXp,
-        duration:_sessionStartTime?Math.round((Date.now()-_sessionStartTime)/60000):0,
+        duration:_sessionStartTime?Math.round((completedAt.getTime()-_sessionStartTime)/60000):0,
         eq:selectedEQ||0, rpe:selectedRPE||0,
         sessionNumber:persisted.allTimeSessionCount||0,
     });
@@ -7012,6 +7280,10 @@ function showSessionSummary(xp){
     haptic([100,50,200]);
 }
 function closeSessionSummary(){
+    /* The one place the finish guard is released. Not on a duplicate tap, and
+       not on an exception: the member has seen their summary, so the
+       completion is genuinely over and the next session may start. */
+    _finishState='idle';
     document.getElementById('session-summary-modal').classList.remove('show');
     goToStep(0);
     maybePromptPush();
@@ -7036,7 +7308,12 @@ function showWeeklyReport(){
     const weekAgo=new Date(Date.now()-7*24*60*60*1000).toISOString();
     const weekSessions=(persisted.sessionLog||[]).filter(s=>s.date>weekAgo);
     const weekXp=weekSessions.reduce((t,s)=>t+s.xpEarned,0);
-    const streak=persisted.completedDays.filter(Boolean).length;
+    /* The canonical weekly answer, the same one the HQ label reads. This
+       counted ticked weekdays out of persisted.completedDays and called the
+       result a streak, which it never was: it is a weekday tally, it is not
+       written at all for an authoritative member, and seven was never the
+       member's prescribed target. No completedDays read remains here. */
+    const week=currentWeekCompletion();
     const meas=persisted.measurements||[];
     const content=document.getElementById('weekly-report-content');
     const avgEQ=weekSessions.filter(s=>s.eq).length
@@ -7061,11 +7338,11 @@ function showWeeklyReport(){
     content.innerHTML=`
         <div class="grid grid-cols-2 gap-3">
             <div class="summary-stat"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">Week XP</p><p class="text-2xl font-black text-white">${weekXp}</p></div>
-            <div class="summary-stat"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Sessions</p><p class="text-2xl font-black text-white">${weekSessions.length}/7</p></div>
+            <div class="summary-stat"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Sessions</p><p class="text-2xl font-black text-white">${weekSessions.length}</p></div>
             <div class="summary-stat"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Avg EQ</p><p class="text-2xl font-black text-white">${avgEQ}</p>${eqInsight?`<p class="text-[9px] mt-1">${eqInsight}</p>`:''}</div>
             <div class="summary-stat"><p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">Avg RPE</p><p class="text-2xl font-black text-white">${avgRPE}</p>${rpeInsight?`<p class="text-[9px] mt-1">${rpeInsight}</p>`:''}</div>
         </div>
-        <div class="summary-stat"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Active Days</p><p class="text-3xl font-black text-white">${streak} / 7</p></div>
+        <div class="summary-stat"><p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">Programme Sessions</p><p class="text-3xl font-black text-white">${week.completed} / ${week.target}</p></div>
         ${meas.length>=2?`<div class="summary-stat text-left"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-2">Latest Measurements</p><div class="flex gap-4"><div><p class="text-[10px] u-text-2">BPEL</p><p class="font-black text-white text-lg">${meas[meas.length-1].bpel||'—'}"</p></div><div><p class="text-[10px] u-text-2">MSEG</p><p class="font-black text-white text-lg">${meas[meas.length-1].mseg||'—'}"</p></div></div></div>`:''}
         <div class="summary-stat text-left">
             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Recent Sessions</p>
@@ -8450,7 +8727,7 @@ function init(){
 
     try {
     // HQ
-    document.getElementById('launch-btn').addEventListener('click',()=>{track('session_started',{scheduled:getScheduledType()});goToStep(1);});
+    document.getElementById('launch-btn').addEventListener('click',()=>{track('session_started',{scheduled:scheduledPrimaryType()});goToStep(1);});
     document.getElementById('resume-btn').addEventListener('click',()=>goToStep(1));
     // Hydration is a log, not a decision, so it opens on request.
     const _hyToggle=document.getElementById('hydration-toggle');
@@ -8882,6 +9159,14 @@ import { weekStripSlots, buildWeekStripModel,
 /* Separate from weekStrip on purpose: the strip answers a question about ONE
    ISO week and this one's answer regularly lands in the week after. */
 import { nextTrainingDay, NEXT_UP_HORIZON_DAYS } from '../src/nextUp.js';
+/* Phase 3C.4. The prescription-identity authority: one truthful Today
+   prescription per cohort, the Primary satisfaction answer that goes with it,
+   and the immutable launch snapshot that keeps a session's identity stable
+   from launch to history. */
+import { todayPrescription, primarySatisfied, launchSnapshotFrom,
+         normaliseLaunchSnapshot, DAY_KIND, PRESCRIPTION_REFUSAL,
+         PRESCRIPTION_SOURCE, SNAPSHOT_REFUSAL } from '../src/todayPrescription.js';
+import { attributeEntry, ATTRIBUTION } from '../src/sessionAttribution.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -8901,7 +9186,11 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
               PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan,
               weekStripSlots, buildWeekStripModel, WEEK_STRIP_STATE, WEEK_STRIP_DAYS,
-              nextTrainingDay, NEXT_UP_HORIZON_DAYS };
+              nextTrainingDay, NEXT_UP_HORIZON_DAYS,
+              todayPrescription, primarySatisfied, launchSnapshotFrom,
+              normaliseLaunchSnapshot, DAY_KIND, PRESCRIPTION_REFUSAL,
+              PRESCRIPTION_SOURCE, SNAPSHOT_REFUSAL,
+              attributeEntry, ATTRIBUTION };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

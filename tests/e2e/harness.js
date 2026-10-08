@@ -161,6 +161,12 @@ function installSupabaseStub(cfg) {
             window.__attempts.push(payload);
             const bad = cfg.rejectColumns.find(c => c in payload);
             if (bad) return Promise.resolve({ error: { code: 'PGRST204', message: `Could not find the '${bad}' column of 'user_data' in the schema cache` } });
+            /* A runtime failure switch, settable mid-test, for proving that a
+               save failure retries the SAME row rather than appending a
+               second completion. Simulates the network, not an answer. */
+            if (window.__failUpsert) {
+                return Promise.resolve({ error: { code: '503', message: 'simulated upload failure' } });
+            }
             window.__writes.push(payload);
             return Promise.resolve({ error: null });
         };

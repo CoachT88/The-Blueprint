@@ -13,13 +13,17 @@ describe('history retention', () => {
     afterAll(async () => { await app?.close(); });
 
     const logSession = (note = '') => app.page.evaluate((n) => {
+        captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
         session.routineType = 'length'; selectedEQ = 7; selectedRPE = 5;
         _sessionStartTime = Date.now() - 6e5;
         document.getElementById('input-bpel').value = '';
         document.getElementById('input-mseg').value = '';
         document.getElementById('session-note-input').value = n;
         finishSession();
-        document.getElementById('session-summary-modal').classList.remove('show');
+        /* The real way out, not just hiding the modal: closeSessionSummary()
+           is the only thing that releases the one-shot finish guard, and a
+           member cannot complete twice without going through it. */
+        closeSessionSummary();
     }, note);
 
     test('far more than 50 sessions are all kept', async () => {
@@ -243,25 +247,27 @@ describe('storage safety', () => {
 });
 
 /**
- * scheduledType and manualOverride are two halves of ONE snapshot.
+ * scheduledType, prescriptionDate and manualOverride are ONE snapshot, and it
+ * is taken at LAUNCH.
  *
- * finishSession() used to resolve the scheduled type twice:
+ * This block used to prove something weaker. finishSession() resolved the
+ * scheduled type twice, from a function that read the clock on every call, so
+ * a rollover between the two reads could record an override that never
+ * happened. The fix then was to resolve once, at completion.
  *
- *     scheduledType:  getScheduledType(),
- *     manualOverride: session.routineType !== getScheduledType(),
+ * Phase 3C.4 proved that was still wrong. Resolving once at COMPLETION still
+ * asks "what is scheduled now", so a Thursday session finished at 00:10
+ * recorded Friday's rest day as its prescription and called the member's
+ * perfect compliance a manual override. The identity now comes from the
+ * prescription the session LAUNCHED under, frozen at launch, so nothing that
+ * happens afterwards can move it: not a rerender, not a soreness change, not
+ * midnight, not a week rollover, not a regenerated plan.
  *
- * and getScheduledType() reads the clock on every call. A date rollover
- * between the two meant the fields could describe different days, and the
- * entry could claim an override while recording a scheduled type that
- * matched what was actually performed. Both fields are historical truth:
- * manualOverride drives the calendar's substitution marker, and
- * scheduledType is the only record of what the programme asked for.
- *
- * Racing a real clock here would be slow and flaky, so the rollover is
- * simulated directly: getScheduledType() is made to answer differently on a
- * second call. Against the fixed code it is never asked twice.
+ * The old stub is gone with the function it stubbed. These assert the
+ * stronger property directly, by changing the programme under a session
+ * already in flight.
  */
-describe('the scheduled type is resolved once per session', () => {
+describe('the prescription identity is frozen at launch', () => {
     let app;
     beforeAll(async () => {
         app = await openApp();
@@ -269,64 +275,95 @@ describe('the scheduled type is resolved once per session', () => {
     }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    /** Finish a session while the scheduled type changes under the engine. */
-    const finishAcrossRollover = () => app.page.evaluate(() => {
-        const real = getScheduledType;
-        let calls = 0;
-        // First answer is the truth. Any later answer is a different day.
-        getScheduledType = () => { calls += 1; return calls === 1 ? 'length' : 'girth'; };
-        try {
-            persisted.sessionLog = [];
-            session.routineType = 'length';          // matches the first answer
-            selectedEQ = 7; selectedRPE = 5;
-            _sessionStartTime = Date.now() - 6e5;
-            document.getElementById('input-bpel').value = '';
-            document.getElementById('input-mseg').value = '';
-            document.getElementById('session-note-input').value = '';
-            finishSession();
-            document.getElementById('session-summary-modal').classList.remove('show');
-        } finally {
-            getScheduledType = real;
-        }
+    /** Launch, move the world, finish. */
+    const finishAfterUpheaval = (upheaval) => app.page.evaluate((how) => {
+        persisted.sessionLog = [];
+        persisted.schedule = Array(7).fill('length');
+        /* The REAL launch door, so the capture and its ordering are the
+           production ones rather than a harness approximation. */
+        startMission('length', 'test');
+        const captured = JSON.parse(JSON.stringify(_launchedPrescription));
+        /* Now change everything a session in flight could be exposed to. */
+        if (how === 'schedule') persisted.schedule = Array(7).fill('girth');
+        if (how === 'soreness') { try { localStorage.setItem(getTodaySorenessKey(), 'moderate'); } catch (e) {} }
+        if (how === 'rerender') { renderDashboard(); renderReady(); }
+        if (how === 'plans') persisted.dayPlans = [];
+        selectedEQ = 7; selectedRPE = 5;
+        _sessionStartTime = Date.now() - 6e5;
+        document.getElementById('input-bpel').value = '';
+        document.getElementById('input-mseg').value = '';
+        document.getElementById('session-note-input').value = '';
+        finishSession();
         const e = persisted.sessionLog[persisted.sessionLog.length - 1];
-        return { calls, scheduledType: e.scheduledType, manualOverride: e.manualOverride,
-                 routineType: e.routineType };
-    });
+        closeSessionSummary();
+        try { localStorage.removeItem(getTodaySorenessKey()); } catch (e2) {}
+        return { captured, scheduledType: e.scheduledType, prescriptionDate: e.prescriptionDate,
+                 manualOverride: e.manualOverride, routineType: e.routineType, date: e.date };
+    }, upheaval);
 
-    test('both fields come from the same resolution', async () => {
-        const r = await finishAcrossRollover();
-        // The session ran exactly what was scheduled, so it is not an override.
-        // Resolving twice would have compared 'length' against 'girth' and
-        // recorded an override that never happened.
-        expect(r.routineType).toBe('length');
-        expect(r.scheduledType).toBe('length');
-        expect(r.manualOverride).toBe(false);
-    }, 60_000);
+    test.each(['schedule', 'soreness', 'rerender', 'plans'])(
+        'a %s change after launch cannot rewrite the identity', async (how) => {
+            const r = await finishAfterUpheaval(how);
+            expect(r.captured.scheduledType).toBe('length');
+            expect(r.scheduledType).toBe('length');
+            expect(r.prescriptionDate).toBe(r.captured.prescriptionDate);
+            /* The session ran exactly what was prescribed, so it is not an
+               override. Re-resolving after the upheaval would have compared
+               'length' against 'girth' and invented one. */
+            expect(r.routineType).toBe('length');
+            expect(r.manualOverride).toBe(false);
+        }, 60_000);
 
-    test('getScheduledType is called exactly once', async () => {
-        const r = await finishAcrossRollover();
-        // The structural assertion. A value check alone could pass by luck on
-        // a day when both resolutions happened to agree; this cannot.
-        expect(r.calls).toBe(1);
+    test('the completion timestamp and the prescription date are separate truths', async () => {
+        const r = await finishAfterUpheaval('rerender');
+        /* Same day here, so they agree, and they are still two fields. The
+           midnight case where they disagree is in the browser suite's
+           prescription-authority file, with a pinned clock. */
+        expect(r.date).toContain('T');
+        expect(r.prescriptionDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(r.date.startsWith(r.prescriptionDate)).toBe(true);
     }, 60_000);
 
     test('a genuine substitution is still recorded as one', async () => {
-        // The fix must not flatten real overrides into false.
+        /* THROUGH THE REAL MANUAL DOOR, which matters more than it looks.
+           An earlier version of this test called startMission('length') and
+           then overwrote session.routineType, which is not how production
+           substitutes: the Mission Select handler sets _manualMission and
+           then calls startMission with the CHOSEN mission, so the argument
+           is 'girth' and the prescription is still 'length'. A mutation that
+           built the snapshot from startMission's argument survived the
+           approximation and dies against this.
+
+           The real handler is used, not a reimplementation of it. */
         const r = await app.page.evaluate(() => {
             persisted.sessionLog = [];
             persisted.schedule = Array(7).fill('length');
-            session.routineType = 'girth';           // deliberately not the scheduled type
+            try { localStorage.setItem(getTodaySorenessKey(), 'none'); } catch (e) {}
+            renderToday();
+            goToStep(3);
+            /* Tap Girth on a Length day. readinessAnswered() is true, so this
+               goes straight into startMission('girth', 'manual'). */
+            document.getElementById('mission-girth-btn').click();
+            const launchedAs = session.routineType;
+            const snapshot = _launchedPrescription ? { ..._launchedPrescription } : null;
             selectedEQ = 7; selectedRPE = 5;
             _sessionStartTime = Date.now() - 6e5;
             document.getElementById('input-bpel').value = '';
             document.getElementById('input-mseg').value = '';
             document.getElementById('session-note-input').value = '';
             finishSession();
-            document.getElementById('session-summary-modal').classList.remove('show');
             const e = persisted.sessionLog[persisted.sessionLog.length - 1];
-            return { scheduledType: e.scheduledType, manualOverride: e.manualOverride };
+            closeSessionSummary();
+            try { localStorage.removeItem(getTodaySorenessKey()); } catch (e2) {}
+            return { launchedAs, snapshot, scheduledType: e.scheduledType,
+                     routineType: e.routineType, manualOverride: e.manualOverride };
         });
+        /* startMission really was called with the member's choice. */
+        expect(r.launchedAs).toBe('girth');
+        /* And the snapshot is the PROGRAMME's day, not the argument. */
+        expect(r.snapshot.scheduledType).toBe('length');
         expect(r.scheduledType).toBe('length');
+        expect(r.routineType).toBe('girth');
         expect(r.manualOverride).toBe(true);
     }, 60_000);
 });

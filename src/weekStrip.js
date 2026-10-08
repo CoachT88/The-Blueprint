@@ -63,6 +63,7 @@
  */
 
 import { localDateKeyForWeekday, dateKeyForWeekday, localDateKey } from './weekUtils.js';
+import { attributeEntry, ATTRIBUTION } from './sessionAttribution.js';
 import { normaliseDayPlan } from './dayPlan.js';
 import { classifySlot, SLOT_CLASS } from './scheduleSlot.js';
 
@@ -178,15 +179,30 @@ export function weekStripSlots(input) {
  */
 function performedByWeekday(sessionLog, ref) {
     const out = new Map();
+    /* TWO lookups, as of Phase 3C.4, because the two attribution keys are not
+       interchangeable: a dated identity is the LOCAL day the member lived
+       through and a pre-3C.4 entry carries only the UTC date part of its
+       completion timestamp. An entry whose prescription identity could not be
+       proven is in neither map, so it shows no performed mark against any
+       day, which is the same conservative rule satisfaction follows. */
     const want = new Map();
-    for (let n = 0; n < 7; n++) want.set(dateKeyForWeekday(ref, n), n);
+    for (let n = 0; n < 7; n++) {
+        want.set('d:' + localDateKeyForWeekday(ref, n), n);
+        want.set('l:' + dateKeyForWeekday(ref, n), n);
+    }
     for (const e of (Array.isArray(sessionLog) ? sessionLog : [])) {
-        if (!isPlainObject(e) || typeof e.date !== 'string') continue;
-        const n = want.get(e.date.split('T')[0]);
+        if (!isPlainObject(e)) continue;
+        const a = attributeEntry(e);
+        if (a.kind === ATTRIBUTION.UNKNOWN) continue;
+        const n = want.get((a.kind === ATTRIBUTION.DATED ? 'd:' : 'l:') + a.key);
         if (n === undefined) continue;
         const prev = out.get(n);
         /* Last one wins for the type, and a substitution anywhere that day is
-           remembered, matching how the old calendar built its map. */
+           remembered, matching how the old calendar built its map. Note that
+           SATISFACTION does not come from here: it arrives as the canonical
+           weekCompletion array, which OR-accumulates, so a Recovery entry
+           logged after a mechanical one cannot erase the tick. This map only
+           decides which type the cell mentions. */
         out.set(n, {
             type: e.routineType || (prev && prev.type) || null,
             substituted: !!e.manualOverride || !!(prev && prev.substituted),
