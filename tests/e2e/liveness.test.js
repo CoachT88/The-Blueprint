@@ -56,6 +56,7 @@ const setup = (page, { schedule = FOUR, log = [], done = null, ledger = [], patc
 
 /** Complete today through the real production path. */
 const finish = (page, routineType = 'length') => page.evaluate((routineType) => {
+    captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
     session.routineType = routineType;
     _sessionStartTime = Date.now() - 30 * 60000;
     selectedEQ = 8; selectedRPE = 5;
@@ -533,6 +534,7 @@ describe('what makes a scheduled day count', () => {
     test('REGRESSION: a Recovery log blocks the manual-tick fallback', async () => {
         await blankWeek(app.page);
         const after = await app.page.evaluate(async () => {
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = 'recovery';
             _sessionStartTime = Date.now() - 20 * 60000;
             selectedEQ = null; selectedRPE = null;

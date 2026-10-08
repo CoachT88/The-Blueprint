@@ -471,9 +471,9 @@ describe('schedule repair and manual-session accounting', () => {
             session.routineType = 'girth';
             // What completeSession() records, without running the whole screen.
             return {
-                scheduledType: getScheduledType(),
+                scheduledType: scheduledPrimaryType(),
                 routineType: session.routineType,
-                manualOverride: session.routineType !== getScheduledType(),
+                manualOverride: session.routineType !== scheduledPrimaryType(),
             };
         });
         expect(entry).toEqual({ scheduledType: 'length', routineType: 'girth', manualOverride: true });

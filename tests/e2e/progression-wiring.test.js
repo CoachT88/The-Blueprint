@@ -52,6 +52,7 @@ async function reset(page, patch = {}) {
  */
 const finish = (page, routineType, extra = {}) => page.evaluate(
     ({ routineType, extra }) => {
+        captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
         session.routineType = routineType;
         _sessionStartTime = Date.now() - 60000;
         selectedEQ = extra.eq || null;
@@ -60,8 +61,16 @@ const finish = (page, routineType, extra = {}) => page.evaluate(
         document.getElementById('input-mseg').value = '';
         document.getElementById('session-note-input').value = '';
         finishSession();
-        return { start: persisted.programmeStartDate, ledger: persisted.progressionLedger,
-                 log: persisted.sessionLog.length };
+        const out = { start: persisted.programmeStartDate, ledger: persisted.progressionLedger,
+                      log: persisted.sessionLog.length };
+        /* Read first, THEN close. closeSessionSummary returns to the HQ,
+           which re-renders and reconciles again; the assertion is about what
+           finishSession itself produced. Closing is not optional though: it
+           is the only way out of a completion in production and the only
+           thing that releases the one-shot finish guard, so a harness that
+           completes more than once has to do what the member does. */
+        closeSessionSummary();
+        return out;
     }, { routineType, extra });
 
 /** Seed historical sessions directly. State setup, not wiring under test. */

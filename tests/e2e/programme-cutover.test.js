@@ -100,7 +100,7 @@ describe('a preset member cuts over on load', () => {
             programme: persisted.programme,
             schedule: persisted.schedule,
             plans: persisted.dayPlans,
-            today: getScheduledType(),
+            today: scheduledPrimaryType(),
             blackout: isBlackoutDay(),
         }));
     }, 60_000);
@@ -171,16 +171,21 @@ describe('a preset member cuts over on load', () => {
 
             plan.mode = 'rest';
             plan.primarySession = null;
-            const asRest = { today: getScheduledType(), blackout: isBlackoutDay() };
+            const asRest = { today: scheduledPrimaryType(), blackout: isBlackoutDay() };
 
             plan.mode = 'prescribed';
             plan.primarySession = { type: 'girth', tier: 'intermediate' };
-            const asGirth = { today: getScheduledType(), blackout: isBlackoutDay() };
+            const asGirth = { today: scheduledPrimaryType(), blackout: isBlackoutDay() };
 
             Object.assign(plan, was);
             return { asRest, asGirth, column, columnUnchanged: persisted.schedule };
         });
-        expect(r.asRest).toEqual({ today: 'rest', blackout: true });
+        /* scheduledPrimaryType() is the PRIMARY type or null, so a rest day
+           answers null rather than the string 'rest'. The old reader returned
+           'rest' for three different conditions at once, which is why it was
+           retired; blackout is the question that actually matters here and it
+           is still answered from the plan. */
+        expect(r.asRest).toEqual({ today: null, blackout: true });
         expect(r.asGirth).toEqual({ today: 'girth', blackout: false });
         /* And editing the plan did not touch the compatibility column. */
         expect(r.columnUnchanged).toEqual(r.column);
@@ -266,7 +271,8 @@ describe('a custom member is left entirely alone', () => {
             schedule: persisted.schedule,
             plans: persisted.dayPlans,
             mayGenerate: window.BP.mayGenerateOver(persisted.programme),
-            today: getScheduledType(),
+            today: scheduledPrimaryType(),
+            blackout: isBlackoutDay(),
         }));
     }, 60_000);
     afterAll(async () => { await app?.close(); });
@@ -282,20 +288,30 @@ describe('a custom member is left entirely alone', () => {
         expect(state.schedule).toEqual(HANDMADE);
     });
 
-    test('Today still falls back to the legacy column for them', () => {
-        /* No plans, so the switched reader has nothing to read and must not
-           invent a rest day. */
-        expect(state.today).toBe(HANDMADE[new Date().getDay()]);
+    test('Today reads their own column, because for them it IS the programme', () => {
+        /* Not a fallback. A custom member is never on dated plans, so the
+           adapter's legacy branch is their normal path and the column is
+           authoritative for them. scheduledPrimaryType() reports the PRIMARY
+           type, so a rest slot answers null while blackout answers true. */
+        const want = HANDMADE[new Date().getDay()];
+        expect(state.today).toBe(want === 'rest' ? null : want);
+        expect(state.blackout).toBe(want === 'rest');
         expect(app.errors).toEqual([]);
     });
 });
 
-describe('a broken authoritative Today falls back, loudly', () => {
-    /* The programme says dated plans are authoritative and today's is
-       missing or unreadable. The member must stay usable, so the
-       compatibility column is read, but that is an EMERGENCY path after an
-       integrity failure and not normal dual authority, so it is reported.
-       Nothing about programme authority is touched by a read.
+describe('a broken authoritative Today fails closed, loudly', () => {
+    /* REWRITTEN IN PHASE 3C.4, and the change is the point of that phase.
+       This block used to assert that a missing or unreadable dated plan fell
+       back to the compatibility column: the integrity failure was reported
+       and then the member was prescribed whatever the recurring projection
+       said. That is the authority leak 3C.4 closes. The programme claims
+       dated plans are authoritative, so when today's cannot be read the
+       honest answer is that we do not know, not a mechanical session invented
+       from a derived array.
+
+       The report stays, and so does everything about not touching authority
+       from a read.
 
        renderDashboard is stubbed around each probe, and that is the point
        rather than a convenience: the cutover would regenerate a missing
@@ -333,10 +349,10 @@ describe('a broken authoritative Today falls back, loudly', () => {
             if (how === 'missing') persisted.dayPlans.splice(i, 1);
             if (how === 'corrupt') persisted.dayPlans[i] = { date: key, mode: 'invented' };
             if (how === 'healthy') { /* leave it alone */ }
-            const today = getScheduledType();
+            const today = scheduledPrimaryType();
             const blackout = isBlackoutDay();
-            const again = getScheduledType();          // many calls per render
-            const thrice = getScheduledType();
+            const again = scheduledPrimaryType();          // many calls per render
+            const thrice = scheduledPrimaryType();
             return {
                 today, blackout, again, thrice,
                 reports: errs.filter(e => e.includes('integrity')).length,
@@ -358,15 +374,20 @@ describe('a broken authoritative Today falls back, loudly', () => {
     test('a healthy Today never takes the fallback and reports nothing', async () => {
         const r = await probe('healthy');
         expect(r.reports).toBe(0);
-        expect(r.today).toBe(ALL_WEEK[new Date().getDay()]);
+        const want = ALL_WEEK[new Date().getDay()];
+        expect(r.today).toBe(want === 'rest' ? null : want);
     }, 30_000);
 
-    test('a missing Today keeps the member usable and is reported once', async () => {
+    test('a missing Today prescribes NOTHING and is reported once', async () => {
         const r = await probe('missing');
-        /* Usable: Today still answers, from the compatibility column. */
-        expect(r.today).toBe(ALL_WEEK[new Date().getDay()]);
-        expect(r.blackout).toBe(ALL_WEEK[new Date().getDay()] === 'rest');
-        expect(r.again).toBe(r.today);
+        /* THE LEAK, CLOSED. This asserted the column's value. The projection
+           is derived output for this member, so reading it here manufactured
+           a prescription out of an integrity failure. */
+        expect(r.today).toBeNull();
+        /* And no mechanical work may run, which is the consequence that
+           matters: blackout is true because there is no Primary we can prove. */
+        expect(r.blackout).toBe(true);
+        expect(r.again).toBeNull();
         /* Reported, once, across four reader calls. */
         expect(r.reports).toBe(1);
         expect(r.reportText).toContain('missing');
@@ -375,9 +396,10 @@ describe('a broken authoritative Today falls back, loudly', () => {
         expect(r.keyAfter).toBe(r.keyBefore);
     }, 30_000);
 
-    test('an unreadable Today is reported rather than treated as a prescription', async () => {
+    test('an unreadable Today prescribes nothing and is reported', async () => {
         const r = await probe('corrupt');
-        expect(r.today).toBe(ALL_WEEK[new Date().getDay()]);
+        expect(r.today).toBeNull();
+        expect(r.blackout).toBe(true);
         expect(r.reports).toBe(1);
         expect(r.reportText).toContain('unreadable');
         expect(r.keyAfter).toBe('everything');
@@ -403,9 +425,9 @@ describe('a broken authoritative Today falls back, loudly', () => {
             try {
                 const i = persisted.dayPlans.findIndex(p => p.date === key);
                 persisted.dayPlans.splice(i, 1);
-                getScheduledType();
+                scheduledPrimaryType();
                 const afterFirst = errs.length;
-                for (let n = 0; n < 20; n++) getScheduledType();
+                for (let n = 0; n < 20; n++) scheduledPrimaryType();
                 return { afterFirst, afterMany: errs.length };
             } finally {
                 console.error = realError;

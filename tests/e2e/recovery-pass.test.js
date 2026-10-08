@@ -143,6 +143,7 @@ describe('recovery pass', () => {
             syncProgression('test');
             const before = persisted.streakPasses;
             // Third distinct day this week, completed for real.
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = 'length';
             _sessionStartTime = Date.now() - 60000;
             selectedEQ = null; selectedRPE = null;
@@ -150,6 +151,7 @@ describe('recovery pass', () => {
             document.getElementById('input-mseg').value = '';
             document.getElementById('session-note-input').value = '';
             finishSession();
+            closeSessionSummary();   // releases the one-shot finish guard, as the member does
             return { before, after: persisted.streakPasses,
                      verdict: persisted.progressionLedger.slice(-1)[0].verdict };
         });
@@ -358,6 +360,7 @@ describe('recovery pass', () => {
             goToStep(0);
             const before = document.getElementById('hq-pass-count').textContent;
 
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = 'length';
             _sessionStartTime = Date.now() - 60000;
             selectedEQ = 8; selectedRPE = 5;

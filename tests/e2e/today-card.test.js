@@ -212,6 +212,7 @@ describe('the Today card', () => {
             persisted.primaryGoal = 'all';
             persisted.pelvicProfile = 'standard';
 
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = routineType;
             _sessionStartTime = Date.now() - minutes * 60000;
             selectedEQ = eq; selectedRPE = rpe;

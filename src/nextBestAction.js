@@ -18,10 +18,14 @@
  * Nothing in index.html calls this yet. Wiring is Phase 2A.2 onward; the shape
  * is deliberately presentation-free so that wiring is a thin adapter.
  */
-import { classifySlot, SLOT_CLASS } from './scheduleSlot.js';
+/* The refusal vocabulary, imported rather than restated, so the one place
+   that distinguishes a legacy unreadable slot from an authoritative
+   unreadable plan cannot drift from the adapter that produces it. */
+import { PRESCRIPTION_REFUSAL as PRESCRIPTION_UNAVAILABLE_REASONS } from './todayPrescription.js';
 
 /** The seven states. OPTIONAL is not one of them: see `optional` on the result. */
-export const STATES = ['PREPARE', 'RESUME', 'TRAIN', 'MODIFIED', 'RECOVER', 'REST', 'COMPLETE'];
+export const STATES = ['PREPARE', 'RESUME', 'TRAIN', 'MODIFIED', 'RECOVER', 'REST',
+                       'SUPPORT_ONLY', 'COMPLETE'];
 
 /** Missions that are mechanical training. Overridable per call via `trainingMissions`. */
 export const TRAINING_MISSIONS = ['length', 'girth', 'stamina'];
@@ -46,6 +50,17 @@ export const PELVIC_MISSIONS = ['recovery'];
  * the reviewer prefers it; see the correction report.
  */
 export const SCHEDULE_UNRESOLVED = 'schedule-unresolved';
+
+/**
+ * An AUTHORITATIVE member's dated prescription for today could not be read.
+ *
+ * Deliberately not SCHEDULE_UNRESOLVED. That one offers the day picker as a
+ * repair, which is the right affordance for a member whose column IS their
+ * programme and the wrong one here: a missing or corrupt dated plan is not
+ * something the member can fix by assigning a type, and offering it would
+ * invite an edit the next load overwrites.
+ */
+export const PRESCRIPTION_UNAVAILABLE = 'prescription-unavailable';
 
 /** Why a PREPARE was returned. The UI must be able to explain which gate it hit. */
 export const PREPARE_REASONS = ['loading', 'goal', 'pelvic-screen', SCHEDULE_UNRESOLVED];
@@ -114,6 +129,12 @@ const REASONS = {
     rest: 'Rest is on the schedule today, and it is part of the programme.',
     moderateSoreness: 'Reduced today because you reported moderate muscle soreness.',
     scheduleUnresolved: "We couldn't determine today's session from your current schedule.",
+    prescriptionUnavailable: "We couldn't read today's session from your programme.",
+    /* A VALID programme state, so the copy carries no hint of breakage and
+       offers nothing to fix. Deliberately silent about the supporting work on
+       the day, because that surface does not exist yet; saying the day is
+       empty would be the lie, and saying it is rest would be a worse one. */
+    supportOnly: "There's no primary training session scheduled for today.",
 };
 
 const CHANGES = {
@@ -133,8 +154,18 @@ const CHANGES = {
  *   now               Date. Required; there is no implicit clock.
  *   goals             the GOALS table, passed in so there is no second copy
  *   goalKey           persisted.primaryGoal
- *   schedule          persisted.schedule, seven entries by Date#getDay()
- *   completedDays     persisted.completedDays, seven booleans
+ *   todayPrescription one truthful Today prescription from the page adapter:
+ *                     { ok, source, date, dayKind, primaryType, planMode, dose }
+ *                     or { ok: false, source, date, reason }. See
+ *                     src/todayPrescription.js. This replaced a seven-slot
+ *                     compatibility projection, which this function used to
+ *                     index itself: for an authoritative member that array is
+ *                     derived OUTPUT, so reading it here let a projection
+ *                     decide what the member trained.
+ *   primarySatisfied  boolean, has today's prescribed PRIMARY work been done.
+ *                     Resolved by the adapter according to authority, because
+ *                     the dated answer and the legacy seven-boolean answer are
+ *                     different questions and this function must not pick.
  *   sessionDraft      the unfinished session, or null
  *   soreness          '' | 'none' | 'mild' | 'moderate' | 'high'
  *   pelvicProfile     '' | 'tight' | 'standard'
@@ -144,7 +175,10 @@ const CHANGES = {
  *   dayTypes          the DAY_TYPES table, for labels inside reasons
  *   recoveryPlan      recovery exercise indices a Recovery prescription would use
  *   contractionIndices  CONTRACTION_RECOVERY_IDX
- *   trainingMissions  optional, defaults to TRAINING_MISSIONS
+ *   trainingMissions  no longer read. The vocabulary question moved to the
+ *                     adapter, which is where the two cohorts' prescriptions
+ *                     are interpreted. TRAINING_MISSIONS is still exported
+ *                     because callers use it.
  *   pelvicMissions    optional, defaults to PELVIC_MISSIONS
  *   estimateMinutes   optional (mission, opts) => number, usually sessionDuration's
  *
@@ -172,13 +206,16 @@ export function nextBestAction(input) {
     const goals = i.goals || {};
     const goal = goals[i.goalKey];
     const soreness = i.soreness || '';
-    const schedule = Array.isArray(i.schedule) ? i.schedule : [];
-    const completedDays = Array.isArray(i.completedDays) ? i.completedDays : [];
-    const today = now.getDay();
-    const scheduled = schedule[today];
+    /* A refusal shape when the caller supplied nothing, so every read below
+       is uniform and an absent adapter answer cannot read as a prescription. */
+    const pres = (i.todayPrescription && typeof i.todayPrescription === 'object')
+        ? i.todayPrescription
+        : { ok: false, source: null, date: null, reason: PRESCRIPTION_UNAVAILABLE };
+    const primaryDone = i.primarySatisfied === true;
+    const scheduled = (pres.ok === true && pres.dayKind === 'primary')
+        ? pres.primaryType : null;
     const screened = hasPelvicScreen(i.pelvicProfile);
     const estimate = typeof i.estimateMinutes === 'function' ? i.estimateMinutes : null;
-    const trainingMissions = Array.isArray(i.trainingMissions) ? i.trainingMissions : TRAINING_MISSIONS;
 
     /* An unfinished session is normally the best thing to do next. It is not,
        when it is mechanical work and the member has just reported high
@@ -221,25 +258,46 @@ export function nextBestAction(input) {
          2  unfinished session  finishing it beats starting something else,
                                 UNLESS it is mechanical and soreness is high
          3  no goal             every prescription below depends on this
-         4  already complete    never manufacture a second task
-         5  high soreness       withheld, and not overridable
-         6  scheduled rest      rest is a prescription, not an absence of one
-         7  unreadable schedule we cannot know what today is, so prescribe nothing
-         8  moderate soreness   reduced, still trained
-         9  scheduled mission   the ordinary case
+         4  primary satisfied   never manufacture a second task. ONLY from a
+                                Primary prescription; see below
+         5  cannot read today   we do not know what was prescribed
+         6  prescribed rest     rest is a prescription, not an absence of one
+         7  support only        valid, non-launching, and not rest
+         8  high soreness       withheld, and not overridable
+         9  moderate soreness   reduced, still trained
+        10  prescribed mission  the ordinary case
 
-       Rules 5 and 2 are the one place where "first match wins" is not the
+       WHY DAY IDENTITY SITS ABOVE READINESS, as of Phase 3C.4.
+
+       High soreness used to sit at rung 5, above rest, above support only and
+       above an unreadable prescription. That let a live readiness answer
+       replace the programme's day identity: a sore member on a prescribed
+       rest day was given a Recovery day the programme never prescribed, and a
+       sore member whose dated plan was corrupt was given one too, which hid a
+       data-integrity failure behind a safety state.
+
+       Soreness WITHHOLDS mechanical work. It can only withhold work that was
+       prescribed, so it now sits below the three rungs that decide whether
+       any was. Rungs 6, 7 and 8 are therefore mutually exclusive by
+       construction and rung 8 is reachable only on a Primary day.
+
+       Two consequences for the legacy cohort, both deliberate and both
+       pinned by name in the tests: a rest day with high soreness now reads
+       REST rather than RECOVER, and a rest day with the compatibility
+       completion tick set now reads REST rather than COMPLETE.
+
+       Rules 8 and 2 are the one place where "first match wins" is not the
        whole story. High soreness has no override, so letting an unfinished
        mechanical session resume above it would route straight around the only
        rule in the ladder that cannot be argued with. The guard lives on rule 2
-       rather than moving rule 5 up, because moving it would also put soreness
+       rather than moving rule 8 up, because moving it would also put soreness
        above a finished day and above a missing goal, neither of which was the
        problem.
 
-       Rule 7 sits above moderate soreness and above the ordinary case on
-       purpose: once it has passed, `scheduled` is a known-good mission, so
-       nothing below it has to guess, and no branch invents a mission from the
-       goal. A corrupt schedule produces no required work at all.            */
+       Rule 5 sits above everything that prescribes, on purpose: once it has
+       passed, the prescription is known-good, so nothing below it has to
+       guess and no branch invents a mission. An unreadable prescription
+       produces no required work at all.                                     */
 
     let state, mission = null, reason = '', prepare = null, intendedMission = null;
 
@@ -251,19 +309,44 @@ export function nextBestAction(input) {
         reason = REASONS.resume;
     } else if (!goal) {
         state = 'PREPARE'; prepare = 'goal'; reason = REASONS.goal;
-    } else if (completedDays[today] === true) {
+    } else if (pres.ok === true && pres.dayKind === 'primary' && primaryDone) {
+        /* COMPLETE is reachable ONLY from a Primary prescription. A rest day
+           and a support-only day both have a today and neither has a Primary
+           to satisfy, so letting either reach COMPLETE would collapse three
+           different completion concepts into one. */
         state = 'COMPLETE'; reason = REASONS.complete;
-    } else if (soreness === 'high') {
-        state = 'RECOVER'; mission = 'recovery'; reason = REASONS.highSoreness;
-    } else if (scheduled === 'rest') {
+    } else if (pres.ok !== true) {
+        /* We could not read what today is, so we prescribe nothing. The old
+           reader returned 'rest' here, which turned broken state into a week
+           off, and an older version fell back to the goal's mission, which
+           invented required training. For an authoritative member the column
+           is derived OUTPUT and reading it here would manufacture a
+           prescription from a projection. Neither is honest.
+
+           ABOVE high soreness, deliberately. Readiness must not mask a
+           data-integrity failure: a sore member with an unreadable plan has
+           an unreadable plan, and answering that with a Recovery day hides
+           the condition somebody needs to see. */
+        state = 'PREPARE';
+        prepare = pres.reason === PRESCRIPTION_UNAVAILABLE_REASONS.SLOT_UNRESOLVED
+            ? SCHEDULE_UNRESOLVED : PRESCRIPTION_UNAVAILABLE;
+        reason = prepare === SCHEDULE_UNRESOLVED
+            ? REASONS.scheduleUnresolved : REASONS.prescriptionUnavailable;
+    } else if (pres.dayKind === 'rest') {
+        /* ABOVE high soreness. Rest is a prescription and there is no Primary
+           to withhold, so answering it with RECOVER would manufacture a
+           Recovery day the programme never prescribed. */
         state = 'REST'; reason = REASONS.rest;
-    } else if (classifySlot(scheduled, { primaryTypes: trainingMissions }) !== SLOT_CLASS.PRIMARY) {
-        /* Missing, empty or unrecognised. getScheduledType() returns 'rest'
-           here, which quietly turns a corrupt array into a week off; the
-           earlier version of this file fell back to the goal's mission, which
-           invented required training out of broken state. Neither is honest.
-           Say the schedule could not be read and let the UI offer a repair. */
-        state = 'PREPARE'; prepare = SCHEDULE_UNRESOLVED; reason = REASONS.scheduleUnresolved;
+    } else if (pres.dayKind === 'support-only') {
+        /* ABOVE high soreness, same reasoning. A valid programme state with
+           no Primary to withhold. Non-launching until Supporting Work has a
+           surface of its own, and never described as rest or as broken. */
+        state = 'SUPPORT_ONLY'; reason = REASONS.supportOnly;
+    } else if (soreness === 'high') {
+        /* Only reachable on a PRIMARY prescription now, which is the point:
+           high soreness WITHHOLDS mechanical work, and it can only withhold
+           work that was prescribed. */
+        state = 'RECOVER'; mission = 'recovery'; reason = REASONS.highSoreness;
     } else if (soreness === 'moderate') {
         state = 'MODIFIED'; mission = scheduled;
         modifiers.moderateSoreness = true;

@@ -216,6 +216,7 @@ describe('a finished session marks its own day and no other', () => {
         /* The REAL session path, not a seeded log entry: the point is that
            what the member does writes the thing the strip reads. */
         const after = await app.page.evaluate(() => {
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = 'girth';
             _sessionStartTime = Date.now() - 30 * 60000;
             selectedEQ = 8; selectedRPE = 5;
@@ -458,6 +459,7 @@ describe('Next up on a Sunday reads the week that was generated', () => {
 
     test('it names Monday of the next week, from the plan that exists', async () => {
         const summary = await app.page.evaluate(() => {
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = 'length';
             _sessionStartTime = Date.now() - 30 * 60000;
             selectedEQ = 8; selectedRPE = 5;

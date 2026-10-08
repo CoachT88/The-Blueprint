@@ -286,11 +286,27 @@ describe('Ready: the pelvic screener gate', () => {
             persisted.pelvicProfile = '';
             localStorage.setItem(`bp_soreness_rdy_${new Date().toISOString().split('T')[0]}`, 'none');
             localStorage.removeItem('bp_session_draft_rdy');
-            // Both lists are resolver inputs so the branch is reachable and
-            // provable before 2B ships.
+            /* The known-set seam, widened where it now lives.
+               Phase 3C.4 moved the "which values count as training" question
+               out of the resolver and into the Today-prescription adapter, so
+               widening trainingMissions alone no longer reaches it: the
+               prescription is already resolved by the time buildResolverInput
+               returns, and 'pelvic' would come back unresolved. The override
+               therefore re-resolves it with the wider vocabulary, which is
+               what the adapter's primaryTypes option exists for. Both
+               resolver lists stay, because the screener gate still reads
+               pelvicMissions. Reachable and provable before 2B ships. */
             const orig = buildResolverInput;
+            const WIDE = ['length', 'girth', 'stamina', 'pelvic'];
             window.buildResolverInput = () => ({ ...orig(),
-                trainingMissions: ['length', 'girth', 'stamina', 'pelvic'],
+                todayPrescription: window.BP.todayPrescription({
+                    now: new Date(),
+                    authoritative: onAuthoritativePlans(),
+                    dayPlans: persisted.dayPlans,
+                    legacySchedule: persisted.schedule,
+                    primaryTypes: WIDE,
+                }),
+                trainingMissions: WIDE,
                 pelvicMissions: ['recovery', 'pelvic'] });
             goToStep(1);
             const out = {

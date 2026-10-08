@@ -61,7 +61,8 @@
  */
 
 import { isScheduledPrimary } from './scheduleSlot.js';
-import { dateKeyForWeekday } from './weekUtils.js';
+import { dateKeyForWeekday, localDateKeyForWeekday } from './weekUtils.js';
+import { performedByAttribution } from './sessionAttribution.js';
 
 /** Day types that are not a session. */
 export const REST_TYPES = ['rest'];
@@ -80,20 +81,12 @@ function isScheduledSession(type, restTypes, primaryTypes) {
 }
 
 
-/** What was logged on each date: whether anything, and whether mechanical. */
-function logByDate(sessionLog, mechanicalTypes) {
-    const map = new Map();
-    for (const e of (Array.isArray(sessionLog) ? sessionLog : [])) {
-        if (!e || typeof e.date !== 'string') continue;
-        const key = e.date.split('T')[0];
-        const prev = map.get(key) || { any: false, mechanical: false };
-        map.set(key, {
-            any: true,
-            mechanical: prev.mechanical || mechanicalTypes.includes(e.routineType),
-        });
-    }
-    return map;
-}
+/* The per-date "what was logged" maps come from sessionAttribution.js as of
+   Phase 3C.4, so that primarySatisfied, this function, the WeekStrip and the
+   Weekly Report cannot disagree about which prescription a session satisfied.
+   The local logByDate that used to live here keyed everything by the
+   completion timestamp, which credited a Thursday session finished after
+   midnight to Friday. */
 
 /**
  * weekCompletion(schedule, completedDays, options)
@@ -127,14 +120,35 @@ export function weekCompletion(schedule, completedDays, options) {
     const done = Array.isArray(completedDays) ? completedDays : [];
 
     const crossCheck = Array.isArray(opts.sessionLog);
-    const byDate = crossCheck ? logByDate(opts.sessionLog, mechanicalTypes) : null;
+    const perf = crossCheck ? performedByAttribution(opts.sessionLog, mechanicalTypes) : null;
     const ref = opts.now instanceof Date && !isNaN(opts.now.getTime()) ? opts.now : new Date();
 
+    /**
+     * Was weekday `i` satisfied?
+     *
+     * TWO KEYS, each read with its own relationship, because they are not
+     * interchangeable. A dated identity is the LOCAL calendar day the member
+     * lived through, which is the identity a day plan carries. A pre-3C.4
+     * entry has only its completion timestamp, whose date part is a UTC date,
+     * and that is the relationship those records were written under. Merging
+     * them would credit a day twice or not at all.
+     *
+     * The dated answer is checked first and wins outright: a session whose
+     * launch prescription was proven is better evidence than one attributed
+     * by the clock it happened to finish on. A Recovery-only day still
+     * refuses, and a manual tick is still the last resort.
+     *
+     * An entry whose prescription identity could not be proven appears in
+     * NEITHER map and so cannot satisfy anything. See sessionAttribution.js
+     * for why that is deliberate rather than data loss.
+     */
     const isSatisfied = (i) => {
         if (!crossCheck) return done[i] === true;
-        const logged = byDate.get(dateKeyForWeekday(ref, i));
-        if (logged && logged.mechanical) return true;          // the real thing
-        if (logged && logged.any) return false;                // Recovery only
+        const dated = perf.dated.get(localDateKeyForWeekday(ref, i));
+        if (dated && dated.mechanical) return true;            // proven prescription
+        const legacy = perf.legacy.get(dateKeyForWeekday(ref, i));
+        if (legacy && legacy.mechanical) return true;          // the real thing
+        if ((dated && dated.any) || (legacy && legacy.any)) return false;   // Recovery only
         return done[i] === true;                               // a manual tick
     };
 

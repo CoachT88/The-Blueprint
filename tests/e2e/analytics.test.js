@@ -25,12 +25,14 @@ describe('privacy guarantees', () => {
         await clear(app.page);
         await app.page.evaluate(() => {
             persisted.sessionLog = []; persisted.allTimeSessionCount = 0;
+            captureLaunchPrescription();   /* the production launch capture: finishSession records the prescription the session LAUNCHED under, so a harness that sets routineType by hand must freeze it the same way the real startMission() does */
             session.routineType = 'length'; selectedEQ = 8; selectedRPE = 6;
             _sessionStartTime = Date.now() - 12e5;
             document.getElementById('input-bpel').value = '6.25';
             document.getElementById('input-mseg').value = '4.75';
             document.getElementById('session-note-input').value = 'felt a sharp pain on the left side today';
             finishSession();
+            closeSessionSummary();   // releases the one-shot finish guard
         });
         const events = await buffer(app.page);
         const done = events.find(e => e.event === 'session_completed');
