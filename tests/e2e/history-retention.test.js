@@ -138,6 +138,45 @@ describe('trimming is observable', () => {
             'entries_after', 'entries_before', 'entries_removed', 'trigger']);
     }, 120_000);
 
+    test('THE TRIMMED LOG IS WHAT REACHES BOTH LOCAL AND SYNCED HISTORY', async () => {
+        /* Trimming that only shortened the in-memory array would leave the
+           server row long, and the next load would restore the entries. So
+           the question is not whether trimming happens, but whether the
+           SHORT array is what both writers see. */
+        const o = await app.page.evaluate(async (r) => {
+            try { localStorage.removeItem('bp_data_' + currentUser.id); } catch (e) {}
+            try { localStorage.setItem(getTodaySorenessKey(), 'none'); } catch (e) {}
+            window.__row = r;
+            await loadPersisted();
+            _launchedPrescription = null; _frozenSteps = null; _frozenFor = null;
+            renderDashboard();
+            const res = window.BP.nextBestAction(buildResolverInput());
+            readyPlan(res).go();
+            const seeded = persisted.sessionLog.length;
+            selectedEQ = 8; selectedRPE = 5;
+            _sessionStartTime = Date.now() - 6e5;
+            document.getElementById('input-bpel').value = '';
+            document.getElementById('input-mseg').value = '';
+            document.getElementById('session-note-input').value = '';
+            finishSession();
+            const inMemory = persisted.sessionLog.length;
+            /* The local backup is written synchronously by savePersisted. */
+            let local = null;
+            try {
+                const raw = localStorage.getItem('bp_data_' + currentUser.id);
+                local = raw ? (JSON.parse(raw).sessionLog || []).length : null;
+            } catch (e) {}
+            /* The exact payload the upsert would send. */
+            const synced = _upsertPayload().session_log.length;
+            closeSessionSummary();
+            return { seeded, inMemory, local, synced };
+        }, row({ session_log: Array.from({ length: 620 }, (_, i) => entry34(i, 'x'.repeat(450))) }));
+
+        expect(o.inMemory).toBeLessThan(o.seeded);      // a trim really happened
+        expect(o.local).toBe(o.inMemory);               // local carries the short array
+        expect(o.synced).toBe(o.inMemory);              // so does the server payload
+    }, 120_000);
+
     test('telemetry failure never blocks the completion', async () => {
         const o = await app.page.evaluate(async (r) => {
             try { localStorage.removeItem('bp_data_' + currentUser.id); } catch (e) {}
