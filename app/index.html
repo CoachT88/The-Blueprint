@@ -182,7 +182,17 @@
            fixed with maximum-scale or user-scalable=no, which would stop the
            member zooming the page deliberately and is an accessibility
            regression. Non-editable text is untouched. */
-        input,textarea,select{font-size:16px}
+        /* `html` prefixed deliberately. Tailwind's preflight sets
+           `button,input,optgroup,select,textarea{font-size:100%}`, which has
+           the same specificity as a bare `input` rule and is injected by the
+           CDN script AFTER this stylesheet, so it wins on source order. A
+           plain `input{...}` rule here is dead: measured, not guessed.
+
+           With preflight winning, a control INHERITS its context, so a bare
+           input inside any small-font container shrinks below 16px and invites
+           the zoom again. One extra element in the selector outranks preflight
+           without resorting to !important. */
+        html input,html textarea,html select{font-size:16px}
         .glass-input:focus{border-color:rgba(168,85,247,.4)}
         .timer-glow{font-family:'JetBrains Mono',monospace;text-shadow:0 0 40px rgba(59,130,246,.5)}
         /* ── The WeekStrip ──────────────────────────────────────────────

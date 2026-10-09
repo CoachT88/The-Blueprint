@@ -68,15 +68,27 @@ describe('iOS focus zoom cannot be triggered', () => {
            mutation testing that found this called it equivalent, correctly.
            The blanket rule's real job is the NEXT control somebody adds, which
            is exactly what gets forgotten. So the net is tested directly. */
-        const px = await app.page.evaluate(() => {
+        const r = await app.page.evaluate(() => {
             const el = document.createElement('input');
             el.type = 'text';                      // no class, no inline style
             document.body.appendChild(el);
-            const v = parseFloat(getComputedStyle(el).fontSize);
-            el.remove();
-            return v;
+            const onBody = parseFloat(getComputedStyle(el).fontSize);
+            /* And inside a small-font container, which is the case that
+               actually bites: Tailwind's preflight sets font-size:100% on form
+               controls, so without a stronger rule a bare input INHERITS the
+               tiny context instead of the 16px floor. */
+            const box = document.createElement('div');
+            box.style.fontSize = '10px';
+            const el2 = document.createElement('input');
+            el2.type = 'text';
+            box.appendChild(el2);
+            document.body.appendChild(box);
+            const nested = parseFloat(getComputedStyle(el2).fontSize);
+            el.remove(); box.remove();
+            return { onBody, nested };
         });
-        expect(px).toBeGreaterThanOrEqual(16);
+        expect(r.onBody).toBeGreaterThanOrEqual(16);
+        expect(r.nested).toBeGreaterThanOrEqual(16);
     }, 60_000);
 
     test('and the member can still zoom deliberately', async () => {
