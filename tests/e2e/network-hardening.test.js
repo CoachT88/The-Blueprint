@@ -233,6 +233,34 @@ describe('logout and the account boundary', () => {
         expect(o.writes.some(w => w.id === 'B' && w.xp === 111)).toBe(false);
     }, 90_000);
 
+    test("A SETTLED WRITE CLEARS ONLY THE CAPTURED ACCOUNT'S DIRTY FLAG", async () => {
+        /* The sharpest form of the rule, aimed at the exact line. A write
+           captured for A is completed while B is the live account. It must
+           clear A's flag and leave B's alone. Asserting this through the
+           debounce could not separate "B's flag was cleared by A's callback"
+           from "B's own write cleared it", so the real function is called
+           directly with a captured pair, which is how production calls it. */
+        await authSignIn(app.page, { id: 'B', email: 'b@example.com', row: row({ id: 'B' }) });
+        const o = await app.page.evaluate(async () => {
+            WRITE_DEADLINE_MS = 60;
+            window.__writes = [];
+            window.__failUpsert = false;
+            localStorage.setItem('bp_dirty_A', '1');
+            localStorage.setItem('bp_dirty_B', '1');
+            const outcome = await _commitWrite('A', { id: 'A', total_xp: 5 });
+            return { outcome,
+                     dirtyA: !!localStorage.getItem('bp_dirty_A'),
+                     dirtyB: !!localStorage.getItem('bp_dirty_B'),
+                     live: currentUser ? currentUser.id : null,
+                     sentIds: window.__writes.map(w => w.id) };
+        });
+        expect(o.live).toBe('B');          // B is the live account throughout
+        expect(o.outcome).toBe('ok');
+        expect(o.dirtyA).toBe(false);      // the captured account is cleaned
+        expect(o.dirtyB).toBe(true);       // and B is untouched
+        expect(o.sentIds).toEqual(['A']);  // under A's id, never B's
+    }, 90_000);
+
     test('logout with a pending save and NO next account loses nothing', async () => {
         await authSignIn(app.page, { id: 'A', email: 'a@example.com', row: row({ id: 'A' }) });
         const o = await app.page.evaluate(async () => {
