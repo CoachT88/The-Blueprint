@@ -105,23 +105,20 @@ describe('membership lookup resilience', () => {
         // A first sign-in on a new device has no cached pass to fall back on, so
         // one unlucky request would otherwise bounce a paying member.
         const r = await app.page.evaluate(async () => {
+            /* Membership is claimed through the RPC now, not read by email, so
+               the thing to make slow is claim_membership(). The retry
+               behaviour under test is unchanged. */
             let calls = 0;
-            const origFrom = sb.from.bind(sb);
-            sb.from = (t) => t === 'members' ? {
-                select: () => ({
-                    eq: () => ({
-                        single: () => {
-                            calls++;
-                            // Fail once, then succeed.
-                            if (calls === 1) return new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10));
-                            return Promise.resolve({ data: { email: 'm@m.com' }, error: null });
-                        },
-                    }),
-                }),
-            } : origFrom(t);
-
+            const origRpc = sb.rpc.bind(sb);
+            sb.rpc = (name) => {
+                if (name !== 'claim_membership') return origRpc(name);
+                calls++;
+                // Fail once, then succeed.
+                if (calls === 1) return new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10));
+                return Promise.resolve({ data: true, error: null });
+            };
             const allowed = await checkMembership({ id: 'slowuser', email: 'm@m.com' });
-            sb.from = origFrom;
+            sb.rpc = origRpc;
             return { allowed, calls, cached: localStorage.getItem('bp_member_ok_slowuser') };
         });
         expect(r.calls).toBe(2);       // retried
@@ -131,13 +128,17 @@ describe('membership lookup resilience', () => {
 
     test('a genuine non-member is still refused after the retry', async () => {
         const r = await app.page.evaluate(async () => {
+            /* `data: false` is the RPC's definitive "this UUID owns nothing".
+               It is an ANSWER, so it must not be retried, unlike a timeout. */
             let calls = 0;
-            const origFrom = sb.from.bind(sb);
-            sb.from = (t) => t === 'members' ? {
-                select: () => ({ eq: () => ({ single: () => { calls++; return Promise.resolve({ data: null, error: { code: 'PGRST116' } }); } }) }),
-            } : origFrom(t);
+            const origRpc = sb.rpc.bind(sb);
+            sb.rpc = (name) => {
+                if (name !== 'claim_membership') return origRpc(name);
+                calls++;
+                return Promise.resolve({ data: false, error: null });
+            };
             const allowed = await checkMembership({ id: 'nomember', email: 'no@no.com' });
-            sb.from = origFrom;
+            sb.rpc = origRpc;
             return { allowed, calls };
         });
         expect(r.allowed).toBe(false);
