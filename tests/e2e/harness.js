@@ -167,6 +167,21 @@ function installSupabaseStub(cfg) {
             if (window.__failUpsert) {
                 return Promise.resolve({ error: { code: '503', message: 'simulated upload failure' } });
             }
+            /* NEVER SETTLES, for the write deadline. Distinct from __failUpsert
+               because a hang is not a failure: the server may have committed
+               and only the response is lost, which is exactly the case the
+               deadline has to treat as unknown rather than failed.
+               __hangUpsertCommits records the payload anyway, modelling a
+               remote success whose answer never came back. */
+            if (window.__hangUpsert) {
+                if (window.__hangUpsertCommits) window.__writes.push(payload);
+                return new Promise(() => {});
+            }
+            /* Throws rather than resolving with an error, for the path where
+               the client library itself blows up. */
+            if (window.__throwUpsert) {
+                return Promise.reject(new Error('simulated client throw'));
+            }
             window.__writes.push(payload);
             return Promise.resolve({ error: null });
         };
@@ -204,6 +219,22 @@ function installSupabaseStub(cfg) {
                     return Promise.resolve({});
                 },
                 signInWithPassword: () => Promise.resolve({ data: {}, error: null }),
+                /* Never stubbed until the hardening pass, which means the
+                   one-time 401 refresh-and-retry in fetchClaude had never
+                   once been executed by a test: refreshSession was undefined,
+                   so the call threw and the retry was skipped silently.
+                   __refreshFails makes the refresh itself fail, and
+                   __hangRefresh makes it hang, for the two paths where the
+                   member must still get their controls back. */
+                refreshSession: () => {
+                    window.__refreshCalls = (window.__refreshCalls || 0) + 1;
+                    if (window.__hangRefresh) return new Promise(() => {});
+                    if (window.__refreshFails) return Promise.resolve({ data: { session: null }, error: { message: 'refresh failed' } });
+                    const u = window.__authUser || { id: 'stub', email: 'stub@example.com' };
+                    const session = { user: u, access_token: 'refreshed-token' };
+                    window.__session = session;
+                    return Promise.resolve({ data: { session }, error: null });
+                },
                 signUp: () => Promise.resolve({ data: {}, error: null }),
                 /* Phase 2B.3.1. Preferred name lives in auth user_metadata,
                    so the stub has to model it. window.__authUser is the
@@ -219,12 +250,44 @@ function installSupabaseStub(cfg) {
                     return Promise.resolve({ data: { user: JSON.parse(JSON.stringify(window.__authUser)) }, error: null });
                 },
             },
+            /* Storage, with the same three injection shapes as the table
+               stub. __uploads records every attempted path, which is how a
+               test proves a retry reused the SAME path instead of minting a
+               second object. __storageExisting holds paths the bucket is
+               pretending to already have, so upsert:false can answer with a
+               real conflict. */
             storage: {
                 from: () => ({
-                    list: () => Promise.resolve({ data: window.__files, error: null }),
-                    createSignedUrls: (paths) => Promise.resolve({ data: paths.map(() => ({ signedUrl: cfg.pngDataUri })) }),
-                    upload: () => Promise.resolve({ data: { path: 'x' }, error: null }),
-                    remove: () => Promise.resolve({ error: null }),
+                    list: () => (window.__hangStorage
+                        ? new Promise(() => {})
+                        : Promise.resolve({ data: window.__files, error: null })),
+                    createSignedUrls: (paths) => (window.__hangSignedUrls
+                        ? new Promise(() => {})
+                        : Promise.resolve({ data: paths.map(() => ({ signedUrl: cfg.pngDataUri })) })),
+                    upload: (path) => {
+                        window.__uploads = window.__uploads || [];
+                        window.__uploads.push(path);
+                        if (window.__hangUpload) {
+                            if (window.__hangUploadCommits) {
+                                window.__storageExisting = window.__storageExisting || [];
+                                window.__storageExisting.push(path);
+                            }
+                            return new Promise(() => {});
+                        }
+                        if ((window.__storageExisting || []).includes(path)) {
+                            return Promise.resolve({ data: null, error:
+                                { statusCode: '409', message: 'The resource already exists' } });
+                        }
+                        if (window.__failUpload) {
+                            return Promise.resolve({ data: null, error: { message: 'simulated storage failure' } });
+                        }
+                        window.__storageExisting = window.__storageExisting || [];
+                        window.__storageExisting.push(path);
+                        return Promise.resolve({ data: { path }, error: null });
+                    },
+                    remove: () => (window.__hangRemove
+                        ? new Promise(() => {})
+                        : Promise.resolve({ error: null })),
                 }),
             },
         }),

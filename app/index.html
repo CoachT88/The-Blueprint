@@ -3415,7 +3415,9 @@ function _isUnknownColumnError(err){
    The caller learns only that the outcome is UNKNOWN. Unknown is treated like
    failure for DURABILITY, keep the backup and keep the dirty flag, and unlike
    failure for BLAME, never roll local state back and never say it failed. */
-const WRITE_DEADLINE_MS=10000;
+/* `let`, not `const`, so a test can shorten it by bare assignment the way
+   the suites already override isDeloadWeek. Production never reassigns it. */
+let WRITE_DEADLINE_MS=10000;
 const _WRITE_TIMEOUT=Object.freeze({__writeTimeout:true});
 function _withDeadline(p,ms){
     let timer=null;
@@ -4535,8 +4537,8 @@ function _isStorageConflict(err){
     return err.statusCode==='409'||err.statusCode===409
         ||msg.includes('already exists')||msg.includes('duplicate')||msg.includes('resource already');
 }
-const STORAGE_DEADLINE_MS=45000;      // uploads are large on a phone connection
-const STORAGE_READ_DEADLINE_MS=15000;
+let STORAGE_DEADLINE_MS=45000;        // uploads are large on a phone connection
+let STORAGE_READ_DEADLINE_MS=15000;
 /* Non-cancelling, for the same reason as a user_data write: an upload that
    may already have stored the object must not be aborted into ambiguity we
    could have avoided. storage-js at 2.39.3 takes no abort signal anyway. */
@@ -4584,7 +4586,7 @@ function tidyReply(s){
 
    ONE budget covers the whole exchange, original request plus any refreshed
    token retry, so a 401 cannot double the time the member waits. */
-const COACH_DEADLINE_MS=30000;
+let COACH_DEADLINE_MS=30000;   // let: overridable by tests, see WRITE_DEADLINE_MS
 async function fetchClaude(mode, userMsg, context){
     const ctl=(typeof AbortController!=='undefined')?new AbortController():null;
     const _send=(token)=>fetch('/api/coach-tee',{
@@ -4596,7 +4598,15 @@ async function fetchClaude(mode, userMsg, context){
     let timedOut=false;
     const timer=setTimeout(()=>{ timedOut=true; if(ctl) try{ctl.abort()}catch(e){} },COACH_DEADLINE_MS);
     try{
-        const {data:{session}}=await sb.auth.getSession();
+        /* getSession and refreshSession are NOT the fetch, so the
+           AbortController above cannot reach them. A hung refresh would
+           otherwise leave the member on a disabled button reading "..."
+           forever, which is precisely the failure this deadline exists to
+           prevent. Both are therefore bounded on the same budget. */
+        const _gs=await _withDeadline(sb.auth.getSession(),COACH_DEADLINE_MS);
+        if(_gs===_WRITE_TIMEOUT) return{ok:false,timedOut:true,
+            error:'Coach Tee is taking too long to answer. Check your connection and try again.'};
+        const session=(_gs&&_gs.data&&_gs.data.session)||null;
         if(!session)return{ok:false,error:'Sign in to talk to Coach Tee.'};
         let res=await _send(session.access_token);
         // An access token lasts about an hour. A man who left the app open on
@@ -4604,7 +4614,10 @@ async function fetchClaude(mode, userMsg, context){
         // concerned, so a stale token should be refreshed and retried rather
         // than thrown back at him as "sign in" while he is already signed in.
         if(res.status===401){
-            const {data:{session:fresh}}=await sb.auth.refreshSession();
+            const _rs=await _withDeadline(sb.auth.refreshSession(),COACH_DEADLINE_MS);
+            if(_rs===_WRITE_TIMEOUT) return{ok:false,timedOut:true,
+                error:'Coach Tee is taking too long to answer. Check your connection and try again.'};
+            const fresh=(_rs&&_rs.data&&_rs.data.session)||null;
             if(fresh) res=await _send(fresh.access_token);
         }
         const data=await res.json();
