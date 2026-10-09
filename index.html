@@ -23,6 +23,43 @@
 <link rel="canonical" href="https://theblueprint.armakebeatz.workers.dev/">
 
 <title>The Blueprint: your sexual performance can be trained</title>
+
+<!-- ==========================================================================
+     AN INSTALLED MEMBER MUST NOT BE SHOWN THE SALES PAGE.
+
+     The manifest is already right for new installs: start_url and scope are
+     both /app/, so a current install opens the product directly and never
+     reaches this file. The problem is the installs made BEFORE that structure
+     existed. Their Home Screen icon still points at "/", so every launch
+     drops a paying member onto the acquisition page, and nothing here used to
+     notice. This recovers those installs without asking anyone to delete and
+     reinstall.
+
+     Two checks, because neither covers both platforms: the media query is the
+     standard, and navigator.standalone is the iOS-only legacy flag that an
+     older Home Screen shortcut is exactly the thing to report.
+
+     NOT based on login state, deliberately. An installed member who is signed
+     out should still open the PRODUCT and meet its authentication screen,
+     because that is what tapping an app icon means. Sending them here instead
+     would be asking them to buy something they already own.
+
+     replace() rather than assign(), so Back does not bounce them straight
+     back onto this page.
+
+     Inline and in <head> on purpose: it has to run before anything paints, or
+     the member sees a flash of the sales page on every launch. There is no
+     loop risk, because /app/ is a different document and never runs this.
+     ========================================================================== -->
+<script>
+(function(){
+    try{
+        var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+                      || window.navigator.standalone === true;
+        if(standalone) window.location.replace('/app/');
+    }catch(e){ /* a browser that cannot answer is a browser, so stay put */ }
+})();
+</script>
 <style>
 /* ==========================================================================
    The Blueprint — sales page.

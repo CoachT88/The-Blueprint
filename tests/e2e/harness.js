@@ -37,7 +37,7 @@
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -67,9 +67,19 @@ export async function startServer() {
     const server = createServer(async (req, res) => {
         try {
             const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
-            const file = path.join(REPO_ROOT, rel);
+            let file = path.join(REPO_ROOT, rel);
             // Never serve outside the repo.
             if (!file.startsWith(REPO_ROOT) || !existsSync(file)) { res.writeHead(404); return res.end('not found'); }
+            /* DIRECTORY INDEX, to match production. Cloudflare Workers assets
+               serve /app/ as /app/index.html, which is why the manifest's
+               start_url can be /app/ at all. Without this the request reads a
+               directory and 500s, so a test navigating to /app/ would fail
+               for a reason production does not have. */
+            if (statSync(file).isDirectory()) {
+                const index = path.join(file, 'index.html');
+                if (!existsSync(index)) { res.writeHead(404); return res.end('not found'); }
+                file = index;
+            }
             const body = await readFile(file);
             res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
             res.end(body);
@@ -85,7 +95,10 @@ export async function startServer() {
  * override so the same suites run in a sandbox with a preinstalled browser and
  * on a normal machine with no configuration.
  */
-function launchOptions() {
+/* Exported so a suite that has to drive a DIFFERENT document, such as the
+   root sales page, resolves the same Chromium as every other suite instead
+   of reaching for a headless shell that is not installed here. */
+export function launchOptions() {
     const explicit = process.env.PW_CHROMIUM_PATH;
     if (explicit && existsSync(explicit)) return { executablePath: explicit };
     for (const candidate of [
