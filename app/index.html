@@ -2653,6 +2653,12 @@ function currentTodayPrescription(){
         authoritative,
         dayPlans:persisted.dayPlans,
         legacySchedule:persisted.schedule,
+        /* Phase 3C.5. Provenance, so a plan generated under a different
+           programme cannot quietly execute, and the titles this build can
+           actually run, so a renamed or deleted exercise fails closed at the
+           gate instead of throwing deep inside the engine. */
+        programmeKey:(persisted.programme&&persisted.programme.key)||null,
+        titles:executableTitles(),
     });
     if(authoritative&&p.ok!==true){
         const R=window.BP.PRESCRIPTION_REFUSAL;
@@ -3557,8 +3563,15 @@ function resetSession(){
     // Derive from the tier. Hardcoding 3 here silently overrode the round count
     // the mission handler had just set, so Intermediate ran 3 rounds instead of 4
     // and Advanced/Elite 3 instead of 5.
+    /* The frozen round count first. A snapshot's rounds are what the
+       programme prescribed for this date; the tier table is the dynamic
+       fallback for the cohorts that still execute from it. */
+    const _frozen=typeof frozenExecution==='function'?frozenExecution():null;
     const _gcfg=(typeof GIRTH_CIRCUIT!=='undefined'&&GIRTH_CIRCUIT[getDiff().id])||{rounds:3};
-    session.girthRound=1;session.girthTotalRounds=_gcfg.rounds||3;
+    session.girthRound=1;
+    session.girthTotalRounds=(_frozen&&_frozen.shape==='circuit'&&_launchedPrescription
+        &&_launchedPrescription.performedType===session.routineType)
+        ? _frozen.rounds : (_gcfg.rounds||3);
     _releaseWakeLock();
 }
 
@@ -4746,9 +4759,35 @@ function startRecoverySession(){
  * neither is shaped on either side. A reduced girth session is the same
  * circuit with shorter work, not a shorter circuit.
  */
+/**
+ * The exercise the member is on, with its dose.
+ *
+ * TWO PATHS, and which one applies is decided at launch rather than here.
+ *
+ *   FROZEN      an authoritative session that launched with an execution
+ *               snapshot. The numbers come from that snapshot and from
+ *               nowhere else: not the current tier, not the current tables,
+ *               not the current deload state, not today's soreness. The
+ *               definition still comes from the table, because cues, how-to
+ *               and EQ targets are instruction and a corrected safety cue
+ *               must reach a session already underway.
+ *
+ *   DYNAMIC     a legacy or custom member, Recovery, or a pre-3C.5 draft
+ *               resumed after the upgrade. Unchanged behaviour: the tier and
+ *               the live shapes decide, exactly as they always have.
+ *
+ * Until Phase 3C.5 there was only the dynamic path, so a tier advance
+ * silently rewrote a prescription that had already been made and a table edit
+ * rewrote every plan ever generated.
+ */
 function getCurEx(){
     const ex = ROUTINES[session.routineType][session.exerciseIndex];
     if(ex.isRecovery) return ex;
+    const frozen = frozenStep();
+    if(frozen){
+        /* The dose from the snapshot, the words from the table. */
+        return {...ex, sets:frozen.sets, duration:frozen.duration, restDur:frozen.restDur};
+    }
     const shapes = currentShapes();   // [deload?, moderate soreness?], in that order
     if(session.routineType==='girth'){
         const diffKey=getDiff().id;
@@ -4775,21 +4814,31 @@ function updateExUI(){
     // Circuit overview for girth — show before first round starts
     const circOv=document.getElementById('circuit-overview');
     if(session.routineType==='girth' && session.girthRound===1 && session.exerciseIndex===0){
+        const _f=frozenExecution();
+        const _frozenCircuit=(_f&&_f.shape==='circuit'&&_launchedPrescription
+            &&_launchedPrescription.performedType==='girth')?_f:null;
         const diffKey=getDiff().id;
         const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
-        /* Shaped, for the same reason the difficulty subtext is: this card
-           is the member reading what the circuit is about to be, and it
-           used to show the unreduced work intervals on a deload week.
-           Rounds and the inter-round rest are not shaped by anything, here
-           or in the estimate, so they are printed as they stand. */
+        /* The card is the member reading what the circuit is about to be, so
+           it must show what the engine will actually run. For a frozen
+           session that is the snapshot, station for station; for the dynamic
+           path it is the tier table with the live shapes applied, which is
+           what it has always shown. Printing the tier's raw numbers under a
+           frozen dose would be the display disagreeing with the session. */
         const _s=currentShapes();
-        const jelqLabel=_durLabel(shapeEx({sets:1,duration:cfg.jelqDur},_s).duration);
-        const uliDur=shapeEx({sets:1,duration:cfg.uliDur},_s).duration;
-        document.getElementById('circuit-overview-label').innerHTML=`<i class="fas fa-list-check"></i> ${cfg.rounds}-Round Circuit`;
+        const _jelq=_frozenCircuit?_frozenCircuit.steps[0]:null;
+        const _uli=_frozenCircuit?_frozenCircuit.steps[1]:null;
+        const jelqLabel=_durLabel(_jelq?_jelq.duration
+            :shapeEx({sets:1,duration:cfg.jelqDur},_s).duration);
+        const uliDur=_uli?_uli.duration:shapeEx({sets:1,duration:cfg.uliDur},_s).duration;
+        const roundCount=_frozenCircuit?_frozenCircuit.rounds:cfg.rounds;
+        const roundRest=(_frozenCircuit&&typeof _frozenCircuit.roundRest==='number')
+            ?_frozenCircuit.roundRest:cfg.restDur;
+        document.getElementById('circuit-overview-label').innerHTML=`<i class="fas fa-list-check"></i> ${roundCount}-Round Circuit`;
         document.getElementById('circuit-overview-steps').innerHTML=`
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">1</span><p class="text-[11px] text-slate-300">Wet Jelq <span class="text-emerald-500">${jelqLabel}</span> — 3s per stroke, 60-80% EQ</p></div>
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">2</span><p class="text-[11px] text-slate-300">Uli — Manual Clamp <span class="text-emerald-500">${uliDur}s</span> — OK grip at base, 80% EQ</p></div>
-            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-[9px] font-black text-slate-400">↺</span><p class="text-[11px] u-text-2">${cfg.restDur}s rest + re-lube between rounds</p></div>`;
+            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-[9px] font-black text-slate-400">↺</span><p class="text-[11px] u-text-2">${roundRest}s rest + re-lube between rounds</p></div>`;
         circOv.classList.remove('hidden');
     } else {
         circOv.classList.add('hidden');
@@ -5142,7 +5191,7 @@ function skipRest(){
 function advanceEx(){
     if(session.routineType==='girth'){
         // Move to next exercise within the current round
-        if(session.exerciseIndex<ROUTINES.girth.length-1){
+        if(session.exerciseIndex<executableStepCount()-1){
             session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI();return;
         }
         // Completed last exercise of round (Uli)
@@ -5165,8 +5214,7 @@ function advanceEx(){
             session.setIndex=1;session.directionalIndex=0;updateExUI();return;
         }
     } else {
-        const exs=ROUTINES[session.routineType];
-        if(session.exerciseIndex<exs.length-1){session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI();return;}
+        if(session.exerciseIndex<executableStepCount()-1){session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI();return;}
     }
     haptic([100,50,100,50,300]);
     document.getElementById('success-xp-text').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
@@ -5174,9 +5222,15 @@ function advanceEx(){
 }
 
 function startGirthRoundRest(){
+    const _f=frozenExecution();
     const diffKey=getDiff().id;
     const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
-    const restDur=cfg.restDur;
+    /* The frozen inter-round rest when the session launched with one. Note
+       that neither modifier shapes it, here or in the dose: a deload reduces
+       the work, not the recovery between rounds. */
+    const restDur=(_f&&_f.shape==='circuit'&&typeof _f.roundRest==='number'
+        &&_launchedPrescription&&_launchedPrescription.performedType===session.routineType)
+        ? _f.roundRest : cfg.restDur;
     const ov=document.getElementById('rest-overlay');ov.classList.remove('hidden');ov.style.opacity='1';
     startBoxBreathing();
     const arc=document.getElementById('rest-arc');
@@ -6279,13 +6333,167 @@ function effectiveMission(r){
  * answer: a support-only day has no legacy identity to record, and so does a
  * day whose plan could not be read.
  */
-function captureLaunchPrescription(){
+/**
+ * Every exercise title this build can execute.
+ *
+ * The join between a stored dose and a code-owned definition. Computed once
+ * and cached, because it is a property of the bundle rather than of state.
+ */
+let _executableTitles=null;
+function executableTitles(){
+    if(_executableTitles) return _executableTitles;
+    const out=new Set();
+    for(const k of Object.keys(ROUTINES)) for(const ex of ROUTINES[k]) if(ex&&ex.title) out.add(ex.title);
+    _executableTitles=out;
+    return out;
+}
+
+/**
+ * THE LAUNCH PIPELINE. Freeze what this session will execute.
+ *
+ *   stored baseline        the programme's dose for this date, already
+ *                          validated by the adapter
+ *   apply deload           if the member is in one RIGHT NOW. Deload is about
+ *                          current accumulated load, not about what a plan
+ *                          made a week ago assumed
+ *   apply moderate soreness  if reported today
+ *   validate again         a modifier may not produce a dose that would not
+ *                          have been accepted as a baseline
+ *   freeze                 and from here nothing re-derives any of it
+ *
+ * Each modifier is applied EXACTLY ONCE, in that order. The arithmetic is
+ * unchanged: applyShape, sets floored at 1, duration rounded at each step.
+ *
+ * Returns the snapshot, or null when there is no identity to capture. null is
+ * a real answer: a support-only day, a refused prescription, or a member whose
+ * column is their programme, all of which execute on the dynamic path.
+ */
+function captureLaunchPrescription(mission){
     /* A fresh launch is never a legacy draft, whatever the last one was. */
     _launchLegacyDraft=false;
-    _launchedPrescription=window.BP&&window.BP.launchSnapshotFrom
-        ? window.BP.launchSnapshotFrom(currentTodayPrescription(),new Date())
-        : null;
+    _launchedPrescription=null;
+    if(!window.BP||!window.BP.launchSnapshotFrom) return null;
+    const now=new Date();
+    const pres=currentTodayPrescription();
+    const performed=mission||session.routineType;
+    const xpTier=getDiff().id;
+
+    /* A SUBSTITUTION is its own source. The scheduled prescription's dose
+       belongs to the scheduled mission and may never be applied to a
+       different one, so the performed mission gets an independently derived
+       dose from the current tables, validated by the same validator. The
+       programme's baseline is still carried, because history has to preserve
+       both truths: what was asked for and what was chosen instead. */
+    const substituted=!!(pres&&pres.ok===true&&pres.dayKind==='primary'
+        &&performed&&performed!=='recovery'&&performed!==pres.primaryType);
+
+    let exec=null;
+    if(pres&&pres.ok===true&&pres.dayKind==='primary'){
+        const live={
+            deload:isDeloadWeek(),
+            moderateSoreness:(localStorage.getItem(getTodaySorenessKey())||'')==='moderate',
+            deloadShape:window.BP.DELOAD_SHAPE,
+            sorenessShape:window.BP.MODERATE_SORENESS_SHAPE,
+        };
+        const baseline=substituted?substituteDoseFor(performed):pres.dose;
+        const applied=baseline?window.BP.applyExecutionModifiers(baseline,live,
+            {titles:executableTitles()}):null;
+        if(applied&&applied.ok){
+            exec={
+                performedType:performed,
+                prescribedDose:pres.dose,
+                executionDose:applied.value,
+                readinessInput:localStorage.getItem(getTodaySorenessKey())||'',
+                appliedModifiers:applied.applied,
+                xpTier,
+            };
+            track('launch_decision',{
+                source:substituted?'substitution':pres.source,
+                mission:performed,
+                scheduled:pres.primaryType,
+                mode:pres.planMode||'',
+                modifiers:applied.applied.join('+')||'none',
+                dose_version:window.BP.DOSE_SCHEMA_VERSION,
+                frozen:true,
+            });
+        } else if(applied&&!applied.ok){
+            /* A modifier produced a dose that will not validate. Fail the
+               launch rather than run the unmodified one: that is a bug in the
+               modifier, not a reason to prescribe something else. */
+            track('dose_validation_failed',{stage:'post_modifier',code:String(applied.code||'')});
+            _reportPlanIntegrity('execution-dose-invalid',pres.date);
+            return null;
+        }
+    }
+    _launchedPrescription=window.BP.launchSnapshotFrom(pres,now,exec);
     return _launchedPrescription;
+}
+
+/**
+ * A dose for a mission the programme did NOT prescribe.
+ *
+ * The one place current tables are permitted to GENERATE a dose, and it is
+ * named so it cannot be mistaken for authority. A member who substitutes has
+ * chosen a session the programme has no prescription for, so there is nothing
+ * stored to honour; resolving it at the current tier is the honest answer and
+ * refusing to let them train would be a worse one. It goes through the same
+ * validator as a stored dose.
+ */
+function substituteDoseFor(mission){
+    if(!window.BP||!window.BP.resolveDose) return null;
+    const d=window.BP.resolveDose(mission,getDiff().id,{
+        routines:ROUTINES, difficulties:DIFFICULTIES, girthCircuit:GIRTH_CIRCUIT,
+        directionals:DIRECTIONALS, exExperience:EX_EXPERIENCE,
+    });
+    if(!d) return null;
+    const ok=window.BP.validateDose(d,{titles:executableTitles()});
+    if(!ok.ok){ track('dose_validation_failed',{stage:'substitution',code:String(ok.code||'')}); return null; }
+    return ok.value;
+}
+
+/**
+ * The frozen execution, expanded into ordered steps. Memoised per snapshot.
+ *
+ * THE SOLE EXECUTION AUTHORITY once a session has launched. Nothing below
+ * reads the current tier, the current tables for dose, the current deload
+ * state, the current soreness, a regenerated day plan or the current date.
+ */
+let _frozenSteps=null, _frozenFor=null;
+function frozenExecution(){
+    const snap=_launchedPrescription;
+    if(!snap||!snap.executionDose) return null;
+    if(_frozenFor===snap) return _frozenSteps;
+    const r=window.BP.expandSteps(snap.executionDose);
+    _frozenSteps=r&&r.ok?r:null;
+    _frozenFor=snap;
+    return _frozenSteps;
+}
+/**
+ * How many steps this session actually runs.
+ *
+ * The frozen dose decides for an authoritative session, because the number of
+ * exercises is part of what was prescribed. The table decides on the dynamic
+ * path. These agree today, and a stored dose that listed fewer exercises than
+ * the table would otherwise have run work nobody prescribed.
+ */
+function executableStepCount(){
+    const f=frozenExecution();
+    if(f&&_launchedPrescription&&_launchedPrescription.performedType===session.routineType){
+        return f.steps.length;
+    }
+    const exs=ROUTINES[session.routineType];
+    return exs?exs.length:0;
+}
+/** The frozen step for the running exercise, or null on the dynamic path. */
+function frozenStep(idx){
+    const f=frozenExecution();
+    if(!f) return null;
+    const snap=_launchedPrescription;
+    /* Only for the mission actually frozen. A member who leaves and starts
+       something else is not executing this snapshot. */
+    if(snap.performedType!==session.routineType) return null;
+    const i=typeof idx==='number'?idx:session.exerciseIndex;
+    return f.steps[i]||null;
 }
 function startMission(mission,source){
     if(!mission) return;
@@ -6294,15 +6502,18 @@ function startMission(mission,source){
        to perform. Capturing after the assignment would make no difference to
        this function, which never reads routineType, and the ordering is kept
        anyway so the dependency cannot be introduced later by accident. */
-    captureLaunchPrescription();
+    captureLaunchPrescription(mission);
     session.routineType=mission;
     track('mission_selected',{mission,source:source||'prescribed'});
     if(mission==='recovery'){ goToRecoveryPicker(); return; }
     if(mission==='girth'){
-        // resetSession() derives the round count from the tier when the
-        // engine opens; this is so the warmup screen has it first.
+        /* resetSession() derives the round count when the engine opens; this
+           is so the warmup screen has it first. Frozen count when there is
+           one, tier table otherwise. */
+        const _f=frozenExecution();
         const cfg=GIRTH_CIRCUIT[getDiff().id]||GIRTH_CIRCUIT.intermediate;
-        session.girthRound=1;session.girthTotalRounds=cfg.rounds;
+        session.girthRound=1;
+        session.girthTotalRounds=(_f&&_f.shape==='circuit')?_f.rounds:cfg.rounds;
     }
     goToStep(mission==='stamina'?4:2);
 }
@@ -6760,7 +6971,11 @@ function finishSession(){
     const bpel=parseFloat(document.getElementById('input-bpel').value);
     const mseg=parseFloat(document.getElementById('input-mseg').value);
     const note=document.getElementById('session-note-input').value.trim().slice(0,NOTE_MAX_CHARS);
-    const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100);
+    /* The XP basis is frozen at launch when there is a snapshot. It is
+       durable history derived from a mutable tier, so a tier change between
+       launch and completion used to rewrite what was recorded. */
+    const _xpTier=(_launchedPrescription&&_launchedPrescription.xpTier)||getDiff().id;
+    const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[_xpTier]||100);
     /* ONE clock read for the whole completion. finishSession() used to call
        new Date() four separate times, so a rollover mid-function could make
        its own fields describe different days. */
@@ -6828,6 +7043,27 @@ function finishSession(){
         rpe:selectedRPE,
         duration:_sessionStartTime?Math.round((completedAt.getTime()-_sessionStartTime)/60000):null,
     };
+    /* ── EXECUTION TRUTH, three facts kept apart ───────────────────────────
+       What the programme prescribed, what adjusted it, and what was actually
+       executed. Written only when the session launched with a frozen
+       snapshot, so a legacy session and a pre-3C.5 resume carry none of these
+       fields and read exactly as they always have.
+
+       prescribedDose is the PROGRAMME's baseline even on a substitution,
+       because the whole point of history is to preserve both truths: what was
+       asked for, and what the member chose instead. The two are never merged
+       and one mission's dose is never applied to another. */
+    if(_snap&&_snap.executionDose){
+        _entry.doseVersion=_snap.doseVersion;
+        _entry.prescribedDose=_snap.prescribedDose||null;
+        _entry.executedDose=_snap.executionDose;
+        _entry.appliedModifiers=_snap.appliedModifiers||[];
+        _entry.planMode=_snap.planMode||null;
+        _entry.readinessInput=_snap.readinessInput||'';
+        if(_snap.source==='substitution'||_snap.performedType!==_snap.scheduledType){
+            _entry.substituted=true;
+        }
+    }
     /* Both lists are built WHOLE, so the commit replaces a reference rather
        than mutating an array in place. trimToByteBudget returns a new array
        and touches neither input. */
@@ -6856,6 +7092,7 @@ function finishSession(){
     _manualMission=null;
     _launchedPrescription=null;
     _launchLegacyDraft=false;
+    _frozenSteps=null;_frozenFor=null;
     /* ══ POST COMMIT. Derived state and side effects. A throw here cannot
           duplicate a completion, because the guard is already up. ══ */
 
@@ -9148,7 +9385,7 @@ import { classifyLegacySchedule, migrationProgramme, mayGenerateOver,
    programme and the seven-slot column becomes a projection derived from
    them. It changes no prescription, only where the prescription lives. */
 import { cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
-         PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL } from '../src/programmeGenerate.js';
+         PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, resolveDose } from '../src/programmeGenerate.js';
 /* The validator, so a reader can tell a prescription from a data-integrity
    condition instead of trusting a raw object's shape. */
 import { normaliseDayPlan } from '../src/dayPlan.js';
@@ -9167,6 +9404,12 @@ import { todayPrescription, primarySatisfied, launchSnapshotFrom,
          normaliseLaunchSnapshot, DAY_KIND, PRESCRIPTION_REFUSAL,
          PRESCRIPTION_SOURCE, SNAPSHOT_REFUSAL } from '../src/todayPrescription.js';
 import { attributeEntry, ATTRIBUTION } from '../src/sessionAttribution.js';
+/* Phase 3C.5. The stored dose becomes the execution baseline: one validator,
+   one modifier application, one expansion into steps. resolveDose is imported
+   for the ONE case current tables may still generate a dose, a manual
+   substitution, where the programme prescribed nothing to honour. */
+import { validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
+         DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS } from '../src/doseExecution.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -9184,13 +9427,15 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               classifyLegacySchedule, migrationProgramme, mayGenerateOver,
               PROGRAMME_SOURCE, CLASSIFY_REASON,
               cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
-              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan,
+              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan, resolveDose,
               weekStripSlots, buildWeekStripModel, WEEK_STRIP_STATE, WEEK_STRIP_DAYS,
               nextTrainingDay, NEXT_UP_HORIZON_DAYS,
               todayPrescription, primarySatisfied, launchSnapshotFrom,
               normaliseLaunchSnapshot, DAY_KIND, PRESCRIPTION_REFUSAL,
               PRESCRIPTION_SOURCE, SNAPSHOT_REFUSAL,
-              attributeEntry, ATTRIBUTION };
+              attributeEntry, ATTRIBUTION,
+              validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
+              DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();
