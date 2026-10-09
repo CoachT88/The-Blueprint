@@ -715,3 +715,133 @@ describe('no post-launch function reconstructs dose from current state', () => {
         }
     });
 });
+
+/**
+ * The narrower invariants, each of which a mutation survived until it had a
+ * test. They survived for the same reason: the frozen dose and the current
+ * tables AGREE on these values today, so re-reading the table changed nothing
+ * observable. Agreement today is not the contract. The contract is that the
+ * frozen dose decides, and these fixtures make the two disagree on purpose.
+ */
+describe('the frozen dose decides, even where the tables would agree', () => {
+    let app;
+    beforeAll(async () => {
+        app = await openApp({ clock: THU, timezoneId: 'UTC' });
+        await signIn(app.page, { id: 'ex', loaded: false });
+        await load(app.page, row());
+    }, 90_000);
+    afterAll(async () => { await app?.close(); });
+
+    /** Resume onto a hand-built frozen dose that differs from the tables. */
+    const resumeOn = (routineType, executionDose) => app.page.evaluate(({ routineType, executionDose }) => {
+        const d = { v: 1, exerciseIndex: 0, setIndex: 1, routineType, directionalIndex: 0, xp: 0,
+                    sessionStartTime: Date.now() - 6e5, savedAt: Date.now(),
+                    prescription: { source: 'dated-plan', prescriptionDate: '2026-03-12',
+                                    scheduledType: routineType, performedType: routineType,
+                                    executionDose, prescribedDose: executionDose, doseVersion: 1 } };
+        localStorage.setItem('bp_session_draft_' + currentUser.id, JSON.stringify(d));
+        _launchedPrescription = null; _frozenSteps = null; _frozenFor = null;
+        resumeSession();
+        return { frozen: !!_launchedPrescription && !!_launchedPrescription.executionDose,
+                 stepCount: executableStepCount(), rounds: session.girthTotalRounds };
+    }, { routineType, executionDose });
+
+    test('a dose with ONE exercise runs one, though the table lists two', () => {
+        /* The number of exercises is part of what was prescribed. Re-reading
+           ROUTINES.length here would run a second exercise nobody asked for. */
+        return resumeOn('length', { v: 1, shape: 'sets', tier: 'intermediate',
+            exercises: [{ title: 'Directional Pulls', sets: 2, duration: 20 }] })
+            .then(async (o) => {
+                expect(o.frozen).toBe(true);
+                expect(o.stepCount).toBe(1);
+                const tableLength = await app.page.evaluate(() => ROUTINES.length.length);
+                expect(tableLength).toBe(2);
+                /* And the engine really ends after it, rather than stepping
+                   into the exercise the table would have offered. */
+                const ended = await app.page.evaluate(() => {
+                    session.exerciseIndex = 0;
+                    advanceEx();
+                    return { step: session.step, index: session.exerciseIndex };
+                });
+                expect(ended.step).toBe(5);
+            });
+    }, 60_000);
+
+    test('a frozen round count and round rest beat the current tier', async () => {
+        const o = await resumeOn('girth', { v: 1, shape: 'circuit', tier: 'beginner',
+            rounds: 2, restDur: 90,
+            stations: [{ title: 'Wet Jelq', duration: 61 }, { title: 'Uli — Manual Clamp', duration: 31 }] });
+        expect(o.frozen).toBe(true);
+        expect(o.rounds).toBe(2);
+        const live = await app.page.evaluate(() => {
+            /* The tier says 4 rounds and 45s rest; the frozen dose says 2 and
+               90. Nothing may split the difference. */
+            /* The rest the engine would actually count down, read off the
+               overlay rather than from a private counter. */
+            startGirthRoundRest();
+            const shown = document.getElementById('rest-timer');
+            const rest = shown ? shown.innerText : null;
+            session.exerciseIndex = 0;
+            return { tierRounds: GIRTH_CIRCUIT[getDiff().id].rounds,
+                     tierRest: GIRTH_CIRCUIT[getDiff().id].restDur,
+                     rest, firstDuration: getCurEx().duration };
+        });
+        expect(live.tierRounds).toBe(4);
+        expect(live.tierRest).toBe(45);
+        expect(live.firstDuration).toBe(61);
+        /* 90 from the frozen dose, not the tier's 45. */
+        if (live.rest !== null) expect(String(live.rest)).toContain('90');
+    }, 60_000);
+
+    test('a frozen dose is NOT applied to a different mission', async () => {
+        /* The guard on the frozen read. A member whose running mission is not
+           the one the snapshot froze is not executing that snapshot, and
+           handing a circuit's numbers to a length hold would be worse than
+           falling back. */
+        await resumeOn('girth', { v: 1, shape: 'circuit', tier: 'beginner', rounds: 2, restDur: 90,
+            stations: [{ title: 'Wet Jelq', duration: 61 }, { title: 'Uli — Manual Clamp', duration: 31 }] });
+        const o = await app.page.evaluate(() => {
+            session.routineType = 'length';     // not what was frozen
+            session.exerciseIndex = 0;
+            const ex = getCurEx();
+            return { title: ex.title, duration: ex.duration, steps: executableStepCount() };
+        });
+        expect(o.title).toBe('Directional Pulls');
+        /* The dynamic path, which for length at intermediate is 3x30s. 61
+           would mean the circuit's station duration had leaked across. */
+        expect(o.duration).toBe(30);
+        expect(o.steps).toBe(2);
+    }, 60_000);
+
+    test('a post-modifier failure refuses the launch rather than executing', async () => {
+        /* Unreachable with the shipped shapes, because 0.6 of any hold at or
+           above one second stays at or above one. The guard exists for a
+           future modifier, so the shape is injected to reach it. */
+        const o = await app.page.evaluate(async (r) => {
+            try { localStorage.removeItem('bp_data_' + currentUser.id); } catch (e) {}
+            window.__row = r;
+            await loadPersisted();
+            renderDashboard();
+            const realShape = window.BP.DELOAD_SHAPE;
+            const realDeload = window.isDeloadWeek;
+            window.BP.DELOAD_SHAPE = { setsOffset: 0, durationMult: 0 };   // drives duration to 0
+            window.isDeloadWeek = () => true;
+            const errs = [];
+            const realError = console.error;
+            console.error = (...a) => { errs.push(a.map(String).join(' ')); };
+            _planIntegrityReported = '';
+            _launchedPrescription = null; _frozenSteps = null; _frozenFor = null;
+            try {
+                const snap = captureLaunchPrescription('girth');
+                return { snap, reports: errs.filter(x => x.includes('integrity')).length };
+            } finally {
+                console.error = realError;
+                window.BP.DELOAD_SHAPE = realShape;
+                window.isDeloadWeek = realDeload;
+            }
+        }, row());
+        expect(o.snap).toBeNull();
+        expect(o.reports).toBeGreaterThanOrEqual(1);
+        expect(app.errors).toEqual([]);
+    }, 60_000);
+});

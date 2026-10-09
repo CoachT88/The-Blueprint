@@ -4489,7 +4489,13 @@ function goToStep(step){
         /* `v` is the DRAFT schema version, so a resume can tell a shape it
            understands from one it does not. The snapshot inside carries its
            own doseVersion, because the two change for different reasons. */
-        const draft={v:DRAFT_SCHEMA_VERSION,exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,sessionStartTime:_sessionStartTime,savedAt:Date.now(),prescription:_launchedPrescription||null};
+        const draft={v:DRAFT_SCHEMA_VERSION,exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,
+            /* The circuit position, which the draft never carried. Resuming a
+               girth session used to lose which round the member was on AND
+               how many there were, because resetSession is the only place
+               that sets them and resume skips it. */
+            girthRound:session.girthRound,girthTotalRounds:session.girthTotalRounds,
+            sessionStartTime:_sessionStartTime,savedAt:Date.now(),prescription:_launchedPrescription||null};
         localStorage.setItem('bp_session_draft_'+currentUser.id,JSON.stringify(draft));
     }
     if(session.timer){session.timer.cancel();session.timer=null}
@@ -6985,6 +6991,20 @@ function resumeSession(){
         _reportPlanIntegrity('launch-snapshot-malformed',
             window.BP&&window.BP.planDateKey?window.BP.planDateKey(new Date()):'');
     }
+    /* The circuit position. The FROZEN round count wins when there is one,
+       because the number of rounds is part of what was prescribed; the
+       draft's own value is the fallback for a dynamic session, and the
+       session default is the last resort for a pre-3C.5 draft. */
+    const _fr=frozenExecution();
+    session.girthRound=Number.isInteger(draft.girthRound)&&draft.girthRound>0
+        ? draft.girthRound : 1;
+    if(_fr&&_fr.shape==='circuit'&&_launchedPrescription
+       &&_launchedPrescription.performedType===session.routineType){
+        session.girthTotalRounds=_fr.rounds;
+    } else if(Number.isInteger(draft.girthTotalRounds)&&draft.girthTotalRounds>0){
+        session.girthTotalRounds=draft.girthTotalRounds;
+    }
+    if(session.girthRound>session.girthTotalRounds) session.girthRound=1;
     goToStep(4);
     session._resuming=false;
 }
