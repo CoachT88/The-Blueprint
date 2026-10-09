@@ -2661,10 +2661,28 @@ function currentTodayPrescription(){
         titles:executableTitles(),
     });
     if(authoritative&&p.ok!==true){
+        /* EVERY authoritative refusal is reported, not only the three 3C.4
+           knew about. Each one means the programme claims dated plans are
+           authoritative and today's cannot be executed, which is a condition
+           somebody needs to see rather than something to absorb quietly. The
+           reason is the report kind, so the three 3C.5 additions are
+           distinguishable in the field from a missing plan. */
         const R=window.BP.PRESCRIPTION_REFUSAL;
-        if(p.reason===R.PLAN_MISSING) _reportPlanIntegrity('missing',p.date);
-        else if(p.reason===R.PLAN_UNREADABLE) _reportPlanIntegrity('unreadable',p.date);
-        else if(p.reason===R.SLOT_UNRESOLVED) _reportPlanIntegrity('unrunnable-type',p.date);
+        const KIND={
+            [R.PLAN_MISSING]:'missing',
+            [R.PLAN_UNREADABLE]:'unreadable',
+            [R.SLOT_UNRESOLVED]:'unrunnable-type',
+            [R.MODE_NOT_EXECUTABLE]:'mode-not-executable',
+            [R.PROGRAMME_MISMATCH]:'programme-mismatch',
+            [R.DOSE_MISSING]:'dose-missing',
+            [R.DOSE_INVALID]:'dose-invalid',
+        };
+        const kind=KIND[p.reason];
+        if(kind){
+            _reportPlanIntegrity(kind,p.date);
+            track('execution_unavailable',{reason:String(p.reason),
+                code:String((p.detail&&p.detail.code)||'')});
+        }
     }
     return p;
 }
@@ -4468,7 +4486,10 @@ function goToStep(step){
            the wrong date and possibly the wrong type. Explicitly null when
            there was nothing to capture, so a reader can tell "this draft
            predates the field" from "we knew there was no identity". */
-        const draft={exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,sessionStartTime:_sessionStartTime,savedAt:Date.now(),prescription:_launchedPrescription||null};
+        /* `v` is the DRAFT schema version, so a resume can tell a shape it
+           understands from one it does not. The snapshot inside carries its
+           own doseVersion, because the two change for different reasons. */
+        const draft={v:DRAFT_SCHEMA_VERSION,exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,sessionStartTime:_sessionStartTime,savedAt:Date.now(),prescription:_launchedPrescription||null};
         localStorage.setItem('bp_session_draft_'+currentUser.id,JSON.stringify(draft));
     }
     if(session.timer){session.timer.cancel();session.timer=null}
@@ -6303,6 +6324,14 @@ let _launchedPrescription=null;
  * door being a way around the attribution rule.
  */
 let _launchLegacyDraft=false;
+/**
+ * The resumable draft's own schema version.
+ *
+ * Absent means 1: every draft written before this field existed has the
+ * shape 1 layout. Separate from the dose schema version inside the snapshot,
+ * because the draft's shape and a dose's shape change for different reasons.
+ */
+const DRAFT_SCHEMA_VERSION=1;
 
 /** What this trip through the funnel will actually run. */
 function effectiveMission(r){
@@ -6387,8 +6416,13 @@ function captureLaunchPrescription(mission){
     const substituted=!!(pres&&pres.ok===true&&pres.dayKind==='primary'
         &&performed&&performed!=='recovery'&&performed!==pres.primaryType);
 
+
     let exec=null;
-    if(pres&&pres.ok===true&&pres.dayKind==='primary'){
+    /* RECOVERY IS NOT PRIMARY WORK. It has its own queue, chosen on its own
+       screen, and freezing the day's Primary dose onto it would hand a girth
+       circuit to a recovery session. A withheld Primary leaves the baseline
+       untouched and carries identity only. */
+    if(pres&&pres.ok===true&&pres.dayKind==='primary'&&performed&&performed!=='recovery'){
         const live={
             deload:isDeloadWeek(),
             moderateSoreness:(localStorage.getItem(getTodaySorenessKey())||'')==='moderate',
@@ -6529,6 +6563,14 @@ function readyPlan(r){
     switch(r.state){
         case 'RECOVER':
             return {label:'START RECOVERY', go:()=>{
+                /* Capture the identity, which this branch never did: it set
+                   routineType directly and skipped startMission, so a
+                   Recovery session launched from Ready carried no prescription
+                   date and was invisible to attribution. No DOSE is frozen,
+                   because Recovery is not Primary work and runs its own queue;
+                   the day's Primary baseline is left untouched by having been
+                   withheld. */
+                captureLaunchPrescription('recovery');
                 session.routineType='recovery';
                 track('mission_selected',{mission:'recovery',source:'ready'});
                 goToRecoveryPicker();
@@ -6912,10 +6954,32 @@ function resumeSession(){
        the ABSENT door, would let a corrupt field decide which prescription
        this session satisfied. Either way the member finishes their session;
        only the identity claim is withheld. */
+    /* An unsupported draft shape is refused outright. Nothing is migrated:
+       a draft lives 24 hours, so migration machinery would outlive every
+       record it could serve. */
+    const _dv=draft.v===undefined?1:draft.v;
+    if(_dv!==DRAFT_SCHEMA_VERSION){
+        track('resume_refused',{reason:'draft_version',got:String(_dv)});
+        _reportPlanIntegrity('draft-version-unsupported',
+            window.BP&&window.BP.planDateKey?window.BP.planDateKey(new Date()):'');
+        session._resuming=false;
+        return;
+    }
     const _snap=window.BP&&window.BP.normaliseLaunchSnapshot
-        ? window.BP.normaliseLaunchSnapshot(draft.prescription)
+        ? window.BP.normaliseLaunchSnapshot(draft.prescription,{titles:executableTitles()})
         : {ok:false,reason:'absent'};
     _launchedPrescription=_snap.ok?_snap.value:null;
+    /* The memo is keyed on snapshot identity, so a new object recomputes. */
+    _frozenSteps=null;_frozenFor=null;
+    if(_snap.ok){
+        track('resume_ok',{
+            frozen:!!_snap.value.executionDose,
+            modifiers:(_snap.value.appliedModifiers||[]).join('+')||'none',
+        });
+    } else {
+        track('resume_refused',{reason:String(_snap.reason||''),
+                                code:String((_snap.detail&&_snap.detail.code)||'')});
+    }
     _launchLegacyDraft=!_snap.ok&&_snap.reason===window.BP.SNAPSHOT_REFUSAL.ABSENT;
     if(!_snap.ok&&_snap.reason===window.BP.SNAPSHOT_REFUSAL.MALFORMED){
         _reportPlanIntegrity('launch-snapshot-malformed',
