@@ -8176,15 +8176,31 @@ async function savePreferredName(value){
        If the write then fails, this optimistic value lives for the session
        and is gone on the next load, which matches the existing deliberate
        choice that a failed optional-name write says nothing. */
-    currentUser={...currentUser,user_metadata:{...(currentUser.user_metadata||{}),preferred_name:value}};
+    const _before=currentUser;
+    const _optimistic={...currentUser,
+        user_metadata:{...(currentUser.user_metadata||{}),preferred_name:value}};
+    currentUser=_optimistic;
+    /* AND ROLLED BACK IF IT FAILS, which is not optional: a failed name write
+       must leave no name, honestly, on every surface. The Account editor has
+       to stay visibly unsaved, and onboarding has to end up with no name
+       rather than a value that only exists in memory. Optimism that survives
+       failure would be a lie in both places. The window is the flight time
+       and nothing longer.
+
+       Restored only if nothing else has reassigned currentUser meanwhile, so
+       a logout or an account switch during the round trip cannot resurrect
+       the departed member. */
     try{
         const {data,error}=await sb.auth.updateUser({data:{preferred_name:value}});
-        if(error) return false;
+        if(error){ if(currentUser===_optimistic) currentUser=_before; return false; }
         /* The CONFIRMED metadata replaces the optimistic copy, so what is in
            memory afterwards is what the auth store actually holds. */
-        if(data&&data.user) currentUser=data.user;
+        if(data&&data.user&&currentUser===_optimistic) currentUser=data.user;
         return true;
-    }catch(e){ return false; }
+    }catch(e){
+        if(currentUser===_optimistic) currentUser=_before;
+        return false;
+    }
 }
 
 /**
