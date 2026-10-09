@@ -1,4 +1,4 @@
-# Known timezone failures in the unit suite
+# Known timezone failures
 
 Status: **pre-existing and open**. Recorded during Phase 3C.5 so the numbers
 stop being re-derived from memory every phase. Nothing here was introduced by
@@ -67,9 +67,39 @@ the session log settles what a scheduled day actually was > REGRESSION: a Recove
 the session log settles what a scheduled day actually was > a full mechanical week is allDone
 ```
 
+## The browser suite
+
+Same method, same answer. `TZ=America/New_York E2E=1 npx vitest run` fails 2
+of 1093 at the 3C.5 head, and the identical two tests fail at base `2ff75c9`
+with the same names and the same line numbers.
+
+| Timezone | Browser tests failing | Base vs head |
+|---|---|---|
+| UTC (as CI runs it) | 0 of 1093 | both green |
+| `America/New_York` | 2 of 1093 | identical |
+
+```
+tests/e2e/first-session.test.js:174
+  the first qualifying mechanical session >
+  ACCEPTANCE: an established member is not told they are starting
+
+tests/e2e/clock-boundaries.test.js:150
+  the gate key is local, not UTC >
+  ACCEPTANCE: at UTC+12 the key follows the local date
+```
+
+The second is worth reading before anyone treats it as a bug: it is a test
+that pins UTC+12 behaviour, so running the suite from a zone behind UTC moves
+the ground the fixture stands on. The first is a date fixture that assumes
+the member's established history lands on a particular local day.
+
+Note that both are named ACCEPTANCE, and both are therefore load bearing
+under UTC. Neither is quarantined or skipped, because they pass in the
+configuration CI actually runs.
+
 ## Standing hypothesis, not a diagnosis
 
-Both clusters sit where a date is built with `Date.UTC` and then read back
+All three clusters sit where a date is built with `Date.UTC` and then read back
 through a local-time accessor, so UTC midnight and local midnight fall on
 different calendar days and the fixture's intended day is not the day under
 test. The carried `_dayKey()` UTC-midnight debt is the known instance of that
