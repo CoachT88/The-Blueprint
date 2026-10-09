@@ -3177,6 +3177,18 @@ function adoptPersisted(raw){
     persisted={...DEFAULT_PERSISTED,...src};
     if(!(persisted.programme&&typeof persisted.programme==='object'&&!Array.isArray(persisted.programme))) persisted.programme=null;
     if(!Array.isArray(persisted.dayPlans)) persisted.dayPlans=[];
+    /* History must never be able to crash a render or reach current
+       authority. A log that is not an array becomes one, and entries that
+       are not objects are SKIPPED, never repaired and never reconstructed:
+       there is nothing in a null or a bare number to recover. Both filters
+       are conditional, so a well formed log is passed through by reference
+       and a load stays non destructive. */
+    if(!Array.isArray(persisted.sessionLog)) persisted.sessionLog=[];
+    else if(persisted.sessionLog.some(e=>!e||typeof e!=='object'))
+        persisted.sessionLog=persisted.sessionLog.filter(e=>!!e&&typeof e==='object');
+    if(!Array.isArray(persisted.measurements)) persisted.measurements=[];
+    else if(persisted.measurements.some(e=>!e||typeof e!=='object'))
+        persisted.measurements=persisted.measurements.filter(e=>!!e&&typeof e==='object');
     /* Assigned, never |=. Each adoption answers for its own state, so an
        account switch cannot inherit the previous member's repair. */
     _scheduleRepairedOnAdopt=normaliseSchedule().changed;
@@ -7151,7 +7163,10 @@ function finishSession(){
     /* Both lists are built WHOLE, so the commit replaces a reference rather
        than mutating an array in place. trimToByteBudget returns a new array
        and touches neither input. */
-    const _nextLog=trimToByteBudget([...(persisted.sessionLog||[]),_entry],SESSION_LOG_BUDGET_BYTES);
+    /* Named so the post-commit telemetry can report what trimming removed.
+       Purely a name: the value is the same array literal as before. */
+    const _candidateLog=[...(persisted.sessionLog||[]),_entry];
+    const _nextLog=trimToByteBudget(_candidateLog,SESSION_LOG_BUDGET_BYTES);
     let _nextMeasurements=null;
     if(!isNaN(bpel)||!isNaN(mseg)){
         const e={date:completedAt.toISOString()};
@@ -7179,6 +7194,29 @@ function finishSession(){
     _frozenSteps=null;_frozenFor=null;
     /* ══ POST COMMIT. Derived state and side effects. A throw here cannot
           duplicate a completion, because the guard is already up. ══ */
+
+    /* Trimming used to be completely silent: no event, no log, no notice, so
+       history could start disappearing and nothing anywhere recorded it.
+       This reports only aggregate numbers. No dose, no note, nothing the
+       member typed, which _cleanProps would drop anyway since it admits only
+       numbers, booleans and short enums.
+
+       POST commit on purpose. The commit is assignment only and must not call
+       anything that can throw, and the whole block is wrapped because
+       telemetry must never block a completion that already happened. */
+    if(_nextLog.length<_candidateLog.length){
+        try{
+            track('session_log_trimmed',{
+                entries_before: _candidateLog.length,
+                entries_after:  _nextLog.length,
+                entries_removed:_candidateLog.length-_nextLog.length,
+                bytes_before:   JSON.stringify(_candidateLog).length,
+                bytes_after:    JSON.stringify(_nextLog).length,
+                budget:         SESSION_LOG_BUDGET_BYTES,
+                trigger:        'session_complete',
+            });
+        }catch(e){}
+    }
 
     /* The programme starts on the first completed mechanical session, and
        on nothing else: not sign-up, not choosing a goal, not opening
@@ -8211,8 +8249,25 @@ function importData(file){
             adoptPersisted(p);
             // Same bounds a normal session would be held to, so an oversized or
             // hand-edited backup cannot leave the app in a state it cannot save.
-            persisted.sessionLog=trimToByteBudget(persisted.sessionLog||[],SESSION_LOG_BUDGET_BYTES);
+            const _importedLog=persisted.sessionLog||[];
+            persisted.sessionLog=trimToByteBudget(_importedLog,SESSION_LOG_BUDGET_BYTES);
             persisted.measurements=trimToByteBudget(persisted.measurements||[],MEASUREMENTS_BUDGET_BYTES);
+            /* Same aggregate-only event, different trigger. One import is one
+               deliberate act, so there is no repeated-processing to guard
+               against here the way there would be on a render path. */
+            if(persisted.sessionLog.length<_importedLog.length){
+                try{
+                    track('session_log_trimmed',{
+                        entries_before: _importedLog.length,
+                        entries_after:  persisted.sessionLog.length,
+                        entries_removed:_importedLog.length-persisted.sessionLog.length,
+                        bytes_before:   JSON.stringify(_importedLog).length,
+                        bytes_after:    JSON.stringify(persisted.sessionLog).length,
+                        budget:         SESSION_LOG_BUDGET_BYTES,
+                        trigger:        'data_import',
+                    });
+                }catch(e){}
+            }
             savePersisted();renderDashboard();alert('Data restored.');
         }
         catch(err){alert('Import failed — invalid file.')}
