@@ -74,6 +74,12 @@
 import { normaliseDayPlan, DAY_MODE, PLAN_STATUS } from './dayPlan.js';
 import { toLegacySchedule } from './scheduleSlot.js';
 import { localDateKeyForWeekday, localDateKey } from './weekUtils.js';
+/* The dose SCHEMA version, stamped on every dose this generator writes.
+   Deliberately NOT PROGRAMME_CONTENT_VERSION: that one says which revision of
+   a programme's CONTENT a plan came from, and this says what SHAPE the dose
+   object has. A content change leaves the shape alone and a shape change says
+   nothing about content, so one number could not answer either question. */
+import { DOSE_SCHEMA_VERSION } from './doseExecution.js';
 
 /** The programme vocabulary. What a member is ON. */
 export const PROGRAMME_KEY = Object.freeze({
@@ -235,7 +241,7 @@ export function resolveDose(type, tier, tables) {
             title: ex.title,
             duration: ex.title === 'Wet Jelq' ? cfg.jelqDur : cfg.uliDur,
         }));
-        const dose = { shape: 'circuit', tier, rounds: cfg.rounds, stations };
+        const dose = { v: DOSE_SCHEMA_VERSION, shape: 'circuit', tier, rounds: cfg.rounds, stations };
         if (typeof cfg.restDur === 'number') dose.restDur = cfg.restDur;
         return dose;
     }
@@ -262,7 +268,7 @@ export function resolveDose(type, tier, tables) {
         if (typeof ex.restDur === 'number') out.restDur = ex.restDur;
         return out;
     });
-    return { shape: 'sets', tier, exercises };
+    return { v: DOSE_SCHEMA_VERSION, shape: 'sets', tier, exercises };
 }
 
 /** One dated plan, from one legacy slot. */
