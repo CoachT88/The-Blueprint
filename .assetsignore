@@ -11,7 +11,27 @@ node_modules
 # a free map of the backend for anyone probing the site.
 functions
 supabase
-src
+
+# src/ IS NOT BACKEND, and excluding it broke the entire app in production.
+#
+# app/index.html ends with a <script type="module"> that imports eighteen of
+# these files by URL and only then assigns window.BP. The browser fetches
+# them at runtime, so excluding src/ made every one of those imports a 404,
+# the module never executed, and window.BP stayed undefined. Everything
+# guarded on it then failed silently and in a way no test could see:
+#
+#   renderToday()          returns at `if(!window.BP) return;`, leaving the
+#                          STATIC markup, which is the blank Today card
+#   commitPreferredName()  returns true without saving, so a name entered
+#                          during onboarding vanished with no error
+#   the guided tour        pointed at sections that had never rendered
+#
+# It passed every test because the e2e server serves the repository root, so
+# ../src resolved locally and 404'd only once deployed.
+#
+# worker.js is the one genuinely server-side file here, and wrangler BUNDLES
+# it from wrangler.jsonc's `main`, so it never needs to be served as an asset.
+src/worker.js
 
 # Tests and tooling, not site content. img/ is deliberately absent from this
 # list: the screenshots and the link-preview card have to be fetchable.
