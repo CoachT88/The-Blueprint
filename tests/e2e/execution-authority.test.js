@@ -215,7 +215,14 @@ describe('the modifiers reach execution exactly once', () => {
         return { state: res.state, applied: snap && snap.appliedModifiers,
                  readiness: snap && snap.readinessInput,
                  prescribed: snap && snap.prescribedDose, executed: snap && snap.executionDose,
-                 duration: first.duration, rounds };
+                 duration: first.duration, rounds,
+                 /* Identity, kept separate from dose on purpose: a withheld
+                    day has no dose but still belongs to a date. */
+                 snapshotPresent: !!snap,
+                 prescriptionDate: snap && snap.prescriptionDate,
+                 scheduledType: snap && snap.scheduledType,
+                 performedType: snap && snap.performedType,
+                 routineType: session.routineType };
     }, { deload, soreness, r: row() });
 
     test('no modifier: the baseline, and nothing recorded as applied', async () => {
@@ -280,6 +287,34 @@ describe('the modifiers reach execution exactly once', () => {
         expect(o.prescribed).toBeNull();
         expect(o.applied).toEqual([]);
         expect(app.errors).toEqual([]);
+    }, 60_000);
+
+    test('AND THE WITHHELD DAY STILL RECORDS WHICH DAY WAS WITHHELD', async () => {
+        /* The defect this pins: the RECOVER branch set routineType directly
+           and never went through the launch door, so a Recovery session
+           carried no prescription identity at all and could not be attributed
+           to the day that prescribed it. Dose stays absent; identity does not.
+           Asserted separately from the dose so a regression in either one is
+           attributable to a named test rather than to a shared expectation. */
+        const o = await withLive(false, 'high');
+        expect(o.routineType).toBe('recovery');
+        expect(o.snapshotPresent).toBe(true);
+        expect(o.prescriptionDate).toBe('2026-03-12');
+        expect(o.scheduledType).toBe('girth');
+        /* And still no dose, so capturing identity did not smuggle one in. */
+        expect(o.executed).toBeNull();
+        /* performedType is NOT 'recovery' here: with no exec block it falls
+           back to the scheduled type. That is safe rather than correct, and
+           deliberately pinned as the safety property it actually is. Every
+           execution site guards on performedType === session.routineType, so
+           'girth' against a 'recovery' session makes all of them fail closed,
+           and the history block is gated on executionDose so the value never
+           reaches the log. A future reader that treats this field as a claim
+           about what was performed, instead of comparing it, would be wrong.
+           See the readiness report: recorded as a naming risk, not fixed
+           here, because changing it is outside this phase. */
+        expect(o.performedType).not.toBe(o.routineType);
+        expect(o.performedType).toBe('girth');
     }, 60_000);
 });
 
@@ -843,5 +878,84 @@ describe('the frozen dose decides, even where the tables would agree', () => {
         expect(o.snap).toBeNull();
         expect(o.reports).toBeGreaterThanOrEqual(1);
         expect(app.errors).toEqual([]);
+    }, 60_000);
+});
+
+describe('a resumed circuit comes back to the round the member was on', () => {
+    /* The fourth defect my own tests surfaced. The draft never stored the
+       circuit position, because resetSession is the only place that sets
+       girthRound and girthTotalRounds, and a resume skips it. So a member who
+       left after round 3 of 4 came back to round 1 and was asked to repeat
+       work they had already done. Nothing in the suite covered it: girthRound
+       appeared in no test at all.
+
+       Both halves of the real path run here. The save is goToStep(0) from the
+       engine, which is the only writer of the draft, and the restore is
+       resumeSession. The round the member reached is seeded as state; what is
+       asserted is what the production save and restore do with it. */
+    let app, before, after;
+    beforeAll(async () => {
+        app = await openApp({ clock: THU, timezoneId: 'UTC' });
+        await signIn(app.page, { id: 'ex', loaded: false });
+        await load(app.page, row());
+        before = await app.page.evaluate(() => {
+            const r = window.BP.nextBestAction(buildResolverInput());
+            readyPlan(r).go();
+            const launchedRounds = session.girthTotalRounds;
+            /* Three rounds in, mid circuit, second station, then park it.
+               step 4 is the engine, and leaving the engine for HQ is the only
+               thing that writes a draft. */
+            session.girthRound = 3;
+            session.exerciseIndex = 1;
+            session.step = 4; goToStep(0);     // the real draft writer
+            const raw = localStorage.getItem('bp_session_draft_' + currentUser.id);
+            const d = raw ? JSON.parse(raw) : null;
+            return { type: session.routineType, launchedRounds,
+                     draftRound: d && d.girthRound,
+                     draftTotal: d && d.girthTotalRounds };
+        });
+        after = await app.page.evaluate(() => {
+            resumeSession();                   // the real draft reader
+            return { round: session.girthRound, total: session.girthTotalRounds,
+                     exerciseIndex: session.exerciseIndex, type: session.routineType };
+        });
+    }, 120_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('the launch really was a four round girth circuit', () => {
+        expect(before.type).toBe('girth');
+        expect(before.launchedRounds).toBe(4);
+    });
+
+    test('THE DRAFT CARRIES THE CIRCUIT POSITION', () => {
+        expect(before.draftRound).toBe(3);
+        expect(before.draftTotal).toBe(4);
+    });
+
+    test('AND THE RESUME COMES BACK TO ROUND 3 OF 4, NOT ROUND 1', () => {
+        expect(after.type).toBe('girth');
+        expect(after.round).toBe(3);
+        expect(after.total).toBe(4);
+        expect(after.exerciseIndex).toBe(1);
+        expect(app.errors).toEqual([]);
+    });
+
+    test('and a position past the frozen round count is not resumed into', async () => {
+        /* The clamp. A draft claiming round 9 of a 4 round prescription is
+           incoherent, so it restarts the circuit rather than resuming into a
+           round that does not exist. */
+        const o = await app.page.evaluate(() => {
+            /* The resume above consumed the draft, so park again to write a
+               fresh one, then corrupt only the round. */
+            const k = 'bp_session_draft_' + currentUser.id;
+            session.step = 4; goToStep(0);
+            const d = JSON.parse(localStorage.getItem(k));
+            d.girthRound = 9;
+            localStorage.setItem(k, JSON.stringify(d));
+            resumeSession();
+            return { round: session.girthRound, total: session.girthTotalRounds };
+        });
+        expect(o.total).toBe(4);
+        expect(o.round).toBe(1);
     }, 60_000);
 });
