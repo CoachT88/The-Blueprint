@@ -62,6 +62,23 @@ describe('iOS focus zoom cannot be triggered', () => {
         expect(bad).toEqual([]);
     }, 60_000);
 
+    test('A NEWLY ADDED CONTROL INHERITS THE FLOOR WITHOUT BEING TOLD', async () => {
+        /* Every control that exists today is at 16px via a more specific rule,
+           so deleting the blanket element rule would not move any of them: the
+           mutation testing that found this called it equivalent, correctly.
+           The blanket rule's real job is the NEXT control somebody adds, which
+           is exactly what gets forgotten. So the net is tested directly. */
+        const px = await app.page.evaluate(() => {
+            const el = document.createElement('input');
+            el.type = 'text';                      // no class, no inline style
+            document.body.appendChild(el);
+            const v = parseFloat(getComputedStyle(el).fontSize);
+            el.remove();
+            return v;
+        });
+        expect(px).toBeGreaterThanOrEqual(16);
+    }, 60_000);
+
     test('and the member can still zoom deliberately', async () => {
         /* The lazy fix for the above is maximum-scale=1 or user-scalable=no.
            Both stop a member pinch-zooming anything, which is an
