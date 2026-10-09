@@ -1,76 +1,78 @@
 -- ===========================================================================
 -- The Blueprint — harden public.handle_new_user()
 --
--- READ THIS FIRST. This function does NOT exist anywhere in this repository.
--- `grep -rn handle_new_user` over the whole tree returns nothing: no SQL file
--- creates it, and no application code calls it. It exists only in the live
--- project, created outside version control.
+-- BEHAVIOUR PRESERVING. Two things change and nothing else: the mutable
+-- search_path is pinned, and the function stops being callable as an RPC.
+-- The insert itself is left exactly as production has it.
 --
--- That has one hard consequence. A `revoke execute` has to name the exact
--- signature, and a `create or replace` has to match the existing return type
--- and argument list or it fails outright. Neither can be written from here
--- with any confidence. So section 0 is not optional and its output decides
--- whether the rest of this file is correct as written.
+-- In particular there is deliberately NO `on conflict (id) do nothing`. An
+-- earlier draft added it for idempotency, and that was wrong for this pass:
+-- production shows one trigger, zero auth users without a user_data row, and
+-- no duplicate-provisioning condition, so there is nothing to make idempotent.
+-- Swallowing a conflict would change failure semantics and could hide a
+-- provisioning defect that currently announces itself. If duplicate
+-- provisioning is ever observed, that is its own change with its own
+-- evidence.
 --
--- Everything here is idempotent.
+-- This function is NOT in version control anywhere else: it was created
+-- directly in the live project. The body below is the production body with
+-- the two hardening changes applied, transcribed from the live definition.
+--
+-- LIVE FACTS THIS FILE WAS WRITTEN AGAINST (verified in production):
+--     arguments           none
+--     returns             trigger
+--     owner               postgres
+--     security definer    true
+--     search_path         UNSET            <- fixed here
+--     execute granted to  PUBLIC, anon, authenticated, postgres, service_role
+--     trigger             on_auth_user_created
+--                         AFTER INSERT ON auth.users FOR EACH ROW
+--     auth users with no user_data row      0
+--
+-- Idempotent: safe to re-run.
 -- ===========================================================================
 
 
 -- ---------------------------------------------------------------------------
--- 0. DISCOVER THE TRUTH FIRST. Run this alone and read it before going on.
+-- 0. Re-confirm, and capture a rollback target. Run this alone, first.
+--
+-- Save the pg_get_functiondef() output somewhere before section 1 replaces
+-- the function. It is the only copy of the pre-change definition.
 -- ---------------------------------------------------------------------------
 select
-    n.nspname                                        as schema_name,
-    p.proname,
     pg_get_function_identity_arguments(p.oid)        as arguments,
     pg_get_function_result(p.oid)                    as returns,
-    p.prosecdef                                      as is_security_definer,
-    p.proconfig                                      as config,
     pg_get_userbyid(p.proowner)                      as owner,
-    has_function_privilege('anon',          p.oid, 'execute') as anon_can_execute,
-    has_function_privilege('authenticated', p.oid, 'execute') as auth_can_execute
+    p.prosecdef                                      as is_security_definer,
+    p.proconfig                                      as config
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.proname = 'handle_new_user';
+-- Expect: arguments empty, returns trigger, owner postgres,
+--         is_security_definer true, config NULL.
 
--- And the full current body, so there is something to restore to.
-select pg_get_functiondef(p.oid)
+select pg_get_functiondef(p.oid) as rollback_target
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.proname = 'handle_new_user';
 
--- Every non-internal trigger on the two tables that matter. More than one
--- row on auth.users naming this function means provisioning runs twice.
 select tgname, tgrelid::regclass as table_name, pg_get_triggerdef(oid)
 from pg_trigger
-where not tgisinternal
-  and tgrelid in ('public.user_data'::regclass, 'auth.users'::regclass)
-order by table_name, tgname;
-
--- CHECK BEFORE PROCEEDING:
---   * `arguments` is empty. If it is not, every `revoke` below must name the
---     types, and the replacement body must take the same arguments.
---   * `returns` is `trigger`. If it is not, this is not the function this
---     file was written for.
---   * exactly ONE trigger on auth.users references it.
---   * `owner` is a role that may insert into public.user_data. Replacing a
---     function does not change its owner, so a security definer function
---     keeps running as that role.
+where not tgisinternal and tgrelid = 'auth.users'::regclass
+order by tgname;
+-- Expect exactly one row: on_auth_user_created, AFTER INSERT, FOR EACH ROW.
 
 
 -- ---------------------------------------------------------------------------
 -- 1. The replacement
 --
--- Two changes only, and nothing else about the behaviour moves:
+-- `create or replace` keeps the owner (postgres) and leaves the trigger
+-- attachment untouched: a trigger references the function by oid, and replace
+-- does not change the oid. So on_auth_user_created continues to fire.
 --
---   search_path pinned. A security definer function with a mutable
---   search_path can be pointed at a schema the caller controls. `pg_temp`
---   goes LAST deliberately: putting it first would let a temporary object
---   shadow a real one, which is the attack this is meant to close.
---
---   on conflict (id) do nothing. Provisioning becomes idempotent, so a
---   duplicate trigger or a retried signup cannot fail the insert. See the
---   caveat in section 3: this also hides a genuine failure, which is a real
---   tradeoff and not a free win.
+-- search_path is pinned with pg_temp LAST, deliberately. A security definer
+-- function with a mutable search_path can be pointed at a schema the caller
+-- controls; putting pg_temp first would instead let a temporary object shadow
+-- a real one, which is the same attack wearing a different hat.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.handle_new_user()
@@ -81,8 +83,7 @@ set search_path = public, pg_temp
 as $$
 begin
     insert into public.user_data (id)
-    values (new.id)
-    on conflict (id) do nothing;
+    values (new.id);
     return new;
 end;
 $$;
@@ -91,51 +92,59 @@ $$;
 -- ---------------------------------------------------------------------------
 -- 2. Remove direct RPC exposure
 --
--- Supabase exposes any function in `public` over PostgREST as an RPC, so a
--- signed-in member could call this directly. A trigger does NOT need EXECUTE
--- to be granted to the caller: it runs as part of the triggering statement,
--- under the trigger's own authority. Revoking from anon and authenticated
--- therefore closes the RPC door without touching signup.
+-- Supabase exposes functions in `public` over PostgREST, so a signed-in
+-- member can currently call this directly. A trigger does NOT need the caller
+-- to hold EXECUTE: it runs as part of the triggering statement under the
+-- trigger's own authority. Revoking from these three therefore closes the RPC
+-- door without touching signup.
 --
--- If section 0 reported arguments, replace the two lines below with the
--- argument types, for example:
---   revoke execute on function public.handle_new_user(uuid) from anon;
+-- PUBLIC is where the implicit grant actually lives. Without that line the
+-- other two are cosmetic, because anon and authenticated would still inherit
+-- EXECUTE through PUBLIC.
+--
+-- postgres and service_role are deliberately left alone: the owner must keep
+-- EXECUTE for the trigger path, and service_role is the privileged backend
+-- identity. Narrowing those is not part of this pass.
 -- ---------------------------------------------------------------------------
 
+revoke execute on function public.handle_new_user() from public;
 revoke execute on function public.handle_new_user() from anon;
 revoke execute on function public.handle_new_user() from authenticated;
-
--- PUBLIC is where the implicit grant actually lives on a fresh function, and
--- leaving it would make both revokes above cosmetic.
-revoke execute on function public.handle_new_user() from public;
 
 
 -- ---------------------------------------------------------------------------
 -- 3. Checks, read-only
 -- ---------------------------------------------------------------------------
 
--- Expect: is_security_definer true, config {search_path=public, pg_temp},
---         anon_can_execute false, auth_can_execute false.
+-- Expect: is_security_definer true, config {"search_path=public, pg_temp"},
+--         anon false, authenticated false, postgres true, service_role true,
+--         owner still postgres.
 select
-    p.proname,
-    pg_get_function_identity_arguments(p.oid)        as arguments,
-    p.prosecdef                                      as is_security_definer,
-    p.proconfig                                      as config,
-    has_function_privilege('anon',          p.oid, 'execute') as anon_can_execute,
-    has_function_privilege('authenticated', p.oid, 'execute') as auth_can_execute
+    pg_get_function_identity_arguments(p.oid)                     as arguments,
+    pg_get_userbyid(p.proowner)                                   as owner,
+    p.prosecdef                                                   as is_security_definer,
+    p.proconfig                                                   as config,
+    has_function_privilege('anon',          p.oid, 'execute')     as anon_can_execute,
+    has_function_privilege('authenticated', p.oid, 'execute')     as auth_can_execute,
+    has_function_privilege('postgres',      p.oid, 'execute')     as postgres_can_execute,
+    has_function_privilege('service_role',  p.oid, 'execute')     as service_role_can_execute
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.proname = 'handle_new_user';
 
--- Still exactly one trigger, still on auth.users.
+-- The trigger survived the replace. Expect the same single row as section 0.
 select tgname, tgrelid::regclass as table_name, pg_get_triggerdef(oid)
 from pg_trigger
 where not tgisinternal and tgrelid = 'auth.users'::regclass
 order by tgname;
 
--- Does on-conflict hide anything today? Any auth user with no user_data row
--- is a provisioning failure that already happened, and `do nothing` will stop
--- a later retry from reporting it. Expect zero.
+-- The body really is the hardened one, and really has no ON CONFLICT.
+select pg_get_functiondef(p.oid) as current_definition
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'handle_new_user';
+
+-- Provisioning integrity, before and after. Production reported 0 before this
+-- file; it must still be 0 after, and after the first new signup.
 select count(*) as auth_users_without_user_data
 from auth.users u
 left join public.user_data d on d.id = u.id
@@ -145,10 +154,19 @@ where d.id is null;
 -- ---------------------------------------------------------------------------
 -- 4. Rollback
 --
--- Restore the body captured by pg_get_functiondef() in section 0. Do NOT
--- restore EXECUTE to anon or authenticated as a way of fixing a broken
--- signup: that reopens the RPC and cannot be the cause, because a trigger
--- never needed that grant. If signup breaks after this file, look at the
--- function OWNER's insert privilege on public.user_data, and at the trigger
--- definition, in that order.
+-- Restore the definition captured in section 0.
+--
+-- Do NOT restore EXECUTE to PUBLIC, anon or authenticated as a way of fixing
+-- a broken signup. That reopens the RPC and cannot be the cause: a trigger
+-- never required those grants. If signup breaks after this file, check in
+-- this order:
+--
+--   1. does the owner (postgres) still hold insert on public.user_data
+--   2. is on_auth_user_created still attached to auth.users
+--   3. the actual insert error from the signup attempt
+--
+-- A `set search_path` clause can be removed on its own if it is ever
+-- implicated, without reverting anything else:
+--
+--   alter function public.handle_new_user() reset search_path;
 -- ---------------------------------------------------------------------------

@@ -10,6 +10,39 @@ single defect.
 
 ---
 
+## Analytics `created_at` is a client clock, stored verbatim
+
+**Found:** pre-deployment hardening, reviewing the `analytics_events`
+migration.
+**Status:** open, accepted. Not a deployment blocker.
+
+`track()` builds every row with `created_at: new Date().toISOString()`, so the
+column's `default now()` never applies and a device with a wrong clock has
+that wrong time stored as fact. The buffer also persists offline, so a row can
+be inserted days after the moment it describes.
+
+Keeping the client value is the deliberate choice: `created_at` means **when
+the event occurred**, and replacing it with `now()` at insert time would
+rewrite occurrence time as flush time and destroy the timing of every
+offline-buffered event. That trade is worse than the skew.
+
+The fix that loses nothing, approved but not taken in this pass, is one extra
+column:
+
+```sql
+alter table public.analytics_events
+    add column if not exists received_at timestamptz not null default now();
+```
+
+Then `created_at` is the client's claim about occurrence and `received_at` is
+a trusted server ingestion time. No client change is required either way.
+
+Until that exists, any analysis over `created_at` is subject to device clock
+skew, and there is no server-side timestamp to cross-check it against. Treat
+narrow time windows and event ordering across members as approximate.
+
+---
+
 ## `performedType` reports the scheduled type on a withheld Primary
 
 **Found:** Phase 3C.5, while writing regression coverage for the withheld
