@@ -8164,11 +8164,25 @@ function preferredName(){
  */
 async function savePreferredName(value){
     if(!currentUser) return false;
+    /* APPLIED LOCALLY FIRST, before the round trip.
+       commitPreferredName fires and forgets so an optional write can never
+       trap anyone in onboarding, which is right. But onboarding then advances
+       in milliseconds and finishOnboarding starts the tour 450ms later, so on
+       a slow connection every immediate consumer read currentUser while the
+       write was still in flight and saw no name: a man who had just typed his
+       name was greeted as though he had given none.
+
+       Applying it here closes that window without making persistence a gate.
+       If the write then fails, this optimistic value lives for the session
+       and is gone on the next load, which matches the existing deliberate
+       choice that a failed optional-name write says nothing. */
+    currentUser={...currentUser,user_metadata:{...(currentUser.user_metadata||{}),preferred_name:value}};
     try{
         const {data,error}=await sb.auth.updateUser({data:{preferred_name:value}});
         if(error) return false;
+        /* The CONFIRMED metadata replaces the optimistic copy, so what is in
+           memory afterwards is what the auth store actually holds. */
         if(data&&data.user) currentUser=data.user;
-        else currentUser={...currentUser,user_metadata:{...(currentUser.user_metadata||{}),preferred_name:value}};
         return true;
     }catch(e){ return false; }
 }
@@ -8350,9 +8364,38 @@ function _blockingModalOpen(){
     });
 }
 
+/* Is the HQ actually ready to be pointed at?
+   The first-run failure this exists for: window.BP was undefined, so
+   renderToday returned at its own guard and left the STATIC markup, and the
+   tour then ran anyway and described sections that had never rendered. A tour
+   over broken content turns a silent failure into a confusing one, so it is
+   now gated on the HQ having really drawn.
+
+   The headline check is the load bearing one, because it is the difference
+   between "renderToday ran" and "the static HTML is still there": the markup
+   ships with an empty headline and only a real render fills it. */
+function _hqReadyForTour(){
+    if(!window.BP) return false;
+    if(window._bpHqRendered!==true) return false;
+    const h=document.getElementById('today-headline');
+    if(!h||!(h.textContent||'').trim()) return false;
+    const first=document.querySelector(TOUR_STOPS[0]&&TOUR_STOPS[0].sel);
+    if(!first) return false;
+    const r=first.getBoundingClientRect();
+    return r.width>0 && r.height>0;
+}
 function maybeStartTour(_waited){
     if(!currentUser) return;
     if(localStorage.getItem('bp_tour_done_'+currentUser.id)) return;
+    /* Wait for the HQ rather than refusing outright: on a slow first run the
+       render can still be settling when finishOnboarding's timer fires. The
+       same bounded wait the blocking-modal branch uses, and then give up
+       rather than tour a broken screen. */
+    if(!_hqReadyForTour()){
+        const waited=(_waited||0)+1;
+        if(waited>30) return;
+        return setTimeout(()=>maybeStartTour(waited),500);
+    }
     if(_blockingModalOpen()){
         /* Roughly fifteen seconds of waiting, then let it go. A modal still up
            after that is one the user is reading, and interrupting it with a

@@ -320,6 +320,14 @@ function installSupabaseStub(cfg) {
                     }
                     window.__authUser = window.__authUser || { id: 'stub', email: 'stub@example.com', user_metadata: {} };
                     window.__authUser.user_metadata = { ...(window.__authUser.user_metadata || {}), ...data };
+                    /* The SESSION's user carries the same metadata in reality,
+                       which is why a reload sees a name that was saved. Without
+                       this the stub diverges from Supabase and a refresh test
+                       would fail for a reason production does not have. */
+                    if (window.__session && window.__session.user
+                        && window.__session.user.id === window.__authUser.id) {
+                        window.__session.user = JSON.parse(JSON.stringify(window.__authUser));
+                    }
                     window.__updateUserCalls = (window.__updateUserCalls || 0) + 1;
                     return Promise.resolve({ data: { user: JSON.parse(JSON.stringify(window.__authUser)) }, error: null });
                 },

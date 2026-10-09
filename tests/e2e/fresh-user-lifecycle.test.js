@@ -122,3 +122,80 @@ describe('a brand new paying member reaches a usable HQ', () => {
         expect(errors).toEqual([]);
     });
 });
+
+describe('the tour will not run over a broken HQ', () => {
+    let app;
+    beforeAll(async () => {
+        app = await openApp({ row: null });
+        await app.page.evaluate(() => { window.__members = ['guard@example.com']; });
+        await authSignIn(app.page, { id: 'GUARD1', email: 'guard@example.com', row: null });
+    }, 120_000);
+    afterAll(async () => { await app?.close(); });
+
+    /** Ask the real guard under a chosen broken condition. */
+    const ready = (mutate) => app.page.evaluate((mutate) => {
+        const h = document.getElementById('today-headline');
+        const savedText = h.textContent;
+        const savedBP = window.BP;
+        const savedFlag = window._bpHqRendered;
+        try {
+            if (mutate === 'no-bp') window.BP = undefined;
+            if (mutate === 'not-rendered') window._bpHqRendered = false;
+            if (mutate === 'blank-headline') h.textContent = '';
+            if (mutate === 'whitespace-headline') h.textContent = '   ';
+            return _hqReadyForTour();
+        } finally {
+            window.BP = savedBP; window._bpHqRendered = savedFlag; h.textContent = savedText;
+        }
+    }, mutate);
+
+    test('a rendered HQ, actually on screen, is ready', async () => {
+        /* Baseline, and it earned its place: the first version of this test
+           called renderDashboard() without navigating to the HQ, and the
+           guard correctly said not-ready because #hq-today-card had zero
+           geometry while step-0 was hidden. Every negative below would have
+           passed for the wrong reason. The guard refusing to tour an
+           off-screen HQ is desirable behaviour, not an obstacle. */
+        await app.page.evaluate(async () => {
+            goToStep(0);
+            renderDashboard();
+            await new Promise(r => setTimeout(r, 150));
+        });
+        expect(await ready(null)).toBe(true);
+    }, 60_000);
+
+    test('NO window.BP: NOT READY', async () => {
+        /* The exact production condition. renderToday returns early, the card
+           is the static markup, and the tour must not run. */
+        expect(await ready('no-bp')).toBe(false);
+    }, 60_000);
+
+    test('HQ never rendered: NOT READY', async () => {
+        expect(await ready('not-rendered')).toBe(false);
+    }, 60_000);
+
+    test('BLANK HEADLINE: NOT READY', async () => {
+        /* The load bearing check: an empty headline is how the static markup
+           is distinguished from a real render. */
+        expect(await ready('blank-headline')).toBe(false);
+    }, 60_000);
+
+    test('a whitespace-only headline is also not ready', async () => {
+        expect(await ready('whitespace-headline')).toBe(false);
+    }, 60_000);
+
+    test('and maybeStartTour does not open the overlay over a broken HQ', async () => {
+        const o = await app.page.evaluate(async () => {
+            try { localStorage.removeItem('bp_tour_done_' + currentUser.id); } catch (e) {}
+            const savedBP = window.BP;
+            window.BP = undefined;                 // break it the production way
+            maybeStartTour();
+            await new Promise(r => setTimeout(r, 300));
+            const layer = document.getElementById('tour-layer');
+            const open = !!layer && layer.classList.contains('show');
+            window.BP = savedBP;
+            return { open };
+        });
+        expect(o.open).toBe(false);
+    }, 60_000);
+});
