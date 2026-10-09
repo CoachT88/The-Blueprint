@@ -240,7 +240,22 @@ function installSupabaseStub(cfg) {
                    so the stub has to model it. window.__authUser is the
                    stand-in for the session user; window.__updateUserFails
                    lets a suite make the write fail the way the network can. */
-                updateUser: ({ data }) => {
+                updateUser: (payload) => {
+                    const { data, password } = payload || {};
+                    /* A password change is a different call from a metadata
+                       change and the recovery suites assert on it directly,
+                       so it is counted separately. __passwordUpdateFails and
+                       __hangPasswordUpdate model the two ways it can go wrong
+                       without the metadata path being affected. */
+                    if (password !== undefined) {
+                        window.__passwordUpdates = window.__passwordUpdates || [];
+                        window.__passwordUpdates.push(String(password).length);
+                        if (window.__hangPasswordUpdate) return new Promise(() => {});
+                        if (window.__passwordUpdateFails) {
+                            return Promise.resolve({ data: null, error: { message: 'New password should be different from the old password.' } });
+                        }
+                        return Promise.resolve({ data: { user: window.__authUser || null }, error: null });
+                    }
                     if (window.__updateUserFails) {
                         return Promise.resolve({ data: null, error: { message: 'stubbed failure' } });
                     }
@@ -248,6 +263,24 @@ function installSupabaseStub(cfg) {
                     window.__authUser.user_metadata = { ...(window.__authUser.user_metadata || {}), ...data };
                     window.__updateUserCalls = (window.__updateUserCalls || 0) + 1;
                     return Promise.resolve({ data: { user: JSON.parse(JSON.stringify(window.__authUser)) }, error: null });
+                },
+                /* The legacy recovery link adopts its session with this. A
+                   refusal is how an expired or tampered link presents, so
+                   __setSessionFails models exactly that. */
+                setSession: ({ access_token }) => {
+                    window.__setSessionCalls = (window.__setSessionCalls || 0) + 1;
+                    if (window.__setSessionFails) {
+                        return Promise.resolve({ data: { session: null }, error: { message: 'Invalid Refresh Token' } });
+                    }
+                    const user = window.__authUser || { id: 'rec', email: 'rec@example.com', user_metadata: {} };
+                    const session = { user, access_token: access_token || 'recovery-token' };
+                    window.__session = session;
+                    return Promise.resolve({ data: { session }, error: null });
+                },
+                resetPasswordForEmail: (email, opts) => {
+                    window.__resetRequests = window.__resetRequests || [];
+                    window.__resetRequests.push({ email, redirectTo: opts && opts.redirectTo });
+                    return Promise.resolve({ data: {}, error: null });
                 },
             },
             /* Storage, with the same three injection shapes as the table
