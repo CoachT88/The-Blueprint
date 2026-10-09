@@ -12,6 +12,15 @@ describe('membership denial', () => {
     beforeAll(async () => {
         app = await openApp({ row: null }); // no members row for this email
         denied = await app.page.evaluate(async () => {
+            /* Membership authority is now the Supabase user UUID, and
+               claim_membership() reads it from the session rather than from
+               anything the caller passes. So a denial test has to establish a
+               session: handing checkMembership an email proves nothing any
+               more, which is the point of the cutover. This member has a
+               session and no purchase row. */
+            window.__members = [];
+            window.__session = { user: { id: 'x', email: 'nobody@example.com' },
+                                 access_token: 'stub' };
             const allowed = await checkMembership({ id: 'x', email: 'nobody@example.com' });
             const el = document.getElementById('auth-error');
             const a = el.querySelector('a');

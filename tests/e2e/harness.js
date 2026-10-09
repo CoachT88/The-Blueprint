@@ -145,8 +145,13 @@ function installSupabaseStub(cfg) {
     /* The members lookup is a different question from the user_data read, and
        answering it with __row would sign every test member straight back out:
        checkMembership() treats PGRST116 as "not a member". */
+    /* An entitlement may be a bare email string, as every pre-cutover fixture
+       has it, or {email, user_id} once claimed. Both shapes read the same. */
     const membersResult = (email) => {
-        const hit = (window.__members || []).some(m => String(m).toLowerCase() === String(email).toLowerCase());
+        const hit = (window.__members || []).some(m => {
+            const e = (m && typeof m === 'object') ? m.email : m;
+            return String(e).toLowerCase() === String(email).toLowerCase();
+        });
         return hit ? { data: { email }, error: null } : noRow;
     };
     const makeQuery = (table) => {
@@ -194,9 +199,50 @@ function installSupabaseStub(cfg) {
         window.__session = session;
         (window.__authSubs || []).forEach(cb => { try { cb(event, session); } catch (e) {} });
     };
+    /* claim_membership(), modelled on the live RPC.
+       __members holds purchase entitlements. An entry may be a bare email
+       string (unclaimed, as every pre-cutover fixture has it) or
+       {email, user_id} once claimed. The stub reproduces the four rules that
+       matter: identity comes from the session and never from an argument, an
+       already-owning UUID returns true without touching anything, only a
+       MATCHING UNCLAIMED row may be claimed, and a row owned by another UUID
+       is never stolen. __claimRpcCalls counts, __hangClaimRpc hangs, and
+       __claimRpcFails makes it error. */
+    window.__claimRpcCalls = 0;
+    const claimMembership = () => {
+        window.__claimRpcCalls += 1;
+        if (window.__hangClaimRpc) return new Promise(() => {});
+        if (window.__claimRpcFails) {
+            return Promise.resolve({ data: null, error: { message: 'stubbed rpc failure' } });
+        }
+        const session = window.__session;
+        const uid = session && session.user && session.user.id;
+        /* No auth.uid() means anon: the live function requires it. */
+        if (!uid) return Promise.resolve({ data: null, error: { message: 'permission denied for function claim_membership' } });
+        const rows = window.__members || [];
+        const norm = (e) => String(e || '').trim().toLowerCase();
+        const rowOf = (m) => (typeof m === 'string' ? { email: m, user_id: null } : m);
+        // Already owns one. Idempotent, and no row is modified.
+        if (rows.map(rowOf).some(r => r.user_id === uid)) return Promise.resolve({ data: true, error: null });
+        /* The verified email comes from the session, never from a caller. */
+        const email = norm(session.user && session.user.email);
+        if (!email) return Promise.resolve({ data: false, error: null });
+        for (let i = 0; i < rows.length; i++) {
+            const r = rowOf(rows[i]);
+            if (norm(r.email) !== email) continue;
+            if (r.user_id && r.user_id !== uid) continue;   // owned by someone else: never stolen
+            rows[i] = { email: r.email, user_id: uid, claimed_at: new Date().toISOString() };
+            return Promise.resolve({ data: true, error: null });
+        }
+        return Promise.resolve({ data: false, error: null });
+    };
+
     window.supabase = {
         createClient: () => ({
             from: makeQuery,
+            rpc: (name) => (name === 'claim_membership'
+                ? claimMembership()
+                : Promise.resolve({ data: null, error: { message: 'unknown rpc ' + name } })),
             auth: {
                 onAuthStateChange: (cb) => {
                     window.__authSubs.push(cb);

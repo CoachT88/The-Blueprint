@@ -9083,27 +9083,40 @@ function _purchaseLinksHTML(){
     const k=KOFI_URL?`<a href="${KOFI_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">get access here</a>`:'purchase The Blueprint';
     return `No membership found for this email. If you have not joined yet, ${k}, then sign in with the same email you purchased with.<br><span style="opacity:.75">Just bought? Give it about a minute, then tap SIGN IN again.</span>`;
 }
-async function _membersLookup(email,ms){
+/* MEMBERSHIP AUTHORITY IS THE SUPABASE USER UUID, NOT THE EMAIL.
+
+   The purchase email proves entitlement exactly once. claim_membership()
+   attaches that purchase row to auth.uid() and from then on the UUID is the
+   authority, which is what lets a member later sign in through Apple with a
+   private relay address, or change their account email, without becoming a
+   different customer.
+
+   The client deliberately passes NOTHING. The RPC reads auth.uid() and the
+   verified email from the session itself, so there is no parameter here for a
+   caller to tamper with: no email to spoof and no user id to choose. */
+async function _claimMembership(ms){
     const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));
-    const _query=sb.from('members').select('email').eq('email',email).single();
-    return Promise.race([_query,_timeout]);
+    return Promise.race([sb.rpc('claim_membership'),_timeout]);
 }
 async function checkMembership(user){
-    // Verifies the signed-in email against the members table (populated by the
-    // Ko-fi webhook, and historically the Whop one).
     try{
         let res;
         try{
-            res=await _membersLookup(user.email,8000);
+            res=await _claimMembership(8000);
         }catch(firstErr){
             // One retry before turning a paying member away. A first sign-in on
             // a new device has no cached pass to fall back on, so a single slow
             // request would otherwise send them back to the sign-in screen.
-            console.warn('membership lookup retrying after:',firstErr.message);
-            res=await _membersLookup(user.email,8000);
+            console.warn('membership claim retrying after:',firstErr.message);
+            res=await _claimMembership(8000);
         }
         const {data,error}=res;
-        if(error||!data){
+        /* `data` is the RPC's boolean: does this UUID own an entitlement. An
+           error is a failed verification, not a denial, so it is thrown to the
+           catch below where the verified-device fallback lives. Treating it as
+           "not a member" would lock out a paying member on a bad request. */
+        if(error) throw new Error(error.message||'claim failed');
+        if(data!==true){
             // Definitively not a member. Drop any cached pass so a refunded or
             // removed member cannot keep riding an old device.
             try{localStorage.removeItem('bp_member_ok_'+user.id);}catch(e){}
