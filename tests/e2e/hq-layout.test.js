@@ -35,12 +35,17 @@ const SEED = {
        combination a member can actually be in. */
     STACKED:  { schedule: ['rest','rest','rest','rest','rest','rest','rest'],
                 draft: true, storageFull: true },
+    /* TWO attention entries genuinely live at once: the data did not load AND
+       storage is full. Without this the one-banner rule below is vacuous,
+       because every other fixture has at most one live entry, so a mutation
+       that showed all of them changed nothing. Found exactly that way. */
+    CONTENDING: { notLoaded: true, storageFull: true },
 };
 
 const measure = (page, o) => page.evaluate(async (o) => {
     const U = 'tst';
     currentUser = { id: U, email: 't@e.com', user_metadata: { preferred_name: 'Marcus' } };
-    _persistedLoaded = true;
+    _persistedLoaded = !o.notLoaded;
     _storageFull = !!o.storageFull;
     persisted.primaryGoal = o.goal === undefined ? 'all' : o.goal;
     persisted.pelvicProfile = 'standard'; persisted.pelvicScreenDate = '2025-01-01';
@@ -113,6 +118,9 @@ const measure = (page, o) => page.evaluate(async (o) => {
         bannersShown: BANNERS.filter(vis),
         contextVisible: vis('hq-context'),
         contextHidden: document.getElementById('hq-context').classList.contains('hidden'),
+        /* How many entries WANT the slot, independent of how many got it.
+           Read from the same predicates the renderer uses. */
+        liveAttentionEntries: ATTENTION_BAND.filter(e => { try { return !!e.live(); } catch (x) { return false; } }).length,
     };
 }, o);
 
@@ -137,12 +145,16 @@ describe('the mission does not move', () => {
     test('and every state really was exercised, so the above is not vacuous', () => {
         /* A guard on the guard: if the seeds silently produced one state
            eight times, the constant above would be trivially true. */
-        expect(Object.keys(got)).toHaveLength(8);
+        expect(Object.keys(got)).toHaveLength(9);
         const states = new Set(Object.values(got).map(r => r.state));
         expect(states.size).toBeGreaterThanOrEqual(6);
         /* And the stacked case must genuinely have raised a banner, or it is
-           not testing the 201px case at all. */
+           not testing the displaced case at all. */
         expect(got.STACKED.bannersShown.length).toBe(1);
+        /* CONTENDING must have had two entries CONTEND, or the one-banner
+           test below proves nothing. Both conditions are set, so both
+           entries' live() return true and the renderer has a real choice. */
+        expect(got.CONTENDING.liveAttentionEntries).toBe(2);
     });
 
     test('THE HERO IS THE FIRST REGION ON THE HQ, in every state', () => {
