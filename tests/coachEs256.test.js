@@ -46,7 +46,13 @@ const claimsFor = (over = {}) => ({
 
 /** A real ES256 JWS: the signature is raw r||s, as the spec requires. */
 function signEs256(claims, key = privateKey, { kid = KID, alg = 'ES256' } = {}) {
-  const h = b64url(JSON.stringify({ alg, typ: 'JWT', kid }));
+  /* `kid: null` OMITS the field, which is what a token with no key id really
+     looks like. It cannot be `undefined`: a destructuring default applies to
+     undefined, so `{ kid: undefined }` would silently restore the real kid,
+     which is exactly how the first version of this test passed while proving
+     nothing. */
+  const header = kid === null ? { alg, typ: 'JWT' } : { alg, typ: 'JWT', kid };
+  const h = b64url(JSON.stringify(header));
   const p = b64url(JSON.stringify(claims));
   const sig = createSign('sha256').update(`${h}.${p}`)
     .sign({ key, dsaEncoding: 'ieee-p1363' });
@@ -172,6 +178,51 @@ describe('coach-tee: ES256 sessions', () => {
   it('REJECTS a token with no subject', async () => {
     const res = await ask(signEs256(claimsFor({ sub: undefined })));
     expect(res.status).toBe(401);
+  });
+
+  describe('the key id is mandatory', () => {
+    it('REJECTS an ES256 token with NO kid, without spending a JWKS fetch', async () => {
+      /* There is no "any usable key" fallback. A token naming no key would
+         otherwise be verified against an arbitrary published one, which with
+         several keys live, during a rotation, is the endpoint choosing on the
+         caller's behalf. */
+      const cold = await coldCoach();
+      const res = await cold({
+        request: request(signEs256(claimsFor(), privateKey, { kid: null })), env: COACH_ENV });
+      expect(res.status).toBe(401);
+      expect(jwksHits).toBe(0);        // refused before any network call
+      expect(anthropicCalled()).toBe(false);
+    });
+
+    it('REJECTS an EMPTY kid', async () => {
+      const cold = await coldCoach();
+      const res = await cold({
+        request: request(signEs256(claimsFor(), privateKey, { kid: '' })), env: COACH_ENV });
+      expect(res.status).toBe(401);
+      expect(jwksHits).toBe(0);
+    });
+
+    it('REJECTS a kid that does not match, even when the SIGNATURE is valid', async () => {
+      /* Signed with the real key, so only the kid is wrong. The published set
+         has a key that would verify this signature, and it must still be
+         refused because the token named a different one. */
+      const cold = await coldCoach();
+      const res = await cold({
+        request: request(signEs256(claimsFor(), privateKey, { kid: 'not-the-published-kid' })),
+        env: COACH_ENV });
+      expect(res.status).toBe(401);
+      expect(anthropicCalled()).toBe(false);
+    });
+
+    it('and a kid naming a key of the WRONG type is refused', async () => {
+      /* A published RSA entry must not be reachable by an ES256 token, even
+         by name. */
+      const cold = await coldCoach();
+      jwksKeys = [{ kty: 'RSA', kid: KID, alg: 'RS256', use: 'sig', n: 'xx', e: 'AQAB' }];
+      const res = await cold({ request: request(signEs256(claimsFor())), env: COACH_ENV });
+      expect(res.status).toBe(401);
+      expect(anthropicCalled()).toBe(false);
+    });
   });
 
   describe('key rotation and an unknown kid', () => {

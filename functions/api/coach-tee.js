@@ -161,15 +161,32 @@ async function jwksKeys(env, force) {
 
 /* Only P-256 verify keys are usable here. An `alg` or `crv` we did not ask
    for is skipped rather than coerced, so a key set that gains an RSA entry
-   later cannot silently change what this endpoint accepts. */
+   later cannot silently change what this endpoint accepts.
+
+   THE KID MUST MATCH EXACTLY. There is deliberately no "any usable key"
+   fallback: an earlier version of this treated a missing kid as "try
+   whatever is published", which means a token that names no key would be
+   verified against an arbitrary one. With several keys published, during a
+   rotation for instance, that is the endpoint choosing on the caller's
+   behalf. Supabase always names the key it signed with, so requiring it
+   costs nothing and removes the ambiguity. */
 function usableEs256Jwk(keys, kid) {
+  if (typeof kid !== 'string' || !kid) return null;
   return (keys || []).find((k) => k && k.kty === 'EC' && k.crv === 'P-256'
     && (!k.alg || k.alg === 'ES256')
     && (!k.use || k.use === 'sig')
-    && (kid ? k.kid === kid : true)) || null;
+    && k.kid === kid) || null;
 }
 
 async function verifyEs256(parts, header, env) {
+  /* Checked BEFORE any network call. A token that names no key cannot be
+     matched against a published one, and Supabase always names it, so this
+     is the caller's token being unacceptable rather than our deploy being
+     wrong: 401, and no JWKS fetch is spent on it. */
+  if (typeof header.kid !== 'string' || !header.kid) {
+    console.warn('coach-tee: ES256 token carried no key id');
+    return unauthorized('no-kid');
+  }
   let keys;
   try {
     keys = await jwksKeys(env, false);
