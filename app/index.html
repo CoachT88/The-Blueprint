@@ -946,6 +946,70 @@
         </div>
 
 
+        <!-- ── Today ───────────────────────────────────────────────────────
+             The decision. Everything above is context and everything below is
+             support. It renders entirely from nextBestAction(): the DOM layer
+             reads state, mission, reason, duration, changes and
+             withheldSession, and decides nothing for itself. See renderToday. -->
+        <div id="hq-today-card" class="today-card mx-2 hq-anim">
+            <!-- Slot 1: state. Icon and label together, so the state reads
+                 without relying on the accent colour at all. -->
+            <div class="flex items-center justify-between gap-3">
+                <span id="today-eyebrow" class="u-state-badge"><i id="today-state-icon" class="fas"></i><span id="today-state-label">Today</span></span>
+                <p id="today-meta" class="text-[10px] font-bold u-text-2 hidden" style="font-family:'JetBrains Mono',monospace"></p>
+            </div>
+            <!-- Slot 2: headline. 24px, down from 30px: at 30px RESUME's
+                 "Pick Up Where You Left Off" wrapped to two lines and the
+                 card height swung from 153 to 347 across states. -->
+            <h2 id="today-headline" class="text-[24px] font-black uppercase italic tracking-tight leading-tight mt-1.5 text-slate-50">&nbsp;</h2>
+            <p id="today-sub" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
+            <p id="today-why" class="text-[12px] text-slate-300 mt-2 leading-relaxed"></p>
+            <p id="today-withheld" class="hidden text-[11px] mt-2 leading-relaxed px-3 py-2 rounded-xl" style="background:rgba(100,116,139,.12);color:#cbd5e1"></p>
+            <!-- One liveness line, Phase 2B.2. Chosen by precedence in
+                 livenessContext(): week complete, then return, then a week
+                 that did not go to plan. It sits beside the prescription and
+                 never in place of it. -->
+            <ul id="today-changes" class="hidden mt-3 space-y-1"></ul>
+            <div id="today-complete-summary" class="hidden mt-3 grid grid-cols-2 gap-2"></div>
+            <div id="today-actions" class="mt-4 space-y-2">
+                <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
+                <button id="resume-btn" class="btn-primary hidden">RESUME SESSION</button>
+                <button id="today-prepare-btn" class="btn-primary hidden">GET SET UP</button>
+                <p id="today-prepare-hint" class="hidden text-[10px] u-text-2 text-center"></p>
+                <button id="today-optional-btn" class="hidden w-full text-[11px] font-black uppercase tracking-widest text-slate-400 py-2.5 rounded-xl" style="background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.2)">Active Recovery</button>
+                <!-- Tertiary actions are peers and share a row. Stacked full
+                     width they made MODIFIED, the one state that shows both,
+                     the tallest card on the HQ. -->
+                <div class="flex items-center gap-3">
+                <button id="today-why-btn" class="hidden flex-1 text-[10px] font-bold u-text-2 py-1.5">Why this today?</button>
+                <!-- Meaningful now that the primary CTA goes straight to the
+                     prescribed session. Deliberately a text link rather than
+                     a button: this is what we recommend, and you still have
+                     control, in that order. Never shown where choosing
+                     something else would route around a safety block. -->
+                <button id="today-alt-btn" class="hidden flex-1 text-[11px] font-bold u-text-2 py-2 underline decoration-slate-700 underline-offset-4">Something else</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── ORDER NOTE ───────────────────────────────────────────────────
+             Today is FIRST, and the two regions below it used to be above it.
+
+             Measured at 390x844: the hero sat at 83px in six of the eight
+             states, 127px in COMPLETE because the context line is live there,
+             and 201px with one attention banner up. The mission therefore
+             moved 118px depending on state, which is the one thing on this
+             screen that should never move. Both causes were above it, so both
+             moved below it and the hero now starts at a constant offset.
+
+             Nothing was removed and no id changed. The CTA was already above
+             the fold in every state by 389px or more, so the hero is NOT
+             enlarged to buy stability: that would cost REST 137px of empty
+             card to fix a problem it does not have.
+
+             This does not improve navigation reach, and is not claimed to:
+             reordering content does not reduce it, so the tools row is still
+             at ~856px in the stacked case. That needs content off the HQ. -->
         <!-- One restrained line, and only on an ordinary opening. The brand
              lockup above is untouched: this does not replace it, and it is
              deliberately quieter than the Today headline below. Suppressed
@@ -962,7 +1026,6 @@
             <p id="hq-greeting" class="hidden text-[13px] text-slate-400 truncate"></p>
             <p id="today-liveness" class="hidden line-clamp-2 text-[12px] mt-2 leading-relaxed"></p>
         </div>
-
         <!-- ── Critical band ───────────────────────────────────────────────
              Above the decision, so only the things that make the decision
              unsafe or impossible to act on: data that did not load, storage
@@ -1006,52 +1069,6 @@
                 <div class="flex-1 min-w-0">
                     <p class="text-[11px] font-black text-emerald-300 uppercase tracking-widest">Session In Progress</p>
                     <p id="resume-banner-label" class="text-[10px] text-slate-400 mt-0.5"></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- ── Today ───────────────────────────────────────────────────────
-             The decision. Everything above is context and everything below is
-             support. It renders entirely from nextBestAction(): the DOM layer
-             reads state, mission, reason, duration, changes and
-             withheldSession, and decides nothing for itself. See renderToday. -->
-        <div id="hq-today-card" class="today-card mx-2 hq-anim">
-            <!-- Slot 1: state. Icon and label together, so the state reads
-                 without relying on the accent colour at all. -->
-            <div class="flex items-center justify-between gap-3">
-                <span id="today-eyebrow" class="u-state-badge"><i id="today-state-icon" class="fas"></i><span id="today-state-label">Today</span></span>
-                <p id="today-meta" class="text-[10px] font-bold u-text-2 hidden" style="font-family:'JetBrains Mono',monospace"></p>
-            </div>
-            <!-- Slot 2: headline. 24px, down from 30px: at 30px RESUME's
-                 "Pick Up Where You Left Off" wrapped to two lines and the
-                 card height swung from 153 to 347 across states. -->
-            <h2 id="today-headline" class="text-[24px] font-black uppercase italic tracking-tight leading-tight mt-1.5 text-slate-50">&nbsp;</h2>
-            <p id="today-sub" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
-            <p id="today-why" class="text-[12px] text-slate-300 mt-2 leading-relaxed"></p>
-            <p id="today-withheld" class="hidden text-[11px] mt-2 leading-relaxed px-3 py-2 rounded-xl" style="background:rgba(100,116,139,.12);color:#cbd5e1"></p>
-            <!-- One liveness line, Phase 2B.2. Chosen by precedence in
-                 livenessContext(): week complete, then return, then a week
-                 that did not go to plan. It sits beside the prescription and
-                 never in place of it. -->
-            <ul id="today-changes" class="hidden mt-3 space-y-1"></ul>
-            <div id="today-complete-summary" class="hidden mt-3 grid grid-cols-2 gap-2"></div>
-            <div id="today-actions" class="mt-4 space-y-2">
-                <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
-                <button id="resume-btn" class="btn-primary hidden">RESUME SESSION</button>
-                <button id="today-prepare-btn" class="btn-primary hidden">GET SET UP</button>
-                <p id="today-prepare-hint" class="hidden text-[10px] u-text-2 text-center"></p>
-                <button id="today-optional-btn" class="hidden w-full text-[11px] font-black uppercase tracking-widest text-slate-400 py-2.5 rounded-xl" style="background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.2)">Active Recovery</button>
-                <!-- Tertiary actions are peers and share a row. Stacked full
-                     width they made MODIFIED, the one state that shows both,
-                     the tallest card on the HQ. -->
-                <div class="flex items-center gap-3">
-                <button id="today-why-btn" class="hidden flex-1 text-[10px] font-bold u-text-2 py-1.5">Why this today?</button>
-                <!-- Meaningful now that the primary CTA goes straight to the
-                     prescribed session. Deliberately a text link rather than
-                     a button: this is what we recommend, and you still have
-                     control, in that order. Never shown where choosing
-                     something else would route around a safety block. -->
-                <button id="today-alt-btn" class="hidden flex-1 text-[11px] font-bold u-text-2 py-2 underline decoration-slate-700 underline-offset-4">Something else</button>
                 </div>
             </div>
         </div>
