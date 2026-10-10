@@ -121,7 +121,61 @@
             font-size:var(--t-micro);font-weight:800;text-transform:uppercase;letter-spacing:.1em;
             cursor:pointer;transition:background var(--m-fast) var(--ease),border-color var(--m-fast) var(--ease)}
         .u-btn:disabled{opacity:.45;cursor:default}
-        .u-btn--primary{background:var(--accent);color:#fff}
+        /* --accent-press, not --accent, and this is a contrast fix rather
+           than a preference. White on --accent (#3b82f6) measures 3.68:1,
+           which fails AA for normal text; on --accent-press (#2563eb) it is
+           5.17:1. The shipped .btn-primary already fills with
+           #2563eb -> #1d4ed8 and measures 5.17:1 and 6.70:1, so this aligns
+           the unused primitive with the button that is actually on screen.
+           Zero visual change today: .u-btn--primary has no users yet. The
+           point is that it cannot ship a failure the first time one adopts
+           it. --accent keeps its job for borders, icons and accents, which
+           are non-text and owe 3:1. */
+        .u-btn--primary{background:var(--accent-press);color:#fff}
+        .u-btn--primary:active{background:#1d4ed8}
+        .u-btn--primary:disabled{opacity:.45;cursor:not-allowed}
+
+        /* ── HQ navigation ───────────────────────────────────────────────
+           Two pair-containers side by side read as one row of four. The
+           pairs exist because #hq-tools-row and #hq-coach-row are tour
+           targets that need real boxes; see the markup note. */
+        .hq-nav{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-2)}
+        .hq-nav-pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-2)}
+        .hq-nav-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;
+            gap:5px;min-height:60px;padding:var(--s-2) 4px;border-radius:var(--r-md);
+            border:1px solid var(--border);background:var(--surface);
+            color:var(--text-secondary);font-size:10px;font-weight:800;
+            letter-spacing:.04em;text-transform:uppercase;
+            transition:transform var(--m-fast) var(--ease),
+                       background var(--m-fast) var(--ease)}
+        .hq-nav-tile i{font-size:15px}
+        .hq-nav-tile span{line-height:1}
+        /* Hover is a progressive enhancement only: every state below is
+           reachable by touch and by keyboard, and nothing depends on hover. */
+        @media (hover:hover){ .hq-nav-tile:hover{background:var(--surface-raised);color:var(--text)} }
+        .hq-nav-tile:active{transform:scale(.97);background:var(--surface-raised)}
+        .hq-nav-tile:disabled{opacity:.45;cursor:not-allowed}
+        /* Keyboard focus, which this app has nowhere else: the only :focus
+           rules in the file are three input border tints, so a keyboard
+           user currently cannot see where they are. Scoped to the surfaces
+           this slice adds rather than applied globally, because a global
+           ring changes every screen and belongs in its own change. The
+           broader gap is in the report. */
+        .hq-nav-tile:focus-visible,
+        #tools-modal button:focus-visible{outline:2px solid var(--accent);
+            outline-offset:3px;border-radius:var(--r-md)}
+        /* Where you are. Carried by colour AND by the border AND by
+           aria-current, so it is never colour alone. */
+        .hq-nav-tile[aria-current="page"]{color:var(--accent);
+            border-color:rgba(59,130,246,.45);background:rgba(59,130,246,.1)}
+        /* The current tile is still a control: it closes overlays and
+           returns to the top, so it answers to hover like the others. Its
+           aria-current rule outranks the shared :hover, hence the explicit
+           pairing rather than relying on cascade order. */
+        @media (hover:hover){ .hq-nav-tile[aria-current="page"]:hover{background:rgba(59,130,246,.18)} }
+        .hq-nav-tile--coach{color:#d8b4fe;border-color:rgba(168,85,247,.35);
+            background:rgba(168,85,247,.08)}
+        @media (hover:hover){ .hq-nav-tile--coach:hover{background:rgba(168,85,247,.16);color:#e9d5ff} }
         .u-btn--primary:active:not(:disabled){background:var(--accent-press)}
         .u-btn--secondary{background:transparent;border-color:var(--border-strong);color:var(--text)}
         .u-btn--quiet{background:transparent;color:var(--text-secondary);min-height:44px;padding:0 var(--s-2)}
@@ -1242,15 +1296,34 @@
             <div id="session-log" class="space-y-1.5"></div>
         </div>
             </div>
-            <div id="hq-tools-row" class="grid grid-cols-3 gap-2">
-                <button id="progress-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-chart-line text-blue-400 text-xs"></i> Progress</button>
-                <button id="weekly-report-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-calendar-week text-emerald-400 text-xs"></i> Week</button>
-                <button id="photos-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[11px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd;"><i class="fas fa-images text-xs" style="color:#a855f7"></i> Photos</button>
-            </div>
-            <div id="hq-coach-row" class="grid grid-cols-2 gap-2">
-                <button id="ai-coach-btn" class="btn-outline btn-ai text-white flex items-center justify-center gap-1.5 py-3 text-[11px]"><i class="fas fa-comment-dots text-xs"></i> Ask Coach Tee</button>
-                <button id="manual-btn" class="btn-outline flex items-center justify-center gap-1.5 py-3 text-[12px] font-black" style="border-color:rgba(168,85,247,.45);color:#c4b5fd;background:rgba(168,85,247,.07)"><i class="fas fa-book-open text-xs" style="color:#a855f7"></i> Manual</button>
-            </div>
+            <!-- ── Four destinations ───────────────────────────────────────
+                 HQ, Progress, Coach, Tools, in one row of four. It replaced
+                 a row of three and a row of two, which ended the scroll at a
+                 measured 856px on a 390x844 screen: below the fold in the
+                 worst state, so the way OUT of the HQ was the thing a member
+                 could not see.
+
+                 TWO CONTAINERS, NOT ONE, and that is deliberate.
+                 #hq-tools-row and #hq-coach-row are guided-tour targets and
+                 the tour measures real boxes, so collapsing them into a
+                 single grid would delete two stops. Each keeps a real box
+                 and holds two tiles; the parent lays the pair out side by
+                 side, so what the member sees is one row of four.
+
+                 Week, Photos and Manual are the SAME BUTTON NODES, moved
+                 into the Tools sheet rather than rebuilt. Their ids and
+                 their listeners are untouched, which is why no destination
+                 wiring changes in this slice. -->
+            <nav id="hq-nav" class="hq-nav" aria-label="Primary">
+                <div id="hq-tools-row" class="hq-nav-pair">
+                    <button id="hq-home-btn" class="hq-nav-tile" aria-current="page"><i class="fas fa-house" aria-hidden="true"></i><span>HQ</span></button>
+                    <button id="progress-btn" class="hq-nav-tile"><i class="fas fa-chart-line" aria-hidden="true"></i><span>Progress</span></button>
+                </div>
+                <div id="hq-coach-row" class="hq-nav-pair">
+                    <button id="ai-coach-btn" class="hq-nav-tile hq-nav-tile--coach"><i class="fas fa-comment-dots" aria-hidden="true"></i><span>Coach</span></button>
+                    <button id="hq-tools-btn" class="hq-nav-tile"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i><span>Tools</span></button>
+                </div>
+            </nav>
         </div>
 
 
@@ -2259,6 +2332,28 @@
         <div class="flex flex-col gap-2">
             <button id="pelvic-lock-take" class="btn-primary py-3.5 text-[12px]">TAKE THE CHECK</button>
             <button id="pelvic-lock-close" class="btn-outline py-3 text-[11px]">Not now</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOOLS. A menu, not a feature. It holds the three destinations that lost
+     their own HQ tile when the nav became four: the week summary, the photo
+     log and the manual.
+
+     THE BUTTONS INSIDE ARE THE ORIGINAL NODES, moved here from the HQ. Same
+     ids, same listeners, same behaviour, so nothing about Week, Photos or
+     Manual changes in this slice beyond where a member taps to reach them.
+     Nothing new is offered here. -->
+<div id="tools-modal" class="hidden fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
+    <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(100,116,139,.3)">
+        <div class="flex items-center justify-between">
+            <p class="text-[12px] font-black uppercase tracking-widest" style="color:var(--text)">Tools</p>
+            <button id="tools-close" class="u-icon-btn" aria-label="Close tools"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div id="tools-list" class="flex flex-col gap-2">
+            <button id="weekly-report-btn" class="btn-outline flex items-center gap-3 py-3.5 px-4 text-[13px]"><i class="fas fa-calendar-week text-emerald-400 text-sm w-5 text-center" aria-hidden="true"></i> Week summary</button>
+            <button id="photos-btn" class="btn-outline flex items-center gap-3 py-3.5 px-4 text-[13px]" style="border-color:rgba(168,85,247,.3);color:#c4b5fd"><i class="fas fa-images text-sm w-5 text-center" style="color:#a855f7" aria-hidden="true"></i> Progress photos</button>
+            <button id="manual-btn" class="btn-outline flex items-center gap-3 py-3.5 px-4 text-[13px]" style="border-color:rgba(168,85,247,.45);color:#c4b5fd;background:rgba(168,85,247,.07)"><i class="fas fa-book-open text-sm w-5 text-center" style="color:#a855f7" aria-hidden="true"></i> Exercise manual</button>
         </div>
     </div>
 </div>
@@ -6346,7 +6441,20 @@ function renderToday(){
        matching the moment the headline became context aware, and the reason
        reappeared underneath "Recovery Complete". */
     const norm=t=>t.trim().toLowerCase().replace(/[.!]+$/,'');
-    const echoes=r.state==='COMPLETE'||(!!headline&&norm(r.reason)===norm(headline));
+    /* TRAIN joins COMPLETE, for the same reason and with the same remedy.
+       A plain training day's reason is built at nextBestAction.js:356 as
+       `Today is a ${label} day on your schedule.` and nothing else: it is a
+       template restatement of the headline, which already says "LENGTH DAY",
+       beside a sub that already says "Today's focus: your length protocol."
+       Three lines, one fact. The string compare below cannot catch it
+       because the wording differs, so it is suppressed by state.
+
+       ONLY the no-modifier case. The moment the resolver has something to
+       add, the state is MODIFIED or RECOVER and their reasons are kept:
+       those carry information the headline does not, which is the whole
+       distinction between repetition and context. */
+    const trainEcho=r.state==='TRAIN'&&r.changes.length===0;
+    const echoes=r.state==='COMPLETE'||trainEcho||(!!headline&&norm(r.reason)===norm(headline));
     set('today-why',r.reason,!!r.reason&&!echoes);
 
     // Duration only when the resolver gives one. RESUME returns null until
@@ -8353,8 +8461,13 @@ const TOUR_STOPS=[
        dated plans: for them the strip is orientation and the day types are
        withdrawn until Change My Programme exists. */
     {sel:'#hq-week-card',     title:'Your week',        body:'Today stays front and center. The week view shows what is planned, what is complete, and when you are resting. Rest days are part of the plan, so they are never counted against you.'},
-    {sel:'#hq-tools-row',     title:'See it add up',    body:'Progress holds your charts and photos. Week is your summary. This is where the long view lives.'},
-    {sel:'#hq-coach-row',     title:'When you need it', body:'Coach Tee answers questions any hour, and the Manual explains every exercise in depth. Neither is something you have to read first.'},
+    /* Rewritten because the nav changed under them, not as a copy exercise.
+       Week, Photos and the Manual moved into Tools, so the old bodies named
+       buttons that are no longer in the row they point at. A tour that
+       describes a screen the member is not looking at is worse than no
+       tour. */
+    {sel:'#hq-tools-row',     title:'See it add up',    body:'HQ is this screen, and it is always one tap away. Progress holds your charts, measurements and photos: the long view.'},
+    {sel:'#hq-coach-row',     title:'When you need it', body:'Coach Tee answers questions any hour. Tools holds your week summary, your photos and the exercise manual. Neither is something you have to read first.'},
 ];
 let _tourStops=[], _tourIdx=0, _tourIsTip=false;
 
@@ -9730,6 +9843,28 @@ function init(){
     // Wrapped so the click Event is not passed as the pre-asked question.
     document.getElementById('ai-coach-btn').addEventListener('click',()=>openCoach());
     document.getElementById('progress-btn').addEventListener('click',openProgressChart);
+    /* HQ is where you already are, so this is the RETURN path rather than a
+       destination: it closes whatever overlay is open and puts the member
+       back at the top of the HQ. That makes "get me home" one predictable
+       tap from anywhere a member can reach the nav, instead of depending on
+       finding the right close button. */
+    const _homeBtn=document.getElementById('hq-home-btn');
+    if(_homeBtn) _homeBtn.addEventListener('click',()=>{
+        _closeMemberOverlays();
+        const sc=document.getElementById('step-0');
+        if(sc) sc.scrollTo({top:0,behavior:'smooth'});
+    });
+    const _toolsBtn=document.getElementById('hq-tools-btn');
+    const _toolsModal=document.getElementById('tools-modal');
+    if(_toolsBtn&&_toolsModal) _toolsBtn.addEventListener('click',()=>_toolsModal.classList.remove('hidden'));
+    const _toolsClose=document.getElementById('tools-close');
+    if(_toolsClose) _toolsClose.addEventListener('click',()=>_toolsModal.classList.add('hidden'));
+    /* Opening a destination from inside Tools closes Tools, so the member is
+       never left with a sheet stacked behind whatever they asked for. */
+    const _toolsList=document.getElementById('tools-list');
+    if(_toolsList) _toolsList.addEventListener('click',(e)=>{
+        if(e.target.closest('button')) _toolsModal.classList.add('hidden');
+    });
     // Hydration — liter bubbles
     document.querySelectorAll('.hydration-liter').forEach(el=>{
         el.addEventListener('click',()=>setHydrationToLiter(parseInt(el.dataset.l)));
