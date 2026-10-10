@@ -8199,14 +8199,22 @@ function _openRecoveryModal(){
    call added a second click listener to the same button and one tap ran
    updateUser twice.
 
-   TWO GUARDS, ONE RULE: one password update per tap. `_recoveryWired` stops a
-   second listener existing, `_recoverySubmitting` stops a second run, and
-   `btn.disabled` stops a second tap. Mutating any ONE of them away leaves the
-   rule intact, because the other two still hold, which is exactly what the
-   mutation pass found and why it is recorded here rather than papered over
-   with a test that dispatches events no member can. The rule itself IS
-   tested: "A DOUBLE TAP SENDS ONE REQUEST", and the pairings that do break it
-   are recorded in the mutation notes. */
+   THREE GUARDS, ONE RULE: one password update per tap. `_recoveryWired` stops
+   a second listener existing, `_recoverySubmitting` stops a second run, and
+   `btn.disabled` stops a second tap. "A DOUBLE TAP SENDS ONE REQUEST" tests
+   the rule, and mutating the guards in every combination says which one
+   actually carries it:
+
+     `_recoverySubmitting` alone is ENOUGH. Remove the other two and the rule
+     still holds.
+     Neither of the other two is enough without it. `btn.disabled` cannot stop
+     a duplicate listener, because both listeners run in the same dispatch and
+     disabling the button mid-dispatch does not cancel the second.
+
+   So `_recoverySubmitting` is the guard and the other two are cheap
+   backstops. Removing any one on its own leaves the rule intact, which is why
+   those mutations survive: recorded here rather than chased with a test that
+   dispatches events no member can produce. */
 function _wireRecoverySubmit(){
     if(_recoveryWired) return;
     _recoveryWired=true;
