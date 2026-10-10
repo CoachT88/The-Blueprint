@@ -255,6 +255,44 @@ describe('the legacy fragment link', () => {
         expect(o.authErr).toContain('expired');
     }, 60_000);
 
+    test('A SPENT LINK REPORTS ITSELF FROM THE FRAGMENT', async () => {
+        /* THE LIVE PRODUCTION SYMPTOM, and the case the first version of this
+           fix still got wrong.
+
+           We call createClient with no options, so supabase-js runs on its
+           default implicit flow and reports a spent or expired link in the
+           FRAGMENT, not the query. On that path it throws, drops any stored
+           session, fires no auth event at all, and does NOT clear the
+           fragment: it only clears on success. So nothing wakes the app, and
+           reading only location.search found nothing, which is precisely how
+           a member ends up looking at a bare sign-in screen with no idea why.
+
+           Reading the fragment is safe for exactly that reason: the one path
+           that clears it is the path where the event fires instead. */
+        const o = await withHash('#error=access_denied&error_code=otp_expired'
+                               + '&error_description=Email+link+is+invalid+or+has+expired',
+                                 { __setSessionCalls: 0 });
+        expect(o.handled).toBe(true);
+        expect(o.authErr).toContain('expired');
+        expect(o.modal).toBe(false);
+        expect(o.recovery).toBe(false);
+        /* No token to adopt, so nothing should have been attempted. */
+        expect(o.setSessionCalls).toBe(0);
+    }, 60_000);
+
+    test('an unrecognised fragment error still offers a way back', async () => {
+        /* Not every refusal says "expired". The member must still be told the
+           link is dead and to ask for another, rather than being left on a
+           sign-in screen that explains nothing. */
+        const o = await withHash('#error=server_error&error_code=unexpected_failure'
+                               + '&error_description=Something+went+wrong',
+                                 { __setSessionCalls: 0 });
+        expect(o.handled).toBe(true);
+        expect(o.authErr).toContain('no longer valid');
+        expect(o.authErr).toContain('Request a new one');
+        expect(o.modal).toBe(false);
+    }, 60_000);
+
     test('a recovery fragment with NO token is not treated as recovery', async () => {
         const o = await withHash('#type=recovery', { __setSessionCalls: 0 });
         expect(o.handled).toBe(false);

@@ -39,10 +39,12 @@
      Forwarding it preserves the token and lets /app/ do the actual work.
 
      EVERYTHING after the path is carried over, hash and query both, because
-     the token lives in one or the other depending on which flow Supabase
-     used: the implicit flow puts it in the fragment, PKCE puts a code in the
-     query, and an expired link arrives as an error in the query. All three
-     need to reach /app/ to be handled or reported.
+     what matters lives in one or the other depending on the flow. We call
+     createClient with no options, so supabase-js is on its default implicit
+     flow: a good link carries `#access_token=...&type=recovery` and a spent
+     one carries `#error=...&error_code=otp_expired&...`, both in the
+     FRAGMENT. Under PKCE the same things arrive as query parameters. All of
+     them need to reach /app/ to be handled or reported.
 
      replace(), so Back does not return to a page that cannot help. Inline and
      in <head> so it runs before anything paints. Nothing is logged: the URL
@@ -59,9 +61,16 @@
            `?promo_code=`, and sending a prospect from the sales page into the
            app would be a worse bug than the one being fixed. A plain visit,
            and a visit with campaign parameters, match none of these. */
+        /* The error has to be looked for in the FRAGMENT as well, not just the
+           query. supabase-js runs on its default implicit flow, which reports
+           a spent or expired link as
+           `#error=access_denied&error_code=otp_expired&...`. Checking only the
+           query here would leave exactly the member this change is for, the
+           one holding a dead link, stranded on the sales page. */
         var isRecovery = /(^|[#&])type=recovery(&|$)/.test(h)
                       || /(^|[#&])access_token=/.test(h)
-                      || /(^|[?&])(code|error_code|error)=/.test(q);
+                      || /(^|[#&])(error|error_code|error_description)=/.test(h)
+                      || /(^|[?&])(code|error|error_code|error_description)=/.test(q);
         if(isRecovery) window.location.replace('/app/' + q + h);
     }catch(e){ /* a browser that cannot answer is a browser, so stay put */ }
 })();

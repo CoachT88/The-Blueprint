@@ -69,9 +69,29 @@ describe('a recovery link that arrives at the root is forwarded', () => {
         expect(o.recovery).toBe(true);
     }, 120_000);
 
-    test('AN EXPIRED LINK REACHES THE MESSAGE THAT SAYS SO', async () => {
-        /* A dead link must say it is dead. Before the forwarder this member
-           saw the sales page and had no idea why nothing happened. */
+    test('A SPENT LINK WITH THE ERROR IN THE FRAGMENT REACHES THE MESSAGE', async () => {
+        /* The shape production actually produces. supabase-js runs on its
+           default implicit flow, so a spent or expired link comes back as
+           `#error=...&error_code=otp_expired&...` in the FRAGMENT. A forwarder
+           that only inspected the query would leave this member, the one this
+           whole change exists for, sitting on the sales page. */
+        const o = await landing(
+            '/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired',
+            async (app) => await app.page.evaluate(() => ({
+                authVisible: !document.getElementById('auth-screen').classList.contains('hidden'),
+                authErr: document.getElementById('auth-error').textContent,
+                modal: document.getElementById('password-reset-modal').classList.contains('show'),
+            })));
+        expect(o.path).toBe('/app/');
+        expect(o.authVisible).toBe(true);
+        expect(o.authErr).toContain('expired');
+        expect(o.modal).toBe(false);
+    }, 120_000);
+
+    test('AN EXPIRED LINK IN THE QUERY REACHES THE MESSAGE THAT SAYS SO', async () => {
+        /* The PKCE shape. Not what we are configured for today, which is why
+           the fragment case above is the one that matters, but it costs
+           nothing to keep working if the client is ever moved. */
         const o = await landing(
             '/?error_code=otp_expired&error=access_denied&error_description=Email+link+is+invalid+or+has+expired',
             async (app) => await app.page.evaluate(() => ({

@@ -8274,16 +8274,46 @@ function _wireRecoverySubmit(){
     });
 }
 
-/* An expired or already used link. Supabase reports it in the query, and
-   saying so with a way back is the whole requirement: a member holding a dead
+/* Read auth parameters the way supabase-js reads them: the FRAGMENT first,
+   then the query, with the query winning on a clash. Getting this wrong is
+   what made the production symptom survive the first version of this fix.
+
+   We call createClient with no options, so supabase-js is on its default
+   `flowType: 'implicit'`, which puts everything in the fragment: the token on
+   a good link and `#error=...&error_code=...&error_description=...` on a
+   spent one. Reading only `location.search` finds neither. The query half is
+   kept anyway so this still works if the client is ever moved to PKCE, where
+   the same values arrive as query parameters. */
+function _authParamsFromUrl(){
+    const out={};
+    try{
+        const h=window.location.hash||'';
+        if(h.charAt(0)==='#') new URLSearchParams(h.substring(1)).forEach((v,k)=>{out[k]=v});
+    }catch(e){}
+    try{
+        new URLSearchParams(window.location.search||'').forEach((v,k)=>{out[k]=v});
+    }catch(e){}
+    return out;
+}
+
+/* An expired or already used link, which is the live production symptom.
+   supabase-js throws on it, drops any stored session, fires NO auth event,
+   and leaves the error in the URL: it only clears the fragment on the success
+   path. So nothing wakes the app and the member gets a bare sign-in screen
+   with no explanation unless we read the URL ourselves.
+
+   Saying so with a way back is the whole requirement: a man holding a dead
    link needs to know to ask for another one. The token is never echoed. */
 function _recoveryLinkError(){
-    let p;
-    try{ p=new URLSearchParams(window.location.search); }catch(e){ return null; }
-    const code=p.get('error_code')||'';
-    const err=p.get('error')||'';
-    if(!code&&!err) return null;
-    if(/expired/i.test(code)||/expired/i.test(p.get('error_description')||'')){
+    const p=_authParamsFromUrl();
+    const code=p.error_code||'';
+    const err=p.error||'';
+    const desc=p.error_description||'';
+    if(!code&&!err&&!desc) return null;
+    /* `otp_expired`, and the description Supabase sends with it, both say
+       expired. A link that was already used says the same thing to the member:
+       ask for another one. */
+    if(/expired/i.test(code)||/expired/i.test(desc)){
         return 'That password reset link has expired. Request a new one below.';
     }
     return 'That password reset link is no longer valid. Request a new one below.';
