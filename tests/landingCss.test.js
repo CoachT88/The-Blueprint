@@ -98,4 +98,20 @@ describe('landing page claims', () => {
         const figs = [...html.matchAll(/class="fig"[^>]*>([^<]*)</g)].map(m => m[1].trim());
         expect(figs).toEqual(['$49']);
     });
+
+    test('the hero makes the one-time price and update inclusion clear', () => {
+        const hero = html.match(/<section class="hero" id="top">([\s\S]*?)<\/section>/)?.[1];
+        expect(hero).toBeDefined();
+        expect(hero).toContain('$49 once &middot; No subscription &middot; Future app updates included');
+        expect(hero).toContain('href="#get"');
+    });
+
+    test('the offer reinforces payment terms without repeating updates in the feature list', () => {
+        const offer = html.match(/<section id="get">([\s\S]*?)<\/section>/)?.[1];
+        expect(offer).toBeDefined();
+        expect(offer).toContain('One-time payment');
+        expect(offer).toContain('No subscription or recurring charges.');
+        expect(offer).toContain('Future app updates included at no extra cost.');
+        expect(offer).not.toContain('Every update from here on');
+    });
 });
