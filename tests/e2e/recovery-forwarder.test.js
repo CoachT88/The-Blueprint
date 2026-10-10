@@ -95,6 +95,19 @@ describe('a recovery link that arrives at the root is forwarded', () => {
         expect(o.search).toBe('?code=pkce-abc-123');
     }, 120_000);
 
+    test('a fragment token with NO type=recovery is still forwarded', async () => {
+        /* `type` is not always `recovery`. A magic link, an email
+           confirmation and a signup callback all arrive as a fragment token
+           with a different type, and they belong in the app too. Without this
+           case the `access_token` branch is untested, because every other
+           fixture carries `type=recovery` as well and the first branch
+           matches first. */
+        const o = await landing('/#access_token=tok&refresh_token=r1&type=magiclink');
+        expect(o.path).toBe('/app/');
+        expect(o.hash).toContain('access_token=tok');
+        expect(o.hash).toContain('type=magiclink');
+    }, 120_000);
+
     test('query AND fragment both survive, in the right order', async () => {
         const o = await landing('/?code=pkce-1#access_token=tok&type=recovery');
         expect(o.path).toBe('/app/');
@@ -102,11 +115,18 @@ describe('a recovery link that arrives at the root is forwarded', () => {
         expect(o.hash).toContain('access_token=tok');
     }, 120_000);
 
-    test('the forward REPLACES, so Back cannot strand the member', async () => {
-        /* With a push instead of a replace, Back returns to a sales page that
-           immediately forwards again: a loop the member cannot escape. With a
-           replace there is no '/' entry in history at all, so Back leaves the
-           site rather than bouncing. */
+    test('BACK CANNOT BOUNCE THE MEMBER BETWEEN THE TWO PAGES', async () => {
+        /* A leftover '/' entry in history would forward again the moment Back
+           reached it: a loop the member cannot escape. There is no such
+           entry, so Back leaves the site instead.
+
+           What this test does NOT prove, measured rather than assumed:
+           swapping `replace` for `assign` changes nothing here. A navigation
+           begun before the source document has finished loading is done with
+           replacement whichever API asks for it, and this script runs in
+           <head>. `replace` is kept because it states the intent and stays
+           correct if the script ever moves after load, not because this test
+           defends it. */
         const o = await landing('/#access_token=abc&type=recovery', async (app) => {
             await app.page.goBack({ waitUntil: 'domcontentloaded' }).catch(() => {});
             await app.page.waitForTimeout(400);
