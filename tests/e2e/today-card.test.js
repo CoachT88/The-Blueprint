@@ -98,12 +98,25 @@ describe('the Today card', () => {
         expect(keys).toContain('weekCompletion');
     });
 
-    test('TRAIN says what, why and how long', async () => {
+    test('TRAIN says what and how long, and says it ONCE', async () => {
+        /* Slice 2A. This asserted a third line reading "Today is a Length
+           day on your schedule." underneath a headline already reading
+           Length Day and a sub already reading "Today's focus: your length
+           protocol.". That reason is built at nextBestAction.js:356 as a
+           template restatement of the headline and carries nothing else, so
+           it is now suppressed for a plain training day exactly as it has
+           always been for COMPLETE.
+
+           The test's intent is unchanged, which is why it was edited rather
+           than deleted: the card must still say WHAT the session is and HOW
+           LONG it takes. It must no longer say the same thing twice. The
+           MODIFIED and RECOVER tests below still require their reasons,
+           which is the line between repetition and context. */
         const r = await render(app.page, { type: 'length' });
         expect(r.state).toBe('TRAIN');
         expect(r.headline).toBe('Length Day');
         expect(r.sub).toBe("Today's focus: your length protocol.");
-        expect(r.why).toMatch(/Length day on your schedule/);
+        expect(r.why).toBeNull();
         expect(r.meta).toMatch(/^~\d+ min · includes warmup$/);
         expect(r.launch).toBe('START LENGTH SESSION');
         expect(r.resume).toBeNull();
