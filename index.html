@@ -23,6 +23,49 @@
 <link rel="canonical" href="https://theblueprint.armakebeatz.workers.dev/">
 
 <title>The Blueprint: your sexual performance can be trained</title>
+
+<!-- ==========================================================================
+     A PASSWORD RESET LINK THAT ARRIVES HERE MUST NOT DEAD-END.
+
+     The client always asks Supabase to send members to /app/ (see _appUrl in
+     app/index.html), and on desktop that is where they arrive. On iPhone they
+     are arriving HERE instead, on the sales page, which has no recovery
+     handling of any kind and simply shows them the thing they already bought.
+
+     Why the platforms differ is NOT established, and this does not depend on
+     knowing. Whether Supabase fell back to its Site URL because the redirect
+     was not allow-listed, or an iOS mail client mangled the redirect
+     parameter, the member still lands here holding a valid recovery token.
+     Forwarding it preserves the token and lets /app/ do the actual work.
+
+     EVERYTHING after the path is carried over, hash and query both, because
+     the token lives in one or the other depending on which flow Supabase
+     used: the implicit flow puts it in the fragment, PKCE puts a code in the
+     query, and an expired link arrives as an error in the query. All three
+     need to reach /app/ to be handled or reported.
+
+     replace(), so Back does not return to a page that cannot help. Inline and
+     in <head> so it runs before anything paints. Nothing is logged: the URL
+     contains a single-use credential.
+     ========================================================================== -->
+<script>
+(function(){
+    try{
+        var h = window.location.hash || '';
+        var q = window.location.search || '';
+        /* Deliberately narrow, and anchored to a parameter boundary rather
+           than matched as a substring. `code=` on its own would also fire on
+           an ordinary marketing link carrying `?discount_code=` or
+           `?promo_code=`, and sending a prospect from the sales page into the
+           app would be a worse bug than the one being fixed. A plain visit,
+           and a visit with campaign parameters, match none of these. */
+        var isRecovery = /(^|[#&])type=recovery(&|$)/.test(h)
+                      || /(^|[#&])access_token=/.test(h)
+                      || /(^|[?&])(code|error_code|error)=/.test(q);
+        if(isRecovery) window.location.replace('/app/' + q + h);
+    }catch(e){ /* a browser that cannot answer is a browser, so stay put */ }
+})();
+</script>
 <style>
 /* ==========================================================================
    The Blueprint — sales page.

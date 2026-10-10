@@ -37,7 +37,7 @@
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -67,9 +67,17 @@ export async function startServer() {
     const server = createServer(async (req, res) => {
         try {
             const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
-            const file = path.join(REPO_ROOT, rel);
+            let file = path.join(REPO_ROOT, rel);
             // Never serve outside the repo.
             if (!file.startsWith(REPO_ROOT) || !existsSync(file)) { res.writeHead(404); return res.end('not found'); }
+            /* DIRECTORY INDEX, to match production: Cloudflare serves /app/
+               as /app/index.html, which is why the manifest's start_url can
+               be /app/ at all. */
+            if (statSync(file).isDirectory()) {
+                const index = path.join(file, 'index.html');
+                if (!existsSync(index)) { res.writeHead(404); return res.end('not found'); }
+                file = index;
+            }
             const body = await readFile(file);
             res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
             res.end(body);
@@ -85,7 +93,7 @@ export async function startServer() {
  * override so the same suites run in a sandbox with a preinstalled browser and
  * on a normal machine with no configuration.
  */
-function launchOptions() {
+export function launchOptions() {
     const explicit = process.env.PW_CHROMIUM_PATH;
     if (explicit && existsSync(explicit)) return { executablePath: explicit };
     for (const candidate of [
@@ -209,14 +217,48 @@ function installSupabaseStub(cfg) {
                    so the stub has to model it. window.__authUser is the
                    stand-in for the session user; window.__updateUserFails
                    lets a suite make the write fail the way the network can. */
-                updateUser: ({ data }) => {
+                updateUser: (payload) => {
+                    const { data, password } = payload || {};
+                    /* A password change is a different call from a metadata
+                       change and the recovery suite asserts on it directly,
+                       so it is counted separately. */
+                    if (password !== undefined) {
+                        window.__passwordUpdates = window.__passwordUpdates || [];
+                        window.__passwordUpdates.push(String(password).length);
+                        if (window.__hangPasswordUpdate) return new Promise(() => {});
+                        if (window.__passwordUpdateFails) {
+                            return Promise.resolve({ data: null, error: { message: 'New password should be different from the old password.' } });
+                        }
+                        return Promise.resolve({ data: { user: window.__authUser || null }, error: null });
+                    }
                     if (window.__updateUserFails) {
                         return Promise.resolve({ data: null, error: { message: 'stubbed failure' } });
                     }
                     window.__authUser = window.__authUser || { id: 'stub', email: 'stub@example.com', user_metadata: {} };
                     window.__authUser.user_metadata = { ...(window.__authUser.user_metadata || {}), ...data };
+                    if (window.__session && window.__session.user
+                        && window.__session.user.id === window.__authUser.id) {
+                        window.__session.user = JSON.parse(JSON.stringify(window.__authUser));
+                    }
                     window.__updateUserCalls = (window.__updateUserCalls || 0) + 1;
                     return Promise.resolve({ data: { user: JSON.parse(JSON.stringify(window.__authUser)) }, error: null });
+                },
+                /* The legacy recovery link adopts its session with this. A
+                   refusal is how an expired or tampered link presents. */
+                setSession: ({ access_token }) => {
+                    window.__setSessionCalls = (window.__setSessionCalls || 0) + 1;
+                    if (window.__setSessionFails) {
+                        return Promise.resolve({ data: { session: null }, error: { message: 'Invalid Refresh Token' } });
+                    }
+                    const user = window.__authUser || { id: 'rec', email: 'rec@example.com', user_metadata: {} };
+                    const session = { user, access_token: access_token || 'recovery-token' };
+                    window.__session = session;
+                    return Promise.resolve({ data: { session }, error: null });
+                },
+                resetPasswordForEmail: (email, opts) => {
+                    window.__resetRequests = window.__resetRequests || [];
+                    window.__resetRequests.push({ email, redirectTo: opts && opts.redirectTo });
+                    return Promise.resolve({ data: {}, error: null });
                 },
             },
             storage: {
@@ -325,7 +367,7 @@ export const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCA
  */
 export async function openApp(opts = {}) {
     const { row = null, hangRead = false, rejectColumns = [], files = [], acceptDialogs = true,
-            clock = null, timezoneId = null } = opts;
+            clock = null, timezoneId = null, entry = '/app/index.html' } = opts;
     const srv = await startServer();
     const browser = await chromium.launch(launchOptions());
     /* Phase 2B.3.5. `timezoneId` belongs to the context and `clock` has to be
@@ -365,7 +407,12 @@ export async function openApp(opts = {}) {
     // Generous timeout: e2e files run serially but each describe block opens its
     // own browser, so a loaded machine can push a cold navigation past the 30s
     // default. A flaky suite is worse than a slow one.
-    await page.goto(`${srv.origin}/app/index.html`, { waitUntil: 'domcontentloaded', timeout: 90_000 });
+    /* `entry` exists so a suite can start somewhere OTHER than the app, which
+       the root recovery forwarder needs: it is the real navigation from the
+       sales page into /app/ that has to be exercised, not a reimplementation
+       of it in a fixture. Everything else, the stub included, is identical,
+       because the forwarded page must boot normally once it arrives. */
+    await page.goto(`${srv.origin}${entry}`, { waitUntil: 'domcontentloaded', timeout: 90_000 });
     await page.waitForTimeout(900); // let the inline script finish wiring
 
     const close = async () => { await browser.close(); await srv.close(); };
