@@ -153,9 +153,16 @@ describe('a preset member cuts over on load', () => {
     });
 
     test('Today agrees with the projection, as it must', () => {
-        const todayIdx = new Date().getDay();
-        expect(state.today).toBe(state.schedule[todayIdx]);
-        expect(state.blackout).toBe(state.schedule[todayIdx] === 'rest');
+        /* PRE-EXISTING, DATE DEPENDENT, and a 3C.4 oversight of mine: this
+           compared scheduledPrimaryType() against the raw projection slot,
+           which agree on a training day and differ on a rest day, because the
+           reader reports the PRIMARY type and a rest day has none. Two other
+           sites were corrected when the reader was introduced and this one was
+           missed, so the suite was green on a Thursday and red on a Friday.
+           The rest/null rule is the assertion now. */
+        const slot = state.schedule[new Date().getDay()];
+        expect(state.today).toBe(slot === 'rest' ? null : slot);
+        expect(state.blackout).toBe(slot === 'rest');
     });
 
     test('and Today really is read from the plan, not from the column', async () => {
