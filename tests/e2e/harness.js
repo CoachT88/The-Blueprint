@@ -488,7 +488,7 @@ export const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCA
  */
 export async function openApp(opts = {}) {
     const { row = null, hangRead = false, rejectColumns = [], files = [], acceptDialogs = true,
-            clock = null, timezoneId = null } = opts;
+            clock = null, timezoneId = null, entry = '/app/index.html' } = opts;
     const srv = await startServer();
     const browser = await chromium.launch(launchOptions());
     /* Phase 2B.3.5. `timezoneId` belongs to the context and `clock` has to be
@@ -528,7 +528,12 @@ export async function openApp(opts = {}) {
     // Generous timeout: e2e files run serially but each describe block opens its
     // own browser, so a loaded machine can push a cold navigation past the 30s
     // default. A flaky suite is worse than a slow one.
-    await page.goto(`${srv.origin}/app/index.html`, { waitUntil: 'domcontentloaded', timeout: 90_000 });
+    /* `entry` exists so a suite can start somewhere OTHER than the app, which
+       the root recovery forwarder needs: it is the real navigation from the
+       sales page into /app/ that has to be exercised, not a reimplementation
+       of it in a fixture. Everything else, the stub included, is identical,
+       because the forwarded page must boot normally once it arrives. */
+    await page.goto(`${srv.origin}${entry}`, { waitUntil: 'domcontentloaded', timeout: 90_000 });
     await page.waitForTimeout(900); // let the inline script finish wiring
 
     const close = async () => { await browser.close(); await srv.close(); };
