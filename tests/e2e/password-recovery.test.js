@@ -308,6 +308,52 @@ describe('the legacy fragment link', () => {
     }, 60_000);
 });
 
+describe('setting the password restores access to the account', () => {
+    let app;
+    beforeAll(async () => {
+        app = await openApp({});
+        await app.page.evaluate((r) => {
+            window.__rowsByUser = { rec: r };
+            /* A PAYING member this time. The other blocks deliberately have no
+               members row, to prove recovery survives a failed membership
+               check. This one proves what happens afterwards for the man who
+               is actually entitled to get in. */
+            window.__members = ['rec@example.com'];
+        }, row());
+    }, 90_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('HE ENDS UP IN HIS ACCOUNT, NOT ON A BLANK SCREEN', async () => {
+        /* The point of the whole exercise. Recovery suppresses the normal
+           signed-in boot on purpose, so that boot has to happen once the
+           password is set, or the member watches the modal close onto nothing:
+           the loading and auth screens were both hidden to show him the form,
+           and the HQ was never rendered. */
+        const o = await app.page.evaluate(async () => {
+            window.__authUser = { id: 'rec', email: 'rec@example.com', user_metadata: {} };
+            window.__fireAuth('PASSWORD_RECOVERY',
+                { user: window.__authUser, access_token: 'recovery' });
+            await new Promise(r => setTimeout(r, 200));
+            document.getElementById('new-password-input').value = 'brandnewpass1';
+            document.getElementById('new-password-confirm').value = 'brandnewpass1';
+            document.getElementById('pwd-reset-submit-btn').click();
+            await new Promise(r => setTimeout(r, 3000));   // past the 1500ms close
+            return {
+                modal: document.getElementById('password-reset-modal').classList.contains('show'),
+                auth: !document.getElementById('auth-screen').classList.contains('hidden'),
+                loading: !document.getElementById('loading-screen').classList.contains('hidden'),
+                /* Written by onUserSignedIn, so it is a direct probe for
+                   "the normal boot actually ran". */
+                hqEmail: document.getElementById('hq-user-email').textContent,
+            };
+        });
+        expect(o.modal).toBe(false);
+        expect(o.auth).toBe(false);
+        expect(o.loading).toBe(false);
+        expect(o.hqEmail).toBe('rec@example.com');
+    }, 90_000);
+});
+
 describe('a normal sign-in is never recovery', () => {
     let app;
     beforeAll(async () => { app = await openApp({}); }, 90_000);

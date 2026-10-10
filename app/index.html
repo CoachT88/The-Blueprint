@@ -8264,7 +8264,10 @@ function _wireRecoverySubmit(){
                query string. */
             _recoveryMode=false;
             try{ history.replaceState(null,'',window.location.pathname); }catch(e){ window.location.hash=''; }
-            setTimeout(()=>{document.getElementById('password-reset-modal').classList.remove('show');},1500);
+            setTimeout(()=>{
+                document.getElementById('password-reset-modal').classList.remove('show');
+                _bootAfterRecovery();
+            },1500);
         }catch(e){
             errEl.innerText='Could not update your password. Try again.';errEl.classList.add('show');
             btn.textContent='UPDATE PASSWORD';btn.disabled=false;
@@ -8272,6 +8275,26 @@ function _wireRecoverySubmit(){
             _recoverySubmitting=false;             // no path may strand the button
         }
     });
+}
+
+/* Recovery suppresses the normal signed-in boot on purpose, so that boot has
+   to happen once the password is set. Both the loading screen and the auth
+   screen were hidden to put the form on screen, and the HQ was never
+   rendered, so without this the member sets his password and watches the
+   modal close onto a blank page. Getting him back into the account he pays
+   for is the point of the whole flow, not a nicety. */
+async function _bootAfterRecovery(){
+    try{
+        const {data:{session}}=await sb.auth.getSession();
+        /* The recovery session is a real session, so the ordinary path works
+           and there is no second branch to keep correct. If it refuses, for
+           instance because the membership check turns him away, it has
+           already put the right screen up and said why. */
+        if(session&&session.user){ await onUserSignedIn(session.user); return; }
+    }catch(e){ }
+    /* No usable session. The sign-in screen is the honest landing: his
+       password IS changed, so it will let him in. */
+    showAuthScreen();
 }
 
 /* Read auth parameters the way supabase-js reads them: the FRAGMENT first,
