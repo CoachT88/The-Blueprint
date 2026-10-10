@@ -90,13 +90,18 @@ describe('when it renders', () => {
         const r = await ordinary(app.page);
         expect(r.brand).toBe('The Blueprint');
         expect(r.headline.length).toBeGreaterThan(0);
-        // The greeting sits above the Today card in the document.
-        const before = await app.page.evaluate(() => {
+        /* Today LEADS, which is what this test is named for, and since HQ
+           slice 1 that is literally true: the greeting now follows the Today
+           card instead of preceding it. The greeting was one of the two
+           regions above the hero that made its position vary by up to 118px
+           between states, so it moved below. The brand lockup above is
+           untouched, which the assertions above still check. */
+        const todayLeads = await app.page.evaluate(() => {
             const g = document.getElementById('hq-greeting');
             const t = document.getElementById('hq-today-card');
-            return !!(g.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING);
+            return !!(t.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING);
         });
-        expect(before).toBe(true);
+        expect(todayLeads).toBe(true);
     }, 30_000);
 
     test('ACCEPTANCE: it changes nothing about the prescription', async () => {
