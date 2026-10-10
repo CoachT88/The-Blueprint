@@ -96,6 +96,13 @@ describe('the supported PASSWORD_RECOVERY event', () => {
            mutation of the recovery re-assert proved. */
         expect(s.auth).toBe(false);
         expect(s.loading).toBe(false);
+        /* And the signed-in path never got far enough to matter.
+           `hq-user-email` is written by onUserSignedIn, so an empty value
+           proves the membership check never ran and so could not sign him
+           out from under the form. */
+        const boot = await app.page.evaluate(() =>
+            document.getElementById('hq-user-email').textContent);
+        expect(boot).toBe('');
     }, 60_000);
 
     test('a password under 6 characters is refused locally', async () => {
@@ -217,6 +224,62 @@ describe('the supported PASSWORD_RECOVERY event', () => {
     }, 60_000);
 });
 
+describe('a fresh implicit-flow link, exactly as Supabase delivers it', () => {
+    /* We call createClient with no options, so supabase-js is on its default
+       `flowType: 'implicit'` and a good recovery link arrives as this
+       fragment. This block starts the browser ON that URL rather than firing
+       anything by hand, so it covers the first load on a real link: the
+       member taps, the page comes up, and the form has to be what he sees. */
+    let app;
+    beforeAll(async () => {
+        app = await openApp({ entry: '/app/index.html'
+            + '#access_token=valid-recovery-token&refresh_token=r1'
+            + '&expires_in=3600&token_type=bearer&type=recovery' });
+    }, 90_000);
+    afterAll(async () => { await app?.close(); });
+
+    test('OPENS SET NEW PASSWORD ON ARRIVAL', async () => {
+        const s = await state(app.page);
+        expect(s.modal).toBe(true);
+        expect(s.recovery).toBe(true);
+        /* Visible, not merely present. A recovery arrival happens while the
+           loading screen is still up. */
+        expect(s.loading).toBe(false);
+        expect(s.auth).toBe(false);
+    }, 60_000);
+
+    test('AND THE NORMAL SIGNED-IN BOOT NEVER RAN', async () => {
+        /* The ordering requirement, probed directly rather than inferred from
+           the modal still being visible. `hq-user-email` is written by
+           onUserSignedIn, so an empty value proves the signed-in path and its
+           membership check never got the chance to replace the form. This
+           fixture has no members row, so had it run, it would have signed him
+           out. */
+        const o = await app.page.evaluate(() => ({
+            hqEmail: document.getElementById('hq-user-email').textContent,
+            events: window.__authEvents || [],
+        }));
+        expect(o.hqEmail).toBe('');
+        expect(o.events).not.toContain('SIGNED_OUT');
+    }, 60_000);
+
+    test('and the token is gone from the address bar once the password is set', async () => {
+        const o = await app.page.evaluate(async () => {
+            document.getElementById('new-password-input').value = 'brandnewpass1';
+            document.getElementById('new-password-confirm').value = 'brandnewpass1';
+            document.getElementById('pwd-reset-submit-btn').click();
+            await new Promise(r => setTimeout(r, 250));
+            return { ok: document.getElementById('pwd-reset-success').innerText,
+                     href: window.location.href,
+                     updates: window.__passwordUpdates || [] };
+        });
+        expect(o.ok).toContain('Password updated');
+        expect(o.updates.length).toBe(1);      // Supabase was actually asked
+        expect(o.href).not.toContain('access_token');
+        expect(o.href).not.toContain('#');
+    }, 60_000);
+});
+
 describe('the legacy fragment link', () => {
     let app;
     beforeAll(async () => { app = await openApp({}); }, 90_000);
@@ -293,10 +356,26 @@ describe('the legacy fragment link', () => {
         expect(o.modal).toBe(false);
     }, 60_000);
 
-    test('a recovery fragment with NO token is not treated as recovery', async () => {
+    test('A MALFORMED LINK IS REPORTED, NOT SILENTLY IGNORED', async () => {
+        /* The fragment says recovery but carries no token, which is what a
+           mail client truncating the URL produces. Returning false here used
+           to drop the member on a bare sign-in screen: the same dead end as
+           an expired link and just as baffling, because he tapped a reset
+           link and the app behaved as though he had not. No form either,
+           since it could not submit. */
         const o = await withHash('#type=recovery', { __setSessionCalls: 0 });
-        expect(o.handled).toBe(false);
+        expect(o.handled).toBe(true);
+        expect(o.authErr).toContain('not valid');
+        expect(o.authErr).toContain('Request a new one');
         expect(o.modal).toBe(false);
+        expect(o.setSessionCalls).toBe(0);      // nothing to adopt, nothing tried
+    }, 60_000);
+
+    test('an empty access_token is malformed too', async () => {
+        const o = await withHash('#access_token=&refresh_token=r1&type=recovery',
+                                 { __setSessionCalls: 0 });
+        expect(o.handled).toBe(true);
+        expect(o.authErr).toContain('not valid');
         expect(o.setSessionCalls).toBe(0);
     }, 60_000);
 

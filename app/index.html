@@ -8358,9 +8358,18 @@ async function handlePasswordReset(){
     // Parse token from hash
     const params=new URLSearchParams(hash.replace('#',''));
     const accessToken=params.get('access_token');
-    /* A recovery fragment with no usable token is a dead link, not a reason
-       to show a form that cannot submit. */
-    if(!accessToken) return false;
+    /* MALFORMED: the fragment says recovery but carries no usable token, so a
+       form here could not submit. Returning false used to drop this member on
+       a silent sign-in screen, which is the same dead end as the expired case
+       and just as confusing: he tapped a reset link and the app acted as
+       though he had not. Nothing legitimate reaches this line, because an
+       ordinary load has neither marker in its fragment. */
+    if(!accessToken){
+        try{ history.replaceState(null,'',window.location.pathname); }catch(e){}
+        showAuthScreen();
+        setAuthError('That password reset link is not valid. Request a new one below.');
+        return true;
+    }
     // Set session with the token so user can update password
     const {error}=await sb.auth.setSession({access_token:accessToken,refresh_token:params.get('refresh_token')||''});
     /* Expired or tampered: setSession refuses, so there is no session to
