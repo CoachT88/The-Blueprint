@@ -96,6 +96,6 @@ describe('landing page claims', () => {
 
     test('the price is stated once and is the price', () => {
         const figs = [...html.matchAll(/class="fig"[^>]*>([^<]*)</g)].map(m => m[1].trim());
-        expect(figs).toEqual(['$30']);
+        expect(figs).toEqual(['$49']);
     });
 });
