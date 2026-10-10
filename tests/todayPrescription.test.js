@@ -22,7 +22,25 @@ const THU_KEY = '2026-03-12';
 const SIZE = ['length', 'girth', 'rest', 'length', 'girth', 'rest', 'rest'];
 
 const plan = (over = {}) => ({ date: THU_KEY, mode: 'prescribed', ...over });
-const primary = (type, over = {}) => plan({ primarySession: { type, title: type, ...over } });
+/**
+ * A Primary plan in PRODUCTION shape, which as of Phase 3C.5 means it carries
+ * a stored dose.
+ *
+ * It did not before: the dose was written by the generator and read by
+ * nothing, so these fixtures could leave it out and still describe a valid
+ * plan. It is now load bearing, and a Primary without one fails closed, so a
+ * fixture without a dose would be describing a plan production never writes.
+ * `doseFor` is the real generator's output shape for the tier.
+ */
+const doseFor = (type, tier = 'intermediate') => (type === 'girth'
+    ? { v: 1, shape: 'circuit', tier, rounds: 4, restDur: 45,
+        stations: [{ title: 'Wet Jelq', duration: 120 }, { title: 'Uli', duration: 45 }] }
+    : { v: 1, shape: 'sets', tier,
+        exercises: [{ title: `${type} A`, sets: 3, duration: 30 },
+                    { title: `${type} B`, sets: 3, duration: 30 }] });
+const primary = (type, over = {}) => plan({
+    primarySession: { type, title: type, tier: 'intermediate', dose: doseFor(type), ...over },
+});
 
 describe('the clock is required, not guessed', () => {
     test('a missing or unreadable clock refuses', () => {
@@ -53,7 +71,8 @@ describe('the authoritative cohort: the dated plan decides', () => {
         expect(r).toEqual({
             ok: true, source: PRESCRIPTION_SOURCE.DATED_PLAN, date: THU_KEY,
             dayKind: DAY_KIND.PRIMARY, primaryType: 'length',
-            planMode: 'prescribed', dose: null,
+            planMode: 'prescribed', tier: 'intermediate', programmeKey: null,
+            dose: doseFor('length'), doseWarnings: [],
         });
         expect(SIZE[THU.getDay()]).toBe('girth');       // the answer NOT given
     });
@@ -107,17 +126,87 @@ describe('the authoritative cohort: the dated plan decides', () => {
         }
     });
 
-    test('planMode and dose are carried, and carried unread', () => {
-        const r = auth([plan({ mode: 'protective',
-            primarySession: { type: 'girth', title: 'Girth', dose: { shape: 'circuit', rounds: 2 } } })]);
-        /* Both present, so 3C.5 has a seam. Nothing about the ANSWER changes
-           because of them: a protective plan still reads as an ordinary
-           Primary here, and the resolver still decides execution from live
-           readiness. That deferral is a fact, asserted. */
-        expect(r.planMode).toBe('protective');
-        expect(r.dose).toEqual({ shape: 'circuit', rounds: 2 });
-        expect(r.dayKind).toBe(DAY_KIND.PRIMARY);
-        expect(r.primaryType).toBe('girth');
+    test('a prescribed Primary carries its validated baseline dose', () => {
+        /* The dose was carried unread until 3C.5. It is now the execution
+           baseline, normalised and frozen by the validator rather than handed
+           on as the raw stored object, so every reader downstream sees one
+           shape. */
+        const r = auth([primary('girth')]);
+        expect(r.dose).toEqual(doseFor('girth'));
+        expect(Object.isFrozen(r.dose)).toBe(true);
+        expect(r.tier).toBe('intermediate');
+        expect(r.planMode).toBe('prescribed');
+    });
+
+    test.each([['modified'], ['protective']])(
+        'a stored planMode of %s FAILS CLOSED rather than reading as prescribed', (mode) => {
+            /* Decision D1. Both are valid persisted vocabulary that the
+               generator has never emitted and nothing has ever interpreted.
+               Treating them as ordinary training would be inventing a meaning
+               for a value we cannot explain; their semantics belong to
+               programme-content work. Note this is deliberately NOT the
+               resolver's MODIFIED state, which is a live soreness response and
+               an unrelated concept that happens to share a word. */
+            const r = auth([plan({ mode,
+                primarySession: { type: 'girth', tier: 'intermediate', dose: doseFor('girth') } })]);
+            expect(r.ok).toBe(false);
+            expect(r.reason).toBe(PRESCRIPTION_REFUSAL.MODE_NOT_EXECUTABLE);
+            expect(r.detail.planMode).toBe(mode);
+            expect(r.primaryType).toBeUndefined();
+        });
+
+    test('a Primary with NO stored dose fails closed, never rebuilt from tables', () => {
+        const r = auth([plan({ primarySession: { type: 'girth', tier: 'intermediate' } })]);
+        expect(r.ok).toBe(false);
+        expect(r.reason).toBe(PRESCRIPTION_REFUSAL.DOSE_MISSING);
+    });
+
+    test('a Primary with an INVALID stored dose fails closed too', () => {
+        const r = auth([plan({ primarySession: { type: 'girth', tier: 'intermediate',
+            dose: { v: 1, shape: 'sets', exercises: [] } } })]);
+        expect(r.ok).toBe(false);
+        expect(r.reason).toBe(PRESCRIPTION_REFUSAL.DOSE_INVALID);
+        expect(r.detail.code).toBe('empty_items');
+    });
+
+    test('an unsupported dose version fails closed', () => {
+        const r = auth([plan({ primarySession: { type: 'girth', tier: 'intermediate',
+            dose: { ...doseFor('girth'), v: 99 } } })]);
+        expect(r.ok).toBe(false);
+        expect(r.detail.code).toBe('unsupported_version');
+    });
+
+    test('an unresolvable exercise title fails closed', () => {
+        /* A renamed or deleted exercise. The join is on the title, exactly,
+           so a rename is loud rather than silently rescued. */
+        const r = todayPrescription({ now: THU, authoritative: true,
+            dayPlans: [primary('girth')], titles: ['Something Else'] });
+        expect(r.ok).toBe(false);
+        expect(r.detail.code).toBe('title_unresolved');
+    });
+
+    test('programme provenance must agree with the current programme', () => {
+        /* generatedFrom.programmeKey is stamped on every generated plan, so a
+           disagreement is inconsistent authoritative data rather than a
+           transition we can interpret. */
+        const stamped = plan({ generatedFrom: { programmeKey: 'size', version: 1 },
+            primarySession: { type: 'girth', tier: 'intermediate', dose: doseFor('girth') } });
+        const same = todayPrescription({ now: THU, authoritative: true,
+            dayPlans: [stamped], programmeKey: 'size' });
+        expect(same.ok).toBe(true);
+        expect(same.programmeKey).toBe('size');
+        const differs = todayPrescription({ now: THU, authoritative: true,
+            dayPlans: [stamped], programmeKey: 'lastLonger' });
+        expect(differs.ok).toBe(false);
+        expect(differs.reason).toBe(PRESCRIPTION_REFUSAL.PROGRAMME_MISMATCH);
+        expect(differs.detail).toEqual({ stamped: 'size', current: 'lastLonger' });
+    });
+
+    test('a plan with no provenance is not evidence of a mismatch', () => {
+        const r = todayPrescription({ now: THU, authoritative: true,
+            dayPlans: [primary('girth')], programmeKey: 'size' });
+        expect(r.ok).toBe(true);
+        expect(r.programmeKey).toBeNull();
     });
 
     test('a plan for another date is not today\'s plan', () => {
@@ -302,8 +391,13 @@ describe('the launch snapshot', () => {
     test('a Primary is captured as its type', () => {
         const p = todayPrescription({ now: THU, authoritative: true, dayPlans: [primary('girth')] });
         const s = launchSnapshotFrom(p, THU);
-        expect(s).toEqual({ source: 'dated-plan', prescriptionDate: THU_KEY,
-                            scheduledType: 'girth', capturedAt: THU.toISOString() });
+        /* The 3C.4 identity fields are unchanged; 3C.5 adds the execution
+           half, which is null here because no execution candidate was passed. */
+        expect(s).toMatchObject({ source: 'dated-plan', prescriptionDate: THU_KEY,
+                                  scheduledType: 'girth', capturedAt: THU.toISOString(),
+                                  performedType: 'girth', planMode: 'prescribed',
+                                  prescribedDose: null, executionDose: null,
+                                  appliedModifiers: [], doseVersion: null });
         expect(Object.isFrozen(s)).toBe(true);
     });
 
@@ -339,7 +433,10 @@ describe('reading a stored snapshot back', () => {
     test('a valid snapshot restores exactly, and frozen', () => {
         const r = normaliseLaunchSnapshot(good);
         expect(r.ok).toBe(true);
-        expect(r.value).toEqual({ ...good, capturedAt: null });
+        expect(r.value).toMatchObject({ ...good, capturedAt: null });
+        /* No frozen dose in this fixture, so it resumes on the documented
+           pre-3C.5 compatibility path rather than claiming one. */
+        expect(r.value.executionDose).toBeNull();
         expect(Object.isFrozen(r.value)).toBe(true);
     });
 
@@ -463,7 +560,10 @@ describe('prescription identity is a local calendar day', () => {
                 from '${process.cwd()}/src/todayPrescription.js';
             const now = new Date(${dateArgs});
             const plans = [{ date: '2026-03-12', mode: 'prescribed',
-                             primarySession: { type: 'girth', title: 'Girth' } }];
+                             primarySession: { type: 'girth', title: 'Girth', tier: 'intermediate',
+                                 dose: { v: 1, shape: 'circuit', tier: 'intermediate', rounds: 4,
+                                         restDur: 45,
+                                         stations: [{ title: 'Wet Jelq', duration: 120 }] } } }];
             const p = todayPrescription({ now, authoritative: true, dayPlans: plans });
             console.log(JSON.stringify({
                 localDay: now.getDate(),

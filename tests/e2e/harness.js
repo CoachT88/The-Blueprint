@@ -70,9 +70,11 @@ export async function startServer() {
             let file = path.join(REPO_ROOT, rel);
             // Never serve outside the repo.
             if (!file.startsWith(REPO_ROOT) || !existsSync(file)) { res.writeHead(404); return res.end('not found'); }
-            /* DIRECTORY INDEX, to match production: Cloudflare serves /app/
-               as /app/index.html, which is why the manifest's start_url can
-               be /app/ at all. */
+            /* DIRECTORY INDEX, to match production. Cloudflare Workers assets
+               serve /app/ as /app/index.html, which is why the manifest's
+               start_url can be /app/ at all. Without this the request reads a
+               directory and 500s, so a test navigating to /app/ would fail
+               for a reason production does not have. */
             if (statSync(file).isDirectory()) {
                 const index = path.join(file, 'index.html');
                 if (!existsSync(index)) { res.writeHead(404); return res.end('not found'); }
@@ -93,6 +95,9 @@ export async function startServer() {
  * override so the same suites run in a sandbox with a preinstalled browser and
  * on a normal machine with no configuration.
  */
+/* Exported so a suite that has to drive a DIFFERENT document, such as the
+   root sales page, resolves the same Chromium as every other suite instead
+   of reaching for a headless shell that is not installed here. */
 export function launchOptions() {
     const explicit = process.env.PW_CHROMIUM_PATH;
     if (explicit && existsSync(explicit)) return { executablePath: explicit };
@@ -153,8 +158,13 @@ function installSupabaseStub(cfg) {
     /* The members lookup is a different question from the user_data read, and
        answering it with __row would sign every test member straight back out:
        checkMembership() treats PGRST116 as "not a member". */
+    /* An entitlement may be a bare email string, as every pre-cutover fixture
+       has it, or {email, user_id} once claimed. Both shapes read the same. */
     const membersResult = (email) => {
-        const hit = (window.__members || []).some(m => String(m).toLowerCase() === String(email).toLowerCase());
+        const hit = (window.__members || []).some(m => {
+            const e = (m && typeof m === 'object') ? m.email : m;
+            return String(e).toLowerCase() === String(email).toLowerCase();
+        });
         return hit ? { data: { email }, error: null } : noRow;
     };
     const makeQuery = (table) => {
@@ -175,6 +185,21 @@ function installSupabaseStub(cfg) {
             if (window.__failUpsert) {
                 return Promise.resolve({ error: { code: '503', message: 'simulated upload failure' } });
             }
+            /* NEVER SETTLES, for the write deadline. Distinct from __failUpsert
+               because a hang is not a failure: the server may have committed
+               and only the response is lost, which is exactly the case the
+               deadline has to treat as unknown rather than failed.
+               __hangUpsertCommits records the payload anyway, modelling a
+               remote success whose answer never came back. */
+            if (window.__hangUpsert) {
+                if (window.__hangUpsertCommits) window.__writes.push(payload);
+                return new Promise(() => {});
+            }
+            /* Throws rather than resolving with an error, for the path where
+               the client library itself blows up. */
+            if (window.__throwUpsert) {
+                return Promise.reject(new Error('simulated client throw'));
+            }
             window.__writes.push(payload);
             return Promise.resolve({ error: null });
         };
@@ -187,9 +212,50 @@ function installSupabaseStub(cfg) {
         window.__session = session;
         (window.__authSubs || []).forEach(cb => { try { cb(event, session); } catch (e) {} });
     };
+    /* claim_membership(), modelled on the live RPC.
+       __members holds purchase entitlements. An entry may be a bare email
+       string (unclaimed, as every pre-cutover fixture has it) or
+       {email, user_id} once claimed. The stub reproduces the four rules that
+       matter: identity comes from the session and never from an argument, an
+       already-owning UUID returns true without touching anything, only a
+       MATCHING UNCLAIMED row may be claimed, and a row owned by another UUID
+       is never stolen. __claimRpcCalls counts, __hangClaimRpc hangs, and
+       __claimRpcFails makes it error. */
+    window.__claimRpcCalls = 0;
+    const claimMembership = () => {
+        window.__claimRpcCalls += 1;
+        if (window.__hangClaimRpc) return new Promise(() => {});
+        if (window.__claimRpcFails) {
+            return Promise.resolve({ data: null, error: { message: 'stubbed rpc failure' } });
+        }
+        const session = window.__session;
+        const uid = session && session.user && session.user.id;
+        /* No auth.uid() means anon: the live function requires it. */
+        if (!uid) return Promise.resolve({ data: null, error: { message: 'permission denied for function claim_membership' } });
+        const rows = window.__members || [];
+        const norm = (e) => String(e || '').trim().toLowerCase();
+        const rowOf = (m) => (typeof m === 'string' ? { email: m, user_id: null } : m);
+        // Already owns one. Idempotent, and no row is modified.
+        if (rows.map(rowOf).some(r => r.user_id === uid)) return Promise.resolve({ data: true, error: null });
+        /* The verified email comes from the session, never from a caller. */
+        const email = norm(session.user && session.user.email);
+        if (!email) return Promise.resolve({ data: false, error: null });
+        for (let i = 0; i < rows.length; i++) {
+            const r = rowOf(rows[i]);
+            if (norm(r.email) !== email) continue;
+            if (r.user_id && r.user_id !== uid) continue;   // owned by someone else: never stolen
+            rows[i] = { email: r.email, user_id: uid, claimed_at: new Date().toISOString() };
+            return Promise.resolve({ data: true, error: null });
+        }
+        return Promise.resolve({ data: false, error: null });
+    };
+
     window.supabase = {
         createClient: () => ({
             from: makeQuery,
+            rpc: (name) => (name === 'claim_membership'
+                ? claimMembership()
+                : Promise.resolve({ data: null, error: { message: 'unknown rpc ' + name } })),
             auth: {
                 onAuthStateChange: (cb) => {
                     window.__authSubs.push(cb);
@@ -212,6 +278,22 @@ function installSupabaseStub(cfg) {
                     return Promise.resolve({});
                 },
                 signInWithPassword: () => Promise.resolve({ data: {}, error: null }),
+                /* Never stubbed until the hardening pass, which means the
+                   one-time 401 refresh-and-retry in fetchClaude had never
+                   once been executed by a test: refreshSession was undefined,
+                   so the call threw and the retry was skipped silently.
+                   __refreshFails makes the refresh itself fail, and
+                   __hangRefresh makes it hang, for the two paths where the
+                   member must still get their controls back. */
+                refreshSession: () => {
+                    window.__refreshCalls = (window.__refreshCalls || 0) + 1;
+                    if (window.__hangRefresh) return new Promise(() => {});
+                    if (window.__refreshFails) return Promise.resolve({ data: { session: null }, error: { message: 'refresh failed' } });
+                    const u = window.__authUser || { id: 'stub', email: 'stub@example.com' };
+                    const session = { user: u, access_token: 'refreshed-token' };
+                    window.__session = session;
+                    return Promise.resolve({ data: { session }, error: null });
+                },
                 signUp: () => Promise.resolve({ data: {}, error: null }),
                 /* Phase 2B.3.1. Preferred name lives in auth user_metadata,
                    so the stub has to model it. window.__authUser is the
@@ -220,8 +302,10 @@ function installSupabaseStub(cfg) {
                 updateUser: (payload) => {
                     const { data, password } = payload || {};
                     /* A password change is a different call from a metadata
-                       change and the recovery suite asserts on it directly,
-                       so it is counted separately. */
+                       change and the recovery suites assert on it directly,
+                       so it is counted separately. __passwordUpdateFails and
+                       __hangPasswordUpdate model the two ways it can go wrong
+                       without the metadata path being affected. */
                     if (password !== undefined) {
                         window.__passwordUpdates = window.__passwordUpdates || [];
                         window.__passwordUpdates.push(String(password).length);
@@ -236,11 +320,20 @@ function installSupabaseStub(cfg) {
                     }
                     window.__authUser = window.__authUser || { id: 'stub', email: 'stub@example.com', user_metadata: {} };
                     window.__authUser.user_metadata = { ...(window.__authUser.user_metadata || {}), ...data };
+                    /* The SESSION's user carries the same metadata in reality,
+                       which is why a reload sees a name that was saved. Without
+                       this the stub diverges from Supabase and a refresh test
+                       would fail for a reason production does not have. */
+                    if (window.__session && window.__session.user
+                        && window.__session.user.id === window.__authUser.id) {
+                        window.__session.user = JSON.parse(JSON.stringify(window.__authUser));
+                    }
                     window.__updateUserCalls = (window.__updateUserCalls || 0) + 1;
                     return Promise.resolve({ data: { user: JSON.parse(JSON.stringify(window.__authUser)) }, error: null });
                 },
                 /* The legacy recovery link adopts its session with this. A
-                   refusal is how an expired or tampered link presents. */
+                   refusal is how an expired or tampered link presents, so
+                   __setSessionFails models exactly that. */
                 setSession: ({ access_token }) => {
                     window.__setSessionCalls = (window.__setSessionCalls || 0) + 1;
                     if (window.__setSessionFails) {
@@ -257,12 +350,44 @@ function installSupabaseStub(cfg) {
                     return Promise.resolve({ data: {}, error: null });
                 },
             },
+            /* Storage, with the same three injection shapes as the table
+               stub. __uploads records every attempted path, which is how a
+               test proves a retry reused the SAME path instead of minting a
+               second object. __storageExisting holds paths the bucket is
+               pretending to already have, so upsert:false can answer with a
+               real conflict. */
             storage: {
                 from: () => ({
-                    list: () => Promise.resolve({ data: window.__files, error: null }),
-                    createSignedUrls: (paths) => Promise.resolve({ data: paths.map(() => ({ signedUrl: cfg.pngDataUri })) }),
-                    upload: () => Promise.resolve({ data: { path: 'x' }, error: null }),
-                    remove: () => Promise.resolve({ error: null }),
+                    list: () => (window.__hangStorage
+                        ? new Promise(() => {})
+                        : Promise.resolve({ data: window.__files, error: null })),
+                    createSignedUrls: (paths) => (window.__hangSignedUrls
+                        ? new Promise(() => {})
+                        : Promise.resolve({ data: paths.map(() => ({ signedUrl: cfg.pngDataUri })) })),
+                    upload: (path) => {
+                        window.__uploads = window.__uploads || [];
+                        window.__uploads.push(path);
+                        if (window.__hangUpload) {
+                            if (window.__hangUploadCommits) {
+                                window.__storageExisting = window.__storageExisting || [];
+                                window.__storageExisting.push(path);
+                            }
+                            return new Promise(() => {});
+                        }
+                        if ((window.__storageExisting || []).includes(path)) {
+                            return Promise.resolve({ data: null, error:
+                                { statusCode: '409', message: 'The resource already exists' } });
+                        }
+                        if (window.__failUpload) {
+                            return Promise.resolve({ data: null, error: { message: 'simulated storage failure' } });
+                        }
+                        window.__storageExisting = window.__storageExisting || [];
+                        window.__storageExisting.push(path);
+                        return Promise.resolve({ data: { path }, error: null });
+                    },
+                    remove: () => (window.__hangRemove
+                        ? new Promise(() => {})
+                        : Promise.resolve({ error: null })),
                 }),
             },
         }),

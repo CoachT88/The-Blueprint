@@ -25,30 +25,47 @@
 <title>The Blueprint: your sexual performance can be trained</title>
 
 <!-- ==========================================================================
-     A PASSWORD RESET LINK THAT ARRIVES HERE MUST NOT DEAD-END.
+     TWO THINGS ARRIVE AT "/" THAT MUST NOT DEAD-END HERE, and the ORDER
+     below is the whole point. Recovery is checked FIRST.
 
-     The client always asks Supabase to send members to /app/ (see _appUrl in
-     app/index.html), and on desktop that is where they arrive. On iPhone they
-     are arriving HERE instead, on the sales page, which has no recovery
-     handling of any kind and simply shows them the thing they already bought.
+     1. A PASSWORD RESET LINK. The client always asks Supabase to send members
+        to /app/ (see _appUrl in app/index.html). When one lands here anyway,
+        the sales page has no recovery handling of any kind and simply shows
+        the member the thing he already bought.
 
-     Why the platforms differ is NOT established, and this does not depend on
-     knowing. Whether Supabase fell back to its Site URL because the redirect
-     was not allow-listed, or an iOS mail client mangled the redirect
-     parameter, the member still lands here holding a valid recovery token.
-     Forwarding it preserves the token and lets /app/ do the actual work.
+        Everything after the path is carried over, hash and query both,
+        because what matters lives in one or the other depending on the flow.
+        We call createClient with no options, so supabase-js is on its default
+        implicit flow: a good link carries `#access_token=...&type=recovery`
+        and a spent one carries `#error=...&error_code=otp_expired&...`, both
+        in the FRAGMENT. Under PKCE the same values arrive as query
+        parameters. All of them need to reach /app/ to be handled or reported.
 
-     EVERYTHING after the path is carried over, hash and query both, because
-     what matters lives in one or the other depending on the flow. We call
-     createClient with no options, so supabase-js is on its default implicit
-     flow: a good link carries `#access_token=...&type=recovery` and a spent
-     one carries `#error=...&error_code=otp_expired&...`, both in the
-     FRAGMENT. Under PKCE the same things arrive as query parameters. All of
-     them need to reach /app/ to be handled or reported.
+     2. AN INSTALLED MEMBER. The manifest is already right for new installs:
+        start_url and scope are both /app/, so a current install opens the
+        product directly and never reaches this file. The problem is the
+        installs made BEFORE that structure existed. Their Home Screen icon
+        still points at "/", so every launch drops a paying member onto the
+        acquisition page. Two checks, because neither covers both platforms:
+        the media query is the standard, and navigator.standalone is the
+        iOS-only legacy flag that an older Home Screen shortcut is exactly the
+        thing to report.
 
-     replace(), so Back does not return to a page that cannot help. Inline and
-     in <head> so it runs before anything paints. Nothing is logged: the URL
-     contains a single-use credential.
+        NOT based on login state, deliberately. An installed member who is
+        signed out should still open the PRODUCT and meet its authentication
+        screen, because that is what tapping an app icon means.
+
+     WHY RECOVERY GOES FIRST: the installed-member redirect goes to a bare
+     "/app/" and keeps nothing after the path. Running it first would send an
+     installed member holding a reset link to the app with his single-use
+     token stripped off, which looks like a working redirect and is a silent
+     lockout. Checking recovery first, and returning, cannot do that.
+
+     replace() rather than assign() in both, so Back does not bounce the
+     member onto a page that cannot help. Inline and in <head> so neither runs
+     after a paint. There is no loop risk, because /app/ is a different
+     document and never runs this. Nothing is logged: the URL holds a
+     single-use credential.
      ========================================================================== -->
 <script>
 (function(){
@@ -60,18 +77,21 @@
            an ordinary marketing link carrying `?discount_code=` or
            `?promo_code=`, and sending a prospect from the sales page into the
            app would be a worse bug than the one being fixed. A plain visit,
-           and a visit with campaign parameters, match none of these. */
-        /* The error has to be looked for in the FRAGMENT as well, not just the
-           query. supabase-js runs on its default implicit flow, which reports
-           a spent or expired link as
-           `#error=access_denied&error_code=otp_expired&...`. Checking only the
-           query here would leave exactly the member this change is for, the
-           one holding a dead link, stranded on the sales page. */
+           and a visit with campaign parameters, match none of these.
+
+           The error is looked for in the FRAGMENT as well as the query,
+           because the implicit flow reports a spent link there. Checking only
+           the query would leave exactly the member this exists for, the one
+           holding a dead link, stranded on the sales page. */
         var isRecovery = /(^|[#&])type=recovery(&|$)/.test(h)
                       || /(^|[#&])access_token=/.test(h)
                       || /(^|[#&])(error|error_code|error_description)=/.test(h)
                       || /(^|[?&])(code|error|error_code|error_description)=/.test(q);
-        if(isRecovery) window.location.replace('/app/' + q + h);
+        if(isRecovery){ window.location.replace('/app/' + q + h); return; }
+
+        var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+                      || window.navigator.standalone === true;
+        if(standalone) window.location.replace('/app/');
     }catch(e){ /* a browser that cannot answer is a browser, so stay put */ }
 })();
 </script>

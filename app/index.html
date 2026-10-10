@@ -171,7 +171,28 @@
         .btn-ai{background:linear-gradient(135deg,#7e22ce 0%,#9333ea 100%)!important;box-shadow:0 10px 30px -5px rgba(168,85,247,.3),inset 0 -2px 10px rgba(0,0,0,.2)!important}
         .btn-outline{background:rgba(255,255,255,.02);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.1);padding:1rem;border-radius:1.25rem;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.1em;transition:all .2s;color:#94a3b8;width:100%;cursor:pointer}
         .instruction-card{background:linear-gradient(145deg,rgba(30,41,59,.4) 0%,rgba(15,23,42,.6) 100%);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-top:1px solid rgba(255,255,255,.15);border-radius:1.5rem;padding:1.25rem;flex-shrink:0;box-shadow:0 15px 35px -10px rgba(0,0,0,.5)}
-        .glass-input{background:rgba(15,23,42,.4);border:1px solid rgba(255,255,255,.1);border-radius:1rem;color:#f8fafc;padding:1rem;width:100%;outline:none;resize:none;transition:border-color .2s;font-family:inherit;font-size:.875rem}
+        .glass-input{background:rgba(15,23,42,.4);border:1px solid rgba(255,255,255,.1);border-radius:1rem;color:#f8fafc;padding:1rem;width:100%;outline:none;resize:none;transition:border-color .2s;font-family:inherit;font-size:16px}
+        /* ── iOS FOCUS ZOOM ───────────────────────────────────────────────
+           Safari on iPhone zooms the whole page when a focused field's text
+           is smaller than 16px. That shifts the layout under the member,
+           pushes the submit button off screen and is a common cause of
+           "I cannot reach the button" on a form that is otherwise fine.
+
+           16px is the floor on anything focusable and typeable. It is NOT
+           fixed with maximum-scale or user-scalable=no, which would stop the
+           member zooming the page deliberately and is an accessibility
+           regression. Non-editable text is untouched. */
+        /* `html` prefixed deliberately. Tailwind's preflight sets
+           `button,input,optgroup,select,textarea{font-size:100%}`, which has
+           the same specificity as a bare `input` rule and is injected by the
+           CDN script AFTER this stylesheet, so it wins on source order. A
+           plain `input{...}` rule here is dead: measured, not guessed.
+
+           With preflight winning, a control INHERITS its context, so a bare
+           input inside any small-font container shrinks below 16px and invites
+           the zoom again. One extra element in the selector outranks preflight
+           without resorting to !important. */
+        html input,html textarea,html select{font-size:16px}
         .glass-input:focus{border-color:rgba(168,85,247,.4)}
         .timer-glow{font-family:'JetBrains Mono',monospace;text-shadow:0 0 40px rgba(59,130,246,.5)}
         /* ── The WeekStrip ──────────────────────────────────────────────
@@ -446,7 +467,7 @@
         #loading-screen{position:fixed;inset:0;background:var(--bg-deep);z-index:var(--z-system);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem}
         #loading-screen.hidden{display:none}
         .auth-card{background:linear-gradient(145deg,rgba(30,41,59,.6) 0%,rgba(15,23,42,.9) 100%);border:1px solid rgba(255,255,255,.08);border-top:1px solid rgba(255,255,255,.15);border-radius:2rem;padding:2rem;width:100%;max-width:22rem;backdrop-filter:blur(20px);box-shadow:0 30px 60px -10px rgba(0,0,0,.6)}
-        .auth-input{background:rgba(15,23,42,.6);border:1px solid rgba(255,255,255,.1);border-radius:.875rem;color:#f8fafc;padding:.875rem 1rem;width:100%;outline:none;font-family:inherit;font-size:.9rem;transition:border-color .2s;box-sizing:border-box}
+        .auth-input{background:rgba(15,23,42,.6);border:1px solid rgba(255,255,255,.1);border-radius:.875rem;color:#f8fafc;padding:.875rem 1rem;width:100%;outline:none;font-family:inherit;font-size:16px;transition:border-color .2s;box-sizing:border-box}
         .auth-input:focus{border-color:rgba(59,130,246,.5)}
         .auth-input::placeholder{color:#475569}
         .auth-tab{flex:1;padding:.6rem;border-radius:.6rem;font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;transition:all .2s;border:none;background:transparent;color:#475569}
@@ -731,7 +752,7 @@
                             <p class="text-[11px] font-bold text-slate-300">Daily reminder</p>
                             <p class="text-[10px] u-text-2">Sent if you haven't trained that day</p>
                         </div>
-                        <input type="time" id="notif-time" value="19:00" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-[11px] text-slate-300 font-bold">
+                        <input type="time" id="notif-time" value="19:00" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-slate-300 font-bold">
                     </div>
                 </div>
                 <button id="notif-enable-btn" class="btn-primary py-3 text-sm w-full">Enable Notifications</button>
@@ -1188,7 +1209,7 @@
                         <button id="unit-oz-btn" class="unit-pill">oz</button>
                         <button id="unit-l-btn"  class="unit-pill active">L</button>
                     </div>
-                    <input id="hydration-custom-input" type="number" min="0" step="any" placeholder="e.g. 0.5" class="auth-input text-center" style="font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:.5rem .75rem;flex:1;">
+                    <input id="hydration-custom-input" type="number" min="0" step="any" placeholder="e.g. 0.5" class="auth-input text-center" style="font-family:'JetBrains Mono',monospace;font-size:16px;padding:.5rem .75rem;flex:1;">
                     <button id="hydration-custom-btn" class="water-btn" style="flex-shrink:0;width:52px;"><i class="fas fa-plus"></i></button>
                     <button id="hydration-reset-btn" class="water-btn" style="flex-shrink:0;width:40px;border-color:rgba(100,116,139,.2);background:rgba(100,116,139,.05);color:#475569;"><i class="fas fa-rotate-left"></i></button>
                 </div>
@@ -1709,7 +1730,7 @@
         <h2 class="text-3xl font-black italic uppercase text-white mb-2">What should Coach Tee call you?</h2>
         <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">Optional. Leave it blank if you would rather not, and you can change it later.</p>
         <input id="ob-name-input" type="text" autocomplete="given-name" spellcheck="false"
-               class="w-full max-w-xs bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-[15px] text-white"
+               class="w-full max-w-xs bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-center text-white"
                placeholder="Your name">
         <p id="ob-name-error" class="hidden text-[11px] text-red-400 font-bold mt-3"></p>
         <button id="ob-name-skip" class="u-text-2 text-[11px] font-bold uppercase tracking-widest mt-5">Skip</button>
@@ -2246,7 +2267,7 @@
             </div>
             <div id="account-name-editor" class="hidden mt-3 space-y-2">
                 <input id="account-name-input" type="text" autocomplete="given-name" spellcheck="false"
-                       class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-[14px] text-white"
+                       class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white"
                        placeholder="Your name">
                 <p id="account-name-error" class="hidden text-[11px] text-red-400 font-bold"></p>
                 <div class="flex gap-2">
@@ -2653,12 +2674,36 @@ function currentTodayPrescription(){
         authoritative,
         dayPlans:persisted.dayPlans,
         legacySchedule:persisted.schedule,
+        /* Phase 3C.5. Provenance, so a plan generated under a different
+           programme cannot quietly execute, and the titles this build can
+           actually run, so a renamed or deleted exercise fails closed at the
+           gate instead of throwing deep inside the engine. */
+        programmeKey:(persisted.programme&&persisted.programme.key)||null,
+        titles:executableTitles(),
     });
     if(authoritative&&p.ok!==true){
+        /* EVERY authoritative refusal is reported, not only the three 3C.4
+           knew about. Each one means the programme claims dated plans are
+           authoritative and today's cannot be executed, which is a condition
+           somebody needs to see rather than something to absorb quietly. The
+           reason is the report kind, so the three 3C.5 additions are
+           distinguishable in the field from a missing plan. */
         const R=window.BP.PRESCRIPTION_REFUSAL;
-        if(p.reason===R.PLAN_MISSING) _reportPlanIntegrity('missing',p.date);
-        else if(p.reason===R.PLAN_UNREADABLE) _reportPlanIntegrity('unreadable',p.date);
-        else if(p.reason===R.SLOT_UNRESOLVED) _reportPlanIntegrity('unrunnable-type',p.date);
+        const KIND={
+            [R.PLAN_MISSING]:'missing',
+            [R.PLAN_UNREADABLE]:'unreadable',
+            [R.SLOT_UNRESOLVED]:'unrunnable-type',
+            [R.MODE_NOT_EXECUTABLE]:'mode-not-executable',
+            [R.PROGRAMME_MISMATCH]:'programme-mismatch',
+            [R.DOSE_MISSING]:'dose-missing',
+            [R.DOSE_INVALID]:'dose-invalid',
+        };
+        const kind=KIND[p.reason];
+        if(kind){
+            _reportPlanIntegrity(kind,p.date);
+            track('execution_unavailable',{reason:String(p.reason),
+                code:String((p.detail&&p.detail.code)||'')});
+        }
     }
     return p;
 }
@@ -3153,6 +3198,18 @@ function adoptPersisted(raw){
     persisted={...DEFAULT_PERSISTED,...src};
     if(!(persisted.programme&&typeof persisted.programme==='object'&&!Array.isArray(persisted.programme))) persisted.programme=null;
     if(!Array.isArray(persisted.dayPlans)) persisted.dayPlans=[];
+    /* History must never be able to crash a render or reach current
+       authority. A log that is not an array becomes one, and entries that
+       are not objects are SKIPPED, never repaired and never reconstructed:
+       there is nothing in a null or a bare number to recover. Both filters
+       are conditional, so a well formed log is passed through by reference
+       and a load stays non destructive. */
+    if(!Array.isArray(persisted.sessionLog)) persisted.sessionLog=[];
+    else if(persisted.sessionLog.some(e=>!e||typeof e!=='object'))
+        persisted.sessionLog=persisted.sessionLog.filter(e=>!!e&&typeof e==='object');
+    if(!Array.isArray(persisted.measurements)) persisted.measurements=[];
+    else if(persisted.measurements.some(e=>!e||typeof e!=='object'))
+        persisted.measurements=persisted.measurements.filter(e=>!!e&&typeof e==='object');
     /* Assigned, never |=. Each adoption answers for its own state, so an
        account switch cannot inherit the previous member's repair. */
     _scheduleRepairedOnAdopt=normaliseSchedule().changed;
@@ -3358,27 +3415,92 @@ function _isUnknownColumnError(err){
     // PGRST204: column not in schema cache. 42703: undefined_column.
     return code==='PGRST204'||code==='42703'||(msg.includes('column')&&(msg.includes('does not exist')||msg.includes('schema cache')));
 }
+/* ── BOUNDED WRITES, AND WHY THEY DO NOT CANCEL ───────────────────────────
+   One helper owns the deadline for every user_data write, and it deliberately
+   does NOT abort the request. A write that may already have committed must be
+   allowed to finish: cancelling it would turn "we do not know" into "we threw
+   away a success". visibilitychange also flushes, so an aborting deadline
+   would cancel a legitimate save every time the app is backgrounded.
+
+   The caller learns only that the outcome is UNKNOWN. Unknown is treated like
+   failure for DURABILITY, keep the backup and keep the dirty flag, and unlike
+   failure for BLAME, never roll local state back and never say it failed. */
+/* `let`, not `const`, so a test can shorten it by bare assignment the way
+   the suites already override isDeloadWeek. Production never reassigns it. */
+let WRITE_DEADLINE_MS=10000;
+const _WRITE_TIMEOUT=Object.freeze({__writeTimeout:true});
+function _withDeadline(p,ms){
+    let timer=null;
+    /* A late rejection must not surface as an unhandled rejection once we
+       have stopped listening, so it is caught and tagged rather than thrown. */
+    const guarded=Promise.resolve(p).catch(e=>({__lateError:e}));
+    const deadline=new Promise(res=>{timer=setTimeout(()=>res(_WRITE_TIMEOUT),ms)});
+    return Promise.race([guarded,deadline]).finally(()=>{clearTimeout(timer)});
+}
+function _stripForSchema(payload){
+    const p={...payload};
+    if(_schemaMissingLatestCols) _LATEST_SCHEMA_COLUMNS.forEach(c=>delete p[c]);
+    if(_schemaMissingNewCols)    _NEWER_COLUMNS.forEach(c=>delete p[c]);
+    return p;
+}
 function _upsertPayload(){
     // upsert ensures the row is created if it doesn't exist (cross-device safe)
-    const payload={id:currentUser.id,..._buildSavePayload()};
-    if(_schemaMissingLatestCols) _LATEST_SCHEMA_COLUMNS.forEach(c=>delete payload[c]);
-    if(_schemaMissingNewCols)    _NEWER_COLUMNS.forEach(c=>delete payload[c]);
-    return payload;
+    return _stripForSchema({id:currentUser.id,..._buildSavePayload()});
 }
-async function _upsertWithSchemaFallback(){
-    let {error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'});
+/* `raw` is the payload captured by the caller at schedule time. Each attempt
+   re-strips it, because a fallback tier may have been discovered in between,
+   but the DATA is the captured snapshot and never the live globals. */
+async function _upsertWithSchemaFallback(raw){
+    const base=raw||{id:currentUser.id,..._buildSavePayload()};
+    const once=async()=>{
+        const r=await _withDeadline(
+            sb.from('user_data').upsert(_stripForSchema(base),{onConflict:'id'}),WRITE_DEADLINE_MS);
+        if(r===_WRITE_TIMEOUT) return _WRITE_TIMEOUT;
+        if(r&&r.__lateError) return r.__lateError;
+        return (r&&r.error)||null;
+    };
+    let error=await once();
+    if(error===_WRITE_TIMEOUT) return _WRITE_TIMEOUT;
     if(error&&!_schemaMissingLatestCols&&_isUnknownColumnError(error)){
         console.warn('user_data is missing the newest columns; saving without them. Run the pending ALTER TABLE.');
         _schemaMissingLatestCols=true;
-        ({error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'}));
+        error=await once();
+        if(error===_WRITE_TIMEOUT) return _WRITE_TIMEOUT;
     }
     if(error&&!_schemaMissingNewCols&&_isUnknownColumnError(error)){
         console.warn('user_data is missing newer columns; saving without them. Run the pending ALTER TABLE.');
         _schemaMissingNewCols=true;
-        ({error}=await sb.from('user_data').upsert(_upsertPayload(),{onConflict:'id'}));
+        error=await once();
+        if(error===_WRITE_TIMEOUT) return _WRITE_TIMEOUT;
     }
     return error;
 }
+/* The ONE place a write outcome is interpreted. uid and payload are captured
+   by the caller before the write is scheduled, so a result landing after a
+   logout or an account switch is applied to the account it belonged to and to
+   no other. Returns 'ok' | 'error' | 'unknown'. */
+async function _commitWrite(uid,payload){
+    if(!uid||!payload) return 'error';
+    let outcome='ok';
+    try{
+        const r=await _upsertWithSchemaFallback(payload);
+        if(r===_WRITE_TIMEOUT) outcome='unknown';
+        else if(r) outcome='error';
+    }catch(e){ outcome='error'; }
+    if(outcome==='ok'){
+        /* Keyed on the CAPTURED uid. Clearing by currentUser.id would let a
+           stale callback mark a different member's row clean. */
+        try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){}
+    }else{
+        /* Deferred, not lost: the backup and the dirty flag both stand, and
+           the next load reconciles by resending. A whole-row upsert is
+           idempotent, so a resend replaces the row and cannot append. */
+        console.warn('user_data sync deferred:',outcome);
+    }
+    _lastWriteOutcome=outcome;
+    return outcome;
+}
+let _lastWriteOutcome=null;
 // The local backup used to be written inside an empty catch, so when the quota
 // filled the backup silently stopped updating AND the dirty flag silently failed
 // to set. The recovery path then compared against stale data with nothing to
@@ -3498,12 +3620,38 @@ function trackOnce(key,event,props){
     try{ if(localStorage.getItem(k)) return; localStorage.setItem(k,'1'); }catch(e){}
     track(event,props);
 }
+/* Flush a captured batch under a captured identity. Logout needs this: by the
+   time the old flush ran, currentUser was already null and it returned without
+   sending anything, and _analyticsKey() had degraded to a user-less key, so
+   the buffer was rewritten where nothing would ever read it again. RLS checks
+   auth.uid() = user_id, so this must also run before signOut drops the JWT. */
+async function _flushAnalyticsFor(uid,batch){
+    if(!uid||!batch||!batch.length) return 'error';
+    try{
+        const r=await _withDeadline(
+            sb.from('analytics_events').insert(batch),WRITE_DEADLINE_MS);
+        if(r===_WRITE_TIMEOUT) return 'unknown';
+        if(r&&r.__lateError) return 'error';
+        if(r&&r.error) return 'error';
+        /* Only the account that owns the buffer may have it cleared. */
+        try{ localStorage.removeItem(ANALYTICS_BUFFER_KEY+'_'+uid); }catch(e){}
+        if(currentUser&&currentUser.id===uid){
+            _analyticsBuffer=_analyticsBuffer.slice(batch.length);
+            _persistAnalyticsBuffer();
+        }
+        return 'ok';
+    }catch(e){ return 'error'; }
+}
 async function flushAnalytics(){
     if(_analyticsFlushing||!currentUser||!_analyticsBuffer.length) return;
     _analyticsFlushing=true;
     const batch=_analyticsBuffer.slice();
     try{
-        const {error}=await sb.from('analytics_events').insert(batch);
+        const r=await _withDeadline(
+            sb.from('analytics_events').insert(batch),WRITE_DEADLINE_MS);
+        const error=r===_WRITE_TIMEOUT
+            ? {message:'deadline exceeded'}
+            : (r&&r.__lateError)?r.__lateError:((r&&r.error)||null);
         if(error){
             // Keep them buffered for the next attempt, exactly as savePersisted
             // keeps the dirty flag. Analytics must never surface an error to the
@@ -3520,28 +3668,29 @@ async function flushAnalytics(){
 function savePersisted(){
     // Refuse to persist defaults over an account we were never able to read.
     if(!_persistedLoaded){console.warn('savePersisted skipped: user data was never loaded');return;}
+    if(!currentUser) return;
     _writeLocalBackup();
     clearTimeout(_saveDebounce);
-    _saveDebounce=setTimeout(async()=>{
-        if(!currentUser)return;
-        try{
-            const error=await _upsertWithSchemaFallback();
-            if(error){console.error('savePersisted error:',error.message,error.code);}
-            else{localStorage.removeItem('bp_dirty_'+currentUser.id);}
-        }catch(e){console.error('savePersisted:',e)}
-    },800);
+    /* Captured NOW, not when the timer fires. By then currentUser and
+       persisted may belong to a different member, and the old code read both
+       at fire time: it could clear the new account's dirty flag for a write
+       that was really the old account's. */
+    const _uid=currentUser.id;
+    const _payload={id:_uid,..._buildSavePayload()};
+    _saveDebounce=setTimeout(()=>{ _commitWrite(_uid,_payload); },800);
 }
 function _flushSaveNow(){
     if(!currentUser)return;
     if(!_persistedLoaded){console.warn('_flushSaveNow skipped: user data was never loaded');return;}
     clearTimeout(_saveDebounce);
     _writeLocalBackup();
-    _upsertWithSchemaFallback()
-        .then(error=>{
-            if(error){console.error('_flushSaveNow error:',error.message,error.code);}
-            else if(currentUser){localStorage.removeItem('bp_dirty_'+currentUser.id);}
-        })
-        .catch(()=>{});
+    /* Same capture rule as the debounced path. This runs on
+       visibilitychange, so the page may be frozen before it settles: the
+       SYNCHRONOUS local backup above is the durability guarantee, and the
+       remote write is best effort on top of it. */
+    const _uid=currentUser.id;
+    const _payload={id:_uid,..._buildSavePayload()};
+    return _commitWrite(_uid,_payload);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3557,8 +3706,15 @@ function resetSession(){
     // Derive from the tier. Hardcoding 3 here silently overrode the round count
     // the mission handler had just set, so Intermediate ran 3 rounds instead of 4
     // and Advanced/Elite 3 instead of 5.
+    /* The frozen round count first. A snapshot's rounds are what the
+       programme prescribed for this date; the tier table is the dynamic
+       fallback for the cohorts that still execute from it. */
+    const _frozen=typeof frozenExecution==='function'?frozenExecution():null;
     const _gcfg=(typeof GIRTH_CIRCUIT!=='undefined'&&GIRTH_CIRCUIT[getDiff().id])||{rounds:3};
-    session.girthRound=1;session.girthTotalRounds=_gcfg.rounds||3;
+    session.girthRound=1;
+    session.girthTotalRounds=(_frozen&&_frozen.shape==='circuit'&&_launchedPrescription
+        &&_launchedPrescription.performedType===session.routineType)
+        ? _frozen.rounds : (_gcfg.rounds||3);
     _releaseWakeLock();
 }
 
@@ -4038,16 +4194,35 @@ async function compressImage(file,maxPx=1080,quality=0.78){
 }
 async function handlePhotoSelect(file){
     if(!file||!currentUser)return;
+    /* A NEW file choice is a new action and must not inherit the previous
+       attempt's path, or picking a different photo after a failure would
+       conflict with the object the earlier attempt already wrote. */
+    _photoPathReset('capture');
     document.getElementById('photo-uploading').classList.remove('hidden');
     document.getElementById('photo-error').classList.add('hidden');
     document.getElementById('photo-capture-btn').disabled=true;
     try{
         const blob=await compressImage(file);
         if(!blob) throw new Error('Image compression failed — try a different photo.');
-        const path=`${currentUser.id}/${Date.now()}.jpg`;
-        const {data:uploadData, error}=await sb.storage.from('progress-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});
-        if(error){console.error('Storage upload error:',error.message,error);throw new Error(error.message||'Upload failed');}
-        if(!uploadData?.path){throw new Error('Upload returned no confirmation — check bucket policies.');}
+        const path=_photoPathFor('capture');
+        const r=await _uploadPhoto(path,blob);
+        if(r.conflict){
+            /* The object is already there, which means an earlier attempt on
+               this same path DID succeed and only its response was lost. With
+               a stable path and upsert:false that is a confirmation, not a
+               failure, and retrying must not create a second object. */
+            _photoPathClear('capture');
+            await renderGalleryInto('photo-log-gallery').catch(()=>{});
+            throw new Error('That photo is already saved. Pull down to refresh if you do not see it.');
+        }
+        if(r.timedOut){
+            /* UNKNOWN, not failed. The same path is kept so a retry either
+               succeeds or conflicts, and either way cannot duplicate. */
+            throw new Error('The upload is taking too long. It may still have saved, so check your gallery before trying again.');
+        }
+        if(r.error){console.error('Storage upload error:',r.error.message,r.error);throw new Error(r.error.message||'Upload failed');}
+        if(!r.data?.path){throw new Error('Upload returned no confirmation — check bucket policies.');}
+        _photoPathClear('capture');
         const previewUrl=URL.createObjectURL(blob);
         document.getElementById('photo-preview-img').src=previewUrl;
         document.getElementById('photo-preview').classList.remove('hidden');
@@ -4094,7 +4269,20 @@ async function handlePhotoDelete(){
     clearTimeout(_deleteTimer);
     btn.innerHTML='<i class="fas fa-spinner fa-spin text-xs"></i> Deleting...';
     btn.disabled=true;
-    const {error}=await sb.storage.from('progress-photos').remove([_viewerPath]);
+    /* A timed-out delete is UNKNOWN, exactly like a timed-out write, so it
+       must not be reported as done and must not be retried destructively
+       against a different object. */
+    const _dr=await _withDeadline(
+        sb.storage.from('progress-photos').remove([_viewerPath]),STORAGE_READ_DEADLINE_MS);
+    if(_dr===_WRITE_TIMEOUT){
+        /* UNKNOWN. The object may already be gone, so the gallery is
+           refreshed rather than the member being told it failed. */
+        btn.disabled=false;
+        btn.innerHTML='<i class="fas fa-triangle-exclamation text-xs"></i> Taking too long — check gallery';
+        btn.style.color='#f87171';
+        return;
+    }
+    const {error}=_dr&&_dr.__lateError?{error:_dr.__lateError}:(_dr||{});
     btn.disabled=false;
     if(error){btn.innerHTML='<i class="fas fa-triangle-exclamation text-xs"></i> Failed — try again';btn.style.color='#f87171';return;}
     closePhotoViewer();
@@ -4169,10 +4357,24 @@ async function renderGalleryInto(elId){
     if(!el||!currentUser)return;
     el.innerHTML='<p class="col-span-3 u-text-2 text-[11px] italic text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</p>';
     try{
-        const {data,error}=await sb.storage.from('progress-photos').list(currentUser.id,{sortBy:{column:'name',order:'desc'},limit:60});
+        const _lr=await _withDeadline(
+            sb.storage.from('progress-photos').list(currentUser.id,{sortBy:{column:'name',order:'desc'},limit:60}),
+            STORAGE_READ_DEADLINE_MS);
+        if(_lr===_WRITE_TIMEOUT){
+            /* A hung list must not leave the gallery spinning forever. */
+            el.innerHTML='<p class="col-span-3 u-text-2 text-[11px] italic text-center py-4">Could not load your photos just now. Check your connection and try again.</p>';
+            return;
+        }
+        const data=(_lr&&_lr.data)||null, error=(_lr&&(_lr.error||_lr.__lateError))||null;
         if(error||!data?.length){el.innerHTML='<p class="col-span-3 u-text-2 text-[11px] italic text-center py-4">No photos yet — add your first one above.</p>';return;}
         const paths=data.map(f=>`${currentUser.id}/${f.name}`);
-        const {data:signed}=await sb.storage.from('progress-photos').createSignedUrls(paths,3600);
+        const _sr=await _withDeadline(
+            sb.storage.from('progress-photos').createSignedUrls(paths,3600),STORAGE_READ_DEADLINE_MS);
+        if(_sr===_WRITE_TIMEOUT){
+            el.innerHTML='<p class="col-span-3 u-text-2 text-[11px] italic text-center py-4">Could not load your photos just now. Check your connection and try again.</p>';
+            return;
+        }
+        const signed=(_sr&&_sr.data)||null;
         const urls=(signed||[]).map((s,i)=>{
             const ts=parseInt(data[i].name);
             const date=isNaN(ts)?data[i].name:new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
@@ -4186,6 +4388,7 @@ async function renderGalleryInto(elId){
 }
 async function handlePhotoLogUpload(file){
     if(!file||!currentUser)return;
+    _photoPathReset('log');          // a new choice is a new action
     const uploading=document.getElementById('photo-log-uploading');
     const errEl=document.getElementById('photo-log-error');
     const btn=document.getElementById('photo-log-add-btn');
@@ -4193,10 +4396,20 @@ async function handlePhotoLogUpload(file){
     try{
         const blob=await compressImage(file);
         if(!blob) throw new Error('Image compression failed — try a different photo.');
-        const path=`${currentUser.id}/${Date.now()}.jpg`;
-        const {data:uploadData, error}=await sb.storage.from('progress-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});
-        if(error){console.error('Storage upload error:',error.message,error);throw new Error(error.message||'Upload failed');}
-        if(!uploadData?.path){throw new Error('Upload returned no confirmation — check bucket RLS policies.');}
+        const path=_photoPathFor('log');
+        const r=await _uploadPhoto(path,blob);
+        if(r.conflict){
+            _photoPathClear('log');
+            await renderGalleryInto('photo-log-gallery').catch(()=>{});
+            throw new Error('That photo is already saved. Pull down to refresh if you do not see it.');
+        }
+        if(r.timedOut){
+            await renderGalleryInto('photo-log-gallery').catch(()=>{});
+            throw new Error('The upload is taking too long. It may still have saved, so check your gallery before trying again.');
+        }
+        if(r.error){console.error('Storage upload error:',r.error.message,r.error);throw new Error(r.error.message||'Upload failed');}
+        if(!r.data?.path){throw new Error('Upload returned no confirmation — check bucket RLS policies.');}
+        _photoPathClear('log');
         await renderGalleryInto('photo-log-gallery');
     }catch(e){
         console.error('Photo upload failed:',e);
@@ -4301,6 +4514,55 @@ function drawLine(id,vals,dates,color,unit='"',dec=2){
         <text x="${xS(vals.length-1)}" y="${H-6}" text-anchor="middle" font-size="7.5" fill="${color}" font-family="Inter,sans-serif" font-weight="bold">${vals[vals.length-1].toFixed(dec)}${unit}</text>`;
 }
 
+/* ── PHOTO PATHS AND BOUNDED UPLOADS ──────────────────────────────────────
+   ONE path per user action, reused by every retry of that action.
+
+   The old path was `${uid}/${Date.now()}.jpg` computed at upload time, so a
+   retry after a lost response produced a NEW name and a duplicate object. A
+   stable path plus upsert:false turns the second attempt into an
+   "already exists" conflict, which is a CONFIRMATION that the first one
+   landed rather than a failure, and makes duplication structurally
+   impossible instead of merely unlikely.
+
+   Date.now() is not unique: two uploads inside one millisecond, or a clock
+   that moves backwards, can repeat it. A counter and a random suffix make the
+   name collision-safe without depending on the clock being monotonic. */
+let _photoPaths={}, _photoSeq=0;
+function _photoPathFor(slot){
+    if(!_photoPaths[slot]){
+        _photoSeq+=1;
+        const rand=Math.random().toString(36).slice(2,8);
+        _photoPaths[slot]=`${currentUser.id}/${Date.now()}-${_photoSeq}-${rand}.jpg`;
+    }
+    return _photoPaths[slot];
+}
+function _photoPathClear(slot){ delete _photoPaths[slot]; }
+/* A fresh file choice is a NEW action, so it must not inherit the previous
+   path: otherwise picking a different photo after a failure would conflict
+   with the object the earlier attempt already wrote. */
+function _photoPathReset(slot){ _photoPathClear(slot); }
+function _isStorageConflict(err){
+    if(!err) return false;
+    const msg=(err.message||'').toLowerCase();
+    return err.statusCode==='409'||err.statusCode===409
+        ||msg.includes('already exists')||msg.includes('duplicate')||msg.includes('resource already');
+}
+let STORAGE_DEADLINE_MS=45000;        // uploads are large on a phone connection
+let STORAGE_READ_DEADLINE_MS=15000;
+/* Non-cancelling, for the same reason as a user_data write: an upload that
+   may already have stored the object must not be aborted into ambiguity we
+   could have avoided. storage-js at 2.39.3 takes no abort signal anyway. */
+async function _uploadPhoto(path,blob){
+    const r=await _withDeadline(
+        sb.storage.from('progress-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false}),
+        STORAGE_DEADLINE_MS);
+    if(r===_WRITE_TIMEOUT) return {timedOut:true};
+    const err=(r&&r.__lateError)?r.__lateError:((r&&r.error)||null);
+    if(_isStorageConflict(err)) return {conflict:true};
+    if(err) return {error:err};
+    return {data:r&&r.data};
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // AI ENGINE — Claude API
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4328,14 +4590,33 @@ function tidyReply(s){
 // name. Sending the prompt from here is what made the endpoint a general
 // purpose model anyone could drive on our Anthropic key. The signed-in
 // session travels with the request for the same reason: each call costs us.
+/* Unlike a user_data write, this request is safe to cancel: it changes
+   nothing on our side, so abandoning it costs only the answer. A real
+   AbortController is therefore correct here where it would be harmful there.
+
+   ONE budget covers the whole exchange, original request plus any refreshed
+   token retry, so a 401 cannot double the time the member waits. */
+let COACH_DEADLINE_MS=30000;   // let: overridable by tests, see WRITE_DEADLINE_MS
 async function fetchClaude(mode, userMsg, context){
+    const ctl=(typeof AbortController!=='undefined')?new AbortController():null;
     const _send=(token)=>fetch('/api/coach-tee',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-        body:JSON.stringify({mode,userMsg,context:context||''})
+        body:JSON.stringify({mode,userMsg,context:context||''}),
+        signal:ctl?ctl.signal:undefined
     });
+    let timedOut=false;
+    const timer=setTimeout(()=>{ timedOut=true; if(ctl) try{ctl.abort()}catch(e){} },COACH_DEADLINE_MS);
     try{
-        const {data:{session}}=await sb.auth.getSession();
+        /* getSession and refreshSession are NOT the fetch, so the
+           AbortController above cannot reach them. A hung refresh would
+           otherwise leave the member on a disabled button reading "..."
+           forever, which is precisely the failure this deadline exists to
+           prevent. Both are therefore bounded on the same budget. */
+        const _gs=await _withDeadline(sb.auth.getSession(),COACH_DEADLINE_MS);
+        if(_gs===_WRITE_TIMEOUT) return{ok:false,timedOut:true,
+            error:'Coach Tee is taking too long to answer. Check your connection and try again.'};
+        const session=(_gs&&_gs.data&&_gs.data.session)||null;
         if(!session)return{ok:false,error:'Sign in to talk to Coach Tee.'};
         let res=await _send(session.access_token);
         // An access token lasts about an hour. A man who left the app open on
@@ -4343,14 +4624,27 @@ async function fetchClaude(mode, userMsg, context){
         // concerned, so a stale token should be refreshed and retried rather
         // than thrown back at him as "sign in" while he is already signed in.
         if(res.status===401){
-            const {data:{session:fresh}}=await sb.auth.refreshSession();
+            const _rs=await _withDeadline(sb.auth.refreshSession(),COACH_DEADLINE_MS);
+            if(_rs===_WRITE_TIMEOUT) return{ok:false,timedOut:true,
+                error:'Coach Tee is taking too long to answer. Check your connection and try again.'};
+            const fresh=(_rs&&_rs.data&&_rs.data.session)||null;
             if(fresh) res=await _send(fresh.access_token);
         }
         const data=await res.json();
         if(!res.ok)return{ok:false,error:`[${res.status}${data.error?.reason?' '+data.error.reason:''}] ${data.error?.message||JSON.stringify(data)}`};
         const text=data.content?.map(b=>b.type==='text'?b.text:'').join('')||'';
         return{ok:true,text};
-    }catch(e){return{ok:false,error:'[fetch failed] '+e.message}}
+    }catch(e){
+        /* An abort is OUR deadline, not a server fault, and the member needs a
+           retryable message rather than a stack. The question is never resent
+           automatically: one deliberate tap, one request. */
+        if(timedOut||(e&&e.name==='AbortError')){
+            return{ok:false,timedOut:true,
+                error:'Coach Tee is taking too long to answer. Check your connection and try again.'};
+        }
+        return{ok:false,error:'[fetch failed] '+e.message};
+    }
+    finally{ clearTimeout(timer); }
 }
 
 // Builds a compact snapshot of the member's real data so Coach Tee answers as
@@ -4409,20 +4703,38 @@ async function askCoach(){
     const q=inp.value.trim();if(!q)return;
     track('coach_asked');   // the question itself is never recorded
     area.innerHTML+=`<div class="chat-msg user">${esc(q)}</div>`;inp.value='';btn.textContent='...';btn.disabled=true;area.scrollTop=area.scrollHeight;
-    const r=await fetchClaude('coach',q,_coachContext());
-    if(r.ok) area.innerHTML+=`<div class="chat-msg ai"><span class="chat-who">Coach Tee</span>${esc(tidyReply(r.text))}</div>`;
-    else area.innerHTML+=`<div class="chat-msg error"><i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}</div>`;
-    btn.textContent='Send';btn.disabled=false;area.scrollTop=area.scrollHeight;
+    /* A rapid second tap must not open a second request against the same
+       question, and the token guards against a LATE reply from a superseded
+       request appending itself under a newer answer. */
+    const _turn=++_coachTurn;
+    try{
+        const r=await fetchClaude('coach',q,_coachContext());
+        if(_turn!==_coachTurn) return;              // superseded; drop the stale reply
+        if(r.ok) area.innerHTML+=`<div class="chat-msg ai"><span class="chat-who">Coach Tee</span>${esc(tidyReply(r.text))}</div>`;
+        else area.innerHTML+=`<div class="chat-msg error"><i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}</div>`;
+    }catch(e){
+        area.innerHTML+=`<div class="chat-msg error"><i class="fas fa-exclamation-triangle"></i> Something went wrong. Try again.</div>`;
+    }finally{
+        /* finally, so no thrown path can leave Send disabled and reading "..."
+           forever. Only the newest turn owns the controls. */
+        if(_turn===_coachTurn){ btn.textContent='Send';btn.disabled=false; }
+        area.scrollTop=area.scrollHeight;
+    }
 }
+let _coachTurn=0;
 
 async function analyzeRecovery(){
     const inp=document.getElementById('ai-recovery-input'),box=document.getElementById('ai-recovery-response'),btn=document.getElementById('ai-recovery-btn');
     const log=inp.value.trim();if(!log)return;
     box.className='ai-response-box mt-4';box.style.display='block';box.innerHTML='<i class="fas fa-spinner fa-spin"></i> Analyzing...';btn.disabled=true;
-    const r=await fetchClaude('recovery',log);
-    if(r.ok) box.innerHTML=esc(tidyReply(r.text));
-    else{box.className='ai-response-box ai-error mt-4';box.innerHTML=`<i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}`}
-    btn.disabled=false;
+    try{
+        const r=await fetchClaude('recovery',log);
+        if(r.ok) box.innerHTML=esc(tidyReply(r.text));
+        else{box.className='ai-response-box ai-error mt-4';box.innerHTML=`<i class="fas fa-exclamation-triangle"></i> ${esc(r.error)}`}
+    }catch(e){
+        box.className='ai-response-box ai-error mt-4';
+        box.innerHTML='<i class="fas fa-exclamation-triangle"></i> Something went wrong. Try again.';
+    }finally{ btn.disabled=false; }   // same reason: no path may strand the button
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4455,7 +4767,16 @@ function goToStep(step){
            the wrong date and possibly the wrong type. Explicitly null when
            there was nothing to capture, so a reader can tell "this draft
            predates the field" from "we knew there was no identity". */
-        const draft={exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,sessionStartTime:_sessionStartTime,savedAt:Date.now(),prescription:_launchedPrescription||null};
+        /* `v` is the DRAFT schema version, so a resume can tell a shape it
+           understands from one it does not. The snapshot inside carries its
+           own doseVersion, because the two change for different reasons. */
+        const draft={v:DRAFT_SCHEMA_VERSION,exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,
+            /* The circuit position, which the draft never carried. Resuming a
+               girth session used to lose which round the member was on AND
+               how many there were, because resetSession is the only place
+               that sets them and resume skips it. */
+            girthRound:session.girthRound,girthTotalRounds:session.girthTotalRounds,
+            sessionStartTime:_sessionStartTime,savedAt:Date.now(),prescription:_launchedPrescription||null};
         localStorage.setItem('bp_session_draft_'+currentUser.id,JSON.stringify(draft));
     }
     if(session.timer){session.timer.cancel();session.timer=null}
@@ -4746,9 +5067,35 @@ function startRecoverySession(){
  * neither is shaped on either side. A reduced girth session is the same
  * circuit with shorter work, not a shorter circuit.
  */
+/**
+ * The exercise the member is on, with its dose.
+ *
+ * TWO PATHS, and which one applies is decided at launch rather than here.
+ *
+ *   FROZEN      an authoritative session that launched with an execution
+ *               snapshot. The numbers come from that snapshot and from
+ *               nowhere else: not the current tier, not the current tables,
+ *               not the current deload state, not today's soreness. The
+ *               definition still comes from the table, because cues, how-to
+ *               and EQ targets are instruction and a corrected safety cue
+ *               must reach a session already underway.
+ *
+ *   DYNAMIC     a legacy or custom member, Recovery, or a pre-3C.5 draft
+ *               resumed after the upgrade. Unchanged behaviour: the tier and
+ *               the live shapes decide, exactly as they always have.
+ *
+ * Until Phase 3C.5 there was only the dynamic path, so a tier advance
+ * silently rewrote a prescription that had already been made and a table edit
+ * rewrote every plan ever generated.
+ */
 function getCurEx(){
     const ex = ROUTINES[session.routineType][session.exerciseIndex];
     if(ex.isRecovery) return ex;
+    const frozen = frozenStep();
+    if(frozen){
+        /* The dose from the snapshot, the words from the table. */
+        return {...ex, sets:frozen.sets, duration:frozen.duration, restDur:frozen.restDur};
+    }
     const shapes = currentShapes();   // [deload?, moderate soreness?], in that order
     if(session.routineType==='girth'){
         const diffKey=getDiff().id;
@@ -4775,21 +5122,31 @@ function updateExUI(){
     // Circuit overview for girth — show before first round starts
     const circOv=document.getElementById('circuit-overview');
     if(session.routineType==='girth' && session.girthRound===1 && session.exerciseIndex===0){
+        const _f=frozenExecution();
+        const _frozenCircuit=(_f&&_f.shape==='circuit'&&_launchedPrescription
+            &&_launchedPrescription.performedType==='girth')?_f:null;
         const diffKey=getDiff().id;
         const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
-        /* Shaped, for the same reason the difficulty subtext is: this card
-           is the member reading what the circuit is about to be, and it
-           used to show the unreduced work intervals on a deload week.
-           Rounds and the inter-round rest are not shaped by anything, here
-           or in the estimate, so they are printed as they stand. */
+        /* The card is the member reading what the circuit is about to be, so
+           it must show what the engine will actually run. For a frozen
+           session that is the snapshot, station for station; for the dynamic
+           path it is the tier table with the live shapes applied, which is
+           what it has always shown. Printing the tier's raw numbers under a
+           frozen dose would be the display disagreeing with the session. */
         const _s=currentShapes();
-        const jelqLabel=_durLabel(shapeEx({sets:1,duration:cfg.jelqDur},_s).duration);
-        const uliDur=shapeEx({sets:1,duration:cfg.uliDur},_s).duration;
-        document.getElementById('circuit-overview-label').innerHTML=`<i class="fas fa-list-check"></i> ${cfg.rounds}-Round Circuit`;
+        const _jelq=_frozenCircuit?_frozenCircuit.steps[0]:null;
+        const _uli=_frozenCircuit?_frozenCircuit.steps[1]:null;
+        const jelqLabel=_durLabel(_jelq?_jelq.duration
+            :shapeEx({sets:1,duration:cfg.jelqDur},_s).duration);
+        const uliDur=_uli?_uli.duration:shapeEx({sets:1,duration:cfg.uliDur},_s).duration;
+        const roundCount=_frozenCircuit?_frozenCircuit.rounds:cfg.rounds;
+        const roundRest=(_frozenCircuit&&typeof _frozenCircuit.roundRest==='number')
+            ?_frozenCircuit.roundRest:cfg.restDur;
+        document.getElementById('circuit-overview-label').innerHTML=`<i class="fas fa-list-check"></i> ${roundCount}-Round Circuit`;
         document.getElementById('circuit-overview-steps').innerHTML=`
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">1</span><p class="text-[11px] text-slate-300">Wet Jelq <span class="text-emerald-500">${jelqLabel}</span> — 3s per stroke, 60-80% EQ</p></div>
             <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-[9px] font-black text-emerald-400">2</span><p class="text-[11px] text-slate-300">Uli — Manual Clamp <span class="text-emerald-500">${uliDur}s</span> — OK grip at base, 80% EQ</p></div>
-            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-[9px] font-black text-slate-400">↺</span><p class="text-[11px] u-text-2">${cfg.restDur}s rest + re-lube between rounds</p></div>`;
+            <div class="flex items-center gap-3"><span class="w-5 h-5 rounded-full bg-slate-700/60 border border-slate-600/40 flex items-center justify-center text-[9px] font-black text-slate-400">↺</span><p class="text-[11px] u-text-2">${roundRest}s rest + re-lube between rounds</p></div>`;
         circOv.classList.remove('hidden');
     } else {
         circOv.classList.add('hidden');
@@ -5142,7 +5499,7 @@ function skipRest(){
 function advanceEx(){
     if(session.routineType==='girth'){
         // Move to next exercise within the current round
-        if(session.exerciseIndex<ROUTINES.girth.length-1){
+        if(session.exerciseIndex<executableStepCount()-1){
             session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI();return;
         }
         // Completed last exercise of round (Uli)
@@ -5165,8 +5522,7 @@ function advanceEx(){
             session.setIndex=1;session.directionalIndex=0;updateExUI();return;
         }
     } else {
-        const exs=ROUTINES[session.routineType];
-        if(session.exerciseIndex<exs.length-1){session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI();return;}
+        if(session.exerciseIndex<executableStepCount()-1){session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI();return;}
     }
     haptic([100,50,100,50,300]);
     document.getElementById('success-xp-text').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
@@ -5174,9 +5530,15 @@ function advanceEx(){
 }
 
 function startGirthRoundRest(){
+    const _f=frozenExecution();
     const diffKey=getDiff().id;
     const cfg=GIRTH_CIRCUIT[diffKey]||GIRTH_CIRCUIT.intermediate;
-    const restDur=cfg.restDur;
+    /* The frozen inter-round rest when the session launched with one. Note
+       that neither modifier shapes it, here or in the dose: a deload reduces
+       the work, not the recovery between rounds. */
+    const restDur=(_f&&_f.shape==='circuit'&&typeof _f.roundRest==='number'
+        &&_launchedPrescription&&_launchedPrescription.performedType===session.routineType)
+        ? _f.roundRest : cfg.restDur;
     const ov=document.getElementById('rest-overlay');ov.classList.remove('hidden');ov.style.opacity='1';
     startBoxBreathing();
     const arc=document.getElementById('rest-arc');
@@ -6249,6 +6611,14 @@ let _launchedPrescription=null;
  * door being a way around the attribution rule.
  */
 let _launchLegacyDraft=false;
+/**
+ * The resumable draft's own schema version.
+ *
+ * Absent means 1: every draft written before this field existed has the
+ * shape 1 layout. Separate from the dose schema version inside the snapshot,
+ * because the draft's shape and a dose's shape change for different reasons.
+ */
+const DRAFT_SCHEMA_VERSION=1;
 
 /** What this trip through the funnel will actually run. */
 function effectiveMission(r){
@@ -6279,13 +6649,172 @@ function effectiveMission(r){
  * answer: a support-only day has no legacy identity to record, and so does a
  * day whose plan could not be read.
  */
-function captureLaunchPrescription(){
+/**
+ * Every exercise title this build can execute.
+ *
+ * The join between a stored dose and a code-owned definition. Computed once
+ * and cached, because it is a property of the bundle rather than of state.
+ */
+let _executableTitles=null;
+function executableTitles(){
+    if(_executableTitles) return _executableTitles;
+    const out=new Set();
+    for(const k of Object.keys(ROUTINES)) for(const ex of ROUTINES[k]) if(ex&&ex.title) out.add(ex.title);
+    _executableTitles=out;
+    return out;
+}
+
+/**
+ * THE LAUNCH PIPELINE. Freeze what this session will execute.
+ *
+ *   stored baseline        the programme's dose for this date, already
+ *                          validated by the adapter
+ *   apply deload           if the member is in one RIGHT NOW. Deload is about
+ *                          current accumulated load, not about what a plan
+ *                          made a week ago assumed
+ *   apply moderate soreness  if reported today
+ *   validate again         a modifier may not produce a dose that would not
+ *                          have been accepted as a baseline
+ *   freeze                 and from here nothing re-derives any of it
+ *
+ * Each modifier is applied EXACTLY ONCE, in that order. The arithmetic is
+ * unchanged: applyShape, sets floored at 1, duration rounded at each step.
+ *
+ * Returns the snapshot, or null when there is no identity to capture. null is
+ * a real answer: a support-only day, a refused prescription, or a member whose
+ * column is their programme, all of which execute on the dynamic path.
+ */
+function captureLaunchPrescription(mission){
     /* A fresh launch is never a legacy draft, whatever the last one was. */
     _launchLegacyDraft=false;
-    _launchedPrescription=window.BP&&window.BP.launchSnapshotFrom
-        ? window.BP.launchSnapshotFrom(currentTodayPrescription(),new Date())
-        : null;
+    _launchedPrescription=null;
+    if(!window.BP||!window.BP.launchSnapshotFrom) return null;
+    const now=new Date();
+    const pres=currentTodayPrescription();
+    const performed=mission||session.routineType;
+    const xpTier=getDiff().id;
+
+    /* A SUBSTITUTION is its own source. The scheduled prescription's dose
+       belongs to the scheduled mission and may never be applied to a
+       different one, so the performed mission gets an independently derived
+       dose from the current tables, validated by the same validator. The
+       programme's baseline is still carried, because history has to preserve
+       both truths: what was asked for and what was chosen instead. */
+    const substituted=!!(pres&&pres.ok===true&&pres.dayKind==='primary'
+        &&performed&&performed!=='recovery'&&performed!==pres.primaryType);
+
+
+    let exec=null;
+    /* RECOVERY IS NOT PRIMARY WORK. It has its own queue, chosen on its own
+       screen, and freezing the day's Primary dose onto it would hand a girth
+       circuit to a recovery session. A withheld Primary leaves the baseline
+       untouched and carries identity only. */
+    if(pres&&pres.ok===true&&pres.dayKind==='primary'&&performed&&performed!=='recovery'){
+        const live={
+            deload:isDeloadWeek(),
+            moderateSoreness:(localStorage.getItem(getTodaySorenessKey())||'')==='moderate',
+            deloadShape:window.BP.DELOAD_SHAPE,
+            sorenessShape:window.BP.MODERATE_SORENESS_SHAPE,
+        };
+        const baseline=substituted?substituteDoseFor(performed):pres.dose;
+        const applied=baseline?window.BP.applyExecutionModifiers(baseline,live,
+            {titles:executableTitles()}):null;
+        if(applied&&applied.ok){
+            exec={
+                performedType:performed,
+                prescribedDose:pres.dose,
+                executionDose:applied.value,
+                readinessInput:localStorage.getItem(getTodaySorenessKey())||'',
+                appliedModifiers:applied.applied,
+                xpTier,
+            };
+            track('launch_decision',{
+                source:substituted?'substitution':pres.source,
+                mission:performed,
+                scheduled:pres.primaryType,
+                mode:pres.planMode||'',
+                modifiers:applied.applied.join('+')||'none',
+                dose_version:window.BP.DOSE_SCHEMA_VERSION,
+                frozen:true,
+            });
+        } else if(applied&&!applied.ok){
+            /* A modifier produced a dose that will not validate. Fail the
+               launch rather than run the unmodified one: that is a bug in the
+               modifier, not a reason to prescribe something else. */
+            track('dose_validation_failed',{stage:'post_modifier',code:String(applied.code||'')});
+            _reportPlanIntegrity('execution-dose-invalid',pres.date);
+            return null;
+        }
+    }
+    _launchedPrescription=window.BP.launchSnapshotFrom(pres,now,exec);
     return _launchedPrescription;
+}
+
+/**
+ * A dose for a mission the programme did NOT prescribe.
+ *
+ * The one place current tables are permitted to GENERATE a dose, and it is
+ * named so it cannot be mistaken for authority. A member who substitutes has
+ * chosen a session the programme has no prescription for, so there is nothing
+ * stored to honour; resolving it at the current tier is the honest answer and
+ * refusing to let them train would be a worse one. It goes through the same
+ * validator as a stored dose.
+ */
+function substituteDoseFor(mission){
+    if(!window.BP||!window.BP.resolveDose) return null;
+    const d=window.BP.resolveDose(mission,getDiff().id,{
+        routines:ROUTINES, difficulties:DIFFICULTIES, girthCircuit:GIRTH_CIRCUIT,
+        directionals:DIRECTIONALS, exExperience:EX_EXPERIENCE,
+    });
+    if(!d) return null;
+    const ok=window.BP.validateDose(d,{titles:executableTitles()});
+    if(!ok.ok){ track('dose_validation_failed',{stage:'substitution',code:String(ok.code||'')}); return null; }
+    return ok.value;
+}
+
+/**
+ * The frozen execution, expanded into ordered steps. Memoised per snapshot.
+ *
+ * THE SOLE EXECUTION AUTHORITY once a session has launched. Nothing below
+ * reads the current tier, the current tables for dose, the current deload
+ * state, the current soreness, a regenerated day plan or the current date.
+ */
+let _frozenSteps=null, _frozenFor=null;
+function frozenExecution(){
+    const snap=_launchedPrescription;
+    if(!snap||!snap.executionDose) return null;
+    if(_frozenFor===snap) return _frozenSteps;
+    const r=window.BP.expandSteps(snap.executionDose);
+    _frozenSteps=r&&r.ok?r:null;
+    _frozenFor=snap;
+    return _frozenSteps;
+}
+/**
+ * How many steps this session actually runs.
+ *
+ * The frozen dose decides for an authoritative session, because the number of
+ * exercises is part of what was prescribed. The table decides on the dynamic
+ * path. These agree today, and a stored dose that listed fewer exercises than
+ * the table would otherwise have run work nobody prescribed.
+ */
+function executableStepCount(){
+    const f=frozenExecution();
+    if(f&&_launchedPrescription&&_launchedPrescription.performedType===session.routineType){
+        return f.steps.length;
+    }
+    const exs=ROUTINES[session.routineType];
+    return exs?exs.length:0;
+}
+/** The frozen step for the running exercise, or null on the dynamic path. */
+function frozenStep(idx){
+    const f=frozenExecution();
+    if(!f) return null;
+    const snap=_launchedPrescription;
+    /* Only for the mission actually frozen. A member who leaves and starts
+       something else is not executing this snapshot. */
+    if(snap.performedType!==session.routineType) return null;
+    const i=typeof idx==='number'?idx:session.exerciseIndex;
+    return f.steps[i]||null;
 }
 function startMission(mission,source){
     if(!mission) return;
@@ -6294,15 +6823,18 @@ function startMission(mission,source){
        to perform. Capturing after the assignment would make no difference to
        this function, which never reads routineType, and the ordering is kept
        anyway so the dependency cannot be introduced later by accident. */
-    captureLaunchPrescription();
+    captureLaunchPrescription(mission);
     session.routineType=mission;
     track('mission_selected',{mission,source:source||'prescribed'});
     if(mission==='recovery'){ goToRecoveryPicker(); return; }
     if(mission==='girth'){
-        // resetSession() derives the round count from the tier when the
-        // engine opens; this is so the warmup screen has it first.
+        /* resetSession() derives the round count when the engine opens; this
+           is so the warmup screen has it first. Frozen count when there is
+           one, tier table otherwise. */
+        const _f=frozenExecution();
         const cfg=GIRTH_CIRCUIT[getDiff().id]||GIRTH_CIRCUIT.intermediate;
-        session.girthRound=1;session.girthTotalRounds=cfg.rounds;
+        session.girthRound=1;
+        session.girthTotalRounds=(_f&&_f.shape==='circuit')?_f.rounds:cfg.rounds;
     }
     goToStep(mission==='stamina'?4:2);
 }
@@ -6318,6 +6850,14 @@ function readyPlan(r){
     switch(r.state){
         case 'RECOVER':
             return {label:'START RECOVERY', go:()=>{
+                /* Capture the identity, which this branch never did: it set
+                   routineType directly and skipped startMission, so a
+                   Recovery session launched from Ready carried no prescription
+                   date and was invisible to attribution. No DOSE is frozen,
+                   because Recovery is not Primary work and runs its own queue;
+                   the day's Primary baseline is left untouched by having been
+                   withheld. */
+                captureLaunchPrescription('recovery');
                 session.routineType='recovery';
                 track('mission_selected',{mission:'recovery',source:'ready'});
                 goToRecoveryPicker();
@@ -6701,15 +7241,51 @@ function resumeSession(){
        the ABSENT door, would let a corrupt field decide which prescription
        this session satisfied. Either way the member finishes their session;
        only the identity claim is withheld. */
+    /* An unsupported draft shape is refused outright. Nothing is migrated:
+       a draft lives 24 hours, so migration machinery would outlive every
+       record it could serve. */
+    const _dv=draft.v===undefined?1:draft.v;
+    if(_dv!==DRAFT_SCHEMA_VERSION){
+        track('resume_refused',{reason:'draft_version',got:String(_dv)});
+        _reportPlanIntegrity('draft-version-unsupported',
+            window.BP&&window.BP.planDateKey?window.BP.planDateKey(new Date()):'');
+        session._resuming=false;
+        return;
+    }
     const _snap=window.BP&&window.BP.normaliseLaunchSnapshot
-        ? window.BP.normaliseLaunchSnapshot(draft.prescription)
+        ? window.BP.normaliseLaunchSnapshot(draft.prescription,{titles:executableTitles()})
         : {ok:false,reason:'absent'};
     _launchedPrescription=_snap.ok?_snap.value:null;
+    /* The memo is keyed on snapshot identity, so a new object recomputes. */
+    _frozenSteps=null;_frozenFor=null;
+    if(_snap.ok){
+        track('resume_ok',{
+            frozen:!!_snap.value.executionDose,
+            modifiers:(_snap.value.appliedModifiers||[]).join('+')||'none',
+        });
+    } else {
+        track('resume_refused',{reason:String(_snap.reason||''),
+                                code:String((_snap.detail&&_snap.detail.code)||'')});
+    }
     _launchLegacyDraft=!_snap.ok&&_snap.reason===window.BP.SNAPSHOT_REFUSAL.ABSENT;
     if(!_snap.ok&&_snap.reason===window.BP.SNAPSHOT_REFUSAL.MALFORMED){
         _reportPlanIntegrity('launch-snapshot-malformed',
             window.BP&&window.BP.planDateKey?window.BP.planDateKey(new Date()):'');
     }
+    /* The circuit position. The FROZEN round count wins when there is one,
+       because the number of rounds is part of what was prescribed; the
+       draft's own value is the fallback for a dynamic session, and the
+       session default is the last resort for a pre-3C.5 draft. */
+    const _fr=frozenExecution();
+    session.girthRound=Number.isInteger(draft.girthRound)&&draft.girthRound>0
+        ? draft.girthRound : 1;
+    if(_fr&&_fr.shape==='circuit'&&_launchedPrescription
+       &&_launchedPrescription.performedType===session.routineType){
+        session.girthTotalRounds=_fr.rounds;
+    } else if(Number.isInteger(draft.girthTotalRounds)&&draft.girthTotalRounds>0){
+        session.girthTotalRounds=draft.girthTotalRounds;
+    }
+    if(session.girthRound>session.girthTotalRounds) session.girthRound=1;
     goToStep(4);
     session._resuming=false;
 }
@@ -6760,7 +7336,11 @@ function finishSession(){
     const bpel=parseFloat(document.getElementById('input-bpel').value);
     const mseg=parseFloat(document.getElementById('input-mseg').value);
     const note=document.getElementById('session-note-input').value.trim().slice(0,NOTE_MAX_CHARS);
-    const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100);
+    /* The XP basis is frozen at launch when there is a snapshot. It is
+       durable history derived from a mutable tier, so a tier change between
+       launch and completion used to rewrite what was recorded. */
+    const _xpTier=(_launchedPrescription&&_launchedPrescription.xpTier)||getDiff().id;
+    const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[_xpTier]||100);
     /* ONE clock read for the whole completion. finishSession() used to call
        new Date() four separate times, so a rollover mid-function could make
        its own fields describe different days. */
@@ -6828,10 +7408,34 @@ function finishSession(){
         rpe:selectedRPE,
         duration:_sessionStartTime?Math.round((completedAt.getTime()-_sessionStartTime)/60000):null,
     };
+    /* ── EXECUTION TRUTH, three facts kept apart ───────────────────────────
+       What the programme prescribed, what adjusted it, and what was actually
+       executed. Written only when the session launched with a frozen
+       snapshot, so a legacy session and a pre-3C.5 resume carry none of these
+       fields and read exactly as they always have.
+
+       prescribedDose is the PROGRAMME's baseline even on a substitution,
+       because the whole point of history is to preserve both truths: what was
+       asked for, and what the member chose instead. The two are never merged
+       and one mission's dose is never applied to another. */
+    if(_snap&&_snap.executionDose){
+        _entry.doseVersion=_snap.doseVersion;
+        _entry.prescribedDose=_snap.prescribedDose||null;
+        _entry.executedDose=_snap.executionDose;
+        _entry.appliedModifiers=_snap.appliedModifiers||[];
+        _entry.planMode=_snap.planMode||null;
+        _entry.readinessInput=_snap.readinessInput||'';
+        if(_snap.source==='substitution'||_snap.performedType!==_snap.scheduledType){
+            _entry.substituted=true;
+        }
+    }
     /* Both lists are built WHOLE, so the commit replaces a reference rather
        than mutating an array in place. trimToByteBudget returns a new array
        and touches neither input. */
-    const _nextLog=trimToByteBudget([...(persisted.sessionLog||[]),_entry],SESSION_LOG_BUDGET_BYTES);
+    /* Named so the post-commit telemetry can report what trimming removed.
+       Purely a name: the value is the same array literal as before. */
+    const _candidateLog=[...(persisted.sessionLog||[]),_entry];
+    const _nextLog=trimToByteBudget(_candidateLog,SESSION_LOG_BUDGET_BYTES);
     let _nextMeasurements=null;
     if(!isNaN(bpel)||!isNaN(mseg)){
         const e={date:completedAt.toISOString()};
@@ -6856,8 +7460,32 @@ function finishSession(){
     _manualMission=null;
     _launchedPrescription=null;
     _launchLegacyDraft=false;
+    _frozenSteps=null;_frozenFor=null;
     /* ══ POST COMMIT. Derived state and side effects. A throw here cannot
           duplicate a completion, because the guard is already up. ══ */
+
+    /* Trimming used to be completely silent: no event, no log, no notice, so
+       history could start disappearing and nothing anywhere recorded it.
+       This reports only aggregate numbers. No dose, no note, nothing the
+       member typed, which _cleanProps would drop anyway since it admits only
+       numbers, booleans and short enums.
+
+       POST commit on purpose. The commit is assignment only and must not call
+       anything that can throw, and the whole block is wrapped because
+       telemetry must never block a completion that already happened. */
+    if(_nextLog.length<_candidateLog.length){
+        try{
+            track('session_log_trimmed',{
+                entries_before: _candidateLog.length,
+                entries_after:  _nextLog.length,
+                entries_removed:_candidateLog.length-_nextLog.length,
+                bytes_before:   JSON.stringify(_candidateLog).length,
+                bytes_after:    JSON.stringify(_nextLog).length,
+                budget:         SESSION_LOG_BUDGET_BYTES,
+                trigger:        'session_complete',
+            });
+        }catch(e){}
+    }
 
     /* The programme starts on the first completed mechanical session, and
        on nothing else: not sign-up, not choosing a goal, not opening
@@ -7536,13 +8164,43 @@ function preferredName(){
  */
 async function savePreferredName(value){
     if(!currentUser) return false;
+    /* APPLIED LOCALLY FIRST, before the round trip.
+       commitPreferredName fires and forgets so an optional write can never
+       trap anyone in onboarding, which is right. But onboarding then advances
+       in milliseconds and finishOnboarding starts the tour 450ms later, so on
+       a slow connection every immediate consumer read currentUser while the
+       write was still in flight and saw no name: a man who had just typed his
+       name was greeted as though he had given none.
+
+       Applying it here closes that window without making persistence a gate.
+       If the write then fails, this optimistic value lives for the session
+       and is gone on the next load, which matches the existing deliberate
+       choice that a failed optional-name write says nothing. */
+    const _before=currentUser;
+    const _optimistic={...currentUser,
+        user_metadata:{...(currentUser.user_metadata||{}),preferred_name:value}};
+    currentUser=_optimistic;
+    /* AND ROLLED BACK IF IT FAILS, which is not optional: a failed name write
+       must leave no name, honestly, on every surface. The Account editor has
+       to stay visibly unsaved, and onboarding has to end up with no name
+       rather than a value that only exists in memory. Optimism that survives
+       failure would be a lie in both places. The window is the flight time
+       and nothing longer.
+
+       Restored only if nothing else has reassigned currentUser meanwhile, so
+       a logout or an account switch during the round trip cannot resurrect
+       the departed member. */
     try{
         const {data,error}=await sb.auth.updateUser({data:{preferred_name:value}});
-        if(error) return false;
-        if(data&&data.user) currentUser=data.user;
-        else currentUser={...currentUser,user_metadata:{...(currentUser.user_metadata||{}),preferred_name:value}};
+        if(error){ if(currentUser===_optimistic) currentUser=_before; return false; }
+        /* The CONFIRMED metadata replaces the optimistic copy, so what is in
+           memory afterwards is what the auth store actually holds. */
+        if(data&&data.user&&currentUser===_optimistic) currentUser=data.user;
         return true;
-    }catch(e){ return false; }
+    }catch(e){
+        if(currentUser===_optimistic) currentUser=_before;
+        return false;
+    }
 }
 
 /**
@@ -7722,9 +8380,38 @@ function _blockingModalOpen(){
     });
 }
 
+/* Is the HQ actually ready to be pointed at?
+   The first-run failure this exists for: window.BP was undefined, so
+   renderToday returned at its own guard and left the STATIC markup, and the
+   tour then ran anyway and described sections that had never rendered. A tour
+   over broken content turns a silent failure into a confusing one, so it is
+   now gated on the HQ having really drawn.
+
+   The headline check is the load bearing one, because it is the difference
+   between "renderToday ran" and "the static HTML is still there": the markup
+   ships with an empty headline and only a real render fills it. */
+function _hqReadyForTour(){
+    if(!window.BP) return false;
+    if(window._bpHqRendered!==true) return false;
+    const h=document.getElementById('today-headline');
+    if(!h||!(h.textContent||'').trim()) return false;
+    const first=document.querySelector(TOUR_STOPS[0]&&TOUR_STOPS[0].sel);
+    if(!first) return false;
+    const r=first.getBoundingClientRect();
+    return r.width>0 && r.height>0;
+}
 function maybeStartTour(_waited){
     if(!currentUser) return;
     if(localStorage.getItem('bp_tour_done_'+currentUser.id)) return;
+    /* Wait for the HQ rather than refusing outright: on a slow first run the
+       render can still be settling when finishOnboarding's timer fires. The
+       same bounded wait the blocking-modal branch uses, and then give up
+       rather than tour a broken screen. */
+    if(!_hqReadyForTour()){
+        const waited=(_waited||0)+1;
+        if(waited>30) return;
+        return setTimeout(()=>maybeStartTour(waited),500);
+    }
     if(_blockingModalOpen()){
         /* Roughly fifteen seconds of waiting, then let it go. A modal still up
            after that is one the user is reading, and interrupting it with a
@@ -7890,8 +8577,25 @@ function importData(file){
             adoptPersisted(p);
             // Same bounds a normal session would be held to, so an oversized or
             // hand-edited backup cannot leave the app in a state it cannot save.
-            persisted.sessionLog=trimToByteBudget(persisted.sessionLog||[],SESSION_LOG_BUDGET_BYTES);
+            const _importedLog=persisted.sessionLog||[];
+            persisted.sessionLog=trimToByteBudget(_importedLog,SESSION_LOG_BUDGET_BYTES);
             persisted.measurements=trimToByteBudget(persisted.measurements||[],MEASUREMENTS_BUDGET_BYTES);
+            /* Same aggregate-only event, different trigger. One import is one
+               deliberate act, so there is no repeated-processing to guard
+               against here the way there would be on a render path. */
+            if(persisted.sessionLog.length<_importedLog.length){
+                try{
+                    track('session_log_trimmed',{
+                        entries_before: _importedLog.length,
+                        entries_after:  persisted.sessionLog.length,
+                        entries_removed:_importedLog.length-persisted.sessionLog.length,
+                        bytes_before:   JSON.stringify(_importedLog).length,
+                        bytes_after:    JSON.stringify(persisted.sessionLog).length,
+                        budget:         SESSION_LOG_BUDGET_BYTES,
+                        trigger:        'data_import',
+                    });
+                }catch(e){}
+            }
             savePersisted();renderDashboard();alert('Data restored.');
         }
         catch(err){alert('Import failed — invalid file.')}
@@ -8516,15 +9220,33 @@ function _closeMemberOverlays(){
     closeAccountEditor();
 }
 async function handleLogout(){
+    /* CAPTURE FIRST. The flush used to run after currentUser was already null,
+       so _flushSaveNow() refused on its own guard and flushAnalytics() did the
+       same: the logout flush was a no-op in BOTH paths. Nothing was lost,
+       because _writeLocalBackup() had already run synchronously and the dirty
+       flag was set, but the sync was deferred to the member's next login for
+       no reason. */
+    const _outUid=currentUser?currentUser.id:null;
+    const _outPayload=(_outUid&&_persistedLoaded)?{id:_outUid,..._buildSavePayload()}:null;
+    const _outEvents=_outUid?_analyticsBuffer.slice():[];
+
     // Clear state and show auth screen immediately — don't wait on the network.
     // Any in-flight onUserSignedIn will see currentUser cleared and abort.
     currentUser=null;persisted={...DEFAULT_PERSISTED};
+    /* A pending debounced write for the outgoing account is superseded by the
+       captured flush below, so it must not also fire. */
+    clearTimeout(_saveDebounce);
     _releaseWakeLock();
     showAuthScreen();
     _closeMemberOverlays();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
-    _flushSaveNow();
-    flushAnalytics();
+
+    /* Awaited, but bounded, and only AFTER the UI has already changed: the
+       member is on the auth screen and cannot tell. Both writes need the JWT,
+       which signOut is about to destroy, so they go first. A deadline bounds
+       the wait so a dead network cannot delay the sign-out indefinitely. */
+    if(_outPayload){ try{ await _commitWrite(_outUid,_outPayload); }catch(e){} }
+    if(_outEvents.length){ try{ await _flushAnalyticsFor(_outUid,_outEvents); }catch(e){} }
     try{await sb.auth.signOut();}catch(e){console.error('signOut error:',e);}
 }
 // ── Purchase link shown when a signed-in email is not on the members list ──
@@ -8538,27 +9260,40 @@ function _purchaseLinksHTML(){
     const k=KOFI_URL?`<a href="${KOFI_URL}" target="_blank" rel="noopener" style="color:#60a5fa;text-decoration:underline">get access here</a>`:'purchase The Blueprint';
     return `No membership found for this email. If you have not joined yet, ${k}, then sign in with the same email you purchased with.<br><span style="opacity:.75">Just bought? Give it about a minute, then tap SIGN IN again.</span>`;
 }
-async function _membersLookup(email,ms){
+/* MEMBERSHIP AUTHORITY IS THE SUPABASE USER UUID, NOT THE EMAIL.
+
+   The purchase email proves entitlement exactly once. claim_membership()
+   attaches that purchase row to auth.uid() and from then on the UUID is the
+   authority, which is what lets a member later sign in through Apple with a
+   private relay address, or change their account email, without becoming a
+   different customer.
+
+   The client deliberately passes NOTHING. The RPC reads auth.uid() and the
+   verified email from the session itself, so there is no parameter here for a
+   caller to tamper with: no email to spoof and no user id to choose. */
+async function _claimMembership(ms){
     const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));
-    const _query=sb.from('members').select('email').eq('email',email).single();
-    return Promise.race([_query,_timeout]);
+    return Promise.race([sb.rpc('claim_membership'),_timeout]);
 }
 async function checkMembership(user){
-    // Verifies the signed-in email against the members table (populated by the
-    // Ko-fi webhook, and historically the Whop one).
     try{
         let res;
         try{
-            res=await _membersLookup(user.email,8000);
+            res=await _claimMembership(8000);
         }catch(firstErr){
             // One retry before turning a paying member away. A first sign-in on
             // a new device has no cached pass to fall back on, so a single slow
             // request would otherwise send them back to the sign-in screen.
-            console.warn('membership lookup retrying after:',firstErr.message);
-            res=await _membersLookup(user.email,8000);
+            console.warn('membership claim retrying after:',firstErr.message);
+            res=await _claimMembership(8000);
         }
         const {data,error}=res;
-        if(error||!data){
+        /* `data` is the RPC's boolean: does this UUID own an entitlement. An
+           error is a failed verification, not a denial, so it is thrown to the
+           catch below where the verified-device fallback lives. Treating it as
+           "not a member" would lock out a paying member on a bad request. */
+        if(error) throw new Error(error.message||'claim failed');
+        if(data!==true){
             // Definitively not a member. Drop any cached pass so a refunded or
             // removed member cannot keep riding an old device.
             try{localStorage.removeItem('bp_member_ok_'+user.id);}catch(e){}
@@ -9247,6 +9982,23 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     // release the lock before any query runs.
     sb.auth.onAuthStateChange((event,session)=>{
         if(event==='SIGNED_OUT'){
+            /* IDEMPOTENT. handleLogout already cleared these and flushed the
+               captured payload, so arriving second must be harmless. This
+               path also runs when handleLogout never ran at all: a token
+               expiry, or a sign-out in another tab.
+
+               It cannot tell WHOSE session ended, because SIGNED_OUT carries
+               a null session, so there is no uid to compare. supabase-js
+               serialises auth events on a single client, so a SIGNED_OUT for
+               the previous account cannot arrive after the next account's
+               SIGNED_IN on this client; that interleaving is a cross-TAB
+               concern and belongs to 3C.6.
+
+               The pending debounced write is dropped rather than flushed: its
+               payload was captured for the departing account and its backup
+               and dirty flag both stand, so the next load for that account
+               reconciles by resending. */
+            clearTimeout(_saveDebounce);
             currentUser=null;persisted={...DEFAULT_PERSISTED};_persistedLoaded=false;
             // Also reached when the session ends somewhere else: another tab,
             // or an expired token. handleLogout() never ran, so the overlays
@@ -9350,7 +10102,7 @@ import { classifyLegacySchedule, migrationProgramme, mayGenerateOver,
    programme and the seven-slot column becomes a projection derived from
    them. It changes no prescription, only where the prescription lives. */
 import { cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
-         PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL } from '../src/programmeGenerate.js';
+         PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, resolveDose } from '../src/programmeGenerate.js';
 /* The validator, so a reader can tell a prescription from a data-integrity
    condition instead of trusting a raw object's shape. */
 import { normaliseDayPlan } from '../src/dayPlan.js';
@@ -9369,6 +10121,12 @@ import { todayPrescription, primarySatisfied, launchSnapshotFrom,
          normaliseLaunchSnapshot, DAY_KIND, PRESCRIPTION_REFUSAL,
          PRESCRIPTION_SOURCE, SNAPSHOT_REFUSAL } from '../src/todayPrescription.js';
 import { attributeEntry, ATTRIBUTION } from '../src/sessionAttribution.js';
+/* Phase 3C.5. The stored dose becomes the execution baseline: one validator,
+   one modifier application, one expansion into steps. resolveDose is imported
+   for the ONE case current tables may still generate a dose, a manual
+   substitution, where the programme prescribed nothing to honour. */
+import { validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
+         DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS } from '../src/doseExecution.js';
 window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -9386,13 +10144,15 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               classifyLegacySchedule, migrationProgramme, mayGenerateOver,
               PROGRAMME_SOURCE, CLASSIFY_REASON,
               cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
-              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan,
+              PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan, resolveDose,
               weekStripSlots, buildWeekStripModel, WEEK_STRIP_STATE, WEEK_STRIP_DAYS,
               nextTrainingDay, NEXT_UP_HORIZON_DAYS,
               todayPrescription, primarySatisfied, launchSnapshotFrom,
               normaliseLaunchSnapshot, DAY_KIND, PRESCRIPTION_REFUSAL,
               PRESCRIPTION_SOURCE, SNAPSHOT_REFUSAL,
-              attributeEntry, ATTRIBUTION };
+              attributeEntry, ATTRIBUTION,
+              validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
+              DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();

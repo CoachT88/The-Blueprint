@@ -20,7 +20,45 @@ function redactEmail(email) {
   return `${user.slice(0, 2)}***@${domain}`;
 }
 
+/* EMAIL REMAINS THE INITIAL ENTITLEMENT KEY, and it has to: a purchase
+   usually arrives before the buyer has an account at all. A row with
+   user_id null is the correct resting state, and the next legitimate
+   email-authenticated sign-in claims it through claim_membership().
+
+   This is only an optimisation on top: if exactly ONE existing auth user
+   already holds this verified email, the row can be attached immediately so
+   that buyer never needs the claim step. Exactly one, because zero means
+   there is nobody to attach to yet and more than one is ambiguous, and
+   guessing between them would hand an entitlement to the wrong account. */
+async function findSoleAuthUser(email, supabaseUrl, serviceKey) {
+  try {
+    const url = `${supabaseUrl}/auth/v1/admin/users?per_page=2&filter=`
+      + encodeURIComponent(email);
+    const res = await fetch(url, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => null);
+    const users = Array.isArray(body) ? body : (body && Array.isArray(body.users) ? body.users : null);
+    if (!users) return null;
+    /* The filter is a server-side search, so re-check the address exactly and
+       only accept a CONFIRMED one: an unconfirmed address proves nothing and
+       anybody can type it at signup. */
+    const exact = users.filter(u => u && typeof u.email === 'string'
+      && u.email.toLowerCase() === email.toLowerCase()
+      && (u.email_confirmed_at || u.confirmed_at));
+    return exact.length === 1 ? exact[0].id : null;
+  } catch (e) {
+    return null;                       // never block a purchase on this
+  }
+}
+
 async function upsertMember(email, supabaseUrl, serviceKey) {
+  /* STEP 1. The entitlement itself, keyed on email and carrying no identity.
+     Sending user_id here would be wrong even when one is known, because
+     merge-duplicates would overwrite a user_id that a claim had already
+     attached, and a repeat purchase would silently move a live entitlement
+     onto a different account. */
   const res = await fetch(`${supabaseUrl}/rest/v1/members`, {
     method: 'POST',
     headers: {
@@ -32,6 +70,30 @@ async function upsertMember(email, supabaseUrl, serviceKey) {
     body: JSON.stringify([{ email }]),
   });
   if (!res.ok) throw new Error(`Supabase upsert failed: ${res.status}`);
+
+  /* STEP 2, best effort. Attach identity ONLY to a row that nobody owns yet.
+     The user_id=is.null filter is what makes this unable to steal: if a
+     claim or an earlier webhook already attached someone, the PATCH matches
+     no rows and changes nothing. A failure is swallowed because the purchase
+     is already recorded and the claim path still works. */
+  try {
+    const soleUserId = await findSoleAuthUser(email, supabaseUrl, serviceKey);
+    if (!soleUserId) return;
+    await fetch(`${supabaseUrl}/rest/v1/members`
+      + `?email=eq.${encodeURIComponent(email)}&user_id=is.null`, {
+      method: 'PATCH',
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ user_id: soleUserId, claimed_at: new Date().toISOString() }),
+    });
+  } catch (e) {
+    /* Never let the optimisation fail the webhook: Ko-fi would retry a
+       purchase that has in fact already been recorded. */
+  }
 }
 
 /* Compared in constant time so response latency cannot be used to recover the

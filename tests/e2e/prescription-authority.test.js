@@ -86,7 +86,28 @@ const diverge = (page, plan, slot) => page.evaluate(({ plan, slot }) => {
     return out;
 }, { plan, slot });
 
-const PRIMARY = (type) => ({ mode: 'prescribed', primarySession: { type, title: type } });
+/**
+ * A Primary plan in PRODUCTION shape.
+ *
+ * As of Phase 3C.5 that means it carries a stored dose, because the dose is
+ * now the execution baseline and a Primary without one fails closed. Real
+ * exercise titles, including the em dash in the Uli station, because the
+ * dose-to-definition join is exact and a fixture with approximate titles
+ * would be describing a plan the app cannot execute.
+ */
+const DOSE = {
+    girth: { v: 1, shape: 'circuit', tier: 'intermediate', rounds: 4, restDur: 45,
+             stations: [{ title: 'Wet Jelq', duration: 120 },
+                        { title: 'Uli — Manual Clamp', duration: 45 }] },
+    length: { v: 1, shape: 'sets', tier: 'intermediate',
+              exercises: [{ title: 'Directional Pulls', sets: 3, duration: 30, directions: 5 },
+                          { title: 'V-Stretch', sets: 3, duration: 30 }] },
+    stamina: { v: 1, shape: 'sets', tier: 'intermediate',
+               exercises: [{ title: 'Edging — Controlled Hold', sets: 3, duration: 120 },
+                           { title: 'Lateral Compression', sets: 3, duration: 15, restDur: 30 }] },
+};
+const PRIMARY = (type) => ({ mode: 'prescribed',
+    primarySession: { type, title: type, tier: 'intermediate', dose: DOSE[type] } });
 const REST = { mode: 'rest' };
 const SUPPORT = { mode: 'prescribed', supportingWork: [{ type: 'mobility', title: 'Hips' }] };
 const CORRUPT = { mode: 'not-a-mode', primarySession: { type: 'girth' } };

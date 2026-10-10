@@ -50,6 +50,7 @@ import { localDateKey, dateKeyForWeekday } from './weekUtils.js';
 import { normaliseDayPlan, isDateKey } from './dayPlan.js';
 import { classifySlot, SLOT_CLASS, LEGACY_PRIMARY_TYPES, LEGACY_REST } from './scheduleSlot.js';
 import { performedByAttribution } from './sessionAttribution.js';
+import { validateDose, DOSE_SCHEMA_VERSION } from './doseExecution.js';
 
 /** What kind of day the programme prescribed. Three answers, all valid. */
 export const DAY_KIND = Object.freeze({
@@ -71,6 +72,30 @@ export const PRESCRIPTION_REFUSAL = Object.freeze({
     PLAN_UNREADABLE:  'plan_unreadable',
     /** A prescribed type outside the vocabulary this build can run. */
     SLOT_UNRESOLVED:  'slot_unresolved',
+    /**
+     * A stored planMode this build has no truthful execution semantics for.
+     *
+     * `modified` and `protective` are valid persisted vocabulary that the
+     * generator has never emitted and that nothing has ever interpreted. Phase
+     * 3C.5 makes them FAIL CLOSED rather than treating them as `prescribed`:
+     * a mode we cannot explain arriving in production means something wrote it
+     * that we do not understand, and the one outcome we could not justify is
+     * running it as ordinary training. Their meanings belong to
+     * programme-content work.
+     */
+    MODE_NOT_EXECUTABLE: 'mode_not_executable',
+    /**
+     * The plan says it was generated from a different programme.
+     *
+     * generatedFrom.programmeKey is stamped on every generated plan, so a
+     * disagreement with the member's current programme.key is inconsistent
+     * authoritative data rather than a transition we can interpret.
+     */
+    PROGRAMME_MISMATCH: 'programme_mismatch',
+    /** An authoritative Primary with no stored dose at all. */
+    DOSE_MISSING:     'dose_missing',
+    /** A stored dose present but not executable. Never reconstructed. */
+    DOSE_INVALID:     'dose_invalid',
 });
 
 export const PRESCRIPTION_SOURCE = Object.freeze({
@@ -154,6 +179,27 @@ export function todayPrescription(input) {
         return { ...base, dayKind: DAY_KIND.REST, primaryType: null, dose: null };
     }
 
+    /* PROVENANCE. Every generated plan carries generatedFrom.programmeKey, so
+       when the caller tells us which programme the member is on the two must
+       agree. Checked before the dose, because a plan from another programme is
+       the wrong prescription whatever its numbers say. Only when both are
+       present and readable: an older plan with no provenance is not evidence
+       of a mismatch. */
+    const from = isPlainObject(plan.generatedFrom) ? plan.generatedFrom : null;
+    const stampedKey = from && typeof from.programmeKey === 'string' ? from.programmeKey : null;
+    if (stampedKey && typeof i.programmeKey === 'string' && i.programmeKey
+        && stampedKey !== i.programmeKey) {
+        return { ok: false, source: src, date, reason: PRESCRIPTION_REFUSAL.PROGRAMME_MISMATCH,
+                 detail: { stamped: stampedKey, current: i.programmeKey } };
+    }
+
+    /* MODE. See MODE_NOT_EXECUTABLE. `prescribed` is the only executable mode
+       for a Primary, and `rest` was answered above. */
+    if (plan.mode !== 'prescribed') {
+        return { ok: false, source: src, date, reason: PRESCRIPTION_REFUSAL.MODE_NOT_EXECUTABLE,
+                 detail: { planMode: plan.mode } };
+    }
+
     const primary = plan.primarySession;
     if (!primary || typeof primary.type !== 'string' || !primary.type) {
         /* Valid programme state: supporting work and no Primary. NOT rest,
@@ -167,12 +213,31 @@ export function todayPrescription(input) {
            plan lands here, and prescribing nothing is the honest answer. */
         return { ok: false, source: src, date, reason: PRESCRIPTION_REFUSAL.SLOT_UNRESOLVED };
     }
+    /* THE DOSE IS NOW LOAD BEARING. It was carried unread until 3C.5.
+       A Primary with no stored dose, or with one that does not validate,
+       prescribes NOTHING: the current tables may supply exercise definitions
+       and instruction, and they may not reconstruct a baseline the programme
+       already stored. That reconstruction is the authority leak this phase
+       closes, and falling back to it here would reopen it. */
+    if (primary.dose === undefined || primary.dose === null) {
+        return { ok: false, source: src, date, reason: PRESCRIPTION_REFUSAL.DOSE_MISSING };
+    }
+    const checked = validateDose(primary.dose, { titles: i.titles, tier: primary.tier });
+    if (!checked.ok) {
+        return { ok: false, source: src, date, reason: PRESCRIPTION_REFUSAL.DOSE_INVALID,
+                 detail: { code: checked.code, ...(checked.detail || {}) } };
+    }
+
     return {
         ...base,
         dayKind: DAY_KIND.PRIMARY,
         primaryType: primary.type,
-        /* Carried, NOT consumed. Phase 3C.5 decides execution authority. */
-        dose: primary.dose === undefined ? null : primary.dose,
+        tier: typeof primary.tier === 'string' ? primary.tier : null,
+        programmeKey: stampedKey,
+        /* The normalised, frozen baseline. Not the raw stored object: every
+           reader downstream gets the same validated shape. */
+        dose: checked.value,
+        doseWarnings: checked.warnings,
     };
 }
 
@@ -283,7 +348,7 @@ export const SNAPSHOT_REFUSAL = Object.freeze({
  * nothing can launch from that day anyway: isBlackoutDay() blocks the
  * mechanical missions and there is no Primary to depart from.
  */
-export function launchSnapshotFrom(prescription, now) {
+export function launchSnapshotFrom(prescription, now, exec) {
     const p = prescription;
     if (!isPlainObject(p) || p.ok !== true) return null;
     if (!isDateKey(p.date)) return null;
@@ -296,12 +361,35 @@ export function launchSnapshotFrom(prescription, now) {
     } else {
         return null;
     }
-    return Object.freeze({
+    const e = isPlainObject(exec) ? exec : {};
+    const out = {
+        /* 3C.4 identity. Unchanged. */
         source: p.source,
         prescriptionDate: p.date,
         scheduledType,
         capturedAt: validDate(now) ? now.toISOString() : null,
-    });
+        /* 3C.5 execution authority. Enough to answer, without consulting a
+           second source: which prescription, what baseline, what readiness was
+           sampled, what was applied, what exactly is frozen, what is actually
+           being performed, when, and under which dose schema.
+
+           No session id and no cross-tab coordination: that subsystem is 3C.6
+           and smuggling its identifier in here through the schema would be
+           the same mistake in a different file. */
+        planMode: typeof p.planMode === 'string' ? p.planMode : null,
+        performedType: typeof e.performedType === 'string' && e.performedType
+            ? e.performedType : scheduledType,
+        prescribedDose: isPlainObject(e.prescribedDose) ? e.prescribedDose : null,
+        executionDose: isPlainObject(e.executionDose) ? e.executionDose : null,
+        readinessInput: typeof e.readinessInput === 'string' ? e.readinessInput : '',
+        appliedModifiers: Object.freeze(Array.isArray(e.appliedModifiers)
+            ? e.appliedModifiers.slice() : []),
+        doseVersion: isPlainObject(e.executionDose) ? DOSE_SCHEMA_VERSION : null,
+        /* The tier the XP award is computed from, frozen so a tier change
+           between launch and completion cannot rewrite recorded history. */
+        xpTier: typeof e.xpTier === 'string' ? e.xpTier : null,
+    };
+    return Object.freeze(out);
 }
 
 /**
@@ -343,6 +431,46 @@ export function normaliseLaunchSnapshot(raw, opts) {
     const types = (opts && Array.isArray(opts.primaryTypes)) ? opts.primaryTypes : LEGACY_PRIMARY_TYPES;
     if (typeof raw.scheduledType !== 'string'
         || !(types.includes(raw.scheduledType) || raw.scheduledType === LEGACY_REST)) return bad;
+    /* THE EXECUTION HALF, and the cohort distinction has to stay strict.
+
+         executionDose ABSENT   a snapshot written before 3C.5 existed. The
+                                identity is good and there is no frozen dose
+                                to honour, so the caller resumes on the
+                                documented legacy dynamic path. Historical
+                                absence, exactly as 3C.4 treats an absent
+                                prescriptionDate.
+
+         executionDose PRESENT
+         but not valid          new-world data that does not hold up. REFUSED.
+                                It must NOT regain the compatibility path,
+                                because that path reconstructs the dose from
+                                current tables and a malformed snapshot would
+                                then become a licence to do the one thing this
+                                phase forbids.
+
+       The performed type is validated the same way as the scheduled one, so a
+       substituted resume cannot smuggle in an unexecutable mission. */
+    const hasExec = raw.executionDose !== undefined && raw.executionDose !== null;
+    let executionDose = null;
+    let prescribedDose = null;
+    if (hasExec) {
+        const ex = validateDose(raw.executionDose, { titles: opts && opts.titles });
+        if (!ex.ok) return { ok: false, reason: SNAPSHOT_REFUSAL.MALFORMED, detail: { code: ex.code } };
+        executionDose = ex.value;
+        if (raw.prescribedDose !== undefined && raw.prescribedDose !== null) {
+            const pre = validateDose(raw.prescribedDose, { titles: opts && opts.titles });
+            if (!pre.ok) return { ok: false, reason: SNAPSHOT_REFUSAL.MALFORMED, detail: { code: pre.code } };
+            prescribedDose = pre.value;
+        }
+        if (raw.doseVersion !== undefined && raw.doseVersion !== DOSE_SCHEMA_VERSION) {
+            return { ok: false, reason: SNAPSHOT_REFUSAL.MALFORMED,
+                     detail: { code: 'unsupported_version', got: raw.doseVersion } };
+        }
+    }
+    const performedType = typeof raw.performedType === 'string' && raw.performedType
+        ? raw.performedType : raw.scheduledType;
+    if (!(types.includes(performedType) || performedType === LEGACY_REST)) return bad;
+
     return {
         ok: true,
         value: Object.freeze({
@@ -350,6 +478,15 @@ export function normaliseLaunchSnapshot(raw, opts) {
             prescriptionDate: raw.prescriptionDate,
             scheduledType: raw.scheduledType,
             capturedAt: typeof raw.capturedAt === 'string' ? raw.capturedAt : null,
+            planMode: typeof raw.planMode === 'string' ? raw.planMode : null,
+            performedType,
+            prescribedDose,
+            executionDose,
+            readinessInput: typeof raw.readinessInput === 'string' ? raw.readinessInput : '',
+            appliedModifiers: Object.freeze(Array.isArray(raw.appliedModifiers)
+                ? raw.appliedModifiers.slice() : []),
+            doseVersion: executionDose ? DOSE_SCHEMA_VERSION : null,
+            xpTier: typeof raw.xpTier === 'string' ? raw.xpTier : null,
         }),
     };
 }

@@ -226,6 +226,11 @@ describe('the dose is resolved, never a reference', () => {
 
     test('set-based work carries post-tier numbers', () => {
         expect(resolveDose('length', 'intermediate', TABLES)).toEqual({
+            /* The dose SCHEMA version, stamped as of Phase 3C.5 so execution
+               can refuse a shape it does not understand instead of guessing.
+               Separate from PROGRAMME_CONTENT_VERSION, which versions a
+               programme's content rather than this object's shape. */
+            v: 1,
             shape: 'sets', tier: 'intermediate',
             exercises: [
                 { title: 'Directional Pulls', sets: 3, duration: 30, directions: 5 },
@@ -271,6 +276,7 @@ describe('the dose is resolved, never a reference', () => {
 
     test('girth is the circuit table, not the tier offsets', () => {
         expect(resolveDose('girth', 'advanced', TABLES)).toEqual({
+            v: 1,
             shape: 'circuit', tier: 'advanced', rounds: 5, restDur: 60,
             stations: [
                 { title: 'Wet Jelq', duration: 150 },

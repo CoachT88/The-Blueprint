@@ -389,20 +389,26 @@ async function identify(request, env) {
      { ok: false, kind: 'not-member' }     -> 403
      { ok: false, kind: 'misconfigured' }  -> 503, our deploy is wrong
      { ok: false, kind: 'upstream' }       -> 503, Supabase is unwell         */
-async function checkMembership(email, env, supabase) {
+async function checkMembership(userId, env, supabase) {
   if (!env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error('coach-tee: SUPABASE_SERVICE_ROLE_KEY is not set, cannot check membership');
     return { ok: false, kind: 'misconfigured', why: 'no-service-key' };
   }
-  /* A verified token with no email claim cannot be matched against the members
-     table, and letting it through would skip the gate entirely. */
-  if (!email) {
-    console.error('coach-tee: verified token carried no email claim');
-    return { ok: false, kind: 'not-member', why: 'no-email-claim' };
+  /* THE MEMBERSHIP IDENTITY IS THE JWT SUBJECT, not the email claim.
+     Email proves a purchase once, at claim time; after that the entitlement
+     belongs to the Supabase user UUID. Matching on email here would make a
+     member a different customer the moment they sign in through Apple with a
+     private relay address, or change the address on their account.
+
+     A verified token always carries sub, and auth already refused without
+     it, so there is no no-identity case left to handle here. */
+  if (!userId) {
+    console.error('coach-tee: verified token carried no subject');
+    return { ok: false, kind: 'not-member', why: 'no-subject' };
   }
   let res;
   try {
-    const url = supabase.url + '/rest/v1/members?select=email&limit=1&email=eq.' + encodeURIComponent(email);
+    const url = supabase.url + '/rest/v1/members?select=user_id&limit=1&user_id=eq.' + encodeURIComponent(userId);
     res = await fetch(url, {
       headers: {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -490,7 +496,7 @@ export async function onRequestPost({ request, env }) {
   /* A signed-in account is not the same as a paying one. Anyone can create a
      Supabase account against a public anon key, so without this the endpoint
      is still open to anybody willing to sign up. */
-  const member = await checkMembership(user.email, env, supabase);
+  const member = await checkMembership(user.id, env, supabase);
   if (!member.ok && member.kind === 'not-member') {
     console.warn('coach-tee: refused a signed-in non-member,', user.id, member.why);
     return json({ error: { message: 'Coach Tee is for Blueprint members.' } }, 403);

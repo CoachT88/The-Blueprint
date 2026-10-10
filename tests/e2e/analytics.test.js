@@ -257,6 +257,14 @@ describe('membership denial is still recorded', () => {
         // the JWT with it, so the event has to be emitted before that happens.
         const events = await app.page.evaluate(async () => {
             _analyticsBuffer = [];
+            /* claim_membership() reads identity from the session, so a denial
+               test needs one: without it the RPC cannot answer at all and the
+               path taken is the could-not-verify fallback, which is a
+               different event for a different reason. This is a real session
+               with no purchase row behind it. */
+            window.__members = [];
+            window.__session = { user: { id: 'denied-user', email: 'nobody@example.com' },
+                                 access_token: 'stub' };
             await checkMembership({ id: 'denied-user', email: 'nobody@example.com' });
             return _analyticsBuffer.map(e => ({ ...e }));
         });

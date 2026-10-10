@@ -297,17 +297,36 @@ describe('coach-tee: who gets an answer', () => {
     expect(anthropicCalled()).toBe(false);
   });
 
-  it('refuses a verified token carrying no email, rather than skipping the gate', async () => {
+  /* MEMBERSHIP IS THE JWT SUBJECT NOW, so a token with no email is no longer
+     suspicious: a phone login carries none, and Apple Private Relay gives a
+     different address entirely. Both are the same member, and refusing them
+     was the old email model's assumption. What may never be skipped is the
+     SUBJECT check. */
+  it('allows a verified token with no email when the subject owns an entitlement', async () => {
+    membersRows = [{ user_id: 'u1' }];
     const res = await ask(null, { token: signJwt(sessionClaims({ email: undefined }), JWT_SECRET) });
+    expect(res.status).toBe(200);
+    const lookup = calls.find((c) => c.url.includes('/rest/v1/members'));
+    expect(lookup.url).toContain('user_id=eq.u1');
+  });
+
+  it('still refuses when the subject owns nothing, whatever the email says', async () => {
+    membersRows = [];
+    const res = await ask(null, { token: signJwt(sessionClaims({ email: 'member@example.com' }), JWT_SECRET) });
     expect(res.status).toBe(403);
     expect(anthropicCalled()).toBe(false);
   });
 
-  it('checks membership against the token’s email, not one from the body', async () => {
-    await ask({ mode: 'coach', userMsg: 'hi', email: 'attacker@example.com' });
+  it('checks membership against the token’s SUBJECT, not anything from the body', async () => {
+    membersRows = [{ user_id: 'u1' }];
+    await ask({ mode: 'coach', userMsg: 'hi', email: 'attacker@example.com', user_id: 'u999' });
     const lookup = calls.find((c) => c.url.includes('/rest/v1/members'));
-    expect(lookup.url).toContain(encodeURIComponent('member@example.com'));
+    /* The identity in the query is the one the signature covers. Neither a
+       body email nor a body user_id may reach it. */
+    expect(lookup.url).toContain('user_id=eq.u1');
     expect(lookup.url).not.toContain('attacker');
+    expect(lookup.url).not.toContain('u999');
+    expect(lookup.url).not.toContain('email=eq.');
   });
 
   // ---- 200 and 429 --------------------------------------------------------

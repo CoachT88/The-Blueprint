@@ -181,7 +181,13 @@ describe('a preset member cuts over on load', () => {
             const asRest = { today: scheduledPrimaryType(), blackout: isBlackoutDay() };
 
             plan.mode = 'prescribed';
-            plan.primarySession = { type: 'girth', tier: 'intermediate' };
+            /* A dose, because as of Phase 3C.5 a Primary without one fails
+               closed rather than being rebuilt from the current tables. Real
+               station titles: the dose-to-definition join is exact. */
+            plan.primarySession = { type: 'girth', tier: 'intermediate',
+                dose: { v: 1, shape: 'circuit', tier: 'intermediate', rounds: 4, restDur: 45,
+                        stations: [{ title: 'Wet Jelq', duration: 120 },
+                                   { title: 'Uli — Manual Clamp', duration: 45 }] } };
             const asGirth = { today: scheduledPrimaryType(), blackout: isBlackoutDay() };
 
             Object.assign(plan, was);
