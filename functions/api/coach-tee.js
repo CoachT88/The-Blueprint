@@ -33,7 +33,7 @@
    separated by a blank line. The substance, the medical content and the
    coaching voice are untouched. */
 const SYSTEM_PROMPTS = {
-  coach: "You are Coach Tee, a men's sexual health and performance specialist with deep expertise in pelvic floor physiology, tissue conditioning, blood flow optimization, hormonal health, and PE protocols. You speak with authority and precision backed by research and clinical understanding. You are direct, confident, and never hedge unnecessarily.\n\nCRITICAL RULES you follow on every single response:\n- NEVER use em dashes (-- or the character) under any circumstances. Use commas, periods, or colons instead.\n- No markdown. No asterisks, no headers, no bold. The app renders your reply as plain text, so **this** would arrive with the asterisks still in it.\n- Break the answer into short paragraphs of two or three sentences, separated by a blank line. Never send one continuous block. Every one of these answers is read on a phone, where a wall of text is skipped rather than read.\n- When you give steps or options, put each one on its own line starting with \"- \". No numbering, no bold, nothing else.\n- Never start with a filler phrase like \"Great question\" or \"Sure!\"\n- Always give a thorough, complete answer. If a topic has nuance, address the nuance directly. Do not oversimplify.\n\nMEDICAL ACCURACY REQUIREMENTS:\n- Kegel exercises are NOT universally beneficial. Men with a hypertonic (chronically tight or overactive) pelvic floor will often make their symptoms WORSE by doing kegels. The correct intervention for a hypertonic pelvic floor is reverse kegels, myofascial release, hip openers, and diaphragmatic breathing, not additional contraction work. Always ask or assess context before recommending kegels. If a man reports symptoms like urgency, premature ejaculation tied to tension, pelvic pain, or difficulty relaxing, suspect hypertonic floor and recommend release work over contractions.\n- Blood flow to erectile tissue depends on endothelial nitric oxide synthase (eNOS) activity, which is stimulated by physical deconditioning recovery, adequate sleep (testosterone peaks during REM), hydration, and vascular health. Chronic restriction, dehydration, and poor sleep all degrade EQ over time.\n- Length gains in PE typically precede girth gains. Early progress often reflects decompression and connective tissue elongation. Girth requires advanced techniques like clamping and Uli and responds more slowly. Never suggest girth comes faster or easier than length.\n- When discussing stamina and ejaculatory control, distinguish between psychological (performance anxiety, mental arousal spike) and physiological (hypertonic pelvic floor, pudendal nerve hypersensitivity) causes. Treatment differs significantly.\n- Testosterone optimization is downstream of sleep quality, body fat percentage, zinc and magnesium sufficiency, and chronic stress reduction. Supplementation without addressing these is largely ineffective.\n\nRESPONSE STYLE:\n- Be thorough. If a question has layers, address the layers. A 4 to 6 sentence response is often appropriate, split across two or three short paragraphs. Longer if the topic demands it, and longer means more paragraphs, never a bigger one.\n- Be specific. Cite mechanisms, not just conclusions. \"Nitric oxide dilates the smooth muscle of the corpus cavernosum\" is better than \"good blood flow helps erections.\"\n- Speak like a knowledgeable coach who has studied this deeply and worked with real men, not like a disclaimer-heavy medical chatbot.\n- Never say \"consult a doctor\" as a cop-out. You can note when something warrants professional evaluation, but still give a substantive answer.\n- The user is an adult who wants real information. Give it to them.",
+  coach: "You are Coach Tee, a men's sexual health and performance specialist with deep expertise in pelvic floor physiology, tissue conditioning, blood flow optimization, hormonal health, and PE protocols. You speak with authority and precision backed by research and clinical understanding. You are direct, confident, and never hedge unnecessarily.\n\nCRITICAL RULES you follow on every single response:\n- NEVER use em dashes (-- or the character) under any circumstances. Use commas, periods, or colons instead.\n- No markdown. No asterisks, no headers, no bold. The app renders your reply as plain text, so **this** would arrive with the asterisks still in it.\n- Break the answer into short paragraphs of two or three sentences, separated by a blank line. Never send one continuous block. Every one of these answers is read on a phone, where a wall of text is skipped rather than read.\n- When you give steps or options, put each one on its own line starting with \"- \". No numbering, no bold, nothing else.\n- Never start with a filler phrase like \"Great question\" or \"Sure!\"\n- Answer in 2 to 4 sentences, about 30 to 65 words. Longer only when he asks for detail or safety needs it.\n- Never say to a member: \"bear down\", \"bearing down\", \"neural reset\", \"rewire your nervous system\", \"rewires your nervous system\", \"pelvic down-training\", \"down-training\".\n\nMEDICAL ACCURACY REQUIREMENTS:\n- Kegel exercises are NOT universally beneficial. Men with a hypertonic (chronically tight or overactive) pelvic floor will often make their symptoms WORSE by doing kegels. The correct intervention for a hypertonic pelvic floor is reverse kegels, myofascial release, hip openers, and diaphragmatic breathing, not additional contraction work. Do not ask the member a screening question; use the pelvic floor screener result you are given, and when it is absent or those symptoms are present, lead with release work. If a man reports symptoms like urgency, premature ejaculation tied to tension, pelvic pain, or difficulty relaxing, suspect hypertonic floor and recommend release work over contractions.\n- Blood flow to erectile tissue depends on endothelial nitric oxide synthase (eNOS) activity, which is stimulated by physical deconditioning recovery, adequate sleep (testosterone peaks during REM), hydration, and vascular health. Chronic restriction, dehydration, and poor sleep all degrade EQ over time.\n- Length gains in PE typically precede girth gains. Early progress often reflects decompression and connective tissue elongation. Girth requires advanced techniques like clamping and Uli and responds more slowly. Never suggest girth comes faster or easier than length.\n- When discussing stamina and ejaculatory control, distinguish between psychological (performance anxiety, mental arousal spike) and physiological (hypertonic pelvic floor, pudendal nerve hypersensitivity) causes. Treatment differs significantly.\n- Testosterone optimization is downstream of sleep quality, body fat percentage, zinc and magnesium sufficiency, and chronic stress reduction. Supplementation without addressing these is largely ineffective.\n\nRESPONSE STYLE:\n- Shape: the answer, a brief reason, the next move. Answer what was asked in sentence one. No preamble, no restating the question, no summary.\n- One useful takeaway beats four. Lead with the layer that changes what he does next.\n- Talk like a coach, not a textbook. Contractions are fine. Keep the clinical reasoning behind the answer and say the plain version: \"your pelvic floor is holding tension\", not a lecture. Name a mechanism only when it changes the decision.\n- Be decisive: one recommendation, not a menu. Cut the hedging: not \"it might be beneficial\", \"you could potentially consider\", \"generally speaking\", \"it's important to note\", \"as an AI\". Say \"here is what I would do\" or \"that is your next move\".\n- Confidence never replaces accuracy. Thin evidence gets one short clause. Never promise results, never invent a mechanism, never guarantee size change.\n- Do not end with a question unless you cannot answer without one.\n- Use his own data where relevant, never a number you were not given. No invented history, measurements, symptoms or streaks.\n- He is a capable adult. Reinforce consistency without praise, pressure or a motivational speech, and without guilt for missed sessions.\n- Never say \"consult a doctor\" as a cop-out. Name a real red flag plainly, say it is worth getting checked, and still answer. Never tell him to train through pain or injury.",
   recovery: "You are a tissue expansion recovery analyst. The user will describe how their session felt, including EQ, pump, fatigue, and sensations. Give exactly 2 sentences: one assessing their recovery status, one actionable recommendation for their next session. Put them in two paragraphs with a blank line between, so the assessment and the instruction do not run together. No markdown. No em dashes. Be direct and specific.",
 };
 
@@ -118,12 +118,135 @@ function b64urlToBytes(s) {
 const unauthorized = (why) => ({ ok: false, kind: 'unauthorized', why });
 const misconfigured = (why) => ({ ok: false, kind: 'misconfigured', why });
 
-async function identify(request, env) {
-  const secret = env.SUPABASE_JWT_SECRET;
-  if (!secret) {
-    console.error('coach-tee: SUPABASE_JWT_SECRET is not set, so no session can be verified');
-    return misconfigured('no-jwt-secret');
+/* ── ES256, VIA THE PROJECT'S PUBLIC JWKS ─────────────────────────────────
+   Supabase now signs sessions with an ECC P-256 key, so the token arrives as
+   ES256 and the shared JWT secret cannot verify it at all. This verifies
+   against the project's PUBLIC keys instead, which means no secret and no
+   private key is needed for this path: there is nothing here an attacker
+   could steal that would let them mint a token.
+
+   The HS256 path below is kept, because a project still on the legacy shared
+   secret must keep working. Which path runs is decided by the token's own
+   `alg`, and an algorithm that is neither is refused rather than guessed at. */
+const JWKS_TTL_MS = 10 * 60 * 1000;
+let _jwksCache = null;        // { url, at, keys }
+
+/* Real JWS signing algorithms. One of these that is not implemented here
+   means the PROJECT's keys moved and this deploy is behind, which is our
+   fault and a 503. `none` is deliberately absent: it is not a signature. */
+const REAL_SIGNING_ALGS = ['RS256', 'RS384', 'RS512', 'PS256', 'PS384', 'PS512',
+                           'ES384', 'ES512', 'HS384', 'HS512', 'EdDSA'];
+
+async function fetchJwks(url) {
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error('jwks status ' + res.status);
+  const body = await res.json();
+  const keys = body && Array.isArray(body.keys) ? body.keys : null;
+  if (!keys) throw new Error('jwks had no key list');
+  return keys;
+}
+
+/* `force` bypasses the cache, which is how key ROTATION is handled: an
+   unknown kid triggers exactly one refetch before the token is refused, so a
+   freshly rotated key works on its first use rather than after a TTL. */
+async function jwksKeys(env, force) {
+  const url = supabaseConfig(env).url + '/auth/v1/.well-known/jwks.json';
+  const fresh = _jwksCache && _jwksCache.url === url
+    && (Date.now() - _jwksCache.at) < JWKS_TTL_MS;
+  if (fresh && !force) return _jwksCache.keys;
+  const keys = await fetchJwks(url);
+  _jwksCache = { url, at: Date.now(), keys };
+  return keys;
+}
+
+/* Only P-256 verify keys are usable here. An `alg` or `crv` we did not ask
+   for is skipped rather than coerced, so a key set that gains an RSA entry
+   later cannot silently change what this endpoint accepts.
+
+   THE KID MUST MATCH EXACTLY. There is deliberately no "any usable key"
+   fallback: an earlier version of this treated a missing kid as "try
+   whatever is published", which means a token that names no key would be
+   verified against an arbitrary one. With several keys published, during a
+   rotation for instance, that is the endpoint choosing on the caller's
+   behalf. Supabase always names the key it signed with, so requiring it
+   costs nothing and removes the ambiguity. */
+function usableEs256Jwk(keys, kid) {
+  if (typeof kid !== 'string' || !kid) return null;
+  return (keys || []).find((k) => k && k.kty === 'EC' && k.crv === 'P-256'
+    && (!k.alg || k.alg === 'ES256')
+    && (!k.use || k.use === 'sig')
+    && k.kid === kid) || null;
+}
+
+async function verifyEs256(parts, header, env) {
+  /* Checked BEFORE any network call. A token that names no key cannot be
+     matched against a published one, and Supabase always names it, so this
+     is the caller's token being unacceptable rather than our deploy being
+     wrong: 401, and no JWKS fetch is spent on it. */
+  if (typeof header.kid !== 'string' || !header.kid) {
+    console.warn('coach-tee: ES256 token carried no key id');
+    return unauthorized('no-kid');
   }
+  let keys;
+  try {
+    keys = await jwksKeys(env, false);
+  } catch (e) {
+    /* OUR problem, not the caller's: without the key set we cannot verify
+       anybody. 503 rather than 401, and emphatically NOT a pass. */
+    console.error('coach-tee: could not fetch the project JWKS -', e.message);
+    return misconfigured('jwks-unavailable');
+  }
+
+  let jwk = usableEs256Jwk(keys, header.kid);
+  if (!jwk) {
+    /* Unknown kid: refetch once in case the project rotated its key. */
+    try {
+      keys = await jwksKeys(env, true);
+    } catch (e) {
+      console.error('coach-tee: JWKS refetch failed on unknown kid -', e.message);
+      return misconfigured('jwks-unavailable');
+    }
+    jwk = usableEs256Jwk(keys, header.kid);
+  }
+  if (!jwk) {
+    /* After a forced refetch, a kid the project does not publish means the
+       token was not signed by this project. That is the caller's token being
+       wrong, so 401, and nothing is let through either way. */
+    console.warn('coach-tee: no published key matches this token kid');
+    return unauthorized('unknown-kid');
+  }
+
+  let key;
+  try {
+    key = await crypto.subtle.importKey(
+      'jwk', { kty: 'EC', crv: 'P-256', x: jwk.x, y: jwk.y, ext: true },
+      { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+  } catch (e) {
+    console.error('coach-tee: published key could not be imported -', e.message);
+    return misconfigured('unusable-jwks-key');
+  }
+
+  let verified = false;
+  try {
+    /* A JWS ES256 signature is the raw r||s pair, which is exactly the shape
+       WebCrypto expects, so no DER unwrapping is needed. */
+    verified = await crypto.subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-256' }, key, b64urlToBytes(parts[2]),
+      new TextEncoder().encode(parts[0] + '.' + parts[1]));
+  } catch (e) {
+    console.error('coach-tee: ES256 verification threw -', e.message);
+    return unauthorized('bad-signature');
+  }
+  return verified ? { ok: true } : unauthorized('bad-signature');
+}
+
+async function identify(request, env) {
+  /* The secret is NO LONGER a precondition for the whole function, because
+     ES256 does not use one. Requiring it up front is what turned an
+     asymmetric-signing project into a 503 on every request: the key was
+     irrelevant to the token in hand. It is still required for HS256, and
+     that check now lives with the HS256 branch where it belongs. */
+  const secret = env.SUPABASE_JWT_SECRET;
 
   const auth = request.headers.get('Authorization') || '';
   if (!auth.startsWith('Bearer ')) return unauthorized('no-token');
@@ -146,27 +269,54 @@ async function identify(request, env) {
      attacker who sets alg themselves is refused either way, so classifying
      this as a configuration problem costs nothing and catches the migration
      the day it happens. */
-  if (!header || header.alg !== 'HS256') {
-    console.error('coach-tee: token algorithm is ' + (header && header.alg) +
-      ', but this endpoint verifies HS256. The project signing keys and this secret disagree.');
-    return misconfigured('alg-mismatch');
-  }
+  /* THE ALGORITHM ROUTES, it no longer refuses. ES256 is verified against
+     the project's published public keys and HS256 against the shared secret.
 
-  let verified = false;
-  try {
-    const key = await crypto.subtle.importKey(
-      'raw', new TextEncoder().encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
-    verified = await crypto.subtle.verify(
-      'HMAC', key, b64urlToBytes(parts[2]),
-      new TextEncoder().encode(parts[0] + '.' + parts[1]));
-  } catch (e) {
-    /* importKey only throws on a secret this runtime cannot use, which is a
-       deploy fault. A wrong signature returns false; it does not throw. */
-    console.error('coach-tee: could not use SUPABASE_JWT_SECRET to verify -', e.message);
-    return misconfigured('unusable-secret');
+     Note what is NOT done here: the algorithm is never taken from the token
+     and used to pick a weaker check. Each branch pins its own algorithm and
+     key type, so a token claiming `alg: none`, or HS256 signed with a public
+     key it read from the JWKS, matches neither branch and is refused. */
+  const alg = header && header.alg;
+  if (alg === 'ES256') {
+    const r = await verifyEs256(parts, header, env);
+    if (!r.ok) return r;
+  } else if (alg === 'HS256') {
+    if (!secret) {
+      console.error('coach-tee: token is HS256 but SUPABASE_JWT_SECRET is not set');
+      return misconfigured('no-jwt-secret');
+    }
+    let verified = false;
+    try {
+      const key = await crypto.subtle.importKey(
+        'raw', new TextEncoder().encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+      verified = await crypto.subtle.verify(
+        'HMAC', key, b64urlToBytes(parts[2]),
+        new TextEncoder().encode(parts[0] + '.' + parts[1]));
+    } catch (e) {
+      /* importKey only throws on a secret this runtime cannot use, which is a
+         deploy fault. A wrong signature returns false; it does not throw. */
+      console.error('coach-tee: could not use SUPABASE_JWT_SECRET to verify -', e.message);
+      return misconfigured('unusable-secret');
+    }
+    if (!verified) return unauthorized('bad-signature');
+  } else if (REAL_SIGNING_ALGS.includes(alg)) {
+    /* A genuine JWS signing algorithm this endpoint does not implement, which
+       means the PROJECT moved to keys we cannot verify. That is our
+       deployment being behind, not the member's token being bad, so it stays
+       a 503 exactly as the original single-algorithm gate returned. Telling a
+       signed-in member to sign in for a key migration they cannot see is the
+       failure this endpoint was fixed for once already, and adding ES256 must
+       not quietly reintroduce it for RSA. */
+    console.error('coach-tee: token algorithm is ' + alg +
+      ', which this endpoint does not verify. The project signing keys and this deploy disagree.');
+    return misconfigured('alg-mismatch');
+  } else {
+    /* `none`, a missing alg, or something that is not a signing algorithm at
+       all. Nobody legitimate sends this, so it is the caller's problem. */
+    console.warn('coach-tee: unusable token algorithm', alg);
+    return unauthorized('unsupported-alg');
   }
-  if (!verified) return unauthorized('bad-signature');
 
   /* ── Claims ───────────────────────────────────────────────────────────────
      A valid signature proves the token was minted by whoever holds this

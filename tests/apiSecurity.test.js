@@ -403,8 +403,23 @@ describe('coach-tee: the protections the gate does not replace', () => {
   it('caps the user message and the context it pays for', async () => {
     await ask({ mode: 'coach', userMsg: 'x'.repeat(50000), context: 'y'.repeat(50000) });
     const sent = JSON.parse(calls.find((c) => c.url.includes('anthropic')).init.body);
+    /* The two caps that matter, and they are unchanged: the member's message
+       and the member's context are each truncated to 4000, so a caller cannot
+       inflate what we pay per request.
+
+       The system allowance is OUR fixed prompt plus that capped context. The
+       prompt budget moved from 4000 to 5000 when the coaching voice rules
+       landed; nothing a caller controls got looser. The prompt is still
+       bounded, asserted separately below, so this cannot become a licence for
+       unbounded prompt growth. */
+    const PROMPT_BUDGET = 5000;
     expect(sent.messages[0].content.length).toBeLessThanOrEqual(4000);
-    expect(sent.system.length).toBeLessThanOrEqual(4000 + 4000 + 10);
+    expect(sent.system.length).toBeLessThanOrEqual(PROMPT_BUDGET + 4000 + 10);
+    /* The fixed prompt on its own, with no member input in it. */
+    const bare = await ask({ mode: 'coach', userMsg: 'hi' });
+    expect(bare.status).toBe(200);
+    const bareSent = JSON.parse(calls.filter((c) => c.url.includes('anthropic')).pop().init.body);
+    expect(bareSent.system.length).toBeLessThanOrEqual(PROMPT_BUDGET);
   });
 
   it('refuses to run with no Anthropic key', async () => {

@@ -25,35 +25,70 @@
 <title>The Blueprint: your sexual performance can be trained</title>
 
 <!-- ==========================================================================
-     AN INSTALLED MEMBER MUST NOT BE SHOWN THE SALES PAGE.
+     TWO THINGS ARRIVE AT "/" THAT MUST NOT DEAD-END HERE, and the ORDER
+     below is the whole point. Recovery is checked FIRST.
 
-     The manifest is already right for new installs: start_url and scope are
-     both /app/, so a current install opens the product directly and never
-     reaches this file. The problem is the installs made BEFORE that structure
-     existed. Their Home Screen icon still points at "/", so every launch
-     drops a paying member onto the acquisition page, and nothing here used to
-     notice. This recovers those installs without asking anyone to delete and
-     reinstall.
+     1. A PASSWORD RESET LINK. The client always asks Supabase to send members
+        to /app/ (see _appUrl in app/index.html). When one lands here anyway,
+        the sales page has no recovery handling of any kind and simply shows
+        the member the thing he already bought.
 
-     Two checks, because neither covers both platforms: the media query is the
-     standard, and navigator.standalone is the iOS-only legacy flag that an
-     older Home Screen shortcut is exactly the thing to report.
+        Everything after the path is carried over, hash and query both,
+        because what matters lives in one or the other depending on the flow.
+        We call createClient with no options, so supabase-js is on its default
+        implicit flow: a good link carries `#access_token=...&type=recovery`
+        and a spent one carries `#error=...&error_code=otp_expired&...`, both
+        in the FRAGMENT. Under PKCE the same values arrive as query
+        parameters. All of them need to reach /app/ to be handled or reported.
 
-     NOT based on login state, deliberately. An installed member who is signed
-     out should still open the PRODUCT and meet its authentication screen,
-     because that is what tapping an app icon means. Sending them here instead
-     would be asking them to buy something they already own.
+     2. AN INSTALLED MEMBER. The manifest is already right for new installs:
+        start_url and scope are both /app/, so a current install opens the
+        product directly and never reaches this file. The problem is the
+        installs made BEFORE that structure existed. Their Home Screen icon
+        still points at "/", so every launch drops a paying member onto the
+        acquisition page. Two checks, because neither covers both platforms:
+        the media query is the standard, and navigator.standalone is the
+        iOS-only legacy flag that an older Home Screen shortcut is exactly the
+        thing to report.
 
-     replace() rather than assign(), so Back does not bounce them straight
-     back onto this page.
+        NOT based on login state, deliberately. An installed member who is
+        signed out should still open the PRODUCT and meet its authentication
+        screen, because that is what tapping an app icon means.
 
-     Inline and in <head> on purpose: it has to run before anything paints, or
-     the member sees a flash of the sales page on every launch. There is no
-     loop risk, because /app/ is a different document and never runs this.
+     WHY RECOVERY GOES FIRST: the installed-member redirect goes to a bare
+     "/app/" and keeps nothing after the path. Running it first would send an
+     installed member holding a reset link to the app with his single-use
+     token stripped off, which looks like a working redirect and is a silent
+     lockout. Checking recovery first, and returning, cannot do that.
+
+     replace() rather than assign() in both, so Back does not bounce the
+     member onto a page that cannot help. Inline and in <head> so neither runs
+     after a paint. There is no loop risk, because /app/ is a different
+     document and never runs this. Nothing is logged: the URL holds a
+     single-use credential.
      ========================================================================== -->
 <script>
 (function(){
     try{
+        var h = window.location.hash || '';
+        var q = window.location.search || '';
+        /* Deliberately narrow, and anchored to a parameter boundary rather
+           than matched as a substring. `code=` on its own would also fire on
+           an ordinary marketing link carrying `?discount_code=` or
+           `?promo_code=`, and sending a prospect from the sales page into the
+           app would be a worse bug than the one being fixed. A plain visit,
+           and a visit with campaign parameters, match none of these.
+
+           The error is looked for in the FRAGMENT as well as the query,
+           because the implicit flow reports a spent link there. Checking only
+           the query would leave exactly the member this exists for, the one
+           holding a dead link, stranded on the sales page. */
+        var isRecovery = /(^|[#&])type=recovery(&|$)/.test(h)
+                      || /(^|[#&])access_token=/.test(h)
+                      || /(^|[#&])(error|error_code|error_description)=/.test(h)
+                      || /(^|[?&])(code|error|error_code|error_description)=/.test(q);
+        if(isRecovery){ window.location.replace('/app/' + q + h); return; }
+
         var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
                       || window.navigator.standalone === true;
         if(standalone) window.location.replace('/app/');

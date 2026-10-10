@@ -8868,23 +8868,30 @@ function closeCoach(){document.getElementById('coach-modal').classList.add('hidd
 // PASSWORD RESET FLOW
 // ═══════════════════════════════════════════════════════════════════════════
 /* ── PASSWORD RECOVERY ─────────────────────────────────────────────────────
-   TWO LINK SHAPES, one screen.
+   THREE LINK SHAPES, one screen.
 
-   The legacy shape puts the session in the URL fragment
+   The legacy implicit flow puts the session in the fragment
    (#access_token=...&type=recovery) and this code adopts it with setSession.
-   The supported modern shape is consumed by supabase-js before any of our
-   code runs, leaving no fragment to read, and announces itself only as a
-   PASSWORD_RECOVERY event. Handling the fragment alone means a member on a
-   current project reaches /app/ with no way to set a password, which is the
-   lockout being fixed. Both paths are kept until the modern one is proven in
-   production. */
+   The supported modern flow is consumed by supabase-js before any of our code
+   runs, leaving no fragment to read, and announces itself only as a
+   PASSWORD_RECOVERY event. An expired or already used link arrives as an
+   error in the query string and must say so rather than silently doing
+   nothing.
+
+   Handling only the fragment, which is what shipped, means a member on a
+   current project reaches /app/ with no way to set a password. */
 let _recoveryMode=false, _recoveryWired=false, _recoverySubmitting=false;
+/* `let`, not `const`, so the failure-injection test can shorten it rather
+   than wait fifteen real seconds. Deliberately NOT named WRITE_DEADLINE_MS:
+   the unmerged hardening branch declares a `let` of that name in this same
+   scope, and two `let` declarations of one name is a syntax error, so sharing
+   the name would break the app the moment the two were merged. */
+let PASSWORD_UPDATE_DEADLINE_MS=15000;
 
 function _openRecoveryModal(){
     _recoveryMode=true;
-    /* The loading screen sits above everything, so a recovery event that
-       arrives while it is still up would leave the member watching a
-       spinner. */
+    /* The loading screen sits above everything, so a recovery event arriving
+       while it is still up would leave the member watching a spinner. */
     _clearLoadingDeadline();
     document.getElementById('loading-screen').classList.add('hidden');
     document.getElementById('auth-screen').classList.add('hidden');
@@ -8894,7 +8901,24 @@ function _openRecoveryModal(){
 
 /* Attached ONCE. The old code wired this inside the entry point, so a second
    call added a second click listener to the same button and one tap ran
-   updateUser twice. */
+   updateUser twice.
+
+   THREE GUARDS, ONE RULE: one password update per tap. `_recoveryWired` stops
+   a second listener existing, `_recoverySubmitting` stops a second run, and
+   `btn.disabled` stops a second tap. "A DOUBLE TAP SENDS ONE REQUEST" tests
+   the rule, and mutating the guards in every combination says which one
+   actually carries it:
+
+     `_recoverySubmitting` alone is ENOUGH. Remove the other two and the rule
+     still holds.
+     Neither of the other two is enough without it. `btn.disabled` cannot stop
+     a duplicate listener, because both listeners run in the same dispatch and
+     disabling the button mid-dispatch does not cancel the second.
+
+   So `_recoverySubmitting` is the guard and the other two are cheap
+   backstops. Removing any one on its own leaves the rule intact, which is why
+   those mutations survive: recorded here rather than chased with a test that
+   dispatches events no member can produce. */
 function _wireRecoverySubmit(){
     if(_recoveryWired) return;
     _recoveryWired=true;
@@ -8912,32 +8936,42 @@ function _wireRecoverySubmit(){
         _recoverySubmitting=true;
         btn.innerHTML='<i class="fas fa-spinner fa-spin mr-2"></i>Updating...';btn.disabled=true;
         try{
-            /* Bounded, for the same reason every other network wait is: a
-               hung updateUser would leave _recoverySubmitting true forever,
-               because a `finally` on a promise that never settles never runs,
-               and the member could never retry the one action standing
-               between them and their account. */
-            const _ur=await _withDeadline(sb.auth.updateUser({password:pwd}),WRITE_DEADLINE_MS);
-            if(_ur===_WRITE_TIMEOUT){
+            /* Bounded locally. A hung updateUser would otherwise leave the
+               in-flight guard set forever, because a `finally` on a promise
+               that never settles never runs, and the member could never retry
+               the one action standing between them and their account. */
+            let _timer=null;
+            const _TIMEOUT={__t:true};
+            const _deadline=new Promise(res=>{_timer=setTimeout(()=>res(_TIMEOUT),PASSWORD_UPDATE_DEADLINE_MS)});
+            const _res=await Promise.race([
+                Promise.resolve(sb.auth.updateUser({password:pwd})).catch(e=>({error:e})),
+                _deadline,
+            ]).finally(()=>clearTimeout(_timer));
+            if(_res===_TIMEOUT){
                 errEl.innerText='That is taking too long. Check your connection and try again.';
                 errEl.classList.add('show');
                 btn.textContent='UPDATE PASSWORD';btn.disabled=false;
                 return;
             }
-            const {error}=(_ur&&_ur.__lateError)?{error:_ur.__lateError}:(_ur||{});
+            const {error}=_res||{};
             if(error){
-                errEl.innerText=error.message;errEl.classList.add('show');
+                errEl.innerText=error.message||'Could not update your password. Try again.';
+                errEl.classList.add('show');
                 btn.textContent='UPDATE PASSWORD';btn.disabled=false;
                 return;                            // still in recovery, can retry
             }
             sucEl.innerText='Password updated! Signing you in...';sucEl.classList.add('show');
             /* Leave recovery for good. replaceState strips BOTH the fragment
-               and any query, so a refresh cannot put the member back on this
-               screen; `location.hash=''` left a bare '#' behind and did
-               nothing about a query string. */
+               and the query, so a refresh cannot put the member back on this
+               screen and the single-use token does not linger in the address
+               bar. `location.hash=''` left a bare '#' and did nothing about a
+               query string. */
             _recoveryMode=false;
             try{ history.replaceState(null,'',window.location.pathname); }catch(e){ window.location.hash=''; }
-            setTimeout(()=>{document.getElementById('password-reset-modal').classList.remove('show');},1500);
+            setTimeout(()=>{
+                document.getElementById('password-reset-modal').classList.remove('show');
+                _bootAfterRecovery();
+            },1500);
         }catch(e){
             errEl.innerText='Could not update your password. Try again.';errEl.classList.add('show');
             btn.textContent='UPDATE PASSWORD';btn.disabled=false;
@@ -8947,24 +8981,108 @@ function _wireRecoverySubmit(){
     });
 }
 
+/* Recovery suppresses the normal signed-in boot on purpose, so that boot has
+   to happen once the password is set. Both the loading screen and the auth
+   screen were hidden to put the form on screen, and the HQ was never
+   rendered, so without this the member sets his password and watches the
+   modal close onto a blank page. Getting him back into the account he pays
+   for is the point of the whole flow, not a nicety. */
+async function _bootAfterRecovery(){
+    try{
+        const {data:{session}}=await sb.auth.getSession();
+        /* The recovery session is a real session, so the ordinary path works
+           and there is no second branch to keep correct. If it refuses, for
+           instance because the membership check turns him away, it has
+           already put the right screen up and said why. */
+        if(session&&session.user){ await onUserSignedIn(session.user); return; }
+    }catch(e){ }
+    /* No usable session. The sign-in screen is the honest landing: his
+       password IS changed, so it will let him in. */
+    showAuthScreen();
+}
+
+/* Read auth parameters the way supabase-js reads them: the FRAGMENT first,
+   then the query, with the query winning on a clash. Getting this wrong is
+   what made the production symptom survive the first version of this fix.
+
+   We call createClient with no options, so supabase-js is on its default
+   `flowType: 'implicit'`, which puts everything in the fragment: the token on
+   a good link and `#error=...&error_code=...&error_description=...` on a
+   spent one. Reading only `location.search` finds neither. The query half is
+   kept anyway so this still works if the client is ever moved to PKCE, where
+   the same values arrive as query parameters. */
+function _authParamsFromUrl(){
+    const out={};
+    try{
+        const h=window.location.hash||'';
+        if(h.charAt(0)==='#') new URLSearchParams(h.substring(1)).forEach((v,k)=>{out[k]=v});
+    }catch(e){}
+    try{
+        new URLSearchParams(window.location.search||'').forEach((v,k)=>{out[k]=v});
+    }catch(e){}
+    return out;
+}
+
+/* An expired or already used link, which is the live production symptom.
+   supabase-js throws on it, drops any stored session, fires NO auth event,
+   and leaves the error in the URL: it only clears the fragment on the success
+   path. So nothing wakes the app and the member gets a bare sign-in screen
+   with no explanation unless we read the URL ourselves.
+
+   Saying so with a way back is the whole requirement: a man holding a dead
+   link needs to know to ask for another one. The token is never echoed. */
+function _recoveryLinkError(){
+    const p=_authParamsFromUrl();
+    const code=p.error_code||'';
+    const err=p.error||'';
+    const desc=p.error_description||'';
+    if(!code&&!err&&!desc) return null;
+    /* `otp_expired`, and the description Supabase sends with it, both say
+       expired. A link that was already used says the same thing to the member:
+       ask for another one. */
+    if(/expired/i.test(code)||/expired/i.test(desc)){
+        return 'That password reset link has expired. Request a new one below.';
+    }
+    return 'That password reset link is no longer valid. Request a new one below.';
+}
+
 async function handlePasswordReset(){
+    /* A dead link first: it carries no token, so there is nothing to adopt
+       and the member needs the message rather than a form. */
+    const linkError=_recoveryLinkError();
+    if(linkError){
+        try{ history.replaceState(null,'',window.location.pathname); }catch(e){}
+        showAuthScreen();
+        setAuthError(linkError);
+        return true;
+    }
     // Check if URL contains a password reset token
     const hash=window.location.hash;
     if(!hash.includes('type=recovery')&&!hash.includes('access_token')) return false;
     // Parse token from hash
     const params=new URLSearchParams(hash.replace('#',''));
     const accessToken=params.get('access_token');
-    /* A recovery link with no usable token is a dead link, not a reason to
-       show a form that cannot submit. Fall through to the normal auth screen. */
-    if(!accessToken) return false;
+    /* MALFORMED: the fragment says recovery but carries no usable token, so a
+       form here could not submit. Returning false used to drop this member on
+       a silent sign-in screen, which is the same dead end as the expired case
+       and just as confusing: he tapped a reset link and the app acted as
+       though he had not. Nothing legitimate reaches this line, because an
+       ordinary load has neither marker in its fragment. */
+    if(!accessToken){
+        try{ history.replaceState(null,'',window.location.pathname); }catch(e){}
+        showAuthScreen();
+        setAuthError('That password reset link is not valid. Request a new one below.');
+        return true;
+    }
     // Set session with the token so user can update password
     const {error}=await sb.auth.setSession({access_token:accessToken,refresh_token:params.get('refresh_token')||''});
-    /* Expired or tampered link: setSession refuses, so there is no session to
-       update a password with. Say so on the auth screen rather than opening a
-       form whose submit is guaranteed to fail. */
+    /* Expired or tampered: setSession refuses, so there is no session to
+       change a password with. Say so instead of opening a form whose submit
+       is guaranteed to fail. */
     if(error){
+        try{ history.replaceState(null,'',window.location.pathname); }catch(e){}
         showAuthScreen();
-        setAuthError('That password reset link has expired. Request a new one.');
+        setAuthError('That password reset link has expired. Request a new one below.');
         return true;
     }
     _openRecoveryModal();
@@ -9891,14 +10009,14 @@ document.addEventListener('DOMContentLoaded', async ()=>{
            URL and established a session by the time this fires, so there is
            no fragment for handlePasswordReset to find: without this branch
            the member lands on /app/ fully signed in and is never offered a
-           password form, which is the lockout. Returning here also stops the
-           normal signed-in path from racing the modal. */
+           password form. Returning here also stops the normal signed-in path
+           from racing the modal. */
         if(event==='PASSWORD_RECOVERY'){
             _openRecoveryModal();
             return;
         }
         setTimeout(()=>{
-            /* A recovery session is a session, so SIGNED_IN and the initial
+            /* A recovery session IS a session, so SIGNED_IN and the initial
                session callback both arrive during recovery. Booting the app
                underneath the modal is what let a normal callback bury it. */
             if(_recoveryMode){ _openRecoveryModal(); return; }
