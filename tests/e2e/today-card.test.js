@@ -469,13 +469,25 @@ describe('the two bands', () => {
         return { critical: live('hq-attention-band'), nudges: live('hq-nudge-band') };
     });
 
-    test('the hierarchy is header, critical, Today, week, nudges, secondary', async () => {
+    test('the hierarchy is header, TODAY, context, critical, week, nudges, secondary', async () => {
         const order = await app.page.evaluate(() => {
             /* 3C.1 order: context under the header, then critical, Today,
                week, nudges, and the demoted secondary block last. */
             /* 3C.3: one weekly surface between Today and the nudges, where
                the dot row used to be, with the calendar absorbed into it. */
-            const ids = ['hq-context', 'hq-attention-band', 'hq-today-card', 'hq-week-card',
+            /* HQ slice 1 moved Today to the FRONT, and context and critical
+               below it. The reason is measured: with those two above it the
+               hero started at 84px in six of the eight states, 128px in
+               COMPLETE where the context line is live, and 202px with a
+               banner up. A 118px swing in the position of the one thing the
+               screen exists to deliver. Both causes were above it.
+
+               The intent of this assertion is unchanged, which is why it was
+               edited rather than deleted: it pins a deliberate hierarchy so
+               nothing drifts into the mission's position. The hierarchy it
+               pins is simply now Today-first. tests/e2e/hq-layout.test.js
+               measures the consequence. */
+            const ids = ['hq-today-card', 'hq-context', 'hq-attention-band', 'hq-week-card',
                          'hq-nudge-band', 'hq-secondary'];
             const nodes = ids.map(i => document.getElementById(i));
             const ok = nodes.every((n, k) => k === 0 ||
