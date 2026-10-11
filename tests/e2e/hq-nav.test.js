@@ -135,52 +135,56 @@ describe('four destinations, reachable', () => {
         expect(direct.coach, 'Coach opens the coach modal').toBe(true);
     }, 90_000);
 
-    test('Progress shows the same recent sessions as HQ, without changing history', async () => {
-        const logs = [
-            { date: new Date(Date.now() - 864e5).toISOString(), routineType: 'stamina',
-              xpEarned: 64, note: 'Slow and controlled' },
-            { date: new Date(Date.now() - 2*864e5).toISOString(), routineType: 'recovery',
-              xpEarned: 12 },
-        ];
+    test('Recent Sessions have one home in Progress; no data is lost', async () => {
+        const logs = Array.from({ length: 7 }, (_, i) => ({
+            date: new Date(Date.now() - (7-i)*864e5).toISOString(),
+            routineType: i === 6 ? 'stamina' : 'length',
+            xpEarned: 40 + i,
+            note: i === 6 ? 'Slow and controlled' : 'History ' + (i+1),
+        }));
         await seed(app.page, { sessionLog: logs });
         const populated = await app.page.evaluate(() => {
             const before = JSON.stringify(persisted.sessionLog);
-            const hq = document.getElementById('session-log');
+            const hq = document.getElementById('step-0');
+            const hqHistoryAbsent = !document.getElementById('session-log')
+                && !hq.textContent.includes('Recent Sessions');
             document.getElementById('progress-btn').click();
             const progress = document.getElementById('progress-session-log');
+            const rows = [...progress.querySelectorAll('.log-entry')];
             return {
                 visible: !document.getElementById('chart-modal').classList.contains('hidden'),
-                hqCount: hq.querySelectorAll('.log-entry').length,
-                progressCount: progress.querySelectorAll('.log-entry').length,
-                sameMarkup: hq.innerHTML === progress.innerHTML,
-                hasNote: progress.textContent.includes('Slow and controlled'),
+                hqHistoryAbsent,
+                progressCount: rows.length,
+                firstIsNewest: rows[0]?.textContent.includes('Slow and controlled'),
+                lastIsFifthNewest: rows[4]?.textContent.includes('History 3'),
+                hasXp: rows[0]?.textContent.includes('+46 XP'),
                 historyUnchanged: before === JSON.stringify(persisted.sessionLog),
             };
         });
         expect(populated.visible).toBe(true);
-        expect(populated.hqCount).toBe(2);
-        expect(populated.progressCount).toBe(2);
-        expect(populated.sameMarkup).toBe(true);
-        expect(populated.hasNote).toBe(true);
+        expect(populated.hqHistoryAbsent).toBe(true);
+        expect(populated.progressCount).toBe(5);
+        expect(populated.firstIsNewest).toBe(true);
+        expect(populated.lastIsFifthNewest).toBe(true);
+        expect(populated.hasXp).toBe(true);
         expect(populated.historyUnchanged).toBe(true);
 
         await app.page.evaluate(() => document.getElementById('chart-close-btn').click());
         await seed(app.page, { sessionLog: [] });
         const empty = await app.page.evaluate(() => {
             document.getElementById('progress-btn').click();
-            const hq = document.getElementById('session-log');
             const progress = document.getElementById('progress-session-log');
             return {
-                hq: hq.textContent.trim(),
-                progress: progress.textContent.trim(),
+                text: progress.textContent.trim(),
                 entries: progress.querySelectorAll('.log-entry').length,
                 historyLength: persisted.sessionLog.length,
+                noHqLog: !document.getElementById('session-log'),
             };
         });
-        expect(empty.progress).toBe('No sessions logged yet.');
-        expect(empty.hq).toBe(empty.progress);
+        expect(empty.text).toBe('No sessions logged yet.');
         expect(empty.entries).toBe(0);
         expect(empty.historyLength).toBe(0);
+        expect(empty.noHqLog).toBe(true);
         await app.page.evaluate(() => document.getElementById('chart-close-btn').click());
     }, 90_000);
 
