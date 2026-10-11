@@ -97,6 +97,17 @@ describe('deployed assets cover what the browser imports', () => {
         expect(excluded).toEqual([]);
     });
 
+    it('deploys the production Worker by its exact current name', () => {
+        /* A stale Worker name silently deploys the wrong service. PR #111
+           exposed an out-of-date name alongside a Workers Builds command
+           running preview instead of production deploy. Keep this invariant
+           independent of the Cloudflare dashboard's deploy command. */
+        const config = JSON.parse(readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'));
+        expect(config.name).toBe('the-blueprint');
+        expect(config.main).toBe('src/worker.js');
+        expect(config.assets.directory).toBe('.');
+    });
+
     it('the worker is still excluded, because wrangler bundles it', () => {
         /* The one genuinely server-side file in src/. It must NOT be served,
            and keeping this assertion stops the fix above from being widened
