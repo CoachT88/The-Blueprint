@@ -161,6 +161,21 @@ describe('vendored CSS covers every class the app can emit', () => {
         expect(offenders).toEqual([]);
     });
 
+    test('REGRESSION: every HQ navigation glyph exists in the vendored Font Awesome subset', () => {
+        /* A glyph absent from fa.css silently renders blank. Slice 2A shipped
+           fa-screwdriver-wrench even though the custom subset didn't include
+           it. This checks the rendered nav's four icon classes, not just the
+           class coverage of the Tailwind stylesheet. */
+        const nav = HTML.match(/<nav id="hq-nav"[\s\S]*?<\/nav>/)?.[0];
+        expect(nav, 'HQ navigation exists').toBeDefined();
+        const used = [...nav.matchAll(/<i class="fas (fa-[a-z0-9-]+)"/g)].map(m => m[1]);
+        expect(used, 'four nav icons').toHaveLength(4);
+        const bundled = readFileSync(path.join(ROOT, 'app/vendor/fa.css'), 'utf8');
+        const defined = new Set([...bundled.matchAll(/\.fa-([a-z0-9-]+)\{--fa:/g)]
+            .map(m => 'fa-' + m[1]));
+        expect(used.filter(name => !defined.has(name))).toEqual([]);
+    });
+
     test('REGRESSION: the styling CDNs stay out of the document', () => {
         for (const host of ['cdn.tailwindcss.com', 'cdnjs.cloudflare.com', 'fonts.googleapis.com'])
             expect(HTML, `${host} must not be referenced`).not.toContain(host);
