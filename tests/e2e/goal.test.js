@@ -193,7 +193,8 @@ describe('goal-aware surfaces', () => {
             const state = await app.page.evaluate(g => {
                 persisted.primaryGoal = g;
                 renderDashboard();
-                openProgressChart();
+                // Exercise the actual Progress nav destination, not a helper call.
+                document.getElementById('progress-btn').click();
                 const modal = document.getElementById('chart-modal');
                 const snapshot = document.getElementById('progress-snapshot');
                 const active = document.getElementById(g === 'size' ? 'last-measure-row' : 'eq-summary-row');
