@@ -90,7 +90,7 @@ describe('the personalization hierarchy, all of it', () => {
     }, 30_000);
 
     test('ACCEPTANCE: PREPARE suppresses it too', async () => {
-        const r = await base(app.page, { primaryGoal: '' });
+        const r = await base(app.page, { primaryGoal: '', sessionLog: [], allTimeSessionCount: 0 });
         expect(r.state).toBe('PREPARE');
         expect(r.greeting).toBe(false);
     }, 30_000);
