@@ -153,9 +153,9 @@ describe('goal-aware surfaces', () => {
                 meas: !document.getElementById('last-measure-row').classList.contains('hidden'),
                 eq: !document.getElementById('eq-summary-row').classList.contains('hidden'),
                 eqAvg: document.getElementById('eq-avg').textContent,
-                // Everything after the row swap must still render — these are
-                // written unguarded and would abort the rest of the function.
-                logRendered: document.getElementById('session-log').innerHTML.length > 0,
+                // The shared session history renderer must still run after
+                // the goal-based summary swap, now targeting Progress.
+                logRendered: document.getElementById('progress-session-log').innerHTML.length > 0,
                 // The daily tip card was removed in 3C.1. The Recovery Pass
                 // chip is now the last thing renderDashboard() paints, so it
                 // serves the same purpose: proving the function ran to the end.
