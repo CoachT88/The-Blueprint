@@ -813,9 +813,8 @@
     </div>
         <div id="chart-stats" class="grid grid-cols-2 gap-3 px-2"></div>
         <p class="text-center u-text-2 text-[10px] italic px-2">Measurements logged at session end.</p>
-        <!-- Stage the existing five-entry session history in Progress first.
-             The HQ copy remains intact until a separate relocation change.
-             renderLog() is shared; neither surface owns or mutates data. -->
+        <!-- The five most recent sessions live here, separate from the daily mission.
+             renderLog() reads persisted history without changing it. -->
         <section class="px-2 space-y-2" aria-labelledby="progress-sessions-heading">
             <h3 id="progress-sessions-heading" class="text-[13px] font-black uppercase tracking-widest text-slate-300">Recent Sessions</h3>
             <div id="progress-session-log" class="space-y-1.5"></div>
@@ -1334,10 +1333,7 @@
                 <p id="hydration-msg" class="text-[10px] u-text-2 italic mt-1 text-center">Sip through the day rather than drinking a lot at once.</p>
             </div>
         </div>
-        <div class="px-2 space-y-2">
-            <p class="text-[9px] font-black uppercase tracking-[0.25em] u-text-2 px-1">Recent Sessions</p>
-            <div id="session-log" class="space-y-1.5"></div>
-        </div>
+        <!-- History is available in Progress; avoid duplicating it above HQ navigation. -->
             </div>
             <!-- ── Four destinations ───────────────────────────────────────
                  HQ, Progress, Coach, Tools, in one row of four. It replaced
@@ -7458,13 +7454,12 @@ function resumeSession(){
     session._resuming=false;
 }
 function renderLog(){
-    /* Both locations read the same persisted sessions. Progress is being
-       populated before HQ removal, so this stage cannot strand member history. */
-    const targets=['session-log','progress-session-log']
-        .map(id=>document.getElementById(id)).filter(Boolean);
+    /* Session history belongs to Progress. Keep existing persisted data,
+       ordering, five-entry limit, notes and XP; only the display location changed. */
+    const c=document.getElementById('progress-session-log');
     const logs=(persisted.sessionLog||[]).slice(-5).reverse();
     if(!logs.length){
-        targets.forEach(c=>{c.innerHTML=`<p class="u-text-2 text-[11px] italic text-center py-4">No sessions logged yet.</p>`;});
+        c.innerHTML=`<p class="u-text-2 text-[11px] italic text-center py-4">No sessions logged yet.</p>`;
         return;
     }
     const html=logs.map(log=>{
@@ -7474,7 +7469,7 @@ function renderLog(){
         const note=log.note?`<span class="w-full u-text-2 text-[10px] italic mt-0.5 truncate">${esc(log.note)}</span>`:'';
         return`<div class="log-entry"><i class="fas ${icon} ${color} text-xs w-4 text-center"></i><span class="text-slate-300 capitalize text-[11px]">${log.routineType}</span><span class="u-text-2 text-[10px]">${lbl}</span><span class="text-yellow-400 text-[10px] font-bold ml-auto">+${log.xpEarned} XP</span>${note}</div>`;
     }).join('');
-    targets.forEach(c=>{c.innerHTML=html;});
+    c.innerHTML=html;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
