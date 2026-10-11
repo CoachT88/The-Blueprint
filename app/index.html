@@ -790,6 +790,19 @@
             <h2 class="text-3xl font-black italic uppercase text-slate-50">Progress Intel</h2>
             <button id="chart-close-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 cursor-pointer"><i class="fas fa-xmark text-lg"></i></button>
         </div>
+        <!-- The existing goal-led BPEL/MSEG or EQ snapshot now lives with the
+             long-term charts. Preserve its IDs and renderDashboard wiring. -->
+        <section id="progress-snapshot" class="px-2 space-y-2" aria-labelledby="progress-snapshot-heading">
+            <h3 id="progress-snapshot-heading" class="text-[13px] font-black uppercase tracking-widest text-slate-300">Current Snapshot</h3>
+        <div id="last-measure-row" class="flex gap-3 mx-2">
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+        </div>
+        <div id="eq-summary-row" class="hidden flex gap-3 mx-2">
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Avg EQ</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">last 7 sessions</p><p id="eq-avg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
+        </div>
+        </section>
         <div class="px-2 space-y-3">
             <div class="flex items-center gap-2"><div class="chart-legend-dot bg-blue-500"></div><span class="text-[10px] font-black uppercase tracking-widest text-blue-400">BPEL — Bone Pressed Erect Length</span></div>
             <div class="chart-svg-wrap"><svg id="bpel-chart" width="100%" viewBox="0 0 340 160"></svg></div>
@@ -1283,21 +1296,9 @@
                     <span id="hq-pass-count">Recovery Passes: 0 / 2</span>
                     <i class="fas fa-circle-info text-[8px] u-text-2"></i>
                 </button></div>
-            <!-- Below the fold, deliberately.
-                 TEMPORARY HQ HOLD - MOVE TO PROGRESS IN 3E.
-                 Demoted in 3C.1 so these stop competing with Today. They are
-                 NOT moved into the current Progress Intel modal, which would be
-                 a worse home than the HQ until the real Progress redesign
-                 exists. Do not let this become permanent by inertia. -->
+            <!-- Only hydration remains in this secondary HQ region. Goal-led
+                 measurement and EQ snapshots are now in Progress Intel. -->
             <div id="hq-secondary" class="space-y-3">
-        <div id="last-measure-row" class="flex gap-3 mx-2">
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Last BPEL</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">bone-pressed length</p><p id="last-bpel" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Last MSEG</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">mid-shaft girth</p><p id="last-mseg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
-        </div>
-        <div id="eq-summary-row" class="hidden flex gap-3 mx-2">
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Avg EQ</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">last 7 sessions</p><p id="eq-avg" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
-            <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
-        </div>
         <div id="hq-hydration-card" class="instruction-card mx-2 border-blue-500/15 hq-anim" style="padding:1rem;">
             <button id="hydration-toggle" class="w-full flex justify-between items-center">
                 <div class="flex items-center gap-2 min-w-0">
