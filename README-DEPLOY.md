@@ -1,12 +1,14 @@
 # Deploying The Blueprint
 
+**Deployment target:** `wrangler.jsonc` names the live Cloudflare Worker `the-blueprint`. The earlier `theblueprint` Worker is retired; do not deploy to it. Before a production release, verify the Workers Builds production branch is `main`, the production **Deploy command** is `npx wrangler deploy` (not `npx wrangler preview`), and the required secrets exist on `the-blueprint`. Keep Worker Previews disabled until separately configured with isolated preview settings and safe secrets. Cloudflare Pages deployments do not by themselves verify this Worker's `/api` routes.
+
 `wrangler.jsonc` sets `main: src/worker.js`, so **the Worker is what serves the
 site**. It imports the handlers in `functions/api/` — those files are the single
 implementation of each endpoint, not a second copy.
 
 ## Variables the Worker needs
 
-Set in Cloudflare → Workers & Pages → **theblueprint** → Settings → Variables
+Set in Cloudflare → Workers & Pages → **the-blueprint** (current production Worker; not the retired `theblueprint`) → Settings → Variables
 and Secrets. A missing one does not fail loudly: the endpoint that needs it
 returns 503 and the app just says the feature is unavailable. The Worker's logs
 name the missing variable.
