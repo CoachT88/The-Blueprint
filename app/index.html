@@ -5907,7 +5907,10 @@ function buildResolverInput(){
         dataLoaded:_persistedLoaded,
         now:new Date(),
         goals:GOALS,
-        goalKey:persisted.primaryGoal,
+        goalKey:persisted.primaryGoal || (
+            (Number(persisted.allTimeSessionCount)>0 ||
+             (Array.isArray(persisted.sessionLog) && persisted.sessionLog.length>0))
+                ? 'all' : ''),
         dayTypes:DAY_TYPES,
         /* ONE truthful Today prescription, and the satisfaction answer that
            goes with it. The resolver used to receive the seven-slot
