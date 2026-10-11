@@ -153,6 +153,15 @@ describe('goal-aware surfaces', () => {
                 meas: !document.getElementById('last-measure-row').classList.contains('hidden'),
                 eq: !document.getElementById('eq-summary-row').classList.contains('hidden'),
                 eqAvg: document.getElementById('eq-avg').textContent,
+                snapshotInProgress: !!document.getElementById('progress-snapshot')?.closest('#chart-modal'),
+                snapshotOutsideHq: !document.getElementById('step-0')
+                    .contains(document.getElementById('progress-snapshot')),
+                measureInsideSnapshot: document.getElementById('progress-snapshot')
+                    .contains(document.getElementById('last-measure-row')),
+                eqInsideSnapshot: document.getElementById('progress-snapshot')
+                    .contains(document.getElementById('eq-summary-row')),
+                lastBpel: document.getElementById('last-bpel').textContent,
+                lastMseg: document.getElementById('last-mseg').textContent,
                 // The shared session history renderer must still run after
                 // the goal-based summary swap, now targeting Progress.
                 logRendered: document.getElementById('progress-session-log').innerHTML.length > 0,
@@ -164,10 +173,51 @@ describe('goal-aware surfaces', () => {
         }, goal);
         expect(r.eq).toBe(expectEq);
         expect(r.meas).toBe(!expectEq);
+        expect(r.snapshotInProgress).toBe(true);
+        expect(r.snapshotOutsideHq).toBe(true);
+        expect(r.measureInsideSnapshot).toBe(true);
+        expect(r.eqInsideSnapshot).toBe(true);
+        // Even one measurement must remain visible in the Progress snapshot.
+        expect(r.lastBpel).toBe('6.25"');
+        expect(r.lastMseg).toBe('4.75"');
         expect(r.logRendered).toBe(true);
         expect(r.passRendered).toBe(true);
         if (expectEq) expect(r.eqAvg).toBe('7.5');
     }, 30_000);
+
+    test('Progress visibly shows the goal-led snapshot before the charts on a phone', async () => {
+        for (const [goal, target, other] of [
+            ['size', 'last-measure-row', 'eq-summary-row'],
+            ['eq', 'eq-summary-row', 'last-measure-row'],
+        ]) {
+            const state = await app.page.evaluate(g => {
+                persisted.primaryGoal = g;
+                renderDashboard();
+                openProgressChart();
+                const modal = document.getElementById('chart-modal');
+                const snapshot = document.getElementById('progress-snapshot');
+                const active = document.getElementById(g === 'size' ? 'last-measure-row' : 'eq-summary-row');
+                const inactive = document.getElementById(g === 'size' ? 'eq-summary-row' : 'last-measure-row');
+                const graph = document.getElementById('bpel-chart');
+                const out = {
+                    open: !modal.classList.contains('hidden'),
+                    snapshotVisible: snapshot.getBoundingClientRect().height > 0,
+                    activeVisible: active.getBoundingClientRect().height > 0,
+                    inactiveHidden: inactive.getBoundingClientRect().height === 0,
+                    beforeChart: snapshot.getBoundingClientRect().top < graph.getBoundingClientRect().top,
+                    noHorizontalOverflow: modal.scrollWidth <= modal.clientWidth + 1,
+                };
+                closeProgressChart();
+                return out;
+            }, goal);
+            expect(state.open, goal).toBe(true);
+            expect(state.snapshotVisible, goal).toBe(true);
+            expect(state.activeVisible, target).toBe(true);
+            expect(state.inactiveHidden, other).toBe(true);
+            expect(state.beforeChart, goal).toBe(true);
+            expect(state.noHorizontalOverflow, goal).toBe(true);
+        }
+    }, 60_000);
 
     test('getEqSummary computes average and direction', async () => {
         const eq = await app.page.evaluate(() => getEqSummary(7));
