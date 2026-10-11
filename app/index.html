@@ -265,12 +265,42 @@
            pair drifts, and the second one exists only so CSS has something
            to hook, which an attribute selector does just as well. */
         .week-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:.35rem;width:100%}
-        .week-cell{aspect-ratio:1/1.3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-radius:.85rem;border:1px solid rgba(255,255,255,.05);position:relative;background:linear-gradient(145deg,rgba(30,41,59,.3) 0%,rgba(15,23,42,.5) 100%);box-shadow:0 4px 15px -5px rgba(0,0,0,.3);transition:all .3s cubic-bezier(.2,.8,.2,1)}
-        .week-cell>span{font-size:.55rem;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em}
+        /* min-height, NOT aspect-ratio, and that swap is the whole fix.
+           aspect-ratio:1/1.3 derived height from width, and seven columns in
+           a 320px screen leave about 31px each, so the cell could never be
+           taller than ~40px however much the content needed. Height is now
+           independent of width: the label can reach the type floor and the
+           legacy cohort's cells can reach a 44px touch height at EVERY width.
+
+           Width is a different matter and is not solved here. Seven columns
+           cannot each be 44px wide in a 248px content box, so the cells meet
+           WCAG 2.5.8 (AA, 24x24) and not 2.5.5 (AAA, 44x44). Said plainly
+           rather than rounded up. */
+        .week-cell{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 2px;border-radius:.85rem;border:1px solid rgba(255,255,255,.05);position:relative;background:linear-gradient(145deg,rgba(30,41,59,.3) 0%,rgba(15,23,42,.5) 100%);box-shadow:0 4px 15px -5px rgba(0,0,0,.3);transition:all .3s cubic-bezier(.2,.8,.2,1)}
+        /* 11px is the design system's own floor (--t-micro), set because 28
+           of 39 HQ text nodes were 8-11px. This label was 0.55rem = 8.8px,
+           the last sub-floor text on the HQ. */
+        .week-cell>span{font-size:var(--t-micro);line-height:1;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.01em}
         .week-cell>i{font-size:.8rem}
         /* Only the cohort whose column IS their programme can edit a day, so
            only their cells offer the affordance. See openDayModal(). */
         .week-strip[data-authority="legacy"] .week-cell{cursor:pointer}
+        /* Keyboard focus on the cells that are genuinely controls, and only
+           those. The legacy cohort's cells carry role="button" and a tab
+           stop; an authoritative member's do not, by design, so scoping the
+           ring to [data-authority="legacy"] states that boundary in CSS as
+           well as in the renderer. outline-offset is negative because the
+           strip has no room to paint a ring outside a 31px cell without it
+           overlapping the neighbour. */
+        .week-strip[data-authority="legacy"] .week-cell:focus-visible{
+            outline:2px solid var(--accent);outline-offset:-3px;border-radius:.85rem;
+            /* INSTANT. .week-cell carries `transition:all .3s`, which catches
+               outline-width and fades the ring in from 0 over 300ms. A focus
+               indicator that arrives a third of a second after the key is a
+               focus indicator a fast typist never sees, and it is why the
+               first version of the test measured a 0px ring on markup that
+               paints one correctly. */
+            transition:none}
         .week-cell[data-state="satisfied"]::after{content:'\f058';font-family:'Font Awesome 6 Free';font-weight:900;position:absolute;top:-5px;right:-5px;color:var(--accent-emerald);font-size:.85rem;background:var(--bg-deep);border-radius:50%;padding:1px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
         /* Rest was prescribed and resting met it, so it borrows nothing from
            the unfinished treatment: no tick, because there was no work to
