@@ -35,9 +35,12 @@ const seed = (page, o) => page.evaluate((o) => {
     persisted.pelvicProfile = 'standard'; persisted.pelvicScreenDate = '2025-01-01';
     persisted.schedule = o.schedule || ['length','length','length','length','length','length','length'];
     persisted.completedDays = o.completedDays || [false,false,false,false,false,false,false];
-    persisted.sessionLog = o.sessionLog ||
-        [{ date: new Date(Date.now() - 2 * 864e5).toISOString(), routineType: 'length', duration: 30 }];
-    persisted.progressionLedger = []; persisted.allTimeSessionCount = 40;
+    persisted.sessionLog = o.sessionLog !== undefined ? o.sessionLog
+        : o.goal === '' ? []
+        : [{ date: new Date(Date.now() - 2 * 864e5).toISOString(), routineType: 'length', duration: 30 }];
+    /* An explicit goal gate belongs to a truly new member, not a legacy
+       member with years of sessions and an empty historical goal field. */
+    persisted.progressionLedger = []; persisted.allTimeSessionCount = o.goal === '' ? 0 : 40;
     try {
         localStorage.setItem('bp_onboarded_' + U, '1');
         localStorage.removeItem(getTodaySorenessKey());
