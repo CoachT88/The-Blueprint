@@ -275,8 +275,14 @@
            Width is a different matter and is not solved here. Seven columns
            cannot each be 44px wide in a 248px content box, so the cells meet
            WCAG 2.5.8 (AA, 24x24) and not 2.5.5 (AAA, 44x44). Said plainly
-           rather than rounded up. */
-        .week-cell{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 2px;border-radius:.85rem;border:1px solid rgba(255,255,255,.05);position:relative;background:linear-gradient(145deg,rgba(30,41,59,.3) 0%,rgba(15,23,42,.5) 100%);box-shadow:0 4px 15px -5px rgba(0,0,0,.3);transition:all .3s cubic-bezier(.2,.8,.2,1)}
+           rather than rounded up.
+
+           48px, not 52. 52 was more height than the content needs and it
+           cost 2px of the fold gain slice 2A had just won: the full suite
+           caught the nav bottom at 846 against an 844 viewport in COMPLETE.
+           48 clears the 44px touch height with room for an 11px label, a
+           12.8px icon and the gaps, and hands the 2px back. */
+        .week-cell{min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 2px;border-radius:.85rem;border:1px solid rgba(255,255,255,.05);position:relative;background:linear-gradient(145deg,rgba(30,41,59,.3) 0%,rgba(15,23,42,.5) 100%);box-shadow:0 4px 15px -5px rgba(0,0,0,.3);transition:all .3s cubic-bezier(.2,.8,.2,1)}
         /* 11px is the design system's own floor (--t-micro), set because 28
            of 39 HQ text nodes were 8-11px. This label was 0.55rem = 8.8px,
            the last sub-floor text on the HQ. */
