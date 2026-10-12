@@ -25,7 +25,7 @@ const FUNCTIONS = [
     'obNext', 'hideOnboarding', 'finishOnboarding', 'fetchClaude', '_greetedKey',
     // persistence
     'savePersisted', '_flushSaveNow', '_buildSavePayload', '_upsertPayload', 'loadPersisted',
-    'normaliseSchedule', 'maybeApplyGoalSchedule',
+    'normaliseSchedule', 'goalStartLabel',
     // sessions and progress
     'finishSession', 'resetSession', 'updateRecords', 'checkMilestones',
     'maybeEarnRecoveryPass', 'ownsTier', 'eliteEqConditionMet', 'currentProgression', 'syncProgression',

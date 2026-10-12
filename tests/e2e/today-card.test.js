@@ -171,7 +171,7 @@ describe('the Today card', () => {
         const r = await render(app.page, { type: 'rest' });
         expect(r.state).toBe('REST');
         expect(r.headline).toBe('Rest Day');
-        expect(r.why).toBe('Rest is on the schedule today, and it is part of the programme.');
+        expect(r.why).toBe('Rest is on the schedule today, and it is part of the program.');
         expect(r.why).not.toMatch(/locked/i);
         // No primary call to action pressing the member into more work.
         expect(r.launch).toBeNull();

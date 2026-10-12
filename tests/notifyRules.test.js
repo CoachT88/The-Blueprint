@@ -258,3 +258,18 @@ describe('what a lock screen reveals', () => {
         for (const m of everyMessage) expect(m.body).not.toContain('—');
     });
 });
+
+describe('scheduled goal changes while the app is closed', () => {
+    const schedule = ['length','girth','rest','length','girth','rest','rest'];
+    const next = ['stamina','rest','stamina','rest','stamina','rest','rest'];
+    const programme = {pendingChange:{effectiveDate:'2026-03-16',schedule:next}};
+    test('uses this week before the start date and next week after it', () => {
+        expect(decideNotification({schedule,programme,timezone:'UTC',now:new Date('2026-03-09T19:00:00Z')})).not.toBeNull();
+        expect(decideNotification({schedule,programme,timezone:'UTC',now:new Date('2026-03-16T19:00:00Z')})).toBeNull();
+        expect(decideNotification({schedule,programme,timezone:'UTC',now:new Date('2026-03-17T19:00:00Z')})).not.toBeNull();
+    });
+    test('ignores malformed pending schedules', () => {
+        expect(decideNotification({schedule,timezone:'UTC',now:new Date('2026-03-16T19:00:00Z'),
+            programme:{pendingChange:{effectiveDate:'2026-03-16',schedule:['rest']}}})).not.toBeNull();
+    });
+});

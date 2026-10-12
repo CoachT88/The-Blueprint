@@ -127,6 +127,7 @@ export function decideNotification({
     sessionLog = [],
     passProtectedDates = [],
     schedule = null,
+    programme = null,
     reminderTime = '19:00',
     timezone = 'UTC',
     lastNotifiedDate = null,
@@ -158,8 +159,17 @@ export function decideNotification({
 
     // 5. Today is a scheduled rest day. "Time to train" on a rest day teaches
     //    members that the app is not paying attention.
-    if (Array.isArray(schedule) && schedule.length === 7) {
-        if (schedule[localWeekdayFor(now, timezone)] === 'rest') return null;
+    // A scheduled goal change must also take effect when the app is closed.
+    const change = programme && programme.pendingChange;
+    const nextWeek = change && change.schedule;
+    const effectiveSchedule = change && typeof change.effectiveDate === 'string'
+        && /^\d{4}-\d{2}-\d{2}$/.test(change.effectiveDate)
+        && change.effectiveDate <= localDate
+        && Array.isArray(nextWeek) && nextWeek.length === 7
+        && nextWeek.every(t => ['length', 'girth', 'stamina', 'rest'].includes(t))
+        ? nextWeek : schedule;
+    if (Array.isArray(effectiveSchedule) && effectiveSchedule.length === 7) {
+        if (effectiveSchedule[localWeekdayFor(now, timezone)] === 'rest') return null;
     }
 
     return { kind: 'daily_reminder', ...MESSAGES.daily_reminder(), url: '/app/' };

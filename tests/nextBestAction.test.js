@@ -299,7 +299,7 @@ describe('nextBestAction: the required cases', () => {
         const r = nextBestAction(input({ now: TUE }));
         expect(r.state).toBe('REST');
         expect(r.mission).toBeNull();
-        expect(r.reason).toBe('Rest is on the schedule today, and it is part of the programme.');
+        expect(r.reason).toBe('Rest is on the schedule today, and it is part of the program.');
         expect(r.reason).not.toMatch(/locked/i);
         // Nothing to do, offered as nothing to do. A few minutes of optional
         // work beside a rest day teaches that rest is never quite enough.

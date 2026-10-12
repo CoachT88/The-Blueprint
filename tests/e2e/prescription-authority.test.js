@@ -930,7 +930,7 @@ describe('nothing in the Today or session funnel reads the projection', () => {
             savePayload: _buildSavePayload.toString().includes('persisted.schedule'),
             legacyWeek: renderWeekStrip.toString().includes('legacySchedule:persisted.schedule'),
             dayPicker: assignDay.toString().includes('persisted.schedule'),
-            goalPreset: maybeApplyGoalSchedule.toString().includes('persisted.schedule'),
+            goalPreset: selectGoal.toString().includes('persisted.schedule'),
         }));
         expect(present).toEqual({ ledger: true, savePayload: true, legacyWeek: true,
                                   dayPicker: true, goalPreset: true });

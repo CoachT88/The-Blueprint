@@ -51,18 +51,18 @@ describe('goal presets never trample an existing schedule', () => {
             return { asked, goal: persisted.primaryGoal, schedule: persisted.schedule };
         }, CUSTOM);
         expect(r.asked).toBe(1);
-        expect(r.goal).toBe('size');       // the goal itself is still recorded
+        expect(r.goal).toBe('');           // declining cancels the entire change
         expect(r.schedule).toEqual(CUSTOM); // but the week is untouched
     });
 
-    test('accepting the prompt applies the preset', async () => {
+    test('accepting the prompt preserves this week and queues the preset', async () => {
         await legacy();
         const schedule = await app.page.evaluate(() => {
             window.confirm = () => true;
             selectGoal('size');
             return persisted.schedule;
         });
-        expect(schedule).toEqual(SIZE_PRESET);
+        expect(schedule).toEqual(CUSTOM);
     });
 
     test('a customised schedule with no history is still protected', async () => {
