@@ -40,6 +40,13 @@ describe('goal change uses the real picker and generation', () => {
             }));
             expect(boxes.options).toBeLessThan(boxes.done);
             expect(boxes.label).toBe('Done');
+            const skipped=await app.page.evaluate(() => {
+                let n=0; const original=window.track;
+                window.track=(event,...args)=>{ if(event==='intro_skipped')n++; return original(event,...args); };
+                try {document.getElementById('ob-skip-btn').click();} finally {window.track=original;}
+                return n;
+            });
+            expect(skipped).toBe(0);
         } finally {await app.close();}
     });
     test('Account opens the existing picker, confirms, saves and activates next Monday', async () => {

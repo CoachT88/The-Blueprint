@@ -10140,7 +10140,7 @@ function init(){
     document.getElementById('pelvic-screen-later').addEventListener('click',closePelvicScreen);
     document.getElementById('pelvic-result-ok').addEventListener('click',closePelvicResult);
     document.getElementById('pelvic-result-learn').addEventListener('click',()=>{closePelvicResult();openManualAt('m-recovery');});
-    document.getElementById('ob-skip-btn').addEventListener('click',()=>{track('intro_skipped',{slide:_obSlide});hideOnboarding();});
+    document.getElementById('ob-skip-btn').addEventListener('click',()=>{if(!_goalPickerOnly)track('intro_skipped',{slide:_obSlide});hideOnboarding();});
     document.getElementById('ob-name-skip').addEventListener('click',()=>{
         /* Skipping stores nothing. The field is cleared so a later Continue
            cannot save what they just chose not to give us. */
