@@ -159,6 +159,38 @@ export function programmeKeyFor(programme) {
     return null;
 }
 
+/** A confirmed transition lives in the existing programme JSON, not a flag. */
+export function pendingProgrammeChange(programme) {
+    const p = programme && programme.pendingChange;
+    if (!isPlainObject(p) || !KEYS.includes(p.key)
+        || typeof p.effectiveDate !== 'string'
+        || !/^\d{4}-\d{2}-\d{2}$/.test(p.effectiveDate)) return null;
+    const date = new Date(p.effectiveDate + 'T12:00:00');
+    return !isNaN(date.getTime()) && localDateKey(date) === p.effectiveDate ? p : null;
+}
+
+/** Reuse generation for an explicitly approved goal change. No progress fields. */
+export function goalChangePlan(input) {
+    const i = isPlainObject(input) ? input : {};
+    const key = KEY_FOR_PRESET[i.goal];
+    if (!key) return { ok: false, reason: GENERATE_REFUSAL.NO_PROGRAMME_KEY };
+    const h = horizonFor(i.now);
+    const effectiveDate = i.immediate === true ? h.today : localDateKey(h.nextMonday);
+    const programme = { ...i.programme };
+    if (key === programmeKeyFor(programme)) {
+        delete programme.pendingChange; // choosing the current program cancels a queued switch
+    } else {
+        programme.pendingChange = { key, effectiveDate, schedule: weekShapeFor(key, i.presets) };
+    }
+    // A custom week is adopted only through this explicit member action.
+    programme.adoptedAt = programme.adoptedAt || h.today;
+    const stored = Array.isArray(i.existingPlans) ? i.existingPlans : [];
+    const existingPlans = i.immediate === true
+        ? stored.filter(p => isPlainObject(p) && p.date < h.today) : stored;
+    const result = cutoverPlan({ ...i, programme, existingPlans, permitted: true });
+    return result.ok ? { ...result, effectiveDate } : result;
+}
+
 /** The seven-slot weekly shape a programme prescribes, from the real presets. */
 export function weekShapeFor(key, presets) {
     const preset = PRESET_FOR_KEY[key];
@@ -424,13 +456,30 @@ export function cutoverPlan(input) {
     if (i.permitted !== true) return { ok: false, reason: GENERATE_REFUSAL.NOT_PERMITTED };
 
     const programme = isPlainObject(i.programme) ? i.programme : null;
-    const key = programmeKeyFor(programme);
-    if (!key) return { ok: false, reason: GENERATE_REFUSAL.NO_PROGRAMME_KEY };
+    const pending = pendingProgrammeChange(programme);
+    const today = planDateKey(i.now);
+    const due = pending && pending.effectiveDate <= today;
+    const key = due ? pending.key : programmeKeyFor(programme);
+    if (!key && !pending) return { ok: false, reason: GENERATE_REFUSAL.NO_PROGRAMME_KEY };
+    if (!key && (!Array.isArray(i.legacySchedule) || i.legacySchedule.length !== 7)) {
+        return { ok: false, reason: GENERATE_REFUSAL.NO_WEEK_SHAPE };
+    }
 
     const gen = generatePlans({
-        key, now: i.now, tier: i.tier, presets: i.presets, tables: i.tables,
+        key: key || pending.key, now: i.now, tier: i.tier, presets: i.presets, tables: i.tables,
     });
     if (!gen.ok) return gen;
+
+    if (pending && !due) {
+        const next = generatePlans({ key: pending.key, now: i.now,
+            tier: i.tier, presets: i.presets, tables: i.tables });
+        if (!next.ok) return next;
+        const stored = new Map((Array.isArray(i.existingPlans) ? i.existingPlans : [])
+            .filter(isPlainObject).map(p => [p.date, p]));
+        const future = new Map(next.plans.map(p => [p.date, p]));
+        gen.plans = gen.plans.filter(p => key || p.date >= pending.effectiveDate)
+            .map(p => p.date >= pending.effectiveDate ? future.get(p.date) : (stored.get(p.date) || p));
+    }
 
     const dayPlans = retainPlans(i.existingPlans, gen.plans, {
         today: gen.horizon.today,
@@ -454,16 +503,20 @@ export function cutoverPlan(input) {
     return {
         ok: true,
         dayPlans,
-        schedule: proj.slots,
+        // Notifications and legacy consumers must still see THIS week's focus.
+        schedule: pending && !due
+            ? (key ? weekShapeFor(key, i.presets).slice() : i.legacySchedule.slice())
+            : proj.slots,
         /* Spread, never rebuilt: migration provenance is historical and
            authority changing does not change what was classified or when.
            adoptedAt is untouched, because automatic migration is not member
            adoption. */
         programme: {
             ...programme,
-            key,
+            key: key || null,
             version: PROGRAMME_CONTENT_VERSION,
             cyclePosition: null,
+            ...(due ? { pendingChange: null } : {}),
         },
         horizon: gen.horizon,
     };

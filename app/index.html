@@ -288,7 +288,7 @@
            the last sub-floor text on the HQ. */
         .week-cell>span{font-size:var(--t-micro);line-height:1;font-weight:800;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.01em}
         .week-cell>i{font-size:.8rem}
-        /* Only the cohort whose column IS their programme can edit a day, so
+        /* Only the cohort whose column IS their program can edit a day, so
            only their cells offer the affordance. See openDayModal(). */
         .week-strip[data-authority="legacy"] .week-cell{cursor:pointer}
         /* Keyboard focus on the cells that are genuinely controls, and only
@@ -1276,7 +1276,7 @@
              it moved: it is the strip under the Today card now, merged with
              the dot row that used to describe the same week a thumb-length
              higher up the screen. Its editing affordance moved with it for
-             members whose column is still their programme, and is withdrawn
+             members whose column is still their program, and is withdrawn
              for members whose week comes from their dated plans, because
              editing a derived projection would be an edit that disappears on
              the next load. -->
@@ -1290,7 +1290,7 @@
             <!-- The XP / level badge stood here: a number that climbs whether or
                  not the work qualified, in the place the real signal belongs. The
                  Recovery Pass chip was nested inside it and is kept, because
-                 passes are actual programme state. -->
+                 passes are actual program state. -->
             <div class="px-2 flex justify-center"><button id="hq-pass-chip" class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-200">
                     <i class="fas fa-shield-halved text-amber-400/80"></i>
                     <span id="hq-pass-count">Recovery Passes: 0 / 2</span>
@@ -1802,7 +1802,7 @@
         </div>
         <!-- Phase 3C.3. Was "Your Weekly Schedule", describing a calendar the
              member assigned day by day and tapped to mark complete. Both
-             halves became false: the week comes from the programme, and the
+             halves became false: the week comes from the program, and the
              surface that shows it is an orientation strip rather than an
              editor. Promising a tap that does nothing is worse than
              promising nothing. -->
@@ -1874,12 +1874,7 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-2">What are you here for?</h2>
-        <!-- Phase 3C.3. "You can change it any time from the Manual" promised
-             a thing that no longer exists for a member whose week comes from
-             their programme: changing the goal records a preference and
-             leaves the programme alone. Changing a programme is Change My
-             Programme, which is not built, so the copy stops offering it. -->
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">This is what I build your week around, and what I lead with when you ask me something.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">This is what I build your week around. You can change it later in Account. Once you have started training, changes begin next Monday and keep your progress.</p>
         <div class="grid grid-cols-2 gap-2.5 w-full max-w-xs" id="goal-options">
             <button class="goal-opt" data-goal="size"><i class="fas fa-up-right-and-down-left-from-center text-blue-400"></i><span>Size</span><em>Length and girth work</em></button>
             <button class="goal-opt" data-goal="stamina"><i class="fas fa-fire-flame-curved text-purple-400"></i><span>Lasting longer</span><em>Control and endurance</em></button>
@@ -2105,7 +2100,7 @@
                 </div>
                 <div class="p-3 rounded-xl bg-orange-500/5 border border-orange-500/20">
                     <p class="text-orange-300 font-bold text-xs mb-1"><i class="fas fa-battery-quarter mr-1.5"></i>Deload Weeks</p>
-                    <p>Once you have put together four solid training weeks, the week that follows is a deload week. Sets drop by one and durations come down, from that week's first session to its last, and the app flags it with an orange banner. It is one week only. Whatever you manage inside it, the next week goes back to normal and the count starts again. This is how the programme is planned rather than a verdict on how your week went, and the session count stays the same, so a deload week can still be a full week of training.</p>
+                    <p>Once you have put together four solid training weeks, the week that follows is a deload week. Sets drop by one and durations come down, from that week's first session to its last, and the app flags it with an orange banner. It is one week only. Whatever you manage inside it, the next week goes back to normal and the count starts again. This is how the program is planned rather than a verdict on how your week went, and the session count stays the same, so a deload week can still be a full week of training.</p>
                 </div>
             </div>
         </div>
@@ -2144,7 +2139,7 @@
                     </div>
                     <div class="p-3 rounded-xl bg-red-500/5 border border-red-500/20">
                         <p class="text-red-300 font-bold text-xs mb-1">Rest days</p>
-                        <p>On scheduled rest days, Length and Girth are not available and Recovery Protocol is. This is intentional. Rest is part of the programme, not a gap in it, and the tissue needs mechanical rest between sessions.</p>
+                        <p>On scheduled rest days, Length and Girth are not available and Recovery Protocol is. This is intentional. Rest is part of the program, not a gap in it, and the tissue needs mechanical rest between sessions.</p>
                     </div>
                 </div>
             </div>
@@ -2282,7 +2277,7 @@
                 </div>
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Do the Recovery Protocol</p>
-                    <p>The Big Four and pelvic floor work on rest days are part of the programme, not optional extras. Mobility in the surrounding hips and adductors can support comfortable pelvic movement and relaxation, especially for people who spend long periods sitting.</p>
+                    <p>The Big Four and pelvic floor work on rest days are part of the program, not optional extras. Mobility in the surrounding hips and adductors can support comfortable pelvic movement and relaxation, especially for people who spend long periods sitting.</p>
                 </div>
                 <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                     <p class="text-white font-bold text-xs mb-1">Trust the tier locks</p>
@@ -2385,7 +2380,7 @@
      Manual changes in this slice beyond where a member taps to reach them.
      Nothing new is offered here. -->
 <div id="tools-modal" class="hidden fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center" style="background:rgba(2,6,23,.8)">
-    <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(100,116,139,.3)">
+    <div class="w-full max-w-md rounded-t-3xl p-6 space-y-4" style="background:#0f172a;border-top:1px solid rgba(100,116,139,.3);max-height:90dvh;overflow-y:auto">
         <div class="flex items-center justify-between">
             <p class="text-[12px] font-black uppercase tracking-widest" style="color:var(--text)">Tools</p>
             <button id="tools-close" class="u-icon-btn" aria-label="Close tools"><i class="fas fa-xmark" aria-hidden="true"></i></button>
@@ -2428,6 +2423,17 @@
                 </div>
                 <button id="account-name-clear" class="text-[10px] font-black u-text-2 uppercase tracking-widest">Remove my name</button>
             </div>
+        </div>
+
+        <div class="account-row">
+            <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-[11px] font-bold text-slate-300">Training goal</p>
+                    <p id="account-goal-value" class="text-[12px] u-text-2 mt-0.5"></p>
+                </div>
+                <button id="account-goal-change" class="text-[10px] font-black text-slate-300 uppercase tracking-widest bg-slate-800 px-3 py-1.5 rounded-xl flex-shrink-0">Change Goal</button>
+            </div>
+            <p id="account-goal-pending" class="hidden text-[11px] text-emerald-400 mt-3" aria-live="polite"></p>
         </div>
 
         <div class="account-row flex items-center justify-between gap-3">
@@ -2523,7 +2529,7 @@
 <div id="type-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[var(--z-popover)] hidden flex items-center justify-center p-6">
     <div class="bg-slate-900/90 border border-slate-700 w-full max-w-xs rounded-[2rem] p-8 space-y-4">
         <h3 class="text-center font-black uppercase italic text-slate-400 text-sm tracking-[0.2em] mb-6">Adjust intent</h3>
-        <p id="type-modal-locked" class="hidden text-center text-xs text-slate-400 leading-relaxed mb-6">Your week is set by your programme now.</p>
+        <p id="type-modal-locked" class="hidden text-center text-xs text-slate-400 leading-relaxed mb-6">Your week is set by your program now.</p>
         <div id="type-modal-types" class="space-y-4">
             <button id="modal-length-btn" class="w-full py-5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 font-black uppercase italic cursor-pointer">Length</button>
             <button id="modal-girth-btn"  class="w-full py-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-black uppercase italic cursor-pointer">Girth</button>
@@ -2976,7 +2982,7 @@ const COACH_TIPS = [
     { title: 'Diet shows up over months.', body: 'A diet heavy in sugar and processed food is associated with worse vascular and metabolic health over time. The effect is cumulative rather than same day, so judge it across months, not across sessions.' },
     { title: 'Track your EQ weekly.', body: 'EQ is the most sensitive indicator of your overall vascular and hormonal health. A downward trend tells you something is off before anything else does. Rate it honestly after every session.' },
     { title: 'Your mindset is part of the protocol.', body: 'Chronic negative self-talk about sexual performance activates the same stress response as a real threat. That stress response constricts blood vessels. Your mental state has a direct physical effect.' },
-    { title: 'Rest days are training days.', body: 'Adaptation happens between sessions, not during them. A rest day taken as written is the programme being followed. Skipping it does not make you more dedicated.' },
+    { title: 'Rest days are training days.', body: 'Adaptation happens between sessions, not during them. A rest day taken as written is the program being followed. Skipping it does not make you more dedicated.' },
 ];
 const ROUTINES={
     length:[
@@ -4804,9 +4810,12 @@ async function fetchClaude(mode, userMsg, context){
 // already on the client; nothing extra is fetched.
 function _coachContext(){
     const log=persisted.sessionLog||[];
+    const pending=window.BP.pendingProgrammeChange(persisted.programme);
+    const transition=pending
+        ? `Goal change scheduled: the new program begins ${pending.effectiveDate}. Until then, follow today's scheduled focus and keep this week's existing training.` : '';
     if(!log.length){
         const _n=preferredName();
-        return `LIVE USER DATA\n${_n?`Preferred name: ${_n}\n`:''}This member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(scheduledPrimaryType())}.`;
+        return `LIVE USER DATA\n${_n?`Preferred name: ${_n}\n`:''}This member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(scheduledPrimaryType())}.\n${transition}`;
     }
     const lines=[];
     /* Deterministic context, like every other line here. The model may use
@@ -4816,6 +4825,7 @@ function _coachContext(){
     const _name=preferredName();
     if(_name) lines.push(`Preferred name: ${_name}`);
     lines.push(`Stated goal: ${getGoal().label}. ${getGoal().coach}`);
+    if(transition) lines.push(transition);
     if(isFloorTight()) lines.push(`Pelvic floor screener: HYPERTONIC (tight). Do NOT recommend kegels or any contraction work to this member under any circumstances. Lead with reverse kegels, diaphragmatic breathing, hip openers and myofascial release. Contraction work has been removed from their protocol in the app.`);
     else if(hasPelvicScreen()) lines.push(`Pelvic floor screener: no signs of a tight floor. Contraction and release work are both appropriate, but tell them to stop the kegels if urgency, perineal ache or post-ejaculation discomfort appear.`);
     else lines.push(`Pelvic floor screener: not taken yet. Assess hypertonic vs weak before recommending any contraction work.`);
@@ -6421,7 +6431,7 @@ const PREPARE_COPY={
        missing day plan, and offering it would invite an edit the next load
        overwrites. The integrity path has already reported the condition. */
     'prescription-unavailable':{headline:"Today's Plan Is Unavailable", cta:'',
-                           hint:'Your programme could not be read for today. Nothing has been lost.'},
+                           hint:'Your program could not be read for today. Nothing has been lost.'},
 };
 
 /**
@@ -7238,6 +7248,7 @@ function syncProgression(reason){
             permitted:window.BP.mayGenerateOver(persisted.programme),
             programme:persisted.programme,
             existingPlans:persisted.dayPlans,
+            legacySchedule:persisted.schedule,
             /* The real tables, passed rather than copied into the module. A
                second dose table there is how two prescriptions drift. */
             presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
@@ -7256,7 +7267,7 @@ function syncProgression(reason){
                local date costs no save. */
             const _same=JSON.stringify(persisted.dayPlans)===JSON.stringify(_cut.dayPlans)
                       && JSON.stringify(persisted.schedule)===JSON.stringify(_cut.schedule)
-                      && persisted.programme.key===_cut.programme.key;
+                      && JSON.stringify(persisted.programme)===JSON.stringify(_cut.programme);
             if(!_same){
                 persisted.dayPlans=_cut.dayPlans;
                 persisted.schedule=_cut.schedule;
@@ -7913,6 +7924,11 @@ function renderAccount(){
         v.classList.toggle('text-slate-300',!!name);
         v.classList.toggle('u-text-2',!name);
     }
+    document.getElementById('account-goal-value').textContent=GOALS[persisted.primaryGoal]?.label||'Not set';
+    const pending=window.BP.pendingProgrammeChange(persisted.programme);
+    const note=document.getElementById('account-goal-pending');
+    note.textContent=pending ? `Your new program starts ${goalStartLabel(pending.effectiveDate)}. This week's training stays the same.` : '';
+    note.classList.toggle('hidden',!pending);
 }
 function openAccount(){
     // Rendered from currentUser at open time rather than anything cached,
@@ -8289,10 +8305,14 @@ function historyRow(s){
 // ONBOARDING
 // ═══════════════════════════════════════════════════════════════════════════
 let _obSlide=0;
+let _goalPickerOnly=false;
 // Derived rather than hardcoded, so adding a slide cannot silently strand the
 // Get Started button on the wrong screen.
 function _obLastIdx(){ return Math.max(0,document.querySelectorAll('.ob-slide').length-1); }
-function showOnboarding(startIdx){
+function showOnboarding(startIdx,goalOnly=false){
+    _goalPickerOnly=goalOnly;
+    document.getElementById('ob-dots').classList.toggle('hidden',goalOnly);
+    document.getElementById('ob-skip-btn').textContent=goalOnly?'Close':'Skip intro';
     document.getElementById('onboarding-overlay').classList.add('show');
     renderGoalOptions();
     goToObSlide(startIdx||0);
@@ -8312,7 +8332,7 @@ function goToObSlide(idx){
     });
     _obSlide=idx;
     const btn=document.getElementById('ob-next-btn');
-    if(btn) btn.innerText=idx>=_obLastIdx()?'Get Started':'Next';
+    if(btn) btn.innerText=_goalPickerOnly?'Done':idx>=_obLastIdx()?'Get Started':'Next';
 }
 function obNext(){
     // The name slide is the only one that can refuse to advance, and only
@@ -8433,61 +8453,65 @@ function renderGoalOptions(){
     if(note) note.classList.add('hidden');
 }
 function selectGoal(key){
-    if(!GOALS[key]) return;
+    if(!GOALS[key]||!_persistedLoaded||!currentUser) return;
+    const untouched=(persisted.allTimeSessionCount||0)===0
+        && persisted.sessionLog.length===0
+        && JSON.stringify(persisted.schedule)===JSON.stringify(DEFAULT_PERSISTED.schedule)
+        && !buildResolverInput().sessionDraft;
+    const pending=window.BP.pendingProgrammeChange(persisted.programme);
+    const target=window.BP.programmeKeyFor({migration:{source:'preset',presetKey:key}});
+    const alreadyCurrent=window.BP.programmeKeyFor(persisted.programme)===target;
+    if(persisted.primaryGoal===key && !pending && alreadyCurrent) return;
+    const date=window.BP.planDateKey(window.BP.horizonFor(new Date()).nextMonday);
+    if(!untouched && (!alreadyCurrent||pending) && !confirm(
+        alreadyCurrent
+            ? 'Keep your current program and cancel the scheduled goal change? Your progress stays saved.'
+            : `Change your goal to ${GOALS[key].label.toLowerCase()}?\n${GOALS[key].blurb}.\n\nYour new program starts ${goalStartLabel(date)}. This week's training stays the same.\n\nCompleted sessions, XP, streaks, measurements, and milestones stay saved.`)) return;
+    // Classification is already established during dashboard load. Keep its
+    // provenance, and use the existing generator to commit one coherent plan.
+    const change=window.BP.goalChangePlan({
+        goal:key, immediate:untouched, programme:persisted.programme,
+        existingPlans:persisted.dayPlans, legacySchedule:persisted.schedule,
+        presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+        tables:{routines:ROUTINES,difficulties:DIFFICULTIES,girthCircuit:GIRTH_CIRCUIT,
+            directionals:DIRECTIONALS,exExperience:EX_EXPERIENCE},
+        tier:getDiff().id, now:new Date(),
+    });
+    if(!change.ok){
+        const note=document.getElementById('goal-confirm');
+        note.textContent='Your goal could not be changed. Please try again. Your current program is still saved.';
+        note.classList.remove('hidden');
+        return;
+    }
     persisted.primaryGoal=key;
+    persisted.programme=change.programme;
+    persisted.dayPlans=change.dayPlans;
+    persisted.schedule=change.schedule;
     renderGoalOptions();
-    const applied=maybeApplyGoalSchedule(key);
-    track('goal_selected',{goal:key,schedule_applied:!!applied});
+    track('goal_selected',{goal:key,schedule_applied:true,effective_date:change.effectiveDate});
     savePersisted();
     const note=document.getElementById('goal-confirm');
     if(note){
-        /* Three cases, each said plainly. For a member whose week is derived,
-           "Focus set to ..." would imply the app's focus moved when the
-           programme and the plans did not. primaryGoal is not inert for them,
-           since Coach Tee still reads it, so the note says what did happen
-           rather than nothing, and promises no feature that does not exist. */
-        note.textContent=onAuthoritativePlans()
-            ? 'Noted. This does not change your programme.'
-            : (applied
-                ? `Weekly schedule set for ${GOALS[key].label.toLowerCase()}.`
-                : `Focus set to ${GOALS[key].label.toLowerCase()}.`);
+        note.textContent=untouched
+            ? `Weekly schedule set for ${GOALS[key].label.toLowerCase()}.`
+            : (alreadyCurrent ? 'Your current program stays in place. Your progress is saved.'
+                : `New program starts ${goalStartLabel(change.effectiveDate)}. This week stays the same. Your progress is saved.`);
         note.classList.remove('hidden');
     }
     renderDashboard();
 }
-// A member's calendar is theirs. Only write it automatically when the account is
-// genuinely untouched; otherwise ask, and leave it alone if they decline.
-function maybeApplyGoalSchedule(key){
-    const preset=GOALS[key].schedule;
-    if(!preset) return false;
-    /* After cutover the week is derived from the dated plans, so writing a
-       preset here would be a second authority: the next load projects the
-       plans back over it. The goal is still recorded, because a stated
-       preference is not programme authority; moving a member to a different
-       programme belongs to Change My Programme. */
-    if(onAuthoritativePlans()) return false;
-    const cur=persisted.schedule||[];
-    if(JSON.stringify(cur)===JSON.stringify(preset)) return false; // already matches
-    const untouched=(persisted.allTimeSessionCount||0)===0
-        && JSON.stringify(cur)===JSON.stringify(DEFAULT_PERSISTED.schedule);
-    if(untouched){
-        persisted.schedule=preset.slice();
-        return true;
-    }
-    const days=preset.map(t=>dayTypeLabel(t)).join(', ');
-    if(confirm(`Update your weekly schedule to match this focus?\n\nNew week: ${days}\n\nYour current schedule will be replaced.`)){
-        persisted.schedule=preset.slice();
-        return true;
-    }
-    return false;
+function goalStartLabel(date){
+    return new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
 }
 function openGoalPicker(){
     closeManual();
-    setTimeout(()=>showOnboarding(_obLastIdx()),320);
+    closeAccount();
+    setTimeout(()=>showOnboarding(_obLastIdx(),true),320);
 }
 // Completing the intro flows into the guided tour. Skipping it does not, but the
 // tour stays available from the Manual.
 function finishOnboarding(){
+    if(_goalPickerOnly){ hideOnboarding(); return; }
     trackOnce('intro_done','intro_completed');
     hideOnboarding();
     // A man who just finished the intro has no earlier progress that could
@@ -9985,6 +10009,7 @@ function init(){
     document.getElementById('pelvic-lock-close').addEventListener('click',closePelvicLock);
     document.getElementById('account-btn').addEventListener('click',openAccount);
     document.getElementById('account-close').addEventListener('click',closeAccount);
+    document.getElementById('account-goal-change').addEventListener('click',openGoalPicker);
     document.getElementById('account-name-edit').addEventListener('click',openAccountEditor);
     document.getElementById('account-name-cancel').addEventListener('click',closeAccountEditor);
     document.getElementById('account-name-save').addEventListener('click',saveAccountName);
@@ -10308,7 +10333,7 @@ import { classifyLegacySchedule, migrationProgramme, mayGenerateOver,
 /* Phase 3S.1 PR C. The authority transition: dated plans become the
    programme and the seven-slot column becomes a projection derived from
    them. It changes no prescription, only where the prescription lives. */
-import { cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
+import { cutoverPlan, goalChangePlan, pendingProgrammeChange, horizonFor, programmeKeyFor, planDateKey, PROGRAMME_KEY,
          PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, resolveDose } from '../src/programmeGenerate.js';
 /* The validator, so a reader can tell a prescription from a data-integrity
    condition instead of trusting a raw object's shape. */
@@ -10350,7 +10375,7 @@ window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNR
               nameLength, PREFERRED_NAME_MAX,
               classifyLegacySchedule, migrationProgramme, mayGenerateOver,
               PROGRAMME_SOURCE, CLASSIFY_REASON,
-              cutoverPlan, programmeKeyFor, planDateKey, PROGRAMME_KEY,
+              cutoverPlan, goalChangePlan, pendingProgrammeChange, horizonFor, programmeKeyFor, planDateKey, PROGRAMME_KEY,
               PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL, normaliseDayPlan, resolveDose,
               weekStripSlots, buildWeekStripModel, WEEK_STRIP_STATE, WEEK_STRIP_DAYS,
               nextTrainingDay, NEXT_UP_HORIZON_DAYS,

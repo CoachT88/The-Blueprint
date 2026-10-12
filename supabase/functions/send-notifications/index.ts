@@ -72,6 +72,7 @@ interface TrainingRow {
     session_log?: unknown[];
     pass_protected_dates?: string[];
     schedule?: string[];
+    programme?: { pendingChange?: { effectiveDate?: string; schedule?: string[] } };
 }
 
 /**
@@ -116,6 +117,16 @@ function isUnknownColumn(err: { code?: string; message?: string } | null): boole
  * cannot read at all so the caller can decline to send rather than guess.
  */
 async function readTrainingState(ids: string[]): Promise<{ rows: TrainingRow[]; failed: boolean }> {
+    const latest = await supabase.from('user_data')
+        .select('user_id, session_log, pass_protected_dates, schedule, programme')
+        .in('user_id', ids);
+    if (!latest.error) return { rows: latest.data || [], failed: false };
+    if (!isUnknownColumn(latest.error)) {
+        console.error('send-notifications: reading program state failed',
+            dbErrorDetail(latest.error, 'public.user_data'));
+        return { rows: [], failed: true };
+    }
+    // Older schemas retain the existing reminder behavior.
     const full = await supabase
         .from('user_data')
         .select('user_id, session_log, pass_protected_dates, schedule')
@@ -226,6 +237,7 @@ Deno.serve(async (req) => {
                     sessionLog: row?.session_log || [],
                     passProtectedDates: row?.pass_protected_dates || [],
                     schedule: row?.schedule || null,
+                    programme: row?.programme || null,
                     reminderTime: sub.reminder_time || '19:00',
                     timezone: sub.timezone || 'UTC',
                     lastNotifiedDate: sub.last_notified_date,

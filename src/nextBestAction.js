@@ -126,10 +126,10 @@ const REASONS = {
     resume: 'You left a session unfinished.',
     complete: 'Today is done.',
     highSoreness: 'Mechanical training is on hold today because you reported high muscle soreness.',
-    rest: 'Rest is on the schedule today, and it is part of the programme.',
+    rest: 'Rest is on the schedule today, and it is part of the program.',
     moderateSoreness: 'Reduced today because you reported moderate muscle soreness.',
     scheduleUnresolved: "We couldn't determine today's session from your current schedule.",
-    prescriptionUnavailable: "We couldn't read today's session from your programme.",
+    prescriptionUnavailable: "We couldn't read today's session from your program.",
     /* A VALID programme state, so the copy carries no hint of breakage and
        offers nothing to fix. Deliberately silent about the supporting work on
        the day, because that surface does not exist yet; saying the day is

@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import {
     programmeKeyFor, weekShapeFor, horizonFor, resolveDose,
-    generatePlans, retainPlans, cutoverPlan,
+    generatePlans, retainPlans, cutoverPlan, goalChangePlan, pendingProgrammeChange,
     PROGRAMME_KEY, PROGRAMME_CONTENT_VERSION, GENERATE_REFUSAL,
 } from '../src/programmeGenerate.js';
 import { normaliseDayPlan } from '../src/dayPlan.js';
@@ -953,4 +953,99 @@ describe('local dates survive a timezone behind UTC', () => {
         expect(got.ok).toBe(true);
         expect(got.schedule).toEqual(PRESETS.size);
     }, 30_000);
+});
+
+describe('confirmed goal transitions', () => {
+    const initial = () => cutover({ now: at(0) });
+    const change = (over = {}) => {
+        const old = initial();
+        return goalChangePlan({ goal: 'stamina', programme: old.programme,
+            existingPlans: old.dayPlans, legacySchedule: old.schedule,
+            presets: PRESETS, tables: TABLES, tier: 'intermediate', now: at(3), ...over });
+    };
+    test('keeps every current-week prescription byte-identical and prepares the next week', () => {
+        const old = initial();
+        const result = change();
+        expect(result.ok).toBe(true);
+        expect(result.effectiveDate).toBe('2026-03-16');
+        expect(result.programme.key).toBe('size');
+        expect(result.schedule).toEqual(PRESETS.size);
+        old.dayPlans.filter(p => p.date < result.effectiveDate).forEach(p =>
+            expect(result.dayPlans.find(n => n.date === p.date)).toEqual(p));
+        result.dayPlans.filter(p => p.date >= result.effectiveDate).forEach(p =>
+            expect(p.generatedFrom.programmeKey).toBe('lastLonger'));
+    });
+    test('Monday activates without rewriting the prepared Today or past plans', () => {
+        const queued = change();
+        const result = cutover({ programme: queued.programme, existingPlans: queued.dayPlans,
+            legacySchedule: queued.schedule, now: at(7) });
+        expect(result.ok).toBe(true);
+        expect(result.programme.key).toBe('lastLonger');
+        expect(result.programme.pendingChange).toBeNull();
+        expect(result.schedule).toEqual(PRESETS.stamina);
+        queued.dayPlans.filter(p => p.date <= '2026-03-16').forEach(p =>
+            expect(result.dayPlans.find(n => n.date === p.date)).toEqual(p));
+        expect(result.dayPlans.find(p => p.date === '2026-03-16').primarySession).toBeNull();
+    });
+    test('repeat loads are idempotent and a tier change cannot rewrite this week', () => {
+        const queued = change();
+        const repeat = cutover({ programme: queued.programme, existingPlans: queued.dayPlans,
+            legacySchedule: queued.schedule, now: at(3) });
+        expect(repeat.dayPlans).toEqual(queued.dayPlans);
+        const elite = cutover({ programme: queued.programme, existingPlans: queued.dayPlans,
+            legacySchedule: queued.schedule, tier: 'elite', now: at(4) });
+        queued.dayPlans.filter(p => p.date < queued.effectiveDate).forEach(p =>
+            expect(elite.dayPlans.find(n => n.date === p.date)).toEqual(p));
+    });
+    test('replaces a queued goal and cancels it by choosing the current program', () => {
+        const queued = change();
+        const replacement = change({ programme: queued.programme, existingPlans: queued.dayPlans, goal: 'eq' });
+        expect(replacement.programme.pendingChange.key).toBe('erectionQuality');
+        const cancelled = change({ programme: queued.programme, existingPlans: queued.dayPlans, goal: 'size' });
+        expect(pendingProgrammeChange(cancelled.programme)).toBeNull();
+        expect(cancelled.dayPlans.every(p => p.generatedFrom.programmeKey === 'size')).toBe(true);
+    });
+    test('an untouched account receives the chosen program today', () => {
+        const result = change({ goal: 'eq', immediate: true });
+        expect(result.ok).toBe(true);
+        expect(result.programme.key).toBe('erectionQuality');
+        expect(result.schedule).toEqual(PRESETS.eq);
+        expect(result.dayPlans.find(p => p.date === '2026-03-12').generatedFrom.programmeKey).toBe('erectionQuality');
+    });
+    test('unreadable retained entries cannot crash a goal change', () => {
+        expect(change({ existingPlans: [null, 42, ...initial().dayPlans] }).ok).toBe(true);
+        expect(change({ immediate:true, existingPlans: [null, 42, ...initial().dayPlans] }).ok).toBe(true);
+    });
+    test('explicit adoption preserves a custom week until Monday', () => {
+        const custom = ['girth', 'rest', 'girth', 'rest', 'length', 'rest', 'rest'];
+        const result = change({ programme: programme({ custom: true, key: null,
+            migration: { source: 'custom', reason: 'custom', classifiedAt: '2026-03-01' } }),
+            legacySchedule: custom, existingPlans: [] });
+        expect(result.ok).toBe(true);
+        expect(result.programme.key).toBeNull();
+        expect(result.programme.adoptedAt).toBe('2026-03-12');
+        expect(result.schedule).toEqual(custom);
+        expect(result.dayPlans.every(p => p.date >= '2026-03-16')).toBe(true);
+        const monday = cutover({ programme: result.programme, existingPlans: result.dayPlans,
+            legacySchedule: custom, now: at(7) });
+        expect(monday.programme.key).toBe('lastLonger');
+        expect(monday.schedule).toEqual(PRESETS.stamina);
+    });
+    test.each([{ key:'bogus', effectiveDate:'2026-03-16' },
+        { key:'lastLonger', effectiveDate:'2026-02-30' },
+        { key:'lastLonger', effectiveDate:'tomorrow' }])('ignores invalid pending state %j', pendingChange => {
+        expect(pendingProgrammeChange({ pendingChange })).toBeNull();
+        const result = cutover({ programme: programme({ key:'size', pendingChange }) });
+        expect(result.programme.key).toBe('size');
+    });
+    test('local Monday is used at UTC+14 and across daylight saving time', () => {
+        // Check the shared horizon directly in each zone, with local calendar construction.
+        for (const zone of ['Pacific/Kiritimati', 'America/Los_Angeles']) {
+            const out = execFileSync(process.execPath, ['--input-type=module','-e',
+                `import {horizonFor,planDateKey} from './src/programmeGenerate.js';
+                 console.log(planDateKey(horizonFor(new Date(2026,2,8,23,30)).nextMonday));`],
+                { env:{...process.env,TZ:zone}, encoding:'utf8' }).trim();
+            expect(out).toBe('2026-03-09');
+        }
+    });
 });

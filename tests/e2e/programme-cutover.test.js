@@ -536,7 +536,7 @@ describe('after cutover the week cannot be edited directly', () => {
         });
         expect(r.typesHidden).toBe(true);
         expect(r.noteShown).toBe(true);
-        expect(r.note).toContain('programme');
+        expect(r.note).toContain('program');
         /* Phase 3C.3 withdraws the completion tick with the day types, which
            reverses the cutover's call that "completion is still theirs to
            record". It is, but a generic tick against a dated prescription
@@ -595,7 +595,7 @@ describe('after cutover the week cannot be edited directly', () => {
             return { asked, before, after: persisted.schedule, goal: persisted.primaryGoal };
         });
         expect(r.goal).toBe('stamina');        // the stated preference is still recorded
-        expect(r.asked).toBe(0);               // and no prompt was shown
+        expect(r.asked).toBe(1);               // the program transition needs confirmation
         expect(r.after).toEqual(r.before);     // the week is derived, so it did not move
         expect(r.after).toEqual(ALL_WEEK);
     });
@@ -617,7 +617,8 @@ describe('after cutover the week cannot be edited directly', () => {
             };
         });
         expect(r.hidden).toBe(false);
-        expect(r.text).toBe('Noted. This does not change your programme.');
+        expect(r.text).toMatch(/^New program starts Monday/);
+        expect(r.text).toContain('Your progress is saved.');
         expect(r.text).not.toContain('schedule set');
         expect(r.text).not.toContain('Focus set');
         /* The preference was recorded; the programme was not touched. */
