@@ -249,7 +249,7 @@ describe('suppression', () => {
     }, 30_000);
 
     test('PREPARE suppresses it', async () => {
-        const r = await underCondition(app.page, "persisted.primaryGoal = '';");
+        const r = await underCondition(app.page, "persisted.primaryGoal = ''; persisted.allTimeSessionCount = 0; persisted.sessionLog = [];");
         expect(r.state).toBe('PREPARE');
         expect(r.shown).toBe(false);
         expect(r.gateSet).toBe(false);

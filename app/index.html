@@ -5907,7 +5907,15 @@ function buildResolverInput(){
         dataLoaded:_persistedLoaded,
         now:new Date(),
         goals:GOALS,
-        goalKey:persisted.primaryGoal,
+        // An established member may predate the primary_goal column or have an
+        // empty legacy preference. Do not block their existing dated plan
+        // with first-time goal selection; the app already treats that case as
+        // "all" everywhere else (getGoal/getGoalKey). Do not persist this
+        // fallback or change the member's programme.
+        goalKey:GOALS[persisted.primaryGoal]
+            ? persisted.primaryGoal
+            : ((persisted.allTimeSessionCount > 0 || persisted.sessionLog.length > 0)
+                ? 'all' : persisted.primaryGoal),
         dayTypes:DAY_TYPES,
         /* ONE truthful Today prescription, and the satisfaction answer that
            goes with it. The resolver used to receive the seven-slot

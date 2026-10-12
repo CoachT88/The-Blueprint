@@ -138,7 +138,7 @@ describe('the existing-member prompt', () => {
         ['the critical band', '_persistedLoaded = false;'],
         ['RECOVER', "localStorage.setItem(getTodaySorenessKey(), 'high');"],
         ['RESUME', "localStorage.setItem('bp_session_draft_'+currentUser.id, JSON.stringify({savedAt:Date.now(),exerciseIndex:0,setIndex:1,routineType:'length'}));"],
-        ['PREPARE', "persisted.primaryGoal = '';"],
+        ['PREPARE', "persisted.primaryGoal = ''; persisted.allTimeSessionCount = 0; persisted.sessionLog = [];"],
         ['a return', "const d=new Date(); d.setDate(d.getDate()-10); persisted.sessionLog=[{date:d.toISOString(),routineType:'length',duration:30}];"],
         ['an unanswered pelvic screener', "persisted.pelvicProfile=''; persisted.pelvicScreenDate='';"],
     ])('ACCEPTANCE: %s suppresses it', async (_label, condition) => {
