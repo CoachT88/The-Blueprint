@@ -54,6 +54,29 @@ describe('goal capture', () => {
         expect(key).toBe('all');
     });
 
+    test('returning member with a missing goal is not asked to choose one again', async () => {
+        const r = await app.page.evaluate(() => {
+            persisted.primaryGoal = '';
+            persisted.allTimeSessionCount = 3;
+            persisted.sessionLog = [];
+            const state = window.BP.nextBestAction(buildResolverInput());
+            return { prepare: state.prepare, goal: persisted.primaryGoal };
+        });
+        expect(r.prepare).not.toBe('goal');
+        expect(r.goal).toBe(''); // Fallback is read-only, not a saved preference.
+    });
+
+    test('a genuinely new member still receives the goal prompt', async () => {
+        const r = await app.page.evaluate(() => {
+            persisted.primaryGoal = '';
+            persisted.allTimeSessionCount = 0;
+            persisted.sessionLog = [];
+            const state = window.BP.nextBestAction(buildResolverInput());
+            return state.prepare;
+        });
+        expect(r).toBe('goal');
+    });
+
     test('primary_goal is in the save payload and the fallback column list', async () => {
         const r = await app.page.evaluate(() => ({
             payload: _buildSavePayload(),
