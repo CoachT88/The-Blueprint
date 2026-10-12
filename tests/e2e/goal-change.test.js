@@ -27,6 +27,21 @@ const snapshot = page => page.evaluate(() => JSON.stringify({
 }));
 
 describe('goal change uses the real picker and generation', () => {
+    test('all four options remain above Done on a small phone', async () => {
+        const app=await setup();
+        try {
+            await app.page.setViewportSize({width:320,height:568});
+            await app.page.evaluate(() => openGoalPicker());
+            await app.page.waitForFunction(() => document.getElementById('onboarding-overlay').classList.contains('show'));
+            const boxes=await app.page.evaluate(() => ({
+                options:document.getElementById('goal-options').getBoundingClientRect().bottom,
+                done:document.getElementById('ob-next-btn').getBoundingClientRect().top,
+                label:document.getElementById('ob-next-btn').textContent,
+            }));
+            expect(boxes.options).toBeLessThan(boxes.done);
+            expect(boxes.label).toBe('Done');
+        } finally {await app.close();}
+    });
     test('Account opens the existing picker, confirms, saves and activates next Monday', async () => {
         const app=await setup();
         try {

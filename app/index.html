@@ -430,6 +430,10 @@
         .ob-slide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;text-align:center;opacity:0;transform:translateX(40px);transition:opacity .4s,transform .4s;pointer-events:none;}
         .ob-slide.active{opacity:1;transform:translateX(0);pointer-events:auto;}
         .ob-slide.exit{opacity:0;transform:translateX(-40px);}
+        @media(max-height:700px){
+            #onboarding-overlay.goal-picker-only .ob-slide.active{bottom:145px;justify-content:flex-start;padding:1.5rem;overflow-y:auto;}
+            #onboarding-overlay.goal-picker-only #ob-slide-4>div:first-child{display:none;}
+        }
         .ob-dot{width:6px;height:6px;border-radius:50%;background:#1e293b;transition:all .3s;}
         .ob-dot.active{background:#3b82f6;transform:scale(1.4);}
         /* Guided tour (coach marks). Scrim sits above every app modal but below
@@ -1874,7 +1878,7 @@
             </div>
         </div>
         <h2 class="text-3xl font-black italic uppercase text-white mb-2">What are you here for?</h2>
-        <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">This is what I build your week around. You can change it later in Account. Once you have started training, changes begin next Monday and keep your progress.</p>
+        <p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">Your goal shapes your training. Change it later in Account. Your progress stays saved.</p>
         <div class="grid grid-cols-2 gap-2.5 w-full max-w-xs" id="goal-options">
             <button class="goal-opt" data-goal="size"><i class="fas fa-up-right-and-down-left-from-center text-blue-400"></i><span>Size</span><em>Length and girth work</em></button>
             <button class="goal-opt" data-goal="stamina"><i class="fas fa-fire-flame-curved text-purple-400"></i><span>Lasting longer</span><em>Control and endurance</em></button>
@@ -8311,6 +8315,7 @@ let _goalPickerOnly=false;
 function _obLastIdx(){ return Math.max(0,document.querySelectorAll('.ob-slide').length-1); }
 function showOnboarding(startIdx,goalOnly=false){
     _goalPickerOnly=goalOnly;
+    document.getElementById('onboarding-overlay').classList.toggle('goal-picker-only',goalOnly);
     document.getElementById('ob-dots').classList.toggle('hidden',goalOnly);
     document.getElementById('ob-skip-btn').textContent=goalOnly?'Close':'Skip intro';
     document.getElementById('onboarding-overlay').classList.add('show');
