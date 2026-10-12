@@ -318,7 +318,7 @@ describe('the Today card', () => {
     });
 
     test('PREPARE: no goal', async () => {
-        const r = await render(app.page, { type: 'length', patch: { primaryGoal: '' } });
+        const r = await render(app.page, { type: 'length', patch: { primaryGoal: '', allTimeSessionCount: 0, sessionLog: [] } });
         expect(r.state).toBe('PREPARE');
         expect(r.headline).toBe('Set Your Goal');
         expect(r.prepare).toBe('CHOOSE A GOAL');
