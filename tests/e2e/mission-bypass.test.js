@@ -146,7 +146,7 @@ describe('Something else: the manual override', () => {
             type: 'length', soreness: 'none',
             patch: { completedDays: [0, 1, 2, 3, 4, 5, 6].map(i => i === new Date().getDay()) },
         })).altShown).toBe(false);
-        expect((await hq(app.page, { type: 'length', soreness: 'none', patch: { primaryGoal: '' } })).altShown).toBe(false);
+        expect((await hq(app.page, { type: 'length', soreness: 'none', patch: { primaryGoal: '', allTimeSessionCount: 0, sessionLog: [] } })).altShown).toBe(false);
     }, 40_000);
 
     test('it never competes with the primary call to action', async () => {
