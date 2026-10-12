@@ -24,7 +24,7 @@ const SEED = {
     COMPLETE: { completedDays: [true,true,true,true,true,true,true],
                 sessionLog: [{ date: new Date().toISOString(), routineType: 'length', duration: 45 }] },
     RESUME:   { draft: true },
-    PREPARE:  { goal: '' },
+    PREPARE:  { goal: '', sessionLog: [], allTimeSessionCount: 0 },
 };
 
 const seed = (page, o) => page.evaluate((o) => {
@@ -37,7 +37,7 @@ const seed = (page, o) => page.evaluate((o) => {
     persisted.completedDays = o.completedDays || [false,false,false,false,false,false,false];
     persisted.sessionLog = o.sessionLog ||
         [{ date: new Date(Date.now() - 2 * 864e5).toISOString(), routineType: 'length', duration: 30 }];
-    persisted.progressionLedger = []; persisted.allTimeSessionCount = 40;
+    persisted.progressionLedger = []; persisted.allTimeSessionCount = o.allTimeSessionCount ?? 40;
     try {
         localStorage.setItem('bp_onboarded_' + U, '1');
         localStorage.removeItem(getTodaySorenessKey());
