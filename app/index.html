@@ -1110,6 +1110,13 @@
             </div>
         </div>
 
+        <section id="daily-pelvic-card" class="hidden today-card mx-2" aria-labelledby="daily-pelvic-title">
+            <p class="text-[10px] font-black uppercase tracking-widest text-amber-400">Daily practice</p>
+            <h3 id="daily-pelvic-title" class="text-sm font-black text-white mt-2">Pelvic-floor reset</h3>
+            <p id="daily-pelvic-note" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
+            <button id="daily-pelvic-start" class="btn-primary mt-3" style="min-height:44px">START PELVIC-FLOOR RESET</button>
+        </section>
+
         <!-- ── ORDER NOTE ───────────────────────────────────────────────────
              Today is FIRST, and the two regions below it used to be above it.
 
@@ -2144,7 +2151,7 @@
                     </div>
                     <div class="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
                         <p class="text-amber-300 font-bold text-xs mb-1">Daily Recommendations</p>
-                        <p>The app recommends different exercises based on time of day. Morning: open the hips (Squat + Happy Baby). Afternoon: counteract sitting (Pigeon + Butterfly). Night: pelvic floor protocol (all 4 floor exercises). You can always customize the selection or tap Select All 8.</p>
+                        <p>The app recommends different exercises based on time of day. Pelvic-floor release is included at every time of day. Morning adds hip openers; afternoon counters sitting; night offers contraction work only when your pelvic-floor check allows it. You can always customize the selection or tap Select All 8.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-red-500/5 border border-red-500/20">
                         <p class="text-red-300 font-bold text-xs mb-1">Rest days</p>
@@ -2993,6 +3000,26 @@ const COACH_TIPS = [
     { title: 'Your mindset is part of the protocol.', body: 'Chronic negative self-talk about sexual performance activates the same stress response as a real threat. That stress response constricts blood vessels. Your mental state has a direct physical effect.' },
     { title: 'Rest days are training days.', body: 'Adaptation happens between sessions, not during them. A rest day taken as written is the program being followed. Skipping it does not make you more dedicated.' },
 ];
+// Daily release is separate from the frozen mechanical dose. It runs once
+// after the main work, never once per girth round or at a higher difficulty.
+// Breathing cues follow NHS pelvic-floor relaxation guidance:
+// https://www.plymouthhospitals.nhs.uk/display-pil/pil-pelvic-floor-relaxation-5338/
+const DAILY_PELVIC_RESET={
+    title:'Pelvic-floor reset', sets:1, duration:120, isRecovery:true,
+    eq:'No EQ needed',
+    detail:'Sit or lie comfortably. Breathe gently into your lower ribs and belly. Let the pelvic floor soften with each inhale. Exhale without squeezing. No pushing, straining or breath-holding. Stop if this causes pain.',
+    feel:'Gentle breathing and gradual relaxation. Nothing needs to be forced.',
+    dontFeel:'Pain, pressure, pushing down or a forced contraction.',
+    howto:['Sit supported or lie on your back with knees bent.',
+        'Breathe in gently through your nose. Let your belly and lower ribs widen.',
+        'Imagine the pelvic floor softening. Breathe out comfortably without squeezing.',
+        'Continue at your own pace. Stop if you feel pain; persistent pelvic symptoms deserve a clinician’s assessment.'],
+    cues:[{time:120,text:'Get comfortable. Unclench your jaw and let your shoulders soften.'},
+        {time:90,text:'Breathe gently into your belly and lower ribs. No breath-holding.'},
+        {time:60,text:'Let the pelvic floor soften. No pushing down and no squeezing.'},
+        {time:30,text:'Exhale comfortably. Let the next breath arrive without forcing it.'},
+        {time:5,text:'One more easy breath. Carry that relaxed feeling with you.'}],
+};
 const ROUTINES={
     length:[
         {title:'Directional Pulls',sets:3,duration:30,isDirectional:true,eq:'3-4 EQ',
@@ -3870,6 +3897,7 @@ function resetSession(){
     stopCarousel();
     session.exerciseIndex=0;session.setIndex=1;session.directionalIndex=0;session.xp=0;
     session.recoveryQueue=null;session.recoveryQueuePos=0;
+    session.dailyPelvicPhase=false;session.dailyPelvicDone=false;
     // Derive from the tier. Hardcoding 3 here silently overrode the round count
     // the mission handler had just set, so Intermediate ran 3 rounds instead of 4
     // and Advanced/Elite 3 instead of 5.
@@ -4947,6 +4975,8 @@ function goToStep(step){
                how many there were, because resetSession is the only place
                that sets them and resume skips it. */
             girthRound:session.girthRound,girthTotalRounds:session.girthTotalRounds,
+            dailyPelvicPhase:!!session.dailyPelvicPhase,dailyPelvicDone:!!session.dailyPelvicDone,
+            recoveryQueue:session.recoveryQueue||null,recoveryQueuePos:session.recoveryQueuePos||0,
             sessionStartTime:_sessionStartTime,savedAt:Date.now(),prescription:_launchedPrescription||null};
         localStorage.setItem('bp_session_draft_'+currentUser.id,JSON.stringify(draft));
     }
@@ -5053,7 +5083,7 @@ const RECOVERY_META = [
     },
     {
         icon:'fa-hand-holding',      color:'text-purple-400',
-        category:'Deep Relaxation',  tod:['night'],
+        category:'Deep Relaxation',  tod:['morning','afternoon','night'],
         benefit:'Passive decompression using breath and gravity. Recovery is when adaptation happens, and this is a low cost way to finish the day less tense.'
     },
     {
@@ -5214,6 +5244,7 @@ function startRecoverySession(){
     session.recoveryQueue = [...selectedRecoveryIndices];
     session.recoveryQueuePos = 0;
     session.exerciseIndex = session.recoveryQueue[0];
+    _sessionStartTime=Date.now();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     const t = document.getElementById('step-4');
     t.classList.remove('hidden-step'); t.classList.add('active-step');
@@ -5260,6 +5291,7 @@ function startRecoverySession(){
  * rewrote every plan ever generated.
  */
 function getCurEx(){
+    if(session.dailyPelvicPhase) return DAILY_PELVIC_RESET;
     const ex = ROUTINES[session.routineType][session.exerciseIndex];
     if(ex.isRecovery) return ex;
     const frozen = frozenStep();
@@ -5279,7 +5311,7 @@ function getCurEx(){
 function updateExUI(){
     const ex=getCurEx();
     const dl=isDeloadWeek();
-    const isRecovSession=session.routineType==='recovery'; // MUST be defined first
+    const isRecovSession=session.routineType==='recovery'||session.dailyPelvicPhase; // MUST be defined first
     const accentColor=isRecovSession?'text-amber-400':'text-blue-400';
 
     // Basic fields
@@ -5292,7 +5324,7 @@ function updateExUI(){
 
     // Circuit overview for girth — show before first round starts
     const circOv=document.getElementById('circuit-overview');
-    if(session.routineType==='girth' && session.girthRound===1 && session.exerciseIndex===0){
+    if(!session.dailyPelvicPhase&&session.routineType==='girth' && session.girthRound===1 && session.exerciseIndex===0){
         const _f=frozenExecution();
         const _frozenCircuit=(_f&&_f.shape==='circuit'&&_launchedPrescription
             &&_launchedPrescription.performedType==='girth')?_f:null;
@@ -5337,7 +5369,10 @@ function updateExUI(){
 
     // Phase tag
     const tagEl=document.getElementById('ex-tag');
-    if(session.routineType==='girth'){
+    if(session.dailyPelvicPhase){
+        tagEl.innerText='Daily pelvic-floor care';
+        tagEl.className='text-[10px] font-black uppercase text-amber-400';
+    } else if(!session.dailyPelvicPhase&&session.routineType==='girth'){
         const exLabel=ex.title==='Wet Jelq'?'Jelq':'Uli';
         tagEl.innerText=`Round ${session.girthRound}/${session.girthTotalRounds} · ${exLabel}`;
         tagEl.className='text-[10px] font-black uppercase px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20';
@@ -5361,13 +5396,13 @@ function updateExUI(){
 
     // Engage button
     const eb=document.getElementById('ex-btn');
-    if(session.routineType==='girth'){
+    if(!session.dailyPelvicPhase&&session.routineType==='girth'){
         const exLabel=ex.title==='Wet Jelq'?'Jelq':'Uli';
         eb.innerText=`START — Round ${session.girthRound} ${exLabel}`;
     } else if(ex.isDirectional){
         eb.innerText=`PULL ${DIRECTIONALS[session.directionalIndex]} — START`;
     } else {
-        eb.innerText=`START ROUND ${session.setIndex}`;
+        eb.innerText=session.dailyPelvicPhase?'START 2-MINUTE RESET':`START ROUND ${session.setIndex}`;
     }
     eb.style.display='';
     document.getElementById('ex-pause-btn').style.display='none';
@@ -5375,7 +5410,7 @@ function updateExUI(){
 
     // Set/Round pips
     const pips=document.getElementById('pip-container');pips.innerHTML='';
-    if(session.routineType==='girth'){
+    if(!session.dailyPelvicPhase&&session.routineType==='girth'){
         // Round pips + exercise indicator for girth circuit
         for(let i=1;i<=session.girthTotalRounds;i++){
             const p=document.createElement('div');
@@ -5667,7 +5702,24 @@ function skipRest(){
     document.getElementById('rest-overlay').classList.add('hidden');
     session.setIndex++;updateExUI();
 }
+function completeRoutineWithPelvicCare(){
+    // Recovery already contains release work when either of these was run.
+    const releaseDone=session.routineType==='recovery'&&session.recoveryQueue
+        &&session.recoveryQueue.some(i=>i===1||i===2);
+    if(!session.dailyPelvicDone&&!releaseDone){
+        session.dailyPelvicPhase=true;session.setIndex=1;session.directionalIndex=0;
+        updateExUI();return;
+    }
+    session.dailyPelvicDone=true;
+    haptic([100,50,100,50,300]);
+    document.getElementById('success-xp-text').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
+    goToStep(5);
+}
 function advanceEx(){
+    if(session.dailyPelvicPhase){
+        session.dailyPelvicPhase=false;session.dailyPelvicDone=true;
+        completeRoutineWithPelvicCare();return;
+    }
     if(session.routineType==='girth'){
         // Move to next exercise within the current round
         if(session.exerciseIndex<executableStepCount()-1){
@@ -5675,10 +5727,8 @@ function advanceEx(){
         }
         // Completed last exercise of round (Uli)
         if(session.girthRound>=session.girthTotalRounds){
-            // Final round complete — go directly to success, no rest
-            haptic([100,50,100,50,300]);
-            document.getElementById('success-xp-text').innerText=`+${SESSION_XP[getDiff().id]||100} XP EARNED`;
-            goToStep(5);
+            // The daily release follows the final round only.
+            completeRoutineWithPelvicCare();
             return;
         }
         // Not final round — increment round counter and start inter-round rest
@@ -5695,9 +5745,7 @@ function advanceEx(){
     } else {
         if(session.exerciseIndex<executableStepCount()-1){session.exerciseIndex++;session.setIndex=1;session.directionalIndex=0;updateExUI();return;}
     }
-    haptic([100,50,100,50,300]);
-    document.getElementById('success-xp-text').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
-    goToStep(5);
+    completeRoutineWithPelvicCare();
 }
 
 function startGirthRoundRest(){
@@ -5964,7 +6012,7 @@ function buildResolverInput(){
         estimateMinutes:(mission,opts)=>window.BP.estimateSessionMinutes(mission,{
             routines:ROUTINES, difficulties:DIFFICULTIES, girthCircuit:GIRTH_CIRCUIT,
             difficulty:getDiff().id, ...opts,
-        }),
+        }) + ((mission!=='recovery'||!(opts.recoveryIndices||[]).some(i=>i===1||i===2))?2:0),
     };
 }
 
@@ -6636,6 +6684,42 @@ function renderToday(){
 
     const card=document.getElementById('hq-today-card');
     if(card) card.dataset.state=r.state;
+    renderDailyPelvicCare(r);
+}
+
+function dailyPelvicCareDone(){
+    const day=window.BP.planDateKey(new Date());
+    return (persisted.sessionLog||[]).some(log=>{
+        const date=new Date(log.date);
+        return log.pelvicCare===true&&Number.isFinite(date.getTime())&&window.BP.planDateKey(date)===day;
+    });
+}
+function renderDailyPelvicCare(r){
+    const card=document.getElementById('daily-pelvic-card');
+    const ready=!!currentUser&&_persistedLoaded&&!!r
+        &&!(r.state==='PREPARE'&&r.prepare!=='pelvic-screen');
+    card.classList.toggle('hidden',!ready);
+    if(!ready)return;
+    const done=dailyPelvicCareDone();
+    const integrated=r.state==='TRAIN'||r.state==='MODIFIED'||r.state==='RECOVER'||(r.state==='PREPARE'&&r.prepare==='pelvic-screen');
+    const note=document.getElementById('daily-pelvic-note');
+    note.textContent=done?'Pelvic-floor care complete today.'
+        :r.state==='RESUME'?'Your pelvic-floor care is part of the unfinished routine. Resume it above.'
+        :integrated?'Included in your routine today. Gentle breathing and release, with contraction work controlled by your pelvic-floor check.'
+        :'Keep your rest day gentle: two minutes of breathing and pelvic-floor release. No squeezing or mechanical work.';
+    const btn=document.getElementById('daily-pelvic-start');
+    btn.classList.toggle('hidden',done||integrated||r.state==='RESUME');
+    card.dataset.complete=String(done);
+}
+function startDailyPelvicCare(){
+    const r=window.BP.nextBestAction(buildResolverInput());
+    if(!currentUser||!_persistedLoaded||dailyPelvicCareDone()
+        ||!['REST','SUPPORT_ONLY','COMPLETE'].includes(r.state))return;
+    captureLaunchPrescription('recovery');
+    session.routineType='recovery';
+    goToStep(4);
+    session.dailyPelvicPhase=true;
+    updateExUI();
 }
 
 /**
@@ -7417,6 +7501,10 @@ function resumeSession(){
     session.routineType=draft.routineType;
     session.directionalIndex=draft.directionalIndex;
     session.xp=draft.xp;
+    session.dailyPelvicPhase=draft.dailyPelvicPhase===true;
+    session.dailyPelvicDone=draft.dailyPelvicDone===true;
+    session.recoveryQueue=Array.isArray(draft.recoveryQueue)?allowedRecoveryIndices(draft.recoveryQueue):null;
+    session.recoveryQueuePos=Number.isInteger(draft.recoveryQueuePos)?draft.recoveryQueuePos:0;
     _sessionStartTime=draft.sessionStartTime||Date.now();
     /* The stored identity is validated, not trusted. It came out of
        localStorage, so it is untrusted input however plausible it looks, and
@@ -7593,6 +7681,7 @@ function finishSession(){
            date. Performed-when and prescribed-for are two separate truths. */
         date:completedAt.toISOString(),
         routineType:session.routineType,
+        pelvicCare:session.dailyPelvicDone===true,
         /* Which dated prescription this session belongs to. The stable
            identity every authoritative completion question now reads. */
         prescriptionDate:_prescriptionDate,
@@ -9925,6 +10014,7 @@ function init(){
     });
     // Optional work never counts toward the weekly target, so it goes
     // straight to the Recovery picker rather than through Mission Select.
+    document.getElementById('daily-pelvic-start').addEventListener('click',startDailyPelvicCare);
     const _optBtn=document.getElementById('today-optional-btn');
     if(_optBtn) _optBtn.addEventListener('click',()=>{
         session.routineType='recovery';
