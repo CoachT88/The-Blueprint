@@ -192,6 +192,61 @@ describe('turning reminders on actually subscribes', () => {
         // And the way out is offered rather than hidden behind a Disable button.
         expect(r.enableShown).toBe(true);
     }, 30_000);
+
+    test('a server save failure does not get overwritten by a local active subscription', async () => {
+        await stubPush(app.page);
+        const r = await app.page.evaluate(async () => {
+            const original = sb.from.bind(sb);
+            sb.from = table => table === 'push_subscriptions'
+                ? { upsert: () => Promise.resolve({ error: { code: '42501' } }) }
+                : original(table);
+            localStorage.removeItem('bp_push_key');
+            await enableNotifications();
+            return {
+                status: document.getElementById('notif-status').innerText,
+                keyRecorded: localStorage.getItem('bp_push_key'),
+                calls: window.__calls,
+            };
+        });
+        expect(r.calls).toContain('subscribe');
+        expect(r.status).toMatch(/Could not save reminders/);
+        expect(r.status).not.toMatch(/active/i);
+        expect(r.keyRecorded).toBeNull();
+    }, 30_000);
+
+    test('changing the time waits for registration and restores a missing server row', async () => {
+        await stubPush(app.page, { slowRegister: true });
+        const r = await app.page.evaluate(async () => {
+            const reg = await navigator.serviceWorker.ready;
+            await reg.pushManager.subscribe({ applicationServerKey: _urlBase64ToUint8(VAPID_PUBLIC_KEY) });
+            document.getElementById('notif-time').value = '20:00';
+            document.getElementById('notif-time').dispatchEvent(new Event('change'));
+            for(let i=0;i<100 && !window.__writes.length;i++) await new Promise(r=>setTimeout(r,20));
+            return { cachedRegistration: _swRegistration, writes: window.__writes,
+                status: document.getElementById('notif-status').innerText };
+        });
+        expect(r.cachedRegistration).toBeNull();
+        const saved = r.writes.find(w => w.op === 'upsert');
+        expect(saved?.payload.reminder_time).toBe('20:00');
+        expect(saved?.payload.endpoint).toBe('https://push.example/endpoint-1');
+        expect(saved?.payload.user_id).toBe('push1');
+        expect(r.status).toBe('Reminder time saved.');
+    }, 30_000);
+
+    test('a rejected reminder-time write is visible instead of claiming it saved', async () => {
+        await stubPush(app.page);
+        const r = await app.page.evaluate(async () => {
+            await enableNotifications();
+            const original = sb.from.bind(sb);
+            sb.from = table => table === 'push_subscriptions'
+                ? { upsert: () => Promise.resolve({ error: { code: '42501' } }) }
+                : original(table);
+            document.getElementById('notif-time').value = '20:00';
+            await saveNotifPrefs();
+            return { status: document.getElementById('notif-status').innerText };
+        });
+        expect(r.status).toMatch(/Could not save reminder time/);
+    }, 30_000);
 });
 
 describe('turning reminders off stops them', () => {

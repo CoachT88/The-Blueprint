@@ -9666,16 +9666,11 @@ async function enableNotifications(){
         if(!reg||!('PushManager' in window)){
             document.getElementById('notif-status').innerText='Reminders are not available in this browser.';
         } else {
-            try{
-                const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
-                await _savePushSubscription(sub);
-            }catch(e){
-                console.error('Push subscribe:',e);
-                document.getElementById('notif-status').innerText='Could not set up reminders. Try again.';
-            }
+            const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:_urlBase64ToUint8(VAPID_PUBLIC_KEY)});
+            await _savePushSubscription(sub);
+            await _refreshNotifUI();
         }
-        await _refreshNotifUI();
-    }catch(e){console.error('Enable notifications:',e);document.getElementById('notif-status').innerText='Could not enable — try again.';}
+    }catch(e){console.error('Enable notifications:',e);document.getElementById('notif-status').innerText='Could not save reminders. Tap Enable to try again.';}
     btn.innerHTML='Enable Notifications';btn.disabled=false;
 }
 async function disableNotifications(){
@@ -9706,19 +9701,20 @@ async function _pushRegistration(){
         ]);
     }catch(e){ return null; }
 }
-async function _savePushSubscription(sub){
-    if(!currentUser)return;
+async function _savePushSubscription(sub,reminderTime){
+    if(!currentUser)throw new Error('Sign in to save reminders.');
     const j=sub.toJSON();
     const prefs=_readNotifPrefs();
-    await sb.from('push_subscriptions').upsert({
+    const {error}=await sb.from('push_subscriptions').upsert({
         user_id:currentUser.id,
         endpoint:j.endpoint,
         p256dh:j.keys.p256dh,
         auth:j.keys.auth,
-        reminder_time:prefs.time||'19:00',
+        reminder_time:reminderTime||prefs.time||'19:00',
         timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         updated_at:new Date().toISOString(),
     },{onConflict:'user_id'});
+    if(error)throw new Error('Could not save the push subscription.');
     // Which key this subscription was made with, so a future rotation can tell
     // on browsers that do not expose options.applicationServerKey.
     try{ localStorage.setItem('bp_push_key',VAPID_PUBLIC_KEY); }catch(e){}
@@ -9821,12 +9817,28 @@ async function saveNotifPrefs(){
        makes the picker mean anything. streak_warn is deliberately no longer
        written: the column still exists for backward compatibility but
        nothing reads it, because the streak warning it gated is retired. */
-    if(currentUser&&_swRegistration&&'PushManager' in window){
-        const sub=await _swRegistration.pushManager.getSubscription().catch(()=>null);
-        if(sub) await sb.from('push_subscriptions').update({
-            reminder_time:time,
-            timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }).eq('user_id',currentUser.id).catch(()=>{});
+    const memberId=currentUser&&currentUser.id;
+    if(!memberId)return;
+    const status=document.getElementById('notif-status');
+    status.innerText='Saving reminder time...';
+    try{
+        // Registration can be ready before the startup cache is populated.
+        // Upsert the subscription and reminder_time together, so a missing
+        // server row is repaired instead of an update silently matching zero.
+        const reg=await _pushRegistration();
+        if(!currentUser||currentUser.id!==memberId)return;
+        if(!reg||!('PushManager' in window))throw new Error('Push registration unavailable.');
+        const sub=await reg.pushManager.getSubscription();
+        if(sub){
+            await _savePushSubscription(sub,time);
+            status.innerText='Reminder time saved.';
+        }else{
+            status.innerText='Reminder time saved on this device. Tap Enable to turn on reminders.';
+        }
+    }catch(e){
+        if(currentUser&&currentUser.id===memberId){
+            status.innerText='Could not save reminder time. Change the time to try again.';
+        }
     }
 }
 
