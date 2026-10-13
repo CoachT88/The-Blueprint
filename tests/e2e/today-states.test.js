@@ -54,7 +54,6 @@ const seed = (page, o) => page.evaluate((o) => {
     const primary = ['launch-btn','resume-btn','today-prepare-btn'].find(vis) || null;
     return {
         state: card.dataset.state,
-        accent: getComputedStyle(card).borderLeftColor,
         label: (document.getElementById('today-state-label').textContent || '').trim(),
         icon: (document.getElementById('today-state-icon').className || '').replace('fas ', '').trim(),
         badgeShown: vis('today-eyebrow'),
@@ -101,12 +100,6 @@ describe('the Today card is one component in seven states', () => {
         expect(new Set(icons).size, `icons not unique: ${icons}`).toBe(icons.length);
     });
 
-    test('ACCEPTANCE: the two accent collisions are gone', () => {
-        // MODIFIED and RECOVER were both amber; COMPLETE and RESUME both emerald.
-        expect(seen.RECOVER.accent).not.toBe(seen.MODIFIED.accent);
-        expect(seen.RESUME.accent).not.toBe(seen.COMPLETE.accent);
-    });
-
     test('ACCEPTANCE: RECOVER is actionable but visibly not a normal training day', async () => {
         /* A member reporting high soreness used to get the identical blue
            "go" button. It must still be clearly primary, the same size and
@@ -117,14 +110,17 @@ describe('the Today card is one component in seven states', () => {
         // Re-seed: test.each left the page on PREPARE, so the live button
         // has to be put back into the RECOVER state before reading it.
         await seed(app.page, SEED.RECOVER);
+        await app.page.waitForTimeout(250); // settle the primary fill transition
         const r = await app.page.evaluate(() => {
             const b = document.getElementById('launch-btn'), cs = getComputedStyle(b);
-            return { bg: cs.backgroundImage, h: Math.round(b.getBoundingClientRect().height),
+            return { bg: cs.backgroundColor, h: Math.round(b.getBoundingClientRect().height),
                      w: Math.round(b.getBoundingClientRect().width),
                      disabled: b.disabled, opacity: cs.opacity };
         });
-        expect(r.bg).toContain('245, 158, 11');      // amber, not the blue gradient
-        expect(r.bg).not.toContain('37, 99, 235');
+        await seed(app.page, SEED.TRAIN);
+        await app.page.waitForTimeout(250);
+        const normalFill = await app.page.evaluate(() => getComputedStyle(document.getElementById('launch-btn')).backgroundColor);
+        expect(r.bg).not.toBe(normalFill); // recovery retains a distinct primary treatment
         expect(r.disabled).toBe(false);
         expect(Number(r.opacity)).toBe(1);
         expect(r.h).toBeGreaterThanOrEqual(44);      // same stature as any primary
@@ -145,10 +141,11 @@ describe('the Today card is one component in seven states', () => {
 
     test('REGRESSION: the card height range stays bounded', () => {
         const hs = Object.values(seen).map(r => r.height);
-        // Was 153 to 347 before 3C.2. The spread is driven by how much each
-        // state genuinely has to say, so this is a bound, not a target.
+        // The same surface now includes daily practice, which previously
+        // lived in a second card below navigation. Keep the combined card
+        // bounded; hq-layout also verifies each primary stays above the fold.
         expect(Math.min(...hs)).toBeGreaterThan(120);
-        expect(Math.max(...hs)).toBeLessThan(360);
+        expect(Math.max(...hs)).toBeLessThan(480);
     });
 
     test('the page threw nothing', () => { expect(app.errors).toEqual([]); });

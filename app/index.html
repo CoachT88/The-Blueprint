@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE BLUEPRINT | Session Pilot</title>
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#0d1015">
 
     <!-- Installability. Without a manifest declaring standalone display there
          is no install prompt on Android, and iOS will not deliver web push at
@@ -492,6 +492,132 @@
         .today-card[data-state="COMPLETE"]{background:linear-gradient(160deg,rgba(23,32,50,.9) 0%,rgba(12,18,32,.95) 100%)}
         /* COMPLETE is closure, not a prompt. Quieter, not louder. */
         .today-card[data-state="COMPLETE"] #today-headline{color:#6ee7b7}
+        /* HQ: one decision surface, with quieter supporting rows. State
+           labels and icons retain their meaning without colored card rails. */
+        #step-0{background:#0d1015;padding:20px 22px}
+        #step-0 .hq-shell{gap:16px;max-width:448px}
+        #step-0 .hq-shell> *{margin-top:0;margin-left:0;margin-right:0}
+        #step-0 .hq-header{padding:0;min-height:44px}
+        #step-0 .hq-wordmark{font-size:18px;font-weight:600;font-style:normal;
+            letter-spacing:-.04em;text-transform:none;color:#f5f5f3;
+            background:none;-webkit-text-fill-color:currentColor}
+        #step-0 #current-date{font-size:11px;font-weight:500;letter-spacing:0}
+        #step-0 .u-icon-btn{color:#a6adb8}
+        #step-0 .today-card{background:#15191f;border:1px solid #ffffff12;
+            border-radius:18px;padding:22px;box-shadow:none}
+        #step-0 #today-headline{font-size:28px;font-weight:600;font-style:normal;
+            text-transform:none;letter-spacing:-.045em;line-height:1.15;
+            color:#f5f5f3;margin-top:12px}
+        #step-0 .u-state-badge{font-size:11px;font-weight:500;
+            letter-spacing:.09em;color:#a6adb8}
+        #step-0 .u-state-badge i{font-size:11px}
+        #step-0 #today-meta{font-family:'Inter',sans-serif!important;font-size:12px;
+            font-weight:400;letter-spacing:0;color:#a6adb8}
+        #step-0 #today-sub,#step-0 #today-why{font-size:13px;line-height:1.6;color:#a6adb8}
+        #step-0 #today-actions{margin-top:18px}
+        #step-0 #hq-today-card[data-state="REST"] #today-actions,
+        #step-0 #hq-today-card[data-state="SUPPORT_ONLY"] #today-actions,
+        #step-0 #hq-today-card[data-state="COMPLETE"] #today-actions{display:none}
+        #step-0 #hq-today-card[data-state="REST"] #today-why{display:none}
+        #step-0 .btn-primary{min-height:48px;padding:13px 16px;border:0;
+            border-radius:10px;background:#f0f1ed;color:#14171c;box-shadow:none;
+            font-size:14px;font-weight:600;text-transform:none;letter-spacing:0}
+        #step-0 .btn-primary:active:not(:disabled){background:#d9ddd5;transform:scale(.99)}
+        #step-0 .btn-primary.u-btn--caution{background:#d8c7a4;color:#231e16}
+        #step-0 .btn-primary.u-btn--caution:active:not(:disabled){background:#c6b58f}
+        #step-0 .btn-primary:disabled{background:#2a2f37;color:#a6adb8;opacity:.55}
+        #step-0 .btn-outline{background:none;border:0;border-radius:8px;
+            padding:10px 4px;min-height:44px;box-shadow:none;backdrop-filter:none;
+            font-size:12px;font-weight:500;text-transform:none;letter-spacing:0;color:#a6adb8}
+        #step-0 #today-alt-btn,#step-0 #today-why-btn{min-height:44px;
+            font-size:12px;font-weight:400;color:#a6adb8}
+        #step-0 #today-changes li{font-size:12px;color:#a6adb8}
+        #step-0 #daily-pelvic-card{margin:18px 0 0;padding:18px 0 0;
+            background:none;border:0;border-top:1px solid #ffffff12;
+            border-radius:0;box-shadow:none;grid-template-columns:1fr 1fr}
+        #step-0 #daily-pelvic-card:not(.hidden){display:grid}
+        #step-0 #daily-pelvic-title,#step-0 #daily-pelvic-note,
+        #step-0 #daily-pelvic-start,#step-0 #daily-pelvic-review{grid-column:1 / -1}
+        #step-0 #daily-pelvic-start{grid-row:3}
+        #step-0 #daily-pelvic-details{grid-column:1;grid-row:4;margin-top:2px}
+        #step-0 #daily-pelvic-busy{grid-column:2;grid-row:4;text-align:right}
+        #step-0 #daily-pelvic-card[data-integrated="true"] #daily-pelvic-title{display:none}
+        #step-0 #daily-pelvic-card[data-integrated="true"] #daily-pelvic-note{margin-top:0}
+        #step-0 #daily-pelvic-title{margin:0;font-size:14px;font-weight:500;color:#e1e4e8}
+        #step-0 #daily-pelvic-note{font-size:13px;line-height:1.6;color:#a6adb8;margin-top:6px}
+        #step-0 #daily-pelvic-start{margin-top:16px}
+        #step-0 #daily-pelvic-busy{margin-top:2px}
+        #step-0 .hq-practice-details{font-size:12px;line-height:1.6;color:#a6adb8}
+        #step-0 .hq-practice-details summary{cursor:pointer;min-height:44px;
+            display:flex;align-items:center;gap:8px;list-style:none}
+        #step-0 .hq-practice-details summary::-webkit-details-marker{display:none}
+        #step-0 .hq-practice-details summary::after{content:'+';font-size:15px;color:#a6adb8}
+        #step-0 .hq-practice-details[open] summary::after{content:'−'}
+        #step-0 .hq-practice-details p{margin:0 0 10px}
+        #step-0 #daily-pelvic-details[open]{grid-column:1 / -1}
+        #step-0 #daily-pelvic-details[open]~#daily-pelvic-busy{grid-row:5}
+        #step-0 #hq-context{padding:0}
+        #step-0 #hq-week-card{padding:0}
+        #step-0 .week-strip{gap:4px}
+        #step-0 .week-cell{min-height:54px;padding:7px 2px;gap:8px;
+            border:1px solid transparent;border-radius:10px;background:none;
+            color:#a6adb8;box-shadow:none;transform:none}
+        #step-0 .week-cell>span{font-size:11px;font-weight:500;
+            text-transform:capitalize;color:#a6adb8}
+        #step-0 .week-cell>i{font-size:12px}
+        #step-0 .week-cell[data-today="1"]{background:#21262e;border-color:#ffffff1f;color:#f0f1ed}
+        #step-0 .week-cell[data-today="1"]>span{color:#f0f1ed}
+        #step-0 .week-cell[data-state="rest"]>i{opacity:.65}
+        #step-0 .week-cell[data-state="unknown"]{border-style:dashed;border-color:#ffffff12}
+        #step-0 .week-cell[data-state="satisfied"]::after{font-size:11px;
+            top:1px;right:1px;color:#9ac4af;background:#0d1015;filter:none}
+        #step-0 #hq-week-label{font-size:12px;font-weight:400;margin-top:12px;color:#a6adb8}
+        #step-0 #hq-week-card.week-complete #hq-week-label{color:#9ac4af}
+        #step-0 #hq-nudge-band{padding:0}
+        #step-0 #hq-nudge-band>div{background:none!important;border:0!important;
+            border-top:1px solid #ffffff12!important;border-radius:0;padding:16px 0 0}
+        #step-0 #hq-nudge-band p:first-child{font-size:13px;font-weight:500;
+            text-transform:none;letter-spacing:0;color:#e1e4e8!important}
+        #step-0 #hq-nudge-band p:not(:first-child){font-size:12px;color:#a6adb8;line-height:1.6}
+        #step-0 #hq-nudge-band i{color:#a6adb8!important;font-size:15px}
+        #step-0 #hq-nudge-band button{min-height:44px;padding:8px 0;
+            border-radius:0;background:none!important;font-size:12px;
+            font-weight:500;text-transform:none;letter-spacing:0;color:#e1e4e8!important}
+        #step-0 #hq-pelvic-learn{color:#a6adb8!important;padding-left:12px}
+        #step-0 .hq-support{padding:0}
+        #step-0 .hq-support> *{margin-top:0}
+        #step-0 .hq-pass-row{display:flex;justify-content:space-between;
+            align-items:center;margin-top:12px}
+        #step-0 #hq-pass-chip{min-height:44px;font-size:12px;font-weight:400;color:#a6adb8}
+        #step-0 #hq-pass-chip i{color:#a6adb8}
+        #step-0 #hq-hydration-card{padding:0!important;margin:0;border:0;
+            background:none;border-radius:0;box-shadow:none;backdrop-filter:none}
+        #step-0 #hydration-toggle{min-height:44px}
+        #step-0 #hydration-toggle>div:first-child{color:#a6adb8}
+        #step-0 #hydration-toggle>div:first-child span{font-size:13px;font-weight:400;
+            color:#a6adb8;text-transform:none;letter-spacing:0}
+        #step-0 #hydration-toggle>div:first-child i{font-size:13px;color:#a6adb8}
+        #step-0 #hydration-amount{font-family:'Inter',sans-serif!important;
+            font-size:13px;font-weight:500;color:#e1e4e8;font-variant-numeric:tabular-nums}
+        #step-0 .hydration-bar-track{height:2px;background:#272d36;margin-top:2px}
+        #step-0 .hydration-bar-fill{background:#a6adb8}
+        #step-0 .hydration-bar-fill.complete{background:#9ac4af}
+        #step-0 #hq-nav{position:fixed;bottom:0;left:0;right:0;z-index:var(--z-sticky);
+            gap:0;border-top:1px solid #ffffff12;margin:0 auto;max-width:492px;
+            padding:10px 22px calc(12px + env(safe-area-inset-bottom));background:#0d1015}
+        #step-0 .hq-nav-pair{gap:0}
+        #step-0 .hq-nav-tile{min-height:56px;padding:8px 4px;gap:7px;
+            border:0;border-radius:8px;background:none;box-shadow:none;
+            font-size:11px;font-weight:500;text-transform:none;letter-spacing:0;color:#a6adb8}
+        #step-0 .hq-nav-tile i{font-size:16px}
+        #step-0 .hq-nav-tile[aria-current="page"]{background:#ffffff07;color:#f0f1ed}
+        #step-0 .hq-nav-tile:active{background:#ffffff0c;transform:none}
+        #step-0 button:focus-visible,#step-0 summary:focus-visible{outline:2px solid #d8e4f1;outline-offset:3px}
+        @media(hover:hover){
+            #step-0 .hq-nav-tile:hover{background:#ffffff07;color:#f0f1ed}
+            #step-0 .btn-outline:hover{color:#f0f1ed}
+        }
+        @media(max-width:360px){#step-0{padding:16px}#step-0 .today-card{padding:18px}}
         /* The dot row stood here. It said how many sessions were done and
            could not say which days they were, directly above a calendar that
            said which days and could not say how the week was going. One
@@ -1040,21 +1166,16 @@
 <!-- STEP 0: HQ -->
 
 <div id="step-0" class="step-content hidden-step">
-    <div class="inner-step-wrapper space-y-4">
+    <div class="inner-step-wrapper space-y-4 hq-shell">
         <!-- ── Header ──────────────────────────────────────────────────────
              Identity and controls, plus the one progress number that belongs
              above the fold. Streak and XP used to sit here; they are now in
              the level block near the bottom. A streak that breaks on a
              scheduled rest day cannot share billing with a weekly target that
              counts that same rest day as success. -->
-        <!-- One 44px row. The lockup was 36px over two lines in a 72px
-             block: the loudest thing on screen, carrying no information,
-             and it clipped under text enlargement because "BLUEPRINT"
-             cannot fit beside the date chip at that size. The wordmark is
-             now 18px on one line and cannot wrap. Icon buttons keep a 32px
-             face on a 44px tap target. -->
-        <div class="flex justify-between items-center px-2" style="min-height:44px">
-            <h1 class="text-[18px] font-black tracking-tight uppercase italic leading-none bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent whitespace-nowrap">The Blueprint</h1>
+        <!-- A quiet wordmark and 44px account/notification tap targets. -->
+        <div class="flex justify-between items-center hq-header">
+            <h1 class="hq-wordmark leading-none whitespace-nowrap">The Blueprint</h1>
             <p id="hq-user-email" class="hidden"></p>
             <div class="flex items-center gap-1">
                 <span id="current-date" class="text-[10px] font-black uppercase u-text-2 mr-1">-- --</span>
@@ -1108,28 +1229,23 @@
                 <button id="today-alt-btn" class="hidden flex-1 text-[11px] font-bold u-text-2 py-2 underline decoration-slate-700 underline-offset-4">Something else</button>
                 </div>
             </div>
+            <section id="daily-pelvic-card" class="hidden" aria-labelledby="daily-pelvic-title">
+                <h3 id="daily-pelvic-title">Daily practice</h3>
+                <p id="daily-pelvic-note"></p>
+                <details id="daily-pelvic-details" class="hq-practice-details">
+                    <summary>View exercises</summary>
+                    <p id="daily-pelvic-exercises"></p>
+                </details>
+                <button id="daily-pelvic-start" class="btn-primary">Start daily practice</button>
+                <button id="daily-pelvic-busy" class="btn-outline">Only have 2 minutes?</button>
+                <button id="daily-pelvic-review" class="hidden btn-outline">Symptoms have settled</button>
+            </section>
         </div>
 
 
 
-        <!-- ── ORDER NOTE ───────────────────────────────────────────────────
-             Today is FIRST, and the two regions below it used to be above it.
-
-             Measured at 390x844: the hero sat at 83px in six of the eight
-             states, 127px in COMPLETE because the context line is live there,
-             and 201px with one attention banner up. The mission therefore
-             moved 118px depending on state, which is the one thing on this
-             screen that should never move. Both causes were above it, so both
-             moved below it and the hero now starts at a constant offset.
-
-             Nothing was removed and no id changed. The CTA was already above
-             the fold in every state by 389px or more, so the hero is NOT
-             enlarged to buy stability: that would cost REST 137px of empty
-             card to fix a problem it does not have.
-
-             This does not improve navigation reach, and is not claimed to:
-             reordering content does not reduce it, so the tools row is still
-             at ~856px in the stacked case. That needs content off the HQ. -->
+        <!-- Today stays first. Context and attention messages follow it;
+             the bottom navigation stays reachable without moving Today. -->
         <!-- One restrained line, and only on an ordinary opening. The brand
              lockup above is untouched: this does not replace it, and it is
              deliberately quieter than the Today headline below. Suppressed
@@ -1232,7 +1348,7 @@
                     <i class="fas fa-stethoscope text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
                     <div class="flex-1 min-w-0">
                         <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Pelvic Floor Check</p>
-                        <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">A pelvic floor can be too tight as easily as too weak, and the training for each is the opposite. Thirty seconds, six questions, and your Recovery Protocol adjusts to the answer.</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">Six questions to help guide your pelvic practice. About 30 seconds.</p>
                         <div class="flex gap-2 mt-2">
                             <button id="hq-pelvic-start" class="text-[10px] font-black text-amber-300 uppercase tracking-widest bg-amber-500/20 px-3 py-1.5 rounded-xl">Take The Check</button>
                             <button id="hq-pelvic-learn" class="text-[10px] font-black u-text-2 uppercase tracking-widest px-2 py-1.5">Why?</button>
@@ -1297,12 +1413,12 @@
              it was taking the best real estate on the screen. -->
 
 
-        <div class="px-2 space-y-3 hq-anim">
+        <div class="hq-support space-y-3 hq-anim">
             <!-- The XP / level badge stood here: a number that climbs whether or
                  not the work qualified, in the place the real signal belongs. The
                  Recovery Pass chip was nested inside it and is kept, because
                  passes are actual program state. -->
-            <div class="px-2 flex justify-center"><button id="hq-pass-chip" class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-200">
+            <div class="hq-pass-row"><button id="hq-pass-chip" class="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-200">
                     <i class="fas fa-shield-halved text-amber-400/80"></i>
                     <span id="hq-pass-count">Recovery Passes: 0 / 2</span>
                     <i class="fas fa-circle-info text-[8px] u-text-2"></i>
@@ -1314,7 +1430,7 @@
             <button id="hydration-toggle" class="w-full flex justify-between items-center">
                 <div class="flex items-center gap-2 min-w-0">
                     <i class="fas fa-droplet text-blue-400 text-sm flex-shrink-0"></i>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-blue-400 truncate">Daily Hydration</span>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-blue-400 truncate">Hydration</span>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0 min-w-0">
                     <span id="hydration-over" class="hidden text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" style="background:rgba(16,185,129,.15);color:#6ee7b7;white-space:nowrap;"></span>
@@ -1365,6 +1481,9 @@
                  into the Tools sheet rather than rebuilt. Their ids and
                  their listeners are untouched, which is why no destination
                  wiring changes in this slice. -->
+        </div>
+
+
             <nav id="hq-nav" class="hq-nav" aria-label="Primary">
                 <div id="hq-tools-row" class="hq-nav-pair">
                     <button id="hq-home-btn" class="hq-nav-tile" aria-current="page"><i class="fas fa-house" aria-hidden="true"></i><span>HQ</span></button>
@@ -1375,17 +1494,6 @@
                     <button id="hq-tools-btn" class="hq-nav-tile"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Tools</span></button>
                 </div>
             </nav>
-        </div>
-
-
-        <section id="daily-pelvic-card" class="hidden today-card mx-2" aria-labelledby="daily-pelvic-title">
-            <p class="text-[10px] font-black uppercase tracking-widest text-amber-400">Daily practice</p>
-            <h3 id="daily-pelvic-title" class="text-sm font-black text-white mt-2">Daily pelvic practice</h3>
-            <p id="daily-pelvic-note" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
-            <button id="daily-pelvic-start" class="btn-primary mt-3" style="min-height:44px">START DAILY PRACTICE</button>
-            <button id="daily-pelvic-busy" class="btn-outline mt-2" style="min-height:44px">JUST 2 MINUTES TODAY</button>
-            <button id="daily-pelvic-review" class="hidden btn-outline mt-2" style="min-height:44px">SYMPTOMS HAVE SETTLED</button>
-        </section>
 
         <!-- Level and XP, demoted. The streak used to live here too and is
              gone; see the note below the bar. -->
@@ -6764,13 +6872,19 @@ function renderDailyPelvicCare(r){
     card.classList.toggle('hidden',!ready);if(!ready)return;
     const done=dailyPelvicCareDone(),plan=currentPelvicPracticePlan();
     const integrated=['TRAIN','MODIFIED','RECOVER'].includes(r.state)||(r.state==='PREPARE'&&r.prepare==='pelvic-screen');
+    card.dataset.integrated=String(integrated);
     const paused=pelvicPracticeNeedsReview();
-    const labels=(plan?.steps||[]).map(x=>ROUTINES.recovery[x.index].title).join(' + ');
+    const labels=(plan?.steps||[]).map(x=>ROUTINES.recovery[x.index].title).join(' · ');
+    const minutes=plan?Math.ceil(window.BP.practiceSeconds(plan)/60):0;
     document.getElementById('daily-pelvic-note').textContent=paused?'You reported pain. Pause pelvic exercises. Persistent or recurring symptoms need a pelvic-health clinician. Resume gentle breathing only once symptoms have settled.'
         :done?'Daily practice complete today.'
         :r.state==='RESUME'?'Resume your unfinished routine above; its practice is saved.'
-        :plan?`${Math.ceil(window.BP.practiceSeconds(plan)/60)} min · ${labels}. ${integrated?'Included in your routine.':'A small practice for today.'}`
+        :plan?`${minutes} min · ${integrated?'Daily practice included.':plan.steps.length===1?'Gentle breathing.':'Breathing, release'+(plan.steps.length>2?' & mobility.':'.')}`
         :'Daily practice could not be read. No extra work is assigned.';
+    document.getElementById('daily-pelvic-exercises').textContent=labels;
+    const details=document.getElementById('daily-pelvic-details');
+    details.classList.toggle('hidden',done||paused||!plan||r.state==='RESUME');
+    if(done||paused||!plan||r.state==='RESUME')details.open=false;
     document.getElementById('daily-pelvic-start').classList.toggle('hidden',done||integrated||paused||!plan||r.state==='RESUME');
     document.getElementById('daily-pelvic-busy').classList.toggle('hidden',done||paused||!plan||r.state==='RESUME'||r.state==='PREPARE');
     document.getElementById('daily-pelvic-review').classList.toggle('hidden',!paused);
