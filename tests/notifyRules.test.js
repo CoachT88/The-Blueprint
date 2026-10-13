@@ -396,3 +396,8 @@ describe('daily practice remains separate from training notifications',()=>{
   expect(decideNotification({now:new Date('2026-10-13T18:50:00Z'),timezone:'UTC',sessionLog:[{date:'2026-10-13T18:30:00Z',workKind:'dailyPractice'}]})).toBeNull();
  });
 });
+
+ test('a completed minimum on a held recovery day suppresses training prompts without claiming primary work',()=>{
+  const log=[{date:'2026-10-13T18:30:00Z',workKind:'dailyPractice',trainingRestSatisfied:true}];
+  expect(decideNotification({now:new Date('2026-10-13T19:00:00Z'),timezone:'UTC',schedule:Array(7).fill('length'),sessionLog:log})).toBeNull();
+ });

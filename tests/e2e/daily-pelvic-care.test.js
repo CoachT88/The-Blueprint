@@ -51,6 +51,7 @@ describe('prescribed pelvic practice in the real app',()=>{
   await app.page.locator('#daily-pelvic-busy').click();await finishPractice();await app.page.evaluate(()=>{finishSession();closeSessionSummary();});
   await expect(app.page.locator('#launch-btn').isVisible()).resolves.toBe(false);
   expect(await app.page.locator('#today-headline').textContent()).toBe('Recovery Practice Complete');
+  expect(await app.page.evaluate(()=>persisted.sessionLog.at(-1).trainingRestSatisfied)).toBe(true);
   expect(await app.page.evaluate(()=>currentWeekCompletion().completed)).toBe(0);
   await app.page.evaluate(()=>localStorage.removeItem(getTodaySorenessKey()));
  });

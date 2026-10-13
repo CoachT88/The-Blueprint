@@ -113,7 +113,7 @@ export function trainedOn(sessionLog, dayKey) {
 /** Real completion dates belong to the member's calendar, not the server's. */
 export function trainedOnLocalDay(sessionLog, dayKey, timezone) {
     return (Array.isArray(sessionLog) ? sessionLog : []).some(s => {
-        if (!s || s.workKind==='dailyPractice' || typeof s.date !== 'string') return false;
+        if (!s || (s.workKind==='dailyPractice' && s.trainingRestSatisfied!==true) || typeof s.date !== 'string') return false;
         // Older date-only history has no timestamp to reinterpret.
         if (/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return s.date === dayKey;
         const when = new Date(s.date);

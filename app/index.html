@@ -3909,7 +3909,7 @@ function resetSession(){
     session.exerciseIndex=0;session.setIndex=1;session.directionalIndex=0;session.xp=0;
     session.recoveryQueue=null;session.recoveryQueuePos=0;
     session.dailyPelvicPhase=false;session.dailyPelvicDone=false;
-    session.dailyPracticeOnly=false;session.practiceFeedback='';
+    session.dailyPracticeOnly=false;session.dailyPracticeRecoveryDay=false;session.practiceFeedback='';
     session.practiceCompletedIndices=[];session.pelvicPracticeIndex=0;session.recoveryDoseByIndex={};
     session.pelvicPracticePlan=dailyPelvicCareDone()?null:currentPelvicPracticePlan();
     // Derive from the tier. Hardcoding 3 here silently overrode the round count
@@ -4990,7 +4990,7 @@ function goToStep(step){
                that sets them and resume skips it. */
             girthRound:session.girthRound,girthTotalRounds:session.girthTotalRounds,
             dailyPelvicPhase:!!session.dailyPelvicPhase,dailyPelvicDone:!!session.dailyPelvicDone,
-            dailyPracticeOnly:!!session.dailyPracticeOnly,pelvicPracticePlan:session.pelvicPracticePlan||null,
+            dailyPracticeOnly:!!session.dailyPracticeOnly,dailyPracticeRecoveryDay:!!session.dailyPracticeRecoveryDay,pelvicPracticePlan:session.pelvicPracticePlan||null,
             pelvicPracticeIndex:session.pelvicPracticeIndex||0,practiceCompletedIndices:session.practiceCompletedIndices||[],
             recoveryDoseByIndex:session.recoveryDoseByIndex||{},
             recoveryQueue:session.recoveryQueue||null,recoveryQueuePos:session.recoveryQueuePos||0,
@@ -6783,7 +6783,7 @@ function startDailyPelvicCare(busy=false){
     const plan=currentPelvicPracticePlan(busy);if(!plan?.steps.length)return;
     captureLaunchPrescription('recovery');session.routineType='recovery';
     // Skip a transient contraction screen while the practice opens.
-    resetSession();session.dailyPracticeOnly=true;session.pelvicPracticePlan=plan;
+    resetSession();session.dailyPracticeOnly=true;session.dailyPracticeRecoveryDay=r.state==='RECOVER';session.pelvicPracticePlan=plan;
     session._resuming=true;goToStep(4);session._resuming=false;_sessionStartTime=Date.now();
     startRemainingPelvicPractice();
 }
@@ -7589,7 +7589,7 @@ function resumeSession(){
     session.xp=draft.xp;
     session.dailyPelvicPhase=draft.dailyPelvicPhase===true;
     session.dailyPelvicDone=draft.dailyPelvicDone===true;
-    session.dailyPracticeOnly=draft.dailyPracticeOnly===true;session.practiceFeedback='';
+    session.dailyPracticeOnly=draft.dailyPracticeOnly===true;session.dailyPracticeRecoveryDay=draft.dailyPracticeRecoveryDay===true;session.practiceFeedback='';
     session.pelvicPracticePlan=window.BP.normalisePelvicPracticePlan(draft.pelvicPracticePlan);
     if(!Object.prototype.hasOwnProperty.call(draft,'pelvicPracticePlan')&&!dailyPelvicCareDone())session.pelvicPracticePlan=currentPelvicPracticePlan(session.dailyPelvicPhase);
     session.practiceCompletedIndices=Array.isArray(draft.practiceCompletedIndices)?draft.practiceCompletedIndices.filter(i=>Object.values(window.BP.PRACTICE_EXERCISES).includes(i)):[];
@@ -7774,7 +7774,7 @@ function finishSession(){
         date:completedAt.toISOString(),
         routineType:session.routineType,
         pelvicCare:session.dailyPelvicDone===true,
-        ...(session.dailyPracticeOnly?{workKind:'dailyPractice'}:{}),
+        ...(session.dailyPracticeOnly?{workKind:'dailyPractice',trainingRestSatisfied:session.dailyPracticeRecoveryDay===true}:{}),
         ...(session.dailyPelvicDone?{pelvicPractice:{v:1,date:session.pelvicPracticePlan?.date||null,
             mode:session.pelvicPracticePlan?.mode||'daily',completedIndices:[...(session.practiceCompletedIndices||[])],feedback:session.practiceFeedback||null}}:{}),
         /* Which dated prescription this session belongs to. The stable
