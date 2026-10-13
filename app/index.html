@@ -6696,7 +6696,7 @@ function dailyPelvicCareDone(){
 }
 function renderDailyPelvicCare(r){
     const card=document.getElementById('daily-pelvic-card');
-    const ready=!!currentUser&&_persistedLoaded&&!!r
+    const ready=!!currentUser&&_persistedLoaded&&!!r&&r.state!=='COMPLETE'
         &&!(r.state==='PREPARE'&&r.prepare!=='pelvic-screen');
     card.classList.toggle('hidden',!ready);
     if(!ready)return;
@@ -6714,7 +6714,7 @@ function renderDailyPelvicCare(r){
 function startDailyPelvicCare(){
     const r=window.BP.nextBestAction(buildResolverInput());
     if(!currentUser||!_persistedLoaded||dailyPelvicCareDone()
-        ||!['REST','SUPPORT_ONLY','COMPLETE'].includes(r.state))return;
+        ||!['REST','SUPPORT_ONLY'].includes(r.state))return;
     captureLaunchPrescription('recovery');
     session.routineType='recovery';
     goToStep(4);
