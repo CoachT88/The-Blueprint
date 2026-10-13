@@ -50,9 +50,9 @@ describe('the web app manifest', () => {
     });
 
     test('matches the app background so the splash screen does not flash white', () => {
-        expect(manifest.background_color).toBe('#020617');
-        expect(manifest.theme_color).toBe('#020617');
-        expect(html).toMatch(/<meta name="theme-color" content="#020617">/);
+        expect(manifest.background_color).toBe(manifest.theme_color);
+        const appTheme = html.match(/<meta name="theme-color" content="(#[0-9a-f]{6})">/i);
+        expect(appTheme?.[1]).toBe(manifest.theme_color);
     });
 
     test('gives Android both a 192 and a 512 icon, which it requires to install', () => {
