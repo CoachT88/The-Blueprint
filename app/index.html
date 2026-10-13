@@ -1023,9 +1023,23 @@
 <div id="chart-modal" class="hidden">
     <div class="inner-step-wrapper py-12 space-y-6">
         <div class="flex justify-between items-center px-2">
-            <h2 class="text-3xl font-black italic uppercase text-slate-50">Progress Intel</h2>
+            <h2 class="text-3xl font-black italic uppercase text-slate-50">Progress</h2>
             <button id="chart-close-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 cursor-pointer"><i class="fas fa-xmark text-lg"></i></button>
         </div>
+        <section id="personal-progress" class="summary-stat text-left mx-2" aria-labelledby="personal-progress-heading">
+            <h3 id="personal-progress-heading" class="text-sm font-bold text-white">Your progress</h3>
+            <div id="personal-progress-summary" class="space-y-2 mt-3"></div>
+            <button id="personal-checkin-btn" class="btn-outline w-full py-3 text-sm mt-3">Add a starting point</button>
+            <p id="personal-checkin-status" class="text-xs text-slate-400 mt-2" role="status"></p>
+            <div id="personal-checkin-editor" class="hidden space-y-4 mt-4">
+                <p class="text-sm text-slate-300">How have things felt recently? Choose what you can answer. This is optional.</p>
+                <div id="personal-checkin-fields" class="space-y-3"></div>
+                <p class="text-xs text-slate-400">Your own ratings over time, not a medical assessment. They do not count as training.</p>
+                <button id="personal-checkin-save" class="btn-primary w-full py-3 text-sm">Save check-in</button>
+                <button id="personal-checkin-cancel" class="btn-outline w-full py-3 text-sm">Skip for now</button>
+            </div>
+            <button id="progress-week-summary" class="text-sm text-blue-300 mt-3">View week summary</button>
+        </section>
         <!-- The existing goal-led BPEL/MSEG or EQ snapshot now lives with the
              long-term charts. Preserve its IDs and renderDashboard wiring. -->
         <section id="progress-snapshot" class="px-2 space-y-2" aria-labelledby="progress-snapshot-heading">
@@ -1039,6 +1053,7 @@
             <div class="stat-chip flex-1"><p class="text-[9px] font-black uppercase tracking-widest mb-1" style="color:#a855f7">Trend</p><p class="text-[8px] u-text-2 font-semibold -mt-1 mb-1">erection quality</p><p id="eq-trend" class="text-lg font-black text-white" style="font-family:'JetBrains Mono',monospace">&mdash;</p></div>
         </div>
         </section>
+        <details id="progress-measurement-details" class="guided-details"><summary>Recorded measurements</summary>
         <div class="px-2 space-y-3">
             <div class="flex items-center gap-2"><div class="chart-legend-dot bg-blue-500"></div><span class="text-[10px] font-black uppercase tracking-widest text-blue-400">BPEL — Bone Pressed Erect Length</span></div>
             <div class="chart-svg-wrap"><svg id="bpel-chart" width="100%" viewBox="0 0 340 160"></svg></div>
@@ -1047,10 +1062,11 @@
             <div class="flex items-center gap-2"><div class="chart-legend-dot bg-emerald-500"></div><span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">MSEG — Mid-Shaft Erect Girth</span></div>
             <div class="chart-svg-wrap"><svg id="mseg-chart" width="100%" viewBox="0 0 340 160"></svg></div>
         </div>
+        </details>
         <div class="px-2 space-y-3">
             <div class="flex items-center gap-2"><div class="chart-legend-dot" style="background:#a855f7"></div><span class="text-[10px] font-black uppercase tracking-widest" style="color:#a855f7">EQ — Erection Quality Per Session</span></div>
             <div class="chart-svg-wrap"><svg id="eq-chart" width="100%" viewBox="0 0 340 160"></svg></div>
-            <p class="text-[9px] u-text-2 text-center italic">EQ responds in weeks. It moves long before the tape does.</p>
+            <p class="text-[9px] u-text-2 text-center italic">Your own session ratings. Individual readings can vary.</p>
         </div>
     <!-- Personal Records -->
     <div id="hq-records-card" class="px-2 space-y-2 hq-anim">
@@ -1314,7 +1330,8 @@
                  livenessContext(): week complete, then return, then a week
                  that did not go to plan. It sits beside the prescription and
                  never in place of it. -->
-            <ul id="today-changes" class="hidden mt-3 space-y-1"></ul>
+            <p id="today-plan-context" class="hidden text-[13px] text-slate-400 leading-relaxed mt-3"></p>
+                    <ul id="today-changes" class="hidden mt-3 space-y-1"></ul>
             <div id="today-complete-summary" class="hidden mt-3 grid grid-cols-2 gap-2"></div>
             <div id="today-actions" class="mt-4 space-y-2">
                 <button id="launch-btn" class="btn-primary">BEGIN SESSION</button>
@@ -1439,6 +1456,7 @@
         <div id="hq-week-card" class="px-3 hq-anim">
             <div id="hq-week-strip" class="week-strip"></div>
             <p id="hq-week-label" class="mt-2 text-[11px] font-bold text-slate-400">This week</p>
+            <button id="personal-progress-nudge" class="hidden text-xs text-blue-300" style="min-height:44px">Your weekly check-in is ready</button>
         </div>
 
         <!-- ── Nudge band ──────────────────────────────────────────────────
@@ -3573,6 +3591,7 @@ const DEFAULT_PERSISTED={
     totalXp:0,
     sessionLog:[],
     measurements:[],
+    progressCheckins:null, // null: history unread; []: confirmed empty
     seenMilestones:[],
     difficulty:'intermediate',
     diffUnlockedDate:{intermediate:'', advanced:'', elite:''},  // ISO dates when each tier was unlocked
@@ -3701,6 +3720,7 @@ function adoptPersisted(raw){
     if(!Array.isArray(persisted.sessionLog)) persisted.sessionLog=[];
     else if(persisted.sessionLog.some(e=>!e||typeof e!=='object'))
         persisted.sessionLog=persisted.sessionLog.filter(e=>!!e&&typeof e==='object');
+    if(!Array.isArray(persisted.progressCheckins)) persisted.progressCheckins=null;
     if(!Array.isArray(persisted.measurements)) persisted.measurements=[];
     else if(persisted.measurements.some(e=>!e||typeof e!=='object'))
         persisted.measurements=persisted.measurements.filter(e=>!!e&&typeof e==='object');
@@ -3735,7 +3755,7 @@ async function loadPersisted(){
             // there is no local backup — a timeout or error must never downgrade a
             // returning member who simply could not be read this time.
             else if(!_queryFailed && (!error || error.code==='PGRST116')){
-                adoptPersisted({difficulty:'beginner'});
+                adoptPersisted({difficulty:'beginner',progressCheckins:[]});
                 _persistedLoaded=true;
             }
             // Otherwise the read failed and we have no backup: stay unloaded so
@@ -3744,6 +3764,10 @@ async function loadPersisted(){
             return;
         }
         _persistedLoaded=true;
+        // An older backup cannot replace newly available check-in history with
+        // an invented empty list. Merge this one previously unread field.
+        if(localData&&!Array.isArray(localData.progressCheckins)&&Array.isArray(data.progress_checkins))
+            localData={...localData,progressCheckins:data.progress_checkins};
         // If the local backup is newer than Supabase, or if a previous write
         // was locally committed but never confirmed by Supabase (dirty flag),
         // treat local as the source of truth and re-sync.
@@ -3807,6 +3831,7 @@ function _internalFromRow(data){
         totalXp:             data.total_xp             || 0,
         sessionLog:          data.session_log          || [],
         measurements:        data.measurements         || [],
+        progressCheckins:    Array.isArray(data.progress_checkins)?data.progress_checkins:null,
         seenMilestones:      data.seen_milestones      || [],
         difficulty:          data.difficulty           || 'intermediate',
         diffUnlockedDate:    data.diff_unlocked_date   || {intermediate:'',advanced:'',elite:''},
@@ -3852,6 +3877,8 @@ function _buildSavePayload(){
         total_xp:       persisted.totalXp,
         session_log:    persisted.sessionLog,
         measurements:   persisted.measurements,
+        // Unknown check-in history is omitted; known empty history can clear it.
+        ...(Array.isArray(persisted.progressCheckins)?{progress_checkins:persisted.progressCheckins}:{}),
         seen_milestones:persisted.seenMilestones,
         difficulty:     persisted.difficulty,
         diff_unlocked_date: persisted.diffUnlockedDate||{intermediate:'',advanced:'',elite:''},
@@ -3904,6 +3931,9 @@ let _schemaMissingLatestCols=false;
 let _schemaMissingNewCols=false;
 function _isUnknownColumnError(err){
     if(!err) return false;
+    // A missing optional-progress migration must stay visibly pending, never
+    // strip unrelated program columns or claim the new ratings synced.
+    if((err.message||'').includes('progress_checkins'))return false;
     const code=err.code||'';
     const msg=(err.message||'').toLowerCase();
     // PGRST204: column not in schema cache. 42703: undefined_column.
@@ -4921,30 +4951,106 @@ async function handlePhotoLogUpload(file){
 // ═══════════════════════════════════════════════════════════════════════════
 // PROGRESS CHART
 // ═══════════════════════════════════════════════════════════════════════════
-function openProgressChart(){document.getElementById('chart-modal').classList.remove('hidden');renderProgressChart();renderPhotoGallery();renderLog();}
-function closeProgressChart(){document.getElementById('chart-modal').classList.add('hidden')}
-function renderProgressChart(){
-    renderEqChart(); // independent of measurements, so draw it before any early return
-    const meas=(persisted.measurements||[]).slice(-30);
-    const statsEl=document.getElementById('chart-stats');
-    if(meas.length<2){
-        // An EQ-led member can have plenty charted above this; do not tell them
-        // they have no data.
-        const _hasEq=getEqSummary().count>0;
-        statsEl.innerHTML=`<div class="col-span-2 text-center py-6 u-text-2 text-sm italic">${_hasEq?'Your EQ trend is above. Log BPEL and MSEG after a session to add size tracking.':'Log measurements after sessions to see trends here.'}</div>`;
-        drawEmpty('bpel-chart');drawEmpty('mseg-chart');return;
+let _progressEditorUid=null,_progressEditorGoal=null,_progressSaveNonce=0;
+function progressToday(){return window.BP.planDateKey(new Date());}
+function personalProgressMarkup(){
+    if(!window.BP||!_persistedLoaded)return '<p class="text-sm text-slate-400">Waiting for your saved progress to load.</p>';
+    if(!Array.isArray(persisted.progressCheckins))return '<p class="text-sm text-slate-400">Your check-in history is unavailable on this device. Reconnect and reopen the app before adding a rating.</p>';
+    const p=window.BP.personalProgress(persisted.progressCheckins,getGoalKey(),progressToday());
+    const ratings=p.metrics.filter(x=>x.last!==null).map(x=>{
+        const values=x.change===null?`${x.last} / ${x.max}`:`${x.first} → ${x.last} / ${x.max}`;
+        const detail=x.change===null?'Starting point':x.change===0?'Same as your starting rating':x.change>0?'Higher than your starting rating':'Lower than your starting rating';
+        return `<div class="flex items-center justify-between gap-3 py-2"><div><p class="text-sm text-slate-200">${esc(x.label)}</p><p class="text-xs text-slate-400">${detail}</p></div><strong class="text-white whitespace-nowrap">${values}</strong></div>`;
+    }).join('');
+    const comfort=lastPelvicFeedback();
+    const comfortText=comfort?({comfortable:'Comfortable',tense:'More tense',painful:'Painful'}[comfort.pelvicPractice.feedback]||''):'';
+    const sizes=['size','all'].includes(getGoalKey())?window.BP.recordedMeasurementProgress(persisted.measurements,new Date()).filter(x=>x.last!==null).map(x=>`<p class="text-sm text-slate-300">Recorded ${x.field==='bpel'?'length':'girth'}: ${x.change===null?x.last:`${x.first} → ${x.last}`} in</p>`).join(''):'';
+    const week=currentWeekCompletion();
+    const recorded=`<p class="text-sm text-slate-300">Training recorded: ${week.completed} of ${week.target} planned sessions this week.</p>`;
+    return recorded+(ratings||'<p class="text-sm text-slate-300">Add an optional starting point so you can compare how things feel over time.</p>')+sizes+
+        (comfortText?`<p class="text-xs text-slate-400">Last pelvic practice: ${comfortText}</p>`:'')+
+        (p.latest?`<p class="text-xs text-slate-400">Latest check-in: ${esc(p.latest.date)}. Based on your own ratings over time.</p>`:'');
+}
+function renderProgressNudge(){
+    const button=document.getElementById('personal-progress-nudge');
+    if(!window.BP||!_persistedLoaded||!Array.isArray(persisted.progressCheckins)){button.classList.add('hidden');return;}
+    const p=window.BP.progressCheckinStatus(persisted.progressCheckins,getGoalKey(),progressToday());
+    const available=['COMPLETE','REST','SUPPORT_ONLY'].includes(_today?.state)&&p.due&&((persisted.allTimeSessionCount||0)>0||persisted.sessionLog.length>0);
+    button.classList.toggle('hidden',!available);
+    button.textContent=p.latest?'Your weekly check-in is ready':'Record a starting point in Progress';
+}
+function renderPersonalProgress(){
+    document.getElementById('personal-progress-summary').innerHTML=personalProgressMarkup();
+    const p=window.BP.progressCheckinStatus(persisted.progressCheckins,getGoalKey(),progressToday());
+    const btn=document.getElementById('personal-checkin-btn');btn.disabled=!_persistedLoaded||!Array.isArray(persisted.progressCheckins);
+    btn.textContent=!p.latest?'Add a starting point':p.due?'Weekly check-in':p.latest.date===progressToday()?'Edit today’s check-in':'Add a check-in';
+}
+function closeProgressCheckin(){
+    _progressEditorUid=null;_progressEditorGoal=null;_progressSaveNonce++;
+    document.getElementById('personal-checkin-editor').classList.add('hidden');
+    document.getElementById('personal-checkin-fields').replaceChildren();
+    document.getElementById('personal-checkin-save').disabled=false;
+    document.getElementById('personal-checkin-status').textContent='';
+}
+function openProgressCheckin(){
+    if(!currentUser||!_persistedLoaded||!Array.isArray(persisted.progressCheckins))return;
+    closeProgressCheckin();_progressEditorUid=currentUser.id;_progressEditorGoal=getGoalKey();
+    const p=window.BP.progressCheckinStatus(persisted.progressCheckins,getGoalKey(),progressToday());
+    const initial=p.latest?.date===progressToday()?p.latest:null;
+    const descriptions={control:'Ability to pause or slow down before finishing',eq:'Usual erection quality',confidence:'Confidence in your sexual wellbeing'};
+    const labels={control:['Very little','A little','Some','Good','Very good'],confidence:['Very low','Low','In between','High','Very high']};
+    const host=document.getElementById('personal-checkin-fields');
+    for(const field of window.BP.PROGRESS_FIELDS[getGoalKey()]){
+        const label=document.createElement('label');label.className='block text-sm text-slate-200';label.textContent=descriptions[field];
+        const select=document.createElement('select');select.id='progress-rating-'+field;select.className='block w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-3 mt-2 text-white';
+        select.add(new Option('Not sure yet / skip',''));
+        for(let i=1;i<=(field==='eq'?10:5);i++)select.add(new Option(field==='eq'?`${i} / 10${i===1?' · Very low':i===10?' · Very firm':''}`:`${i} · ${labels[field][i-1]}`,String(i)));
+        select.value=initial?.[field]?String(initial[field]):'';label.appendChild(select);host.appendChild(label);
     }
-    const first=meas[0],last=meas[meas.length-1];
-    const bg=(v,f)=>(!isNaN(v)&&!isNaN(f))?(v-f).toFixed(2):'—';
-    const bpelG=bg(parseFloat(last.bpel),parseFloat(first.bpel));
-    const msegG=bg(parseFloat(last.mseg),parseFloat(first.mseg));
-    statsEl.innerHTML=`
-        <div class="stat-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">BPEL Change</p><p class="text-xl font-black text-white" style="font-family:'JetBrains Mono',monospace">${bpelG!=='—'&&bpelG>0?'+':''}${bpelG}"</p></div>
-        <div class="stat-chip"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">MSEG Change</p><p class="text-xl font-black text-white" style="font-family:'JetBrains Mono',monospace">${msegG!=='—'&&msegG>0?'+':''}${msegG}"</p></div>
-        <div class="stat-chip"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Current BPEL</p><p class="text-xl font-black text-white" style="font-family:'JetBrains Mono',monospace">${last.bpel||'—'}"</p></div>
-        <div class="stat-chip"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Current MSEG</p><p class="text-xl font-black text-white" style="font-family:'JetBrains Mono',monospace">${last.mseg||'—'}"</p></div>`;
-    drawLine('bpel-chart',meas.map(m=>m.bpel).filter(v=>!isNaN(parseFloat(v))).map(Number),meas.map(m=>m.date),'#3b82f6');
-    drawLine('mseg-chart',meas.map(m=>m.mseg).filter(v=>!isNaN(parseFloat(v))).map(Number),meas.map(m=>m.date),'#10b981');
+    document.getElementById('personal-checkin-editor').classList.remove('hidden');
+}
+async function saveProgressCheckin(){
+    if(!currentUser||currentUser.id!==_progressEditorUid||!_persistedLoaded||!Array.isArray(persisted.progressCheckins))return;
+    if(getGoalKey()!==_progressEditorGoal){closeProgressCheckin();document.getElementById('personal-checkin-status').textContent='Your goal changed. Open a new check-in for that focus.';return;}
+    const uid=currentUser.id,nonce=++_progressSaveNonce;
+    const value={v:1,date:progressToday(),goal:getGoalKey()};
+    for(const field of window.BP.PROGRESS_FIELDS[value.goal]){const raw=document.getElementById('progress-rating-'+field).value;value[field]=raw?Number(raw):null;}
+    const next=window.BP.putProgressCheckin(persisted.progressCheckins,value);
+    const status=document.getElementById('personal-checkin-status');
+    if(!next){status.textContent='Choose at least one rating, or skip for now.';return;}
+    persisted.progressCheckins=next;
+    const btn=document.getElementById('personal-checkin-save');btn.disabled=true;status.textContent='Saving…';
+    clearTimeout(_saveDebounce);const localSaved=_writeLocalBackup();
+    const result=await _commitWrite(uid,{id:uid,..._buildSavePayload()});
+    if(currentUser?.id!==uid||_progressSaveNonce!==nonce)return;
+    btn.disabled=false;renderPersonalProgress();renderProgressNudge();
+    if(result==='ok'){closeProgressCheckin();status.textContent='Check-in saved. Your training schedule stays on Today.';}
+    else status.textContent=localSaved?'Saved on this device. Cloud sync is pending; keep using this device until it syncs.':'Could not save yet. Please retry before closing the app.';
+}
+function openProgressChart(){closeProgressCheckin();renderPersonalProgress();document.getElementById('chart-modal').classList.remove('hidden');renderProgressChart();renderPhotoGallery();renderLog();}
+function closeProgressChart(){closeProgressCheckin();document.getElementById('chart-modal').classList.add('hidden')}
+function renderProgressChart(){
+    renderEqChart();
+    const sizeGoal=['size','all'].includes(getGoalKey());
+    const bpel=window.BP.measurementSeries(persisted.measurements,'bpel',new Date()).slice(-30);
+    const mseg=window.BP.measurementSeries(persisted.measurements,'mseg',new Date()).slice(-30);
+    const details=document.getElementById('progress-measurement-details');
+    details.open=sizeGoal;details.classList.toggle('hidden',!sizeGoal&&!bpel.length&&!mseg.length);
+    const statsEl=document.getElementById('chart-stats');
+    statsEl.classList.toggle('hidden',!sizeGoal&&!bpel.length&&!mseg.length);
+    if(!bpel.length&&!mseg.length){
+        const hasEq=getEqSummary().count>0;
+        statsEl.innerHTML=`<div class="col-span-2 text-center py-6 u-text-2 text-sm italic">${hasEq?'Your EQ trend is above. Log BPEL and MSEG after a session to add size tracking.':'Log measurements after sessions to see trends here.'}</div>`;
+    }else{
+        const stat=(series,label,color)=>{
+            const first=series[0],last=series.at(-1);
+            const change=first&&last&&first.date!==last.date?last.value-first.value:null;
+            return `<div class="stat-chip"><p class="text-[9px] font-black ${color} uppercase tracking-widest mb-1">${label} change</p><p class="text-xl font-black text-white">${change===null?'—':(change>0?'+':'')+change.toFixed(2)+' in'}</p></div><div class="stat-chip"><p class="text-[9px] font-black ${color} uppercase tracking-widest mb-1">Current ${label}</p><p class="text-xl font-black text-white">${last?last.value+' in':'—'}</p></div>`;
+        };
+        statsEl.innerHTML=stat(bpel,'BPEL','text-blue-400')+stat(mseg,'MSEG','text-emerald-400');
+    }
+    drawLine('bpel-chart',bpel.map(x=>x.value),bpel.map(x=>x.date),'#3b82f6');
+    drawLine('mseg-chart',mseg.map(x=>x.value),mseg.map(x=>x.date),'#10b981');
 }
 // EQ is logged every session but was only ever surfaced as a weekly average.
 // Plotting it gives members visible movement in weeks rather than months.
@@ -6989,7 +7095,9 @@ function renderToday(){
             `<li class="text-[11px] text-slate-400 leading-relaxed flex gap-2"><span class="u-text-2">&bull;</span><span>${c}</span></li>`).join('');
         changes.classList.add('hidden');     // revealed by "Why this today?"
     }
-    set('today-why-btn',undefined,r.changes.length>0);
+    const planContext=window.BP.todayPlanExplanation(r,currentPelvicPracticePlan()||{},lastPelvicFeedback()?.pelvicPractice.feedback||'');
+    set('today-plan-context',planContext,false);
+    set('today-why-btn',undefined,r.changes.length>0||!!planContext);
     const whyBtn=document.getElementById('today-why-btn');
     if(whyBtn) whyBtn.textContent='Why this today?';
 
@@ -7884,6 +7992,7 @@ function renderDashboard(){
     renderCoachNudge();
     renderToday();
     renderWeekStrip();
+    renderProgressNudge();
     renderAttentionBand();
     window._bpHqRendered=true;
     /* The weekly calendar was built here, from persisted.schedule, with its
@@ -8683,8 +8792,8 @@ function maybePromptPush(){
 function showWeeklyReport(){
     const modal=document.getElementById('weekly-report-modal');
     const weekAgo=new Date(Date.now()-7*24*60*60*1000).toISOString();
-    const weekSessions=(persisted.sessionLog||[]).filter(s=>s.date>weekAgo);
-    const weekXp=weekSessions.reduce((t,s)=>t+s.xpEarned,0);
+    const weekSessions=(persisted.sessionLog||[]).filter(s=>s&&Number.isFinite(Date.parse(s.date))&&Date.parse(s.date)>Date.parse(weekAgo)&&Date.parse(s.date)<=Date.now()).sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
+    const weekXp=weekSessions.reduce((t,s)=>t+(Number.isFinite(s.xpEarned)?s.xpEarned:0),0);
     /* The canonical weekly answer, the same one the HQ label reads. This
        counted ticked weekdays out of persisted.completedDays and called the
        result a streak, which it never was: it is a weekday tally, it is not
@@ -8704,18 +8813,19 @@ function showWeeklyReport(){
     if(weekSessions.filter(s=>s.eq).length>=2){
         const eqVals=weekSessions.filter(s=>s.eq).map(s=>s.eq);
         const trend=eqVals[eqVals.length-1]-eqVals[0];
-        eqInsight=trend>0?`<span class="text-emerald-400">↑ EQ trending up</span>`:trend<0?`<span class="text-red-400">↓ EQ trending down — check hydration and sleep</span>`:`<span class="text-slate-400">EQ stable</span>`;
+        eqInsight=trend>0?`<span class="text-emerald-400">↑ EQ trending up</span>`:trend<0?`<span class="text-red-400">↓ Recorded EQ is lower</span>`:`<span class="text-slate-400">EQ stable</span>`;
     }
     let rpeInsight='';
     if(weekSessions.filter(s=>s.rpe).length>=2){
         const rpeVals=weekSessions.filter(s=>s.rpe).map(s=>s.rpe);
         const avgR=rpeVals.reduce((t,v)=>t+v,0)/rpeVals.length;
-        rpeInsight=avgR>8?'<span class="text-red-400">High RPE average — consider a deload</span>':avgR<4?'<span class="text-blue-400">Low RPE — you may be ready to increase volume</span>':'<span class="text-emerald-400">RPE in optimal range</span>';
+        rpeInsight=avgR>8?'<span class="text-red-400">High reported effort — keep your prescribed recovery days</span>':avgR<4?'<span class="text-blue-400">Low reported effort — follow your prescribed plan</span>':'<span class="text-emerald-400">Reported effort is moderate</span>';
     }
     content.innerHTML=`
+        <section class="summary-stat text-left"><h3 class="text-sm font-bold text-white mb-3">How things feel</h3>${personalProgressMarkup()}</section>
         <div class="grid grid-cols-2 gap-3">
             <div class="summary-stat"><p class="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1">Week XP</p><p class="text-2xl font-black text-white">${weekXp}</p></div>
-            <div class="summary-stat"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Sessions</p><p class="text-2xl font-black text-white">${weekSessions.length}</p></div>
+            <div class="summary-stat"><p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Logged activities</p><p class="text-2xl font-black text-white">${weekSessions.length}</p></div>
             <div class="summary-stat"><p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Avg EQ</p><p class="text-2xl font-black text-white">${avgEQ}</p>${eqInsight?`<p class="text-[9px] mt-1">${eqInsight}</p>`:''}</div>
             <div class="summary-stat"><p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">Avg RPE</p><p class="text-2xl font-black text-white">${avgRPE}</p>${rpeInsight?`<p class="text-[9px] mt-1">${rpeInsight}</p>`:''}</div>
         </div>
@@ -8858,11 +8968,12 @@ function historyRow(s){
 // ONBOARDING
 // ═══════════════════════════════════════════════════════════════════════════
 let _obSlide=0;
-let _goalPickerOnly=false;
+let _goalPickerOnly=false,_firstRunSetup=false;
 // Derived rather than hardcoded, so adding a slide cannot silently strand the
 // Get Started button on the wrong screen.
 function _obLastIdx(){ return Math.max(0,document.querySelectorAll('.ob-slide').length-1); }
 function showOnboarding(startIdx,goalOnly=false){
+    _firstRunSetup=false;
     _goalPickerOnly=goalOnly;
     document.getElementById('onboarding-overlay').classList.toggle('goal-picker-only',goalOnly);
     document.getElementById('ob-dots').classList.toggle('hidden',goalOnly);
@@ -8872,6 +8983,7 @@ function showOnboarding(startIdx,goalOnly=false){
     goToObSlide(startIdx||0);
 }
 function hideOnboarding(){
+    _firstRunSetup=false;
     document.getElementById('onboarding-overlay').classList.remove('show');
     if(currentUser) localStorage.setItem('bp_onboarded_'+currentUser.id,'1');
 }
@@ -9063,10 +9175,16 @@ function openGoalPicker(){
     closeAccount();
     setTimeout(()=>showOnboarding(_obLastIdx(),true),320);
 }
-// Completing the intro flows into the guided tour. Skipping it does not, but the
-// tour stays available from the Manual.
+// Setup returns to the next action on Today. The full intro and tour
+// stay available from the Manual whenever the member wants them.
+function showFirstRunSetup(){
+    showOnboarding(_obLastIdx(),true);
+    _firstRunSetup=true;
+    document.getElementById('ob-next-btn').textContent='Start my plan';
+    document.getElementById('ob-skip-btn').textContent='Later';
+}
 function finishOnboarding(){
-    if(_goalPickerOnly){ hideOnboarding(); return; }
+    if(_goalPickerOnly){if(_firstRunSetup)trackOnce('intro_done','intro_completed',{mode:'quick-start'});hideOnboarding();return;}
     trackOnce('intro_done','intro_completed');
     hideOnboarding();
     // A man who just finished the intro has no earlier progress that could
@@ -9075,7 +9193,7 @@ function finishOnboarding(){
     // while the intro is still up, so by now it is already on screen, and a
     // full-screen modal is the one thing the tour cannot point through.
     dismissUpdateNotice();
-    setTimeout(()=>maybeStartTour(),450);
+    goToStep(0); // The next useful action stays on Today; tours are optional.
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -9961,6 +10079,7 @@ async function handleForgotPassword(){
    The list below is every body-level overlay that shows one member's own
    data, grouped by how each is hidden. */
 function _closeMemberOverlays(){
+    closeProgressCheckin();
     stopGuideSpeech();_guideSpeech?.setEnabled(false);_guideAudioUser=null;
     // Hidden by the `hidden` class.
     ['account-modal','notif-modal','pass-info-modal','coach-modal','type-modal',
@@ -10131,7 +10250,7 @@ async function onUserSignedIn(user){
         const onboarded=localStorage.getItem('bp_onboarded_'+user.id);
         if(welcomed){
             goToStep(0);
-            if(!onboarded){ track('intro_shown'); setTimeout(showOnboarding,600); }
+            if(!onboarded){ track('intro_shown'); setTimeout(showFirstRunSetup,600); }
         } else {
             document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
             const w=document.getElementById('step-welcome');
@@ -10446,7 +10565,7 @@ function init(){
         // First-ever entry: run the intro here. The sign-in path (onUserSignedIn)
         // only reaches its showOnboarding call for users who were already welcomed,
         // so without this a brand-new member never sees the intro on day one.
-        if(currentUser && !localStorage.getItem('bp_onboarded_'+currentUser.id)){ track('intro_shown'); setTimeout(showOnboarding,600); }
+        if(currentUser && !localStorage.getItem('bp_onboarded_'+currentUser.id)){ track('intro_shown'); setTimeout(showFirstRunSetup,600); }
     });
 
     try {
@@ -10524,6 +10643,14 @@ function init(){
     // Wrapped so the click Event is not passed as the pre-asked question.
     document.getElementById('ai-coach-btn').addEventListener('click',()=>openCoach());
     document.getElementById('progress-btn').addEventListener('click',openProgressChart);
+    document.getElementById('personal-checkin-btn').addEventListener('click',openProgressCheckin);
+    document.getElementById('personal-progress-nudge').addEventListener('click',()=>{openProgressChart();openProgressCheckin();});
+    document.getElementById('personal-checkin-save').addEventListener('click',saveProgressCheckin);
+    document.getElementById('personal-checkin-cancel').addEventListener('click',closeProgressCheckin);
+    document.getElementById('progress-week-summary').addEventListener('click',showWeeklyReport);
+    document.getElementById('today-why-btn').addEventListener('click',()=>{
+        const el=document.getElementById('today-plan-context');if(el.textContent)el.classList.toggle('hidden');
+    });
     /* HQ is where you already are, so this is the RETURN path rather than a
        destination: it closes whatever overlay is open and puts the member
        back at the top of the HQ. That makes "get me home" one predictable
@@ -10902,6 +11029,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 <script type="module">
 import { buildPelvicPracticePlan, normalisePelvicPracticePlan, practiceSeconds, dailyPracticeItems, latestPracticeFeedback, PRACTICE_EXERCISES } from '../src/pelvicPractice.js';
 import { createGuideSpeech, guideSetup } from '../src/sessionGuide.js';
+import { PROGRESS_FIELDS,PROGRESS_LABELS,readProgressCheckin,progressCheckinStatus,putProgressCheckin,personalProgress,recordedMeasurementProgress,measurementSeries,todayPlanExplanation } from '../src/personalProgress.js';
 import { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED } from '../src/nextBestAction.js';
 /* The ESTIMATE and the ACTUAL PRESCRIPTION now come from the same place.
    They used to not: estimateSessionSeconds() applied MODERATE_SORENESS_SHAPE
@@ -10969,7 +11097,7 @@ import { attributeEntry, ATTRIBUTION } from '../src/sessionAttribution.js';
    substitution, where the programme prescribed nothing to honour. */
 import { validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
          DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS } from '../src/doseExecution.js';
-window.BP = { createGuideSpeech,guideSetup,buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
+window.BP = { PROGRESS_FIELDS,PROGRESS_LABELS,readProgressCheckin,progressCheckinStatus,putProgressCheckin,personalProgress,recordedMeasurementProgress,measurementSeries,todayPlanExplanation,createGuideSpeech,guideSetup,buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
               weekCompletion, weekKey, normaliseLedger,
