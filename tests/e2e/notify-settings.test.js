@@ -156,7 +156,9 @@ describe('the settings screen no longer promises what it cannot send', () => {
         const fn = src.slice(src.indexOf('async function saveNotifPrefs'));
         const body = fn.slice(0, fn.indexOf('\n}'));
         expect(body).toContain('reminder_time');
-        expect(body).toContain('push_subscriptions');
+        // The same helper persists both initial setup and time changes.
+        // The browser regressions in push-setup exercise its actual write.
+        expect(body).toContain('_savePushSubscription(sub,time)');
         expect(body).not.toContain('streak_warn:');
     }, 30_000);
 });
