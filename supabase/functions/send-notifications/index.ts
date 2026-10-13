@@ -68,7 +68,7 @@ interface Subscription {
 }
 
 interface TrainingRow {
-    user_id: string;
+    id: string;
     session_log?: unknown[];
     pass_protected_dates?: string[];
     schedule?: string[];
@@ -118,8 +118,8 @@ function isUnknownColumn(err: { code?: string; message?: string } | null): boole
  */
 async function readTrainingState(ids: string[]): Promise<{ rows: TrainingRow[]; failed: boolean }> {
     const latest = await supabase.from('user_data')
-        .select('user_id, session_log, pass_protected_dates, schedule, programme')
-        .in('user_id', ids);
+        .select('id, session_log, pass_protected_dates, schedule, programme')
+        .in('id', ids);
     if (!latest.error) return { rows: latest.data || [], failed: false };
     if (!isUnknownColumn(latest.error)) {
         console.error('send-notifications: reading program state failed',
@@ -129,8 +129,8 @@ async function readTrainingState(ids: string[]): Promise<{ rows: TrainingRow[]; 
     // Older schemas retain the existing reminder behavior.
     const full = await supabase
         .from('user_data')
-        .select('user_id, session_log, pass_protected_dates, schedule')
-        .in('user_id', ids);
+        .select('id, session_log, pass_protected_dates, schedule')
+        .in('id', ids);
     if (!full.error) return { rows: full.data || [], failed: false };
 
     if (!isUnknownColumn(full.error)) {
@@ -143,7 +143,7 @@ async function readTrainingState(ids: string[]): Promise<{ rows: TrainingRow[]; 
     // do without. A member simply loses rest-day and Recovery Pass awareness
     // until the migration is run.
     console.warn('user_data is missing newer columns; falling back to session_log only');
-    const basic = await supabase.from('user_data').select('user_id, session_log').in('user_id', ids);
+    const basic = await supabase.from('user_data').select('id, session_log').in('id', ids);
     if (basic.error) {
         console.error('send-notifications: fallback user_data read failed',
             dbErrorDetail(basic.error, 'public.user_data'));
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
                 if (subs.length < PAGE_SIZE) break;
                 continue;
             }
-            const byUser = new Map<string, TrainingRow>(rows.map(r => [r.user_id, r]));
+            const byUser = new Map<string, TrainingRow>(rows.map(r => [r.id, r]));
 
             for (const sub of subs as Subscription[]) {
                 checked++;
