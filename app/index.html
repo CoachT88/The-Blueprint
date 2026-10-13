@@ -5251,6 +5251,7 @@ function goToRecoveryPicker(){
 }
 
 function startRecoverySession(){
+    if(pelvicPracticeNeedsReview())return;
     // Final gate: nothing contraindicated reaches the engine regardless of how
     // the selection was arrived at.
     selectedRecoveryIndices = allowedRecoveryIndices(selectedRecoveryIndices);
@@ -7175,7 +7176,7 @@ function frozenStep(idx){
     return f.steps[i]||null;
 }
 function startMission(mission,source){
-    if(!mission) return;
+    if(!mission||pelvicPracticeNeedsReview()) return;
     /* BEFORE session.routineType is assigned, deliberately. The snapshot is
        what the PROGRAMME prescribed; routineType is what the member is about
        to perform. Capturing after the assignment would make no difference to
@@ -7574,6 +7575,7 @@ function renderDashboard(){
     renderSleepSoreness();
 }
 function resumeSession(){
+    if(pelvicPracticeNeedsReview()){renderDashboard();return;}
     const draftKey='bp_session_draft_'+(currentUser?.id||'');
     const draft=JSON.parse(localStorage.getItem(draftKey)||'null');
     if(!draft)return;
