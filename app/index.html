@@ -5085,7 +5085,7 @@ ROUTINES.recovery.push({...DAILY_PELVIC_RESET});
 const RECOVERY_EX_IDS = ROUTINES.recovery.map(ex=>ex.title);
 // The 6 Coach Tee recommends (indices into ROUTINES.recovery)
 const COACH_REC_INDICES = [0,1,2,3,4,5,6,7]; // all 8
-let selectedRecoveryIndices = [0,1,2,3,4,5,6,7]; // default = all 8
+let selectedRecoveryIndices = []; // populated by today's explicit practice
 
 // Per-exercise UI metadata
 const RECOVERY_META = [
@@ -5226,7 +5226,7 @@ function selectAllRecovery(){
 function selectDailyRecommended(){
     selectedRecoveryIndices = getDailyRecommended();
     // The fallback has to respect the screener too, or it hands back everything.
-    if(!selectedRecoveryIndices.length) selectedRecoveryIndices = allowedRecoveryIndices(ROUTINES.recovery.map((_,i)=>i));
+    // An unavailable plan never falls back to automatically selecting strength work.
     buildRecoveryPicker();
 }
 
@@ -5243,7 +5243,7 @@ function goToRecoveryPicker(){
     closePelvicLock();
     // Default to daily recommended selection
     const rec = getDailyRecommended();
-    selectedRecoveryIndices = rec.length ? rec : allowedRecoveryIndices(ROUTINES.recovery.map((_,i)=>i));
+    selectedRecoveryIndices = rec;
     buildRecoveryPicker();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     const t = document.getElementById('step-3b');
