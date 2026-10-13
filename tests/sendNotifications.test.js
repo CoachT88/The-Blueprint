@@ -600,18 +600,29 @@ describe('the sender does not route detail around the sanitiser', () => {
 // tests fail when user_data is queried or mapped with the subscription key.
 describe('sender against the real user_data identity schema', () => {
     afterEach(() => vi.useRealTimers());
-    function sender({ training, missing = [], readFailure = false }) {
-        const pushes = [], reads = [];
+    function sender({ training, missing = [], readFailure = false, historyFailure = false, claimFailure = false, recordFailure = false, pushFailure = false, customEnabled = true }) {
+        const pushes = [], pushOptions = [], reads = [], deliveries = new Map();
         const subscription = { user_id:'member-a', endpoint:'test-endpoint', p256dh:'test', auth:'test',
-            timezone:'America/Los_Angeles', reminder_time:'19:00', last_notified_date:null };
-        const client = { from(table) {
-            let columns = '';
+            timezone:'America/Los_Angeles', reminder_time:'19:00', custom_enabled:customEnabled, last_notified_date:null };
+        const client = { async rpc(name, args) {
+            if (name !== 'claim_training_notification') throw new Error('unexpected RPC');
+            if (claimFailure) return {data:null,error:{code:'42501'}};
+            const key=args.p_user_id+'|'+args.p_event_key;
+            if (deliveries.has(key)) return {data:false,error:null};
+            deliveries.set(key,{user_id:args.p_user_id,event_key:args.p_event_key});
+            return {data:true,error:null};
+        }, from(table) {
+            let columns = '', offset = 0, end = 499;
             return {
                 select(value) { columns=value; return this; },
                 order() { return this; },
-                async range(first) { return {data:first===0?[subscription]:[],error:null}; },
+                gte() { return this; },
+                range(first, last) { if(table==='notification_deliveries'){offset=first;end=last;return this;} return Promise.resolve({data:first===0?[subscription]:[],error:null}); },
                 async in(key, ids) {
                     reads.push({ table, columns, key, ids });
+                    if (table==='notification_deliveries') return {
+                        data:[...deliveries.values()].sort((a,b)=>a.event_key.localeCompare(b.event_key)).slice(offset,end+1),error:historyFailure?{code:'42501'}:null,
+                    };
                     const cols=columns.split(',').map(c=>c.trim());
                     if (key!=='id' || cols.includes('user_id') || cols.some(c=>missing.includes(c)))
                         return {data:null,error:{code:'42703',message:'column does not exist'}};
@@ -620,12 +631,13 @@ describe('sender against the real user_data identity schema', () => {
                         .map(row=>Object.fromEntries(cols.map(c=>[c,row[c]]))),error:null};
                 },
                 update() { return this; }, delete() { return this; },
-                async eq() { return {error:null}; },
+                eq() { return this; },
+                then(resolve) { return Promise.resolve({error:recordFailure&&table==='notification_deliveries'?{code:'42501'}:null}).then(resolve); },
             };
         }};
         const deno = {env:{get:name=>name==='CRON_SECRET'?'test-cron-secret':undefined},
             serve(handler) { this.handler=handler; }};
-        const webpush = {setVapidDetails() {}, async sendNotification(_sub,payload) { pushes.push(JSON.parse(payload)); }};
+        const webpush = {setVapidDetails() {}, async sendNotification(_sub,payload,options) { pushes.push(JSON.parse(payload)); pushOptions.push(options); if(pushFailure) throw {statusCode:503}; }};
         const code=transformSync(src.replace(/^import .*;\n/gm,''),{loader:'ts',format:'cjs'}).code;
         new Function('Deno','createClient','webpush','decideNotification','localDateFor',
             'authoriseCron','resolveServiceKey','safeErrorBody','dbErrorDetail','pushErrorDetail','console',code)(
@@ -633,7 +645,7 @@ describe('sender against the real user_data identity schema', () => {
             ()=>({key:'test-backend-key',source:'test',notes:[]}),safeErrorBody,dbErrorDetail,pushErrorDetail,
             {log() {},warn() {},error() {}});
         return { run:()=>deno.handler(new Request('https://example.test/send-notifications',
-            {method:'POST',headers:{'x-cron-secret':'test-cron-secret'}})),pushes,reads };
+            {method:'POST',headers:{'x-cron-secret':'test-cron-secret'}})),pushes,pushOptions,reads,deliveries,subscription };
     }
     const row = overrides => ({id:'member-a',schedule:Array(7).fill('length'),
         session_log:[],pass_protected_dates:[],programme:null,...overrides});
@@ -658,12 +670,86 @@ describe('sender against the real user_data identity schema', () => {
             const app=sender({training:[row({}),row({id:'member-b',session_log:[{date:'2026-10-13T01:00:00Z'}]})],missing});
             expect(await (await app.run()).json()).toMatchObject({checked:1,sent:1});
             expect(app.pushes).toHaveLength(1);
-            expect(app.reads.every(r=>r.key==='id'&&!r.columns.includes('user_id'))).toBe(true);
+            expect(app.reads.filter(r=>r.table==='user_data').every(r=>r.key==='id'&&!r.columns.includes('user_id'))).toBe(true);
         });
     test('a failed training read never becomes permission to send', async () => {
         clock();
         const app=sender({training:[],readFailure:true});
         expect(await (await app.run()).json()).toMatchObject({checked:0,sent:0});
         expect(app.pushes).toEqual([]);
+    });
+    test('AM, PM and a selected extra all dispatch independently on the same day', async () => {
+        clock();
+        const app=sender({training:[row({})]});
+        vi.setSystemTime(new Date('2026-10-12T16:00:00Z'));
+        expect(await (await app.run()).json()).toMatchObject({sent:1});
+        vi.setSystemTime(new Date('2026-10-13T02:00:00Z'));
+        expect(await (await app.run()).json()).toMatchObject({sent:1});
+        app.subscription.reminder_time='21:31';
+        vi.setSystemTime(new Date('2026-10-13T04:31:00Z'));
+        expect(await (await app.run()).json()).toMatchObject({sent:1});
+        expect(app.pushes).toHaveLength(3);
+        expect(new Set(app.pushes.map(p=>p.tag)).size).toBe(3);
+    });
+    test('offline delivery expires promptly instead of building a days-old reminder backlog', async () => {
+        clock();
+        const app=sender({training:[row({})]});
+        await app.run();
+        expect(app.pushOptions[0].TTL).toBeGreaterThan(0);
+        expect(app.pushOptions[0].TTL).toBeLessThanOrEqual(15 * 60);
+    });
+    test('overlapping production handlers reserve and send an event once', async () => {
+        clock();
+        const app=sender({training:[row({})]});
+        const results=await Promise.all([app.run(),app.run()]);
+        const bodies=await Promise.all(results.map(r=>r.json()));
+        expect(bodies.reduce((sum,b)=>sum+b.sent,0)).toBe(1);
+        expect(app.pushes).toHaveLength(1);
+        expect(app.deliveries.size).toBe(1);
+    });
+    test('delivery-history pagination cannot hide an older praise and block the next completion', async () => {
+        clock();
+        const app=sender({training:[row({session_log:[{date:'2026-10-13T01:00:00Z'},{date:'2026-10-13T01:05:00Z'}]})]});
+        for(let i=0;i<1000;i++) app.deliveries.set('history-'+i,{user_id:'member-a',event_key:'a-history-'+String(i).padStart(4,'0')});
+        app.deliveries.set('old-praise',{user_id:'member-a',event_key:'completion:2026-10-13T01:00:00.000Z'});
+        vi.setSystemTime(new Date('2026-10-13T01:25:00Z'));
+        expect(await (await app.run()).json()).toMatchObject({sent:1});
+        expect(app.pushes[0].tag).toBe('bp-completion-'+new Date('2026-10-13T01:05:00Z').getTime());
+        expect(app.reads.filter(r=>r.table==='notification_deliveries')).toHaveLength(3);
+    });
+    test('a real completion suppresses reminders and receives the twenty-minute follow-up once', async () => {
+        clock();
+        const app=sender({training:[row({session_log:[{date:'2026-10-13T01:00:00Z'}]})]});
+        vi.setSystemTime(new Date('2026-10-13T01:19:59Z'));
+        expect(await (await app.run()).json()).toMatchObject({sent:0});
+        vi.setSystemTime(new Date('2026-10-13T01:20:00Z'));
+        expect(await (await app.run()).json()).toMatchObject({sent:1});
+        expect(app.pushes[0].body).toBe('Good job for showing up today.');
+        vi.setSystemTime(new Date('2026-10-13T01:21:00Z'));
+        expect(await (await app.run()).json()).toMatchObject({sent:0});
+        vi.setSystemTime(new Date('2026-10-13T02:00:00Z'));
+        expect(await (await app.run()).json()).toMatchObject({sent:0});
+        expect(app.pushes).toHaveLength(1);
+    });
+    test.each([{historyFailure:true},{claimFailure:true}])('a delivery-tracking failure %j sends nothing', async failure => {
+        clock();
+        const app=sender({training:[row({})],...failure});
+        expect((await app.run()).status).toBe(500);
+        expect(app.pushes).toEqual([]);
+    });
+    test('an accepted push with a failed acknowledgement cannot be sent again', async () => {
+        clock();
+        const app=sender({training:[row({})],recordFailure:true});
+        const first=await app.run();
+        expect(first.status).toBe(500);
+        expect(await first.json()).toMatchObject({sent:1});
+        expect(await (await app.run()).json()).toMatchObject({sent:0});
+        expect(app.pushes).toHaveLength(1);
+    });
+    test('an uncertain provider failure is not repeatedly retried', async () => {
+        clock();
+        const app=sender({training:[row({})],pushFailure:true});
+        await app.run(); await app.run();
+        expect(app.pushes).toHaveLength(1);
     });
 });

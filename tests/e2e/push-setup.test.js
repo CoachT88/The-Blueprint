@@ -145,6 +145,7 @@ describe('turning reminders on actually subscribes', () => {
         // Everything the sender needs to decide when to send.
         expect(upsert.payload.reminder_time).toBeTruthy();
         expect(upsert.payload.timezone).toBeTruthy();
+        expect(upsert.payload.custom_enabled).toBe(false);
         // And nothing it does not: streak_warn gated the retired streak
         // warning and is no longer written, though the column survives.
         expect(upsert.payload).not.toHaveProperty('streak_warn');
@@ -220,6 +221,7 @@ describe('turning reminders on actually subscribes', () => {
             const reg = await navigator.serviceWorker.ready;
             await reg.pushManager.subscribe({ applicationServerKey: _urlBase64ToUint8(VAPID_PUBLIC_KEY) });
             document.getElementById('notif-time').value = '20:00';
+            document.getElementById('notif-custom-enabled').checked = true;
             document.getElementById('notif-time').dispatchEvent(new Event('change'));
             for(let i=0;i<100 && !window.__writes.length;i++) await new Promise(r=>setTimeout(r,20));
             return { cachedRegistration: _swRegistration, writes: window.__writes,
@@ -230,7 +232,8 @@ describe('turning reminders on actually subscribes', () => {
         expect(saved?.payload.reminder_time).toBe('20:00');
         expect(saved?.payload.endpoint).toBe('https://push.example/endpoint-1');
         expect(saved?.payload.user_id).toBe('push1');
-        expect(r.status).toBe('Reminder time saved.');
+        expect(saved.payload.custom_enabled).toBe(true);
+        expect(r.status).toBe('Extra reminder saved.');
     }, 30_000);
 
     test('a rejected reminder-time write is visible instead of claiming it saved', async () => {
@@ -247,6 +250,67 @@ describe('turning reminders on actually subscribes', () => {
         });
         expect(r.status).toMatch(/Could not save reminder time/);
     }, 30_000);
+
+    test('an extra can be enabled, saved and switched off without losing AM/PM subscriptions', async () => {
+        await stubPush(app.page);
+        const r = await app.page.evaluate(async () => {
+            await enableNotifications();
+            const toggle=document.getElementById('notif-custom-enabled');
+            toggle.checked=true;
+            document.getElementById('notif-time').value='21:31';
+            await saveNotifPrefs();
+            const shown=!document.getElementById('notif-custom-time').classList.contains('hidden');
+            toggle.checked=false;
+            await saveNotifPrefs();
+            return { shown, hidden:document.getElementById('notif-custom-time').classList.contains('hidden'),
+                writes:window.__writes.filter(w=>w.op==='upsert').map(w=>w.payload), calls:window.__calls };
+        });
+        expect(r.shown).toBe(true); expect(r.hidden).toBe(true);
+        expect(r.writes.slice(-2).map(w=>w.custom_enabled)).toEqual([true,false]);
+        expect(r.writes.at(-2).reminder_time).toBe('21:31');
+        expect(r.calls).not.toContain('unsubscribe');
+    }, 30_000);
+
+    test('a legacy chosen time remains enabled after upgrading', async () => {
+        await stubPush(app.page);
+        const r=await app.page.evaluate(async () => {
+            localStorage.setItem(_notifPrefsKey(),JSON.stringify({time:'21:31'}));
+            await _refreshNotifUI();
+            return {checked:document.getElementById('notif-custom-enabled').checked,
+                shown:!document.getElementById('notif-custom-time').classList.contains('hidden'),
+                time:document.getElementById('notif-time').value};
+        });
+        expect(r).toEqual({checked:true,shown:true,time:'21:31'});
+    }, 30_000);
+});
+
+
+describe('reminder save ownership while the service worker is pending', () => {
+    let app;
+    beforeAll(async () => { app=await openApp(); await signIn(app.page,{id:'push-race'}); },60_000);
+    afterAll(async () => { await app?.close(); });
+    test('an account switch cannot save the old member preferences for the new member', async () => {
+        await stubPush(app.page);
+        const r=await app.page.evaluate(async () => {
+            await enableNotifications();
+            const originalUser=currentUser;
+            const reg=await navigator.serviceWorker.ready;
+            const sub=await reg.pushManager.getSubscription();
+            reg.pushManager.getSubscription=()=>new Promise(resolve=>{window.__resumeSubscription=()=>resolve(sub);});
+            window.__writes=[];
+            document.getElementById('notif-custom-enabled').checked=true;
+            document.getElementById('notif-time').value='21:31';
+            const saving=saveNotifPrefs();
+            while(!window.__resumeSubscription) await new Promise(r=>setTimeout(r,10));
+            currentUser={id:'push-other',email:'other@example.test'};
+            window.__resumeSubscription();
+            await saving;
+            const writes=window.__writes;
+            currentUser=originalUser;
+            return writes;
+        });
+        expect(r).toEqual([]);
+    },30_000);
 });
 
 describe('turning reminders off stops them', () => {
