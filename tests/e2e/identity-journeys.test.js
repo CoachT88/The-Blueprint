@@ -117,6 +117,9 @@ describe('journey: a new member who gives a name', () => {
         await passWelcomeGate(app.page);
         expect(await app.page.evaluate(() => localStorage.getItem('bp_welcomed_j1'))).toBe('1');
 
+        // The automatic setup is goal-first. Explicitly open the optional full
+        // introduction to verify its retained name flow.
+        await app.page.evaluate(() => showOnboarding());
         // Advance to the name slide through the real navigation.
         const onName = await app.page.evaluate(() => {
             while (_obSlide < OB_NAME_SLIDE) obNext();
@@ -187,7 +190,8 @@ describe('journey: a new member who skips the name', () => {
     test('ACCEPTANCE: no greeting, Not set, and no Coach Tee name line', async () => {
         await authSignIn(app.page, { id: 'j2', email: 'j2@example.com', row: null });
         await passWelcomeGate(app.page);
-        await app.page.evaluate(() => { while (_obSlide < OB_NAME_SLIDE) obNext(); });
+        // Naming remains available in the optional full introduction.
+        await app.page.evaluate(() => { showOnboarding(); while (_obSlide < OB_NAME_SLIDE) obNext(); });
         // Skip is a visible button, not a hidden escape behind the field.
         const skipped = await app.page.evaluate(async () => {
             document.getElementById('ob-name-skip').click();
