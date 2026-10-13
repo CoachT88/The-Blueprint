@@ -618,6 +618,112 @@
             #step-0 .btn-outline:hover{color:#f0f1ed}
         }
         @media(max-width:360px){#step-0{padding:16px}#step-0 .today-card{padding:18px}}
+        /* The session uses the same quiet vocabulary as HQ. The timer and
+           prescribed plan remain authoritative; this layer only guides. */
+        .guided-step{background:#0d1015;padding:22px}
+        .guided-step .guided-shell{padding:12px 0 0;min-height:0;gap:20px;
+            max-width:448px;justify-content:flex-start}
+        .guided-step .guided-shell> *{margin-top:0;margin-left:0;margin-right:0}
+        .guided-step .guided-shell> :not([hidden])~:not([hidden]){margin-top:0}
+        .guided-step .guided-stop{font-size:12px;line-height:1.6;color:#a6adb8}
+        .guided-step h2{font-size:28px;font-weight:600;font-style:normal;
+            text-transform:none;letter-spacing:-.04em;line-height:1.2}
+        .guided-step .btn-primary{min-height:48px;padding:14px 16px;border:0;
+            border-radius:10px;background:#f0f1ed;color:#14171c;box-shadow:none;
+            font-size:14px;font-weight:600;letter-spacing:0;text-transform:none}
+        .guided-step .btn-primary:active:not(:disabled){background:#d9ddd5;transform:scale(.99)}
+        .guided-step .btn-primary:disabled{background:#2a2f37;color:#a6adb8;opacity:.55;cursor:not-allowed}
+        .guided-step .btn-outline{min-height:44px;padding:10px 4px;border:0;
+            background:none;color:#a6adb8;box-shadow:none;backdrop-filter:none;
+            font-size:13px;font-weight:400;text-transform:none;letter-spacing:0}
+        .guided-step .instruction-card{background:#15191f;border:1px solid #ffffff12;
+            border-radius:14px;box-shadow:none;backdrop-filter:none;padding:16px;margin-left:0;margin-right:0}
+        .guided-step .instruction-card>p:first-child{font-size:13px;font-weight:500;
+            text-transform:none;letter-spacing:0;color:#e1e4e8}
+        .guided-step .quick-tap,.guided-step .eq-btn,.guided-step .rpe-btn{min-height:44px;
+            padding:10px 4px;font-size:12px;font-weight:500;text-transform:none;
+            letter-spacing:0;border:1px solid #ffffff16;background:none;color:#a6adb8;box-shadow:none}
+        .guided-step .quick-tap.selected,.guided-step .eq-btn.selected,.guided-step .rpe-btn.selected{
+            background:#f0f1ed;border-color:#f0f1ed;color:#14171c;transform:none}
+        .guided-step button:focus-visible,.guided-step summary:focus-visible{outline:2px solid #d8e4f1;outline-offset:3px}
+        .guided-step .guided-details{border-top:1px solid #ffffff12;text-align:left;
+            font-size:13px;line-height:1.6;color:#a6adb8}
+        .guided-step .guided-details>summary{cursor:pointer;min-height:48px;
+            display:flex;align-items:center;justify-content:space-between;list-style:none}
+        .guided-step .guided-details>summary::-webkit-details-marker{display:none}
+        .guided-step .guided-details>summary::after{content:'+';font-size:17px}
+        .guided-step .guided-details[open]>summary::after{content:'−'}
+        #step-1 #ready-response{margin:0;background:#15191f!important;border:1px solid #ffffff12!important;border-radius:14px}
+        #step-1 #ready-response-title{font-size:13px;font-weight:500;text-transform:none;letter-spacing:0}
+        #step-1 #ready-safety{border:0;border-top:1px solid #ffffff12;border-radius:0;background:none;padding:16px 0}
+        #step-1 #ready-safety p{font-size:12px;line-height:1.6}
+        #step-1 #soreness-btns,#step-1 #sleep-btns{gap:6px}
+        #step-1 .guided-question{font-size:14px;font-weight:500;text-transform:none;letter-spacing:0;color:#e1e4e8}
+        #step-2 #warmup-timer{font-size:clamp(68px,19vw,90px);font-weight:400;letter-spacing:-.05em;color:#f0f1ed;text-shadow:none}
+        #step-2 h2{padding-top:0}
+        #step-2 .warmup-carousel-wrap{border:0;background:none;padding:0;box-shadow:none}
+        #step-2 .warmup-tip-slide{padding:8px 0}
+        #step-2 .warmup-tip-slide p{font-size:13px;line-height:1.6}
+        #step-4 .guided-shell{gap:16px;padding-top:0}
+        #step-4 .guided-topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+        #step-4 .guided-topbar button{min-width:44px;min-height:44px;background:none;border:0;color:#a6adb8}
+        #step-4 #guide-audio-btn{font-size:12px;display:flex;align-items:center;gap:6px;padding:0 8px}
+        #step-4 #guide-audio-btn[aria-pressed="true"]{color:#f0f1ed}
+        #step-4 #ex-tag{background:none;border:0;padding:0;font-size:11px;
+            color:#a6adb8;font-weight:500;letter-spacing:.05em;text-transform:none}
+        #step-4 #ex-title{margin:0;padding:0;font-size:26px;font-weight:500;line-height:1.2}
+        #step-4 #pip-container{margin:0;gap:8px;min-height:12px}
+        #step-4 #pip-container *{box-shadow:none!important}
+        #step-4 .guided-timer{padding:8px 0 0}
+        #step-4 #ex-timer{font-size:clamp(64px,20vw,88px)!important;font-weight:400;
+            line-height:1;letter-spacing:-.06em;color:#f0f1ed;text-shadow:none;animation:none}
+        #step-4 #ex-active-cue{margin:0;padding:16px;background:#15191f;
+            border:1px solid #ffffff12;border-radius:14px;min-height:76px;
+            display:flex;align-items:center;justify-content:center}
+        #step-4 #ex-active-cue.hidden{display:none}
+        #step-4 #ex-cue-text{font-size:14px;font-weight:400;font-style:normal;line-height:1.6;color:#e1e4e8}
+        #step-4 .guided-controls{padding:0;width:100%}
+        #step-4 #ex-pause-btn{min-height:48px!important;padding:14px 16px;
+            border:1px solid #ffffff24;background:#15191f;border-radius:10px;gap:10px}
+        #step-4 #ex-pause-btn i{font-size:15px}
+        #step-4 #pause-label{font-size:14px;font-weight:500;letter-spacing:0;text-transform:none}
+        #step-4 .guided-stop{font-size:12px;line-height:1.6;color:#a6adb8;margin:0}
+        #step-4 .guided-target{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:#a6adb8}
+        #step-4 .guided-target.hidden{display:none}
+        #step-4 .guided-target p{font-size:12px;font-weight:400;font-style:normal;color:#a6adb8}
+        #step-4 #ex-info-panels{margin:0}
+        #step-4 #ex-info-panels p{font-size:12px;font-style:normal;line-height:1.6}
+        #step-4 #howto-panel,#step-4 #ex-detail-card{margin:0;border:0;
+            background:none;padding:12px 0;color:#a6adb8;border-radius:0}
+        #step-4 .howto-step{padding:10px 0}
+        #step-4 #circuit-overview{margin:0;border:1px solid #ffffff12;background:none;padding:14px;border-radius:14px}
+        #step-4 #guide-status{font-size:12px;color:#a6adb8;line-height:1.6}
+        #step-4 #guide-breath-visual{position:relative;width:88px;height:88px;margin:0 auto;
+            border:1px solid #ffffff26;border-radius:50%;display:flex;align-items:center;justify-content:center}
+        #step-4 #guide-breath-visual.hidden{display:none}
+        #step-4 #guide-breath-visual::before{content:'';width:52px;height:52px;border:1px solid #ffffff26;border-radius:50%}
+        #step-4 #guide-breath-visual[data-active="true"]::before{animation:guideSoften 8s ease-in-out infinite}
+        #step-4 #guide-breath-visual[data-paused="true"]::before{animation-play-state:paused}
+        @keyframes guideSoften{0%,100%{opacity:.45}50%{opacity:1}}
+        #step-5 .guided-shell{gap:16px}
+        #step-5 .guided-complete-icon{font-size:24px;color:#9ac4af}
+        #step-5 #success-xp-text{font-size:12px;color:#a6adb8;font-weight:400}
+        #step-5 #finish-session-btn{background:#f0f1ed!important}
+        #step-5 .guided-extra-body{display:flex;flex-direction:column;gap:16px;padding-top:8px}
+        #step-5 #session-extra-details:not([open]) .guided-extra-body{display:none}
+        #step-5 .glass-input,#step-5 .measure-field input{border-color:#ffffff20;background:#15191f;box-shadow:none}
+        #step-5 #ai-recovery-btn{background:#21262e!important;color:#f0f1ed;box-shadow:none!important}
+        #session-summary-modal{background:#0d1015}
+        #session-summary-modal h2{font-size:28px;font-weight:600;font-style:normal;text-transform:none}
+        #session-summary-modal .summary-stat{background:#15191f;border-color:#ffffff12;box-shadow:none}
+        #session-summary-modal .btn-primary{background:#f0f1ed;color:#14171c;box-shadow:none;border:0;
+            min-height:48px;padding:14px;font-size:14px;letter-spacing:0;text-transform:none;border-radius:10px}
+        #rest-overlay{background:#0d1015}
+        #rest-overlay #box-phase-label{font-size:15px;font-weight:500;font-style:normal;letter-spacing:.05em;color:#f0f1ed}
+        #rest-overlay #box-phase-count,#rest-overlay #rest-timer{font-weight:400;color:#f0f1ed;text-shadow:none}
+        #rest-overlay button{min-height:44px;min-width:44px;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none}
+        @media(prefers-reduced-motion:reduce){#step-4 #guide-breath-visual::before{animation:none!important}}
+        @media(max-width:360px){.guided-step{padding:16px}.guided-step h2{font-size:26px}#step-4 #ex-title{font-size:24px}}
         /* The dot row stood here. It said how many sessions were done and
            could not say which days they were, directly above a calendar that
            said which days and could not say how the week was going. One
@@ -1520,17 +1626,17 @@
      Every line below the questions is rendered by renderReady() from the
      resolver, so Ready and the Today card can never disagree.
      ═══════════════════════════════════════════════════════════════════ -->
-<div id="step-1" class="step-content hidden-step">
-    <div class="inner-step-wrapper py-12 space-y-7">
+<div id="step-1" class="step-content hidden-step guided-step">
+    <div class="inner-step-wrapper py-12 space-y-7 guided-shell">
         <div class="px-2">
-            <h2 class="text-4xl font-black uppercase italic text-slate-50 leading-none">Ready?</h2>
+            <h2 class="text-4xl font-black uppercase italic text-slate-50 leading-none">Before you start</h2>
             <p id="ready-planned" class="text-[12px] u-text-2 mt-2"></p>
         </div>
 
         <div class="px-2 space-y-5">
             <div>
                 <div class="flex items-baseline justify-between mb-2">
-                    <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest">Muscle Soreness</p>
+                    <p class="guided-question">Muscle Soreness</p>
                     <span class="text-[9px] font-black text-amber-500/80 uppercase tracking-widest">Required</span>
                 </div>
                 <div class="grid grid-cols-4 gap-1.5" id="soreness-btns">
@@ -1540,18 +1646,15 @@
                     <button class="quick-tap" data-soreness="high">High</button>
                 </div>
             </div>
-            <div>
-                <div class="flex items-baseline justify-between mb-2">
-                    <p class="text-[11px] font-black text-slate-300 uppercase tracking-widest">Sleep</p>
-                    <span class="text-[9px] font-black u-text-2 uppercase tracking-widest">Optional</span>
-                </div>
+            <details class="guided-details">
+                <summary>Sleep <span>Optional</span></summary>
                 <div class="grid grid-cols-4 gap-1.5" id="sleep-btns">
-                    <button class="quick-tap" data-sleep="poor">&#128564; Poor</button>
-                    <button class="quick-tap" data-sleep="okay">&#128528; Okay</button>
-                    <button class="quick-tap" data-sleep="good">&#128522; Good</button>
-                    <button class="quick-tap" data-sleep="great">&#128293; Great</button>
+                    <button class="quick-tap" data-sleep="poor">Poor</button>
+                    <button class="quick-tap" data-sleep="okay">Okay</button>
+                    <button class="quick-tap" data-sleep="good">Good</button>
+                    <button class="quick-tap" data-sleep="great">Great</button>
                 </div>
-            </div>
+            </details>
         </div>
 
         <!-- The app reacting. Empty until there is something to say, because
@@ -1578,8 +1681,8 @@
 
 <!-- STEP 2: WARMUP -->
 
-<div id="step-2" class="step-content hidden-step">
-    <div class="inner-step-wrapper min-h-screen py-12 text-center space-y-6 relative">
+<div id="step-2" class="step-content hidden-step guided-step">
+    <div class="inner-step-wrapper min-h-screen py-12 text-center space-y-6 relative guided-shell">
         <h2 class="text-4xl font-black italic uppercase pt-12">Steam Warmup</h2>
         <div class="py-8 border-y border-slate-800/50 relative bg-slate-900/20 backdrop-blur-sm">
             <div id="warmup-timer" class="text-9xl font-black timer-glow tabular-nums tracking-tighter text-blue-400">10:00</div>
@@ -1710,36 +1813,60 @@
 
 <!-- STEP 4: PILOT ENGINE -->
 
-<div id="step-4" class="step-content hidden-step" style="z-index:11">
-    <div class="inner-step-wrapper min-h-screen py-6 text-center relative justify-center" style="gap:0;">
+<div id="step-4" class="step-content hidden-step guided-step" style="z-index:11">
+    <div class="inner-step-wrapper min-h-screen py-6 text-center relative justify-center guided-shell">
 
-    <!-- Top bar -->
-    <div class="flex justify-between items-center pb-3 px-2 mt-4" style="position:relative;z-index:var(--z-raised)">
-        <div class="flex items-center gap-3">
-            <button id="ex-home-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 active:scale-95" title="Back to Dashboard"><i class="fas fa-house text-sm"></i></button>
-            <button id="ex-back-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 active:scale-95"><i class="fas fa-arrow-left text-sm"></i></button>
+    <div class="guided-topbar">
+        <div class="flex items-center">
+            <button id="ex-home-btn" title="Back to Dashboard" aria-label="Save and return home"><i class="fas fa-house"></i></button>
+            <button id="ex-back-btn" title="Back" aria-label="Back to session options"><i class="fas fa-arrow-left"></i></button>
             <button id="ex-abort-btn" class="hidden"></button>
-            <span id="ex-tag" class="text-[10px] font-black uppercase px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20">Phase 01</span>
-            <button id="ex-info-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-800/50 text-slate-400 active:scale-95" title="How-To"><i class="fas fa-circle-info text-sm"></i></button>
-            <button id="dim-toggle-btn" class="dim-toggle-btn" title="Dim screen"><i class="fas fa-moon text-slate-400 text-sm"></i></button>
         </div>
-        <div class="flex items-center gap-2">
-            <div class="bg-slate-900/80 border border-yellow-500/30 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5"><i class="fas fa-bolt text-yellow-400 text-xs"></i><span id="live-xp" class="text-xs font-black text-yellow-400">0 XP</span></div>
-            <div class="text-right"><p class="text-[8px] font-black u-text-2 uppercase" title="Erection Quality target for this exercise">Target EQ</p><p id="ex-eq-req" class="text-sm font-black text-blue-400 italic leading-none">--</p></div>
+        <div class="flex items-center">
+            <button id="guide-audio-btn" aria-pressed="false" title="Optional spoken practice cues and timer status"><span>Audio off</span></button>
+            <button id="ex-info-btn" title="Setup and technique" aria-label="Setup and technique" aria-controls="guide-technique" aria-expanded="false"><i class="fas fa-circle-info"></i></button>
+            <button id="dim-toggle-btn" class="dim-toggle-btn" title="Dim screen"><i class="fas fa-moon"></i></button>
         </div>
     </div>
+    <span id="ex-tag">Phase 01</span>
+    <span id="live-xp" class="hidden">0 XP</span>
+    <div class="guided-target text-right"><p title="Erection Quality target for this exercise">Target EQ</p><p id="ex-eq-req">--</p></div>
 
     <!-- Pip dots -->
     <div id="pip-container" class="flex justify-center gap-3 mb-3" style="position:relative;z-index:var(--z-raised)"></div>
 
+    <!-- Exercise title -->
+    <h2 id="ex-title" class="text-4xl font-black italic uppercase leading-none text-slate-50 px-4 mb-4" style="position:relative;z-index:var(--z-raised)">--</h2>
+
+    <div id="guide-breath-visual" class="hidden" aria-hidden="true"></div>
+    <!-- BIG TIMER -->
+    <div class="guided-timer" style="position:relative;z-index:var(--z-raised);">
+        <div id="ex-timer" class="font-black tracking-tighter tabular-nums leading-none timer-glow text-blue-400" style="font-size:clamp(5rem,22vw,10rem)">30</div>
+    </div>
+
+    <!-- One guide cue, visible before starting and while running. -->
+    <div id="ex-active-cue" class="hidden mx-2 my-3 px-4 py-3 rounded-2xl bg-blue-500/[0.08] border border-blue-500/15 text-center" style="position:relative;z-index:var(--z-raised);">
+        <p id="ex-cue-text" class="text-sm font-bold text-blue-200 italic leading-relaxed" role="status" aria-live="polite" aria-atomic="true"></p>
+    </div>
+
+    <!-- ENGAGE button (ready state) -->
+    <div class="guided-controls" style="position:relative;z-index:var(--z-raised);">
+        <button id="ex-btn" class="btn-primary py-6 text-xl w-full">ENGAGE SET</button>
+        <!-- MASSIVE pause button (active state) -->
+        <button id="ex-pause-btn" class="hidden w-full rounded-2xl border-2 border-slate-700 bg-slate-900/60 flex items-center justify-center gap-4 py-6 cursor-pointer transition-all active:scale-95" style="min-height:80px;">
+            <i id="pause-icon" class="fas fa-pause text-4xl text-slate-300"></i>
+            <span id="pause-label" class="text-lg font-black uppercase text-slate-300 tracking-wider">Pause</span>
+        </button>
+    </div>
+    <p class="guided-stop">Stop for pain, numbness, tingling, or dizziness.</p>
+    <p id="guide-status" class="hidden" role="status"></p>
+    <details id="guide-technique" class="guided-details">
+        <summary>Setup and technique</summary>
     <!-- Pre-session circuit overview (shown before first set, hidden during active timer) -->
     <div id="circuit-overview" class="hidden mx-2 mb-4 p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 text-left" style="position:relative;z-index:var(--z-raised);">
         <p id="circuit-overview-label" class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><i class="fas fa-list-check"></i> Circuit Overview</p>
         <div id="circuit-overview-steps" class="space-y-2"></div>
     </div>
-
-    <!-- Exercise title -->
-    <h2 id="ex-title" class="text-4xl font-black italic uppercase leading-none text-slate-50 px-4 mb-4" style="position:relative;z-index:var(--z-raised)">--</h2>
 
     <!-- Collapsible info panels — hidden when active -->
     <div id="ex-info-panels" class="space-y-3 transition-all duration-300" style="position:relative;z-index:var(--z-raised);">
@@ -1764,35 +1891,19 @@
         <div id="soreness-ex-badge" class="hidden mx-2"><span class="text-[10px] font-black text-amber-400 uppercase tracking-widest bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full"><i class="fas fa-gauge-high mr-1.5"></i>Reduced Volume</span></div>
     </div>
 
-    <!-- Active cue — only shown when running -->
-    <div id="ex-active-cue" class="hidden mx-2 my-3 px-4 py-3 rounded-2xl bg-blue-500/[0.08] border border-blue-500/15 text-center" style="position:relative;z-index:var(--z-raised);">
-        <p id="ex-cue-text" class="text-sm font-bold text-blue-200 italic leading-relaxed"></p>
-    </div>
 
-    <!-- BIG TIMER -->
-    <div class="py-2" style="position:relative;z-index:var(--z-raised);">
-        <div id="ex-timer" class="font-black tracking-tighter tabular-nums leading-none timer-glow text-blue-400" style="font-size:clamp(5rem,22vw,10rem)">30</div>
-    </div>
+    </details>
 
-    <!-- ENGAGE button (ready state) -->
-    <div class="px-4 pb-6 w-full" style="position:relative;z-index:var(--z-raised);">
-        <button id="ex-btn" class="btn-primary py-6 text-xl w-full">ENGAGE SET</button>
-        <!-- MASSIVE pause button (active state) -->
-        <button id="ex-pause-btn" class="hidden w-full rounded-2xl border-2 border-slate-700 bg-slate-900/60 flex items-center justify-center gap-4 py-6 cursor-pointer transition-all active:scale-95" style="min-height:80px;">
-            <i id="pause-icon" class="fas fa-pause text-4xl text-slate-300"></i>
-            <span id="pause-label" class="text-lg font-black uppercase text-slate-300 tracking-wider">Pause</span>
-        </button>
-    </div>
 </div>
 
 </div>
 
 <!-- STEP 5: SUCCESS -->
 
-<div id="step-5" class="step-content hidden-step">
-    <div class="inner-step-wrapper py-12 space-y-6 text-center">
-        <i class="fas fa-check-double text-6xl text-emerald-400 drop-shadow-lg"></i>
-        <h2 class="text-4xl font-black italic uppercase text-slate-50">Mission Success</h2>
+<div id="step-5" class="step-content hidden-step guided-step">
+    <div class="inner-step-wrapper py-12 space-y-6 text-center guided-shell">
+        <i class="fas fa-check guided-complete-icon" aria-hidden="true"></i>
+        <h2 class="text-4xl font-black italic uppercase text-slate-50" id="guided-success-title">Session finished</h2>
         <p id="success-xp-text" class="text-yellow-400 font-bold text-sm">+0 XP EARNED</p>
 
     <div id="pelvic-comfort-card" class="hidden instruction-card mx-2 text-left">
@@ -1805,6 +1916,11 @@
         <p id="pelvic-comfort-note" class="text-[10px] text-slate-400 mt-2 leading-relaxed"></p>
     </div>
 
+    <div class="px-2 w-full pt-2"><button id="finish-session-btn" class="btn-primary py-5 text-lg" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">Save session</button></div>
+    <p class="guided-stop">Extra details are optional. Save when you’re ready.</p>
+    <details id="session-extra-details" class="guided-details">
+        <summary>Add session details <span>Optional</span></summary>
+        <div class="guided-extra-body">
     <!-- EQ check-in -->
     <div class="instruction-card border-blue-500/20 mx-2 text-left">
         <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest mb-1 flex items-center gap-2"><i class="fas fa-gauge-high"></i> EQ During Session</p>
@@ -1887,7 +2003,9 @@
         <div id="ai-recovery-response" class="ai-response-box mt-4"></div>
     </div>
 
-    <div class="px-2 w-full pt-2"><button id="finish-session-btn" class="btn-primary py-5 text-lg" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">CONFIRM SYNC</button></div>
+
+        </div>
+    </details>
     <div class="scroll-buffer"></div>
 </div>
 
@@ -5074,6 +5192,7 @@ function getLevelInfo(xp){
 // NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════════
 function goToStep(step){
+    stopGuideSpeech();
     if(session.step===4 && step===0 && currentUser){
         track('session_abandoned',{
             routineType:session.routineType,
@@ -5163,7 +5282,7 @@ function goToStep(step){
         unlockTierIfEligible('intermediate');
     }
     if(step===4){if(!session._resuming){resetSession();_sessionStartTime=Date.now();}updateExUI()}
-    if(step===5){renderPelvicComfort();if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'});document.getElementById('photo-preview').classList.add('hidden');document.getElementById('photo-error').classList.add('hidden');document.getElementById('photo-capture-btn').innerText='Take / Upload Photo';document.getElementById('photo-capture-btn').disabled=false;}
+    if(step===5){document.getElementById('session-extra-details').open=false;document.getElementById('guided-success-title').textContent=session.dailyPracticeOnly?'Practice finished':'Session finished';document.querySelectorAll('#eq-checkin-btns .eq-btn,#rpe-btns .rpe-btn').forEach(b=>b.classList.remove('selected'));renderPelvicComfort();if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'});document.getElementById('photo-preview').classList.add('hidden');document.getElementById('photo-error').classList.add('hidden');document.getElementById('photo-capture-btn').innerText='Take / Upload Photo';document.getElementById('photo-capture-btn').disabled=false;}
 }
 // Warmup (step 2) now runs AFTER mission select (step 3), so finishing or
 // skipping it goes straight to the engine.
@@ -5442,6 +5561,7 @@ function getCurEx(){
     return shapeEx(applyDifficulty(ex), shapes);
 }
 function updateExUI(){
+    stopGuideSpeech();guideStatus('');
     const ex=getCurEx();
     const dl=isDeloadWeek();
     const isRecovSession=session.routineType==='recovery'||session.dailyPelvicPhase; // MUST be defined first
@@ -5617,6 +5737,14 @@ function updateExUI(){
         howtoPanel.classList.remove('show');
         howtoSteps.innerHTML='';
     }
+    setFocusedMode(false);
+    updateActiveCue((ex.isDirectional?`Direction: ${DIRECTIONALS[session.directionalIndex]}. `:'')+window.BP.guideSetup(ex));
+    const technique=document.getElementById('guide-technique');
+    technique.open=!ex.isRecovery&&(persisted.allTimeSessionCount||0)<FULL_SAFETY_SESSIONS;
+    document.getElementById('ex-info-btn').setAttribute('aria-expanded',String(technique.open));
+    document.getElementById('guide-breath-visual').classList.toggle('hidden',ex.title!=='Diaphragmatic breathing');
+    document.querySelector('#step-4 .guided-target').classList.toggle('hidden',!!ex.isRecovery);
+    renderGuideAudio();
 }
 // _curExDuration tracks format so MM:SS stays consistent through the whole countdown
 let _curExDuration=0;
@@ -5626,13 +5754,20 @@ function fmtDuration(sec,baseDur){
     return String(sec);
 }
 function setFocusedMode(active){
+    _guideActive=!!active;
+    if(!active)stopGuideSpeech();
     const panels=document.getElementById('ex-info-panels');
     const cuePanel=document.getElementById('ex-active-cue');
     const pauseLbl=document.getElementById('pause-label');
     const infoBtn=document.getElementById('ex-info-btn');
     const circOv=document.getElementById('circuit-overview');
     if(panels) panels.style.display=active?'none':'';
-    if(cuePanel) cuePanel.classList.toggle('hidden',!active);
+    if(cuePanel) cuePanel.classList.remove('hidden');
+    const technique=document.getElementById('guide-technique');
+    if(technique&&active)technique.open=false;
+    if(infoBtn)infoBtn.setAttribute('aria-expanded',String(!!technique?.open));
+    const visual=document.getElementById('guide-breath-visual');
+    if(visual){visual.dataset.active=String(!!active);visual.dataset.paused='false';}
     if(circOv && active) circOv.classList.add('hidden');
     if(pauseLbl) pauseLbl.innerText='Pause';
     if(infoBtn) infoBtn.style.color=''; // reset highlight on mode change
@@ -5643,6 +5778,47 @@ function updateActiveCue(txt){
     const liveTxt=document.getElementById('ex-live-text');
     if(cueEl) cueEl.innerText=txt;
     if(liveTxt) liveTxt.innerText=txt;
+    if(_guideActive&&session.step===4&&getCurEx().isRecovery){
+        const spoken=getCurEx().pelvicRhythm?(txt.startsWith('Gentle lift')?'Gently lift.':txt.startsWith('Fully release')?'Fully release.':txt):txt;
+        sayGuide(spoken);
+    }
+}
+
+// Optional speech is separate from execution and defaults off per member.
+let _guideSpeech=null,_guideAudioUser=null,_guideActive=false;
+function guideSpeech(){
+    if(!_guideSpeech&&window.BP?.createGuideSpeech)_guideSpeech=window.BP.createGuideSpeech({
+        synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,
+        isAllowed:()=>session.step===4&&_guideActive&&!document.hidden&&!!currentUser&&_guideAudioUser===currentUser.id,
+        onUnavailable:()=>{renderGuideAudio();guideStatus('Audio is unavailable. Follow the on-screen guide.');}
+    });
+    return _guideSpeech;
+}
+function stopGuideSpeech(){_guideSpeech?.cancel();}
+function guideStatus(text){const el=document.getElementById('guide-status');el.textContent=text;el.classList.toggle('hidden',!text);}
+function renderGuideAudio(){
+    const controller=guideSpeech(),uid=currentUser?.id||null;
+    if(uid!==_guideAudioUser){
+        stopGuideSpeech();_guideAudioUser=uid;let enabled=false;
+        try{enabled=!!uid&&localStorage.getItem('bp_guide_audio_'+uid)==='on';}catch{}
+        controller?.setEnabled(enabled);
+    }
+    const button=document.getElementById('guide-audio-btn'),enabled=!!controller?.isEnabled();
+    button.disabled=!controller?.available;
+    button.setAttribute('aria-pressed',String(enabled));
+    button.querySelector('span').textContent=enabled?'Audio on':'Audio off';
+}
+function sayGuide(text){guideSpeech()?.say(text);}
+function toggleGuideAudio(){
+    renderGuideAudio();const controller=guideSpeech();if(!controller?.available)return;
+    const enabled=controller.setEnabled(!controller.isEnabled());
+    try{if(currentUser)localStorage.setItem('bp_guide_audio_'+currentUser.id,enabled?'on':'off');}catch{}
+    guideStatus(enabled?'Spoken practice cues and timer status are on.':'');
+    renderGuideAudio();
+    if(enabled&&_guideActive){
+        if(getCurEx().isRecovery)updateActiveCue(document.getElementById('ex-cue-text').textContent);
+        else sayGuide('Audio guidance is on. Follow the on-screen technique.');
+    }
 }
 
 // ── Wet Jelq 3-second stroke pacer ───────────────────────────────────────
@@ -5686,6 +5862,7 @@ function startSet(){
     document.getElementById('ex-pause-btn').style.display='flex';
     document.getElementById('pause-icon').className='fas fa-pause text-4xl text-slate-300';
     setFocusedMode(true);
+    if(!ex.isRecovery)sayGuide('Timer started. Breathe normally and stop for discomfort.');
     const isWetJelq=ex.title==='Wet Jelq';
     const isUli=ex.title==='Uli — Manual Clamp';
     if(isUli){
@@ -5721,12 +5898,17 @@ function pauseResumeSet(){
     const lbl=document.getElementById('pause-label');
     if(session.timer.isRunning()){
         session.timer.pause();
+        _guideActive=false;stopGuideSpeech();
+        document.getElementById('guide-breath-visual').dataset.paused='true';
         stopJelqStrokePacer();
         ic.className='fas fa-play text-4xl text-slate-300';
         if(lbl)lbl.innerText='Resume';
         _syncWakeLock();
     } else {
         session.timer.resume();
+        _guideActive=true;document.getElementById('guide-breath-visual').dataset.paused='false';
+        if(getCurEx().isRecovery)updateActiveCue(document.getElementById('ex-cue-text').textContent);
+        else sayGuide('Timer resumed. Keep the movement comfortable.');
         // Restart pacer if this is a Wet Jelq set
         const ex=getCurEx();
         if(ex.title==='Wet Jelq') startJelqStrokePacer();
@@ -9715,6 +9897,7 @@ async function handleForgotPassword(){
    The list below is every body-level overlay that shows one member's own
    data, grouped by how each is hidden. */
 function _closeMemberOverlays(){
+    stopGuideSpeech();_guideSpeech?.setEnabled(false);_guideAudioUser=null;
     // Hidden by the `hidden` class.
     ['account-modal','notif-modal','pass-info-modal','coach-modal','type-modal',
      'tier-lock-modal','pelvic-screen-modal','pelvic-result-modal','pelvic-lock-modal',
@@ -9738,6 +9921,7 @@ function _closeMemberOverlays(){
     closeAccountEditor();
 }
 async function handleLogout(){
+    stopGuideSpeech();
     /* CAPTURE FIRST. The flush used to run after currentUser was already null,
        so _flushSaveNow() refused on its own guard and flushAnalytics() did the
        same: the logout flush was a no-op in BOTH paths. Nothing was lost,
@@ -10425,11 +10609,16 @@ function init(){
     document.getElementById('ex-btn').addEventListener('click',startSet);
     document.getElementById('ex-pause-btn').addEventListener('click',pauseResumeSet);
     document.getElementById('dim-toggle-btn').addEventListener('click',toggleDimMode);
+    document.getElementById('guide-audio-btn').addEventListener('click',toggleGuideAudio);
+    document.getElementById('guide-technique').addEventListener('toggle',()=>{
+        const open=document.getElementById('guide-technique').open;
+        document.getElementById('ex-info-btn').setAttribute('aria-expanded',String(open));
+        document.getElementById('ex-info-panels').style.display=open?'':(_guideActive?'none':'');
+    });
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)stopGuideSpeech();});
     document.getElementById('ex-info-btn').addEventListener('click',()=>{
-        const panels=document.getElementById('ex-info-panels');
-        const isHidden=panels.style.display==='none';
-        panels.style.display=isHidden?'':'none';
-        document.getElementById('ex-info-btn').style.color=isHidden?'#60a5fa':'';
+        const details=document.getElementById('guide-technique');
+        details.open=!details.open;
     });
     // Success
     document.getElementById('ai-recovery-btn').addEventListener('click',analyzeRecovery);
@@ -10648,6 +10837,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
      ─────────────────────────────────────────────────────────────────────── -->
 <script type="module">
 import { buildPelvicPracticePlan, normalisePelvicPracticePlan, practiceSeconds, dailyPracticeItems, latestPracticeFeedback, PRACTICE_EXERCISES } from '../src/pelvicPractice.js';
+import { createGuideSpeech, guideSetup } from '../src/sessionGuide.js';
 import { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED } from '../src/nextBestAction.js';
 /* The ESTIMATE and the ACTUAL PRESCRIPTION now come from the same place.
    They used to not: estimateSessionSeconds() applied MODERATE_SORENESS_SHAPE
@@ -10715,7 +10905,7 @@ import { attributeEntry, ATTRIBUTION } from '../src/sessionAttribution.js';
    substitution, where the programme prescribed nothing to honour. */
 import { validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
          DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS } from '../src/doseExecution.js';
-window.BP = { buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
+window.BP = { createGuideSpeech,guideSetup,buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
               weekCompletion, weekKey, normaliseLedger,
