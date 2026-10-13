@@ -39,6 +39,14 @@ describe('prescribed pelvic practice in the real app',()=>{
   expect(await app.page.evaluate(()=>currentPrescription().state)).toBe('TRAIN');expect(await app.page.evaluate(()=>currentWeekCompletion().completed)).toBe(0);
   const r=await app.page.evaluate(()=>{startMission('length','test');goToStep(4);session.exerciseIndex=executableStepCount()-1;advanceEx();return {phase:session.dailyPelvicPhase,step:session.step};});expect(r).toEqual({phase:false,step:5});
  });
+ test('a completed foundation on a recovery day does not invite the same practice again',async()=>{
+  await app.page.evaluate(()=>{persisted.schedule[new Date().getDay()]='length';localStorage.setItem(getTodaySorenessKey(),'high');renderDashboard();});
+  await app.page.locator('#daily-pelvic-busy').click();await finishPractice();await app.page.evaluate(()=>{finishSession();closeSessionSummary();});
+  await expect(app.page.locator('#launch-btn').isVisible()).resolves.toBe(false);
+  expect(await app.page.locator('#today-headline').textContent()).toBe('Recovery Practice Complete');
+  expect(await app.page.evaluate(()=>currentWeekCompletion().completed)).toBe(0);
+  await app.page.evaluate(()=>localStorage.removeItem(getTodaySorenessKey()));
+ });
  test('a girth round before the final round never adds daily practice',async()=>{
   const r=await app.page.evaluate(()=>{persisted.pelvicProfile='standard';startMission('girth','test');goToStep(4);session.exerciseIndex=executableStepCount()-1;session.girthRound=1;advanceEx();const r={phase:session.dailyPelvicPhase,round:session.girthRound};session.timer?.cancel();session.timer=null;return r;});expect(r.phase).toBe(false);expect(r.round).toBe(2);
  });

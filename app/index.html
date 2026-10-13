@@ -6551,7 +6551,8 @@ function renderToday(){
     const copy=TODAY_COPY[r.state]||{};
     const prep=r.state==='PREPARE'?(PREPARE_COPY[r.prepare]||PREPARE_COPY.loading):null;
 
-    let headline=copy.headline||'';
+    const practiceClosed=r.state==='RECOVER'&&dailyPelvicCareDone();
+    let headline=practiceClosed?'Recovery Practice Complete':(copy.headline||'');
     if(r.state==='TRAIN') headline=`${dayTypeLabel(r.mission)} Day`;
     if(r.state==='PREPARE') headline=prep.headline;
     /* COMPLETE says what was actually finished. "Today Is Done" after a
@@ -6573,7 +6574,7 @@ function renderToday(){
     const subs={
         TRAIN:()=>`Today's focus: your ${dayTypeLabel(r.mission).toLowerCase()} protocol.`,
         MODIFIED:()=>`${dayTypeLabel(r.mission)} training, reduced today.`,
-        RECOVER:()=>'Pelvic floor and mobility work, no mechanical load.',
+        RECOVER:()=>practiceClosed?'Recovery practice is complete. Mechanical training stays paused today.':'Pelvic floor and mobility work, no mechanical load.',
         REST:()=>'',
         /* Says what is absent and nothing more. The supporting work on the
            day is deliberately not described, because that surface does not
@@ -6616,8 +6617,8 @@ function renderToday(){
     const meta=document.getElementById('today-meta');
     if(meta){
         const warm=(r.mission==='length'||r.mission==='girth')?' · includes warmup':'';
-        meta.textContent=r.duration?`~${r.duration} min${warm}`:'';
-        meta.classList.toggle('hidden',!r.duration);
+        meta.textContent=r.duration&&!practiceClosed?`~${r.duration} min${warm}`:'';
+        meta.classList.toggle('hidden',!r.duration||practiceClosed);
     }
 
     // The unfinished session we are deliberately not offering.
@@ -6643,7 +6644,7 @@ function renderToday(){
     const resume=document.getElementById('resume-btn');
     const prepBtn=document.getElementById('today-prepare-btn');
     const opt=document.getElementById('today-optional-btn');
-    const showLaunch=r.state==='TRAIN'||r.state==='MODIFIED'||r.state==='RECOVER';
+    const showLaunch=(r.state==='TRAIN'||r.state==='MODIFIED'||r.state==='RECOVER')&&!practiceClosed;
     if(launch){
         launch.classList.toggle('hidden',!showLaunch);
         if(showLaunch) launch.textContent=(copy.cta||(()=>'BEGIN SESSION'))(dayTypeLabel(r.mission));
