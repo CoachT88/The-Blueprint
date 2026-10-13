@@ -72,7 +72,7 @@ describe('a tight result actually changes the protocol', () => {
         const r = await app.page.evaluate(() => { selectAllRecovery(); return selectedRecoveryIndices; });
         expect(r).not.toContain(0);
         expect(r).not.toContain(3);
-        expect(r.length).toBe(6);
+        expect(r.length).toBe(7);
     });
 
     test("Today's Pick cannot either, including via its fallback", async () => {
@@ -127,14 +127,14 @@ describe('a tight result actually changes the protocol', () => {
             persisted.sessionLog = [{ date: new Date().toISOString(), routineType: 'recovery', eq: 6, rpe: 4, xpEarned: 5 }];
             return _coachContext();
         });
-        expect(ctx).toMatch(/HYPERTONIC/);
+        expect(ctx).toMatch(/tension flag/);
         expect(ctx).toMatch(/Do NOT recommend kegels/i);
     });
 
     test('and a brand-new member gets the same instruction', async () => {
         const ctx = await app.page.evaluate(() => { persisted.sessionLog = []; return _coachContext(); });
         expect(ctx).toMatch(/brand new/i);
-        expect(ctx).toMatch(/HYPERTONIC/);
+        expect(ctx).toMatch(/tension flag/);
     });
 });
 
@@ -149,7 +149,7 @@ describe('a standard result leaves the protocol intact', () => {
 
     test('all eight remain available', async () => {
         const r = await app.page.evaluate(() => { selectAllRecovery(); return selectedRecoveryIndices; });
-        expect(r.length).toBe(8);
+        expect(r.length).toBe(9);
         expect(r).toContain(0);
         expect(r).toContain(3);
     });
@@ -164,7 +164,7 @@ describe('a standard result leaves the protocol intact', () => {
 
     test('Coach Tee is told to watch for it turning tight', async () => {
         const ctx = await app.page.evaluate(() => _coachContext());
-        expect(ctx).toMatch(/no signs of a tight floor/i);
+        expect(ctx).toMatch(/does not establish weakness/i);
     });
 });
 
@@ -396,7 +396,7 @@ describe('unscreened members', () => {
         expect(r.screenClosed).toBe(true);
         expect(r.resultShown).toBe(true);
         expect(r.title).toMatch(/Skip The Squeezing/i);
-        expect(r.msg).toMatch(/would make that worse/i);
+        expect(r.msg).toMatch(/can aggravate/i);
     }, 30_000);
 
     test('the result is persisted like every other synced field', async () => {

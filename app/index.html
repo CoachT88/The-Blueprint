@@ -756,7 +756,7 @@
 
         <!-- Protocol reminder -->
         <div class="bg-emerald-950/50 border border-emerald-500/15 rounded-2xl px-5 py-3 mx-6 text-center">
-            <p class="u-text-2 text-[10px] leading-relaxed"><strong class="text-emerald-500">INHALE 4s</strong> — belly full, push pelvic floor down (RK) &nbsp;·&nbsp; <strong class="text-emerald-500">HOLD 4s</strong> &nbsp;·&nbsp; <strong class="text-emerald-500">EXHALE 4s</strong> — full release &nbsp;·&nbsp; <strong class="text-emerald-500">HOLD 4s</strong></p>
+            <p class="u-text-2 text-[10px] leading-relaxed"><strong class="text-emerald-500">INHALE 4s</strong> — comfortable belly and lower-rib expansion; let the floor soften &nbsp;·&nbsp; <strong class="text-emerald-500">HOLD 4s</strong> &nbsp;·&nbsp; <strong class="text-emerald-500">EXHALE 4s</strong> — full release &nbsp;·&nbsp; <strong class="text-emerald-500">HOLD 4s</strong></p>
         </div>
     </div>
 </div>
@@ -1110,12 +1110,7 @@
             </div>
         </div>
 
-        <section id="daily-pelvic-card" class="hidden today-card mx-2" aria-labelledby="daily-pelvic-title">
-            <p class="text-[10px] font-black uppercase tracking-widest text-amber-400">Daily practice</p>
-            <h3 id="daily-pelvic-title" class="text-sm font-black text-white mt-2">Pelvic-floor reset</h3>
-            <p id="daily-pelvic-note" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
-            <button id="daily-pelvic-start" class="btn-primary mt-3" style="min-height:44px">START PELVIC-FLOOR RESET</button>
-        </section>
+
 
         <!-- ── ORDER NOTE ───────────────────────────────────────────────────
              Today is FIRST, and the two regions below it used to be above it.
@@ -1383,6 +1378,15 @@
         </div>
 
 
+        <section id="daily-pelvic-card" class="hidden today-card mx-2" aria-labelledby="daily-pelvic-title">
+            <p class="text-[10px] font-black uppercase tracking-widest text-amber-400">Daily practice</p>
+            <h3 id="daily-pelvic-title" class="text-sm font-black text-white mt-2">Daily pelvic practice</h3>
+            <p id="daily-pelvic-note" class="text-[12px] text-slate-400 mt-2 leading-relaxed"></p>
+            <button id="daily-pelvic-start" class="btn-primary mt-3" style="min-height:44px">START DAILY PRACTICE</button>
+            <button id="daily-pelvic-busy" class="btn-outline mt-2" style="min-height:44px">JUST 2 MINUTES TODAY</button>
+            <button id="daily-pelvic-review" class="hidden btn-outline mt-2" style="min-height:44px">SYMPTOMS HAVE SETTLED</button>
+        </section>
+
         <!-- Level and XP, demoted. The streak used to live here too and is
              gone; see the note below the bar. -->
 
@@ -1544,7 +1548,7 @@
             <i class="fas fa-heart-pulse text-2xl text-amber-400 flex-shrink-0"></i>
             <div class="text-left">
                 <p class="text-xl font-black uppercase italic text-amber-300">Recovery</p>
-                <p class="text-[10px] u-text-2 font-semibold mt-0.5">8 exercises — pelvic floor, hip openers &amp; The Big Four</p>
+                <p class="text-[10px] u-text-2 font-semibold mt-0.5">9 exercises — breathing, pelvic-floor skills and mobility</p>
             </div>
             <i class="fas fa-chevron-right u-text-3 text-xs ml-auto flex-shrink-0"></i>
         </button>
@@ -1572,9 +1576,9 @@
         <i class="fas fa-comment-dots text-amber-400 text-lg flex-shrink-0 mt-0.5"></i>
         <div>
             <p class="text-amber-300 text-[10px] font-black uppercase tracking-widest mb-1">CoachTee Recommends</p>
-            <p class="text-slate-400 text-[11px] leading-relaxed">These are designed to work together — the kegels and RK build and release the floor, the pelvic exercises decompress it, and The Big Four open the hips and pelvis. Each session has a recommended set based on time of day.</p>
+            <p class="text-slate-400 text-[11px] leading-relaxed">Today’s practice uses dedicated breathing, one release exercise and, on rest days, one comfortable mobility exercise. Strength work stays available for an appropriate individualized program. The full library is optional.</p>
             <div class="flex gap-2 mt-2 flex-wrap">
-                <button id="recovery-select-all-btn" class="text-amber-400 text-[10px] font-black uppercase tracking-widest border border-amber-500/30 px-3 py-1 rounded-full" style="background:rgba(245,158,11,.05)">Select All 8</button>
+                <button id="recovery-select-all-btn" class="text-amber-400 text-[10px] font-black uppercase tracking-widest border border-amber-500/30 px-3 py-1 rounded-full" style="background:rgba(245,158,11,.05)">Select All 9</button>
                 <button id="recovery-select-daily-btn" class="text-amber-300 text-[10px] font-black uppercase tracking-widest border border-amber-400/50 px-3 py-1 rounded-full" style="background:rgba(245,158,11,.12)"><i class="fas fa-star mr-1"></i>Today's Pick</button>
             </div>
         </div>
@@ -1682,6 +1686,16 @@
         <i class="fas fa-check-double text-6xl text-emerald-400 drop-shadow-lg"></i>
         <h2 class="text-4xl font-black italic uppercase text-slate-50">Mission Success</h2>
         <p id="success-xp-text" class="text-yellow-400 font-bold text-sm">+0 XP EARNED</p>
+
+    <div id="pelvic-comfort-card" class="hidden instruction-card mx-2 text-left">
+        <p class="text-[11px] font-black text-amber-400 uppercase tracking-widest">How did pelvic practice feel?</p>
+        <div class="flex gap-2 mt-3">
+            <button class="quick-tap flex-1" data-pelvic-comfort="comfortable" aria-pressed="false" style="min-height:44px">Comfortable</button>
+            <button class="quick-tap flex-1" data-pelvic-comfort="tense" aria-pressed="false" style="min-height:44px">More tense</button>
+            <button class="quick-tap flex-1" data-pelvic-comfort="painful" aria-pressed="false" style="min-height:44px">Painful</button>
+        </div>
+        <p id="pelvic-comfort-note" class="text-[10px] text-slate-400 mt-2 leading-relaxed"></p>
+    </div>
 
     <!-- EQ check-in -->
     <div class="instruction-card border-blue-500/20 mx-2 text-left">
@@ -2029,7 +2043,7 @@
                             </div>
                             <div>
                                 <p class="text-slate-200 font-bold text-[11px] mb-0.5">3. ACTIVE REST (Box Breathing + Reverse Kegels)</p>
-                                <p>Rest your grip and relax the tissue. For 30–60 seconds at the end of each round, perform Box Breathing (Inhale 4s, Hold 4s, Exhale 4s, Hold 4s) while actively performing Reverse Kegels (gently pushing the pelvic floor down/out). This normalizes blood flow and prevents pelvic floor tension. Re-lubricate before the next round.</p>
+                                <p>Rest your grip and relax the tissue. For 30–60 seconds at the end of each round, perform Box Breathing (Inhale 4s, Hold 4s, Exhale 4s, Hold 4s) while allowing the pelvic floor to soften naturally. Do not force the breath or push downward. Re-lubricate before the next round.</p>
                             </div>
                         </div>
                         <div class="mt-3 pt-2 border-t border-slate-700/50">
@@ -2126,21 +2140,21 @@
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0"><i class="fas fa-heart-pulse text-amber-400 text-xs"></i></div>
-                    <div><p class="text-sm font-black text-white">Recovery Protocol</p><p class="text-[10px] u-text-2">8 exercises — the other half of the protocol</p></div>
+                    <div><p class="text-sm font-black text-white">Recovery Protocol</p><p class="text-[10px] u-text-2">9 exercises — breathing, release, strength and mobility</p></div>
                 </div>
                 <i id="m-recovery-chevron" class="fas fa-chevron-down u-text-2 text-xs transition-transform"></i>
             </div>
         </div>
         <div id="m-recovery" class="manual-section">
             <div class="space-y-4 text-[12px] text-slate-400 leading-relaxed">
-                <p>Recovery is not a rest from the protocol — it is the other half of it. Gains happen during recovery. The 8 exercises are split into two categories.</p>
+                <p>Recovery is not a rest from the protocol — it is the other half of it. Gains happen during recovery. The library includes dedicated breathing, release skills, optional strength work and mobility. Today’s practice selects a small subset.</p>
                 <div class="space-y-3">
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-2">Pelvic Floor Work (4 exercises)</p>
-                        <p class="mb-2"><strong class="text-slate-300">Kegel Contractions</strong> — Trains voluntary contraction. Pelvic floor muscle training has reasonable evidence behind it for erectile function and ejaculatory control, but only if your floor is not already too tight. A hypertonic floor gets worse with kegels, not better. Take the Pelvic Floor Check in this Manual first; if it flags you, the app removes these from your protocol automatically. 3 sets × 60s. 3 seconds on, 3 seconds full release.</p>
+                        <p class="mb-2"><strong class="text-slate-300">Kegel Contractions</strong> — Trains voluntary contraction. Pelvic floor muscle training has reasonable evidence behind it for erectile function and ejaculatory control, but only if your floor is not already too tight. A hypertonic floor gets worse with kegels, not better. Take the Pelvic Floor Check in this Manual first; if it flags you, the app removes these from your protocol automatically. One minute of short repetitions: up to 3 seconds lifting, followed by full release. Use only when strengthening is appropriate for you.</p>
                         <p class="mb-2"><strong class="text-slate-300">Reverse Kegel Stretch</strong> — The opposite of the kegel. Trains the floor to let go rather than squeeze. 3 sets × 45s. Breathe into your lower belly and let the muscles between your penis and anus open and drop, like the feeling of letting gas out. No pushing, no straining.</p>
                         <p class="mb-2"><strong class="text-slate-300">Pelvic Floor Release</strong> — Deep passive decompression using breath and gravity. No active movement. 3 sets × 45s.</p>
-                        <p><strong class="text-slate-300">Pelvic Floor Endurance Hold</strong> — 40% contraction sustained for the full set. Builds motor control and stamina, not peak strength. 3 sets × 60s.</p>
+                        <p><strong class="text-slate-300">Pelvic Floor Endurance Hold</strong> — Short, gentle lifts of up to 5 seconds with 5 seconds of full release. Stop sooner if control fades. The one-minute block is a series of repetitions, not a continuous hold.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
                         <p class="text-white font-bold text-xs mb-2">The Big Four (4 exercises)</p>
@@ -2151,7 +2165,7 @@
                     </div>
                     <div class="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
                         <p class="text-amber-300 font-bold text-xs mb-1">Daily Recommendations</p>
-                        <p>The app recommends different exercises based on time of day. Pelvic-floor release is included at every time of day. Morning adds hip openers; afternoon counters sitting; night offers contraction work only when your pelvic-floor check allows it. You can always customize the selection or tap Select All 8.</p>
+                        <p>Blueprint assigns a small practice each day. Breathing and one release exercise form the foundation; rest days rotate one comfortable mobility exercise. Use the two-minute option on busy days. Strength exercises are not assigned automatically, and the check does not establish muscle weakness.</p>
                     </div>
                     <div class="p-3 rounded-xl bg-red-500/5 border border-red-500/20">
                         <p class="text-red-300 font-bold text-xs mb-1">Rest days</p>
@@ -2718,10 +2732,10 @@ function showPelvicResult(profile,yes){
         tight?'Skip The Squeezing':'You Are Clear To Train Both';
     document.getElementById('pelvic-result-msg').innerHTML= tight
         ? `You answered yes to ${yes} of 6. That pattern points to a pelvic floor that is already holding too much tension rather than one that is weak.<br><br>
-           <span class="text-white font-bold">Kegels would make that worse.</span> A tight floor squeezed harder gets tighter, and tightness is what drives the urgency, the aching and the finishing early in the first place.<br><br>
-           So the app has taken contraction work out of your Recovery Protocol. You will get release work instead: reverse kegels, breathing, and hip openers. That is the actual treatment for this, and it is what Coach Tee will steer you toward from now on.<br><br>
+           <span class="text-white font-bold">Contractions can aggravate a floor that is already holding tension.</span> A tight floor squeezed harder gets tighter, and tightness is what drives the urgency, the aching and the finishing early in the first place.<br><br>
+           So the app has taken contraction work out of your Recovery Protocol. You will get release work instead: reverse kegels, breathing, and hip openers. This check cannot diagnose the cause of your symptoms. A pelvic-health clinician can assess persistent pain or difficulty relaxing.<br><br>
            <span class="u-text-2">You can retake this any time from the Manual. If things ease off, the contraction work comes back.</span>`
-        : `You answered yes to ${yes} of 6, which does not suggest a tight pelvic floor. Your full Recovery Protocol stays available, contraction and release work both.<br><br>
+        : `You answered yes to ${yes} of 6, which does not suggest a tight pelvic floor. Your check does not establish weakness or diagnose muscle tone. Breathing and release stay in your daily plan; use strength exercises only when appropriate, ideally with pelvic-health guidance.<br><br>
            <span class="text-white font-bold">Keep an eye on it anyway.</span> If you start getting urgency, aching in the perineum after sitting, or discomfort after ejaculating, stop the kegels and retake this from the Manual. Those are the signs the floor has tipped from strong into tight.`;
     document.getElementById('pelvic-result-modal').classList.remove('hidden');
 }
@@ -2747,7 +2761,7 @@ function isContractionExercise(i){ return CONTRACTION_RECOVERY_IDX.includes(i); 
 // Contraction work is withheld from anyone who screened tight AND from anyone
 // who has not been screened at all. Everything else stays open, so a member who
 // only wants hip openers is never made to answer six questions first.
-function isExerciseBlocked(i){ return isContractionExercise(i) && (isFloorTight() || !hasPelvicScreen()); }
+function isExerciseBlocked(i){ return isContractionExercise(i) && (isFloorTight() || !hasPelvicScreen() || ['tense','painful'].includes(lastPelvicFeedback()?.pelvicPractice.feedback)); }
 function allowedRecoveryIndices(list){ return (list||[]).filter(i=>!isExerciseBlocked(i)); }
 
 function getGoal(){ return GOALS[persisted.primaryGoal]||GOALS.all; }
@@ -2992,7 +3006,7 @@ const COACH_TIPS = [
     { title: 'Magnesium is easy to get from food.', body: 'Magnesium is involved in smooth muscle relaxation, including in arterial walls. Intake below the recommended amount is common. Dark leafy greens, nuts and dark chocolate are good sources.' },
     { title: 'Sexual confidence follows sexual health.', body: 'EQ anxiety, performance anxiety, and avoidance behaviors are often rooted in poor vascular or pelvic floor health. Fix the physical foundation and the mental side often resolves with it.' },
     { title: 'Alcohol disrupts erectile function.', body: 'Alcohol is a vasodilator short-term but a vascular depressant long-term. Chronic drinking reduces testosterone, impairs nerve signaling, and causes erectile dysfunction. It works against everything you\'re building.' },
-    { title: 'The reverse kegel is underrated.', body: 'Most men only know how to contract the pelvic floor. The reverse kegel, intentionally pushing and releasing downward, increases blood pooling, improves tissue flexibility, and reduces pelvic tension directly.' },
+    { title: 'The reverse kegel is underrated.', body: 'Most men only know how to contract the pelvic floor. The reverse kegel practices letting the pelvic floor soften. Gentle breathing supports this awareness; no forceful downward pushing is needed.' },
     { title: 'Vascular health changes with age.', body: 'Nitric oxide availability tends to fall as men get older, which is part of why erections change. Regular exercise, decent sleep and a diet with plenty of leafy greens and beets all support vascular health, which is the system underneath all of this.' },
     { title: 'Consistency over intensity.', body: 'Two sessions a week done consistently for 6 months will outperform five sessions a week done inconsistently. The tissue responds to regular stimulus, not occasional punishment.' },
     { title: 'Diet shows up over months.', body: 'A diet heavy in sugar and processed food is associated with worse vascular and metabolic health over time. The effect is cumulative rather than same day, so judge it across months, not across sessions.' },
@@ -3005,7 +3019,7 @@ const COACH_TIPS = [
 // Breathing cues follow NHS pelvic-floor relaxation guidance:
 // https://www.plymouthhospitals.nhs.uk/display-pil/pil-pelvic-floor-relaxation-5338/
 const DAILY_PELVIC_RESET={
-    title:'Pelvic-floor reset', sets:1, duration:120, isRecovery:true,
+    title:'Diaphragmatic breathing', sets:1, duration:120, isRecovery:true,
     eq:'No EQ needed',
     detail:'Sit or lie comfortably. Breathe gently into your lower ribs and belly. Let the pelvic floor soften with each inhale. Exhale without squeezing. No pushing, straining or breath-holding. Stop if this causes pain.',
     feel:'Gentle breathing and gradual relaxation. Nothing needs to be forced.',
@@ -3089,7 +3103,7 @@ const ROUTINES={
     ],
     recovery:[
         {
-            title:'Kegel Contractions', detail:'Contract upward as if stopping urine — 3 seconds on, 3 seconds full release. Keep glutes and thighs completely relaxed. Isolate the pelvic floor only.', sets:3, duration:60, isRecovery:true,
+            title:'Kegel Contractions', detail:'When strengthening has been recommended for you, gently lift for up to 3 seconds, then fully release for at least 3 seconds. Release sooner if control fades. Keep breathing; do not squeeze your glutes or thighs.', sets:1, duration:60, pelvicRhythm:{hold:3,release:3}, isRecovery:true,
             eq:'Soft — 0-3 EQ', feel:'Controlled voluntary contraction and full release. Symmetrical engagement.',
             dontFeel:'Straining, breath-holding, or hip/glute compensation.',
             cues:[
@@ -3133,16 +3147,13 @@ const ROUTINES={
             ]
         },
         {
-            title:'Pelvic Floor Endurance Hold', detail:'40% contraction — half your max. Hold steady for the full set without the contraction wavering with your breath. Builds motor control and stamina, not peak strength.', sets:3, duration:60, isRecovery:true,
-            eq:'Soft — 0 EQ', feel:'Sustained low-intensity contraction without fatigue. Steady, even engagement.',
-            dontFeel:'Glute or thigh involvement. If those fire, the contraction is too intense.',
-            cues:[
-                {time:60, text:'Begin a 40% contraction — half of your max. Do not go harder.'},
-                {time:50, text:'Hold steady. Breathe normally. The contraction should not waver with your breath.'},
-                {time:35, text:'Check your glutes and thighs — they should be fully relaxed. Isolate the floor.'},
-                {time:20, text:'You are building endurance now, not strength. Keep it controlled and even.'},
-                {time:5,  text:'Slowly release over 3 seconds. Full rest before next set.'}
-            ]
+            title:'Pelvic Floor Endurance Hold', detail:'When strengthening has been recommended for you, gently lift for up to 5 seconds, then relax fully for 5 seconds. Release early if the lift fades or full relaxation becomes difficult. The minute contains six short repetitions; it is not a continuous hold.', sets:1, duration:60, isRecovery:true, pelvicRhythm:{hold:5,release:5},
+            eq:'No EQ needed', feel:'A gentle lift followed by a clear, comfortable release.',
+            dontFeel:'Pain, increasing tension, breath-holding or glute and thigh compensation.',
+            cues:[{time:60,text:'Only lift while comfortable. Breathe normally.'},
+                {time:30,text:'Release fully between each short hold. Stop if technique fades.'},
+                {time:5,text:'Finish with a complete release.'}]
+
         },
         {
             title:'Deep Squat — Malasana', detail:'Feet flat, wider than hip-width. Drop your butt toward the floor and use your elbows to nudge your knees outward. This opens the hips and groin.', sets:2, duration:60, isRecovery:true,
@@ -3151,8 +3162,8 @@ const ROUTINES={
             cues:[
                 {time:60, text:'Feet flat, wider than hip-width. Drop your butt toward the floor.'},
                 {time:48, text:'Elbows on inner knees — gently nudge them outward. This opens the pelvic outlet.'},
-                {time:30, text:'Breathe deep into your belly. Feel the floor of your pelvis release on every exhale.'},
-                {time:15, text:'This is the foundation of a heavy hang. Stay low. Let gravity do the work.'},
+                {time:30, text:'Breathe deep into your belly. Let the floor soften with a gentle inhale, then exhale comfortably.'},
+                {time:15, text:'Use support if needed. Stay within a comfortable depth and keep breathing.'},
                 {time:5,  text:'Rise slowly. Shake out your legs before the next set.'}
             ]
         },
@@ -3163,7 +3174,7 @@ const ROUTINES={
             cues:[
                 {time:45, text:'Lie on your back. Grab the outsides of both feet.'},
                 {time:35, text:'Pull your knees toward your armpits. Feet point up toward the ceiling.'},
-                {time:22, text:'Rock gently side to side. This is the fastest way to turn off a tight pelvic floor.'},
+                {time:22, text:'Rock gently side to side. Stay within a comfortable range. Let your breathing remain easy.'},
                 {time:10, text:'Hold still. Breathe into the stretch. Feel the sacrum drop.'},
                 {time:3,  text:'Release. Let your legs rest flat before the next set.'}
             ]
@@ -3898,6 +3909,9 @@ function resetSession(){
     session.exerciseIndex=0;session.setIndex=1;session.directionalIndex=0;session.xp=0;
     session.recoveryQueue=null;session.recoveryQueuePos=0;
     session.dailyPelvicPhase=false;session.dailyPelvicDone=false;
+    session.dailyPracticeOnly=false;session.practiceFeedback='';
+    session.practiceCompletedIndices=[];session.pelvicPracticeIndex=0;session.recoveryDoseByIndex={};
+    session.pelvicPracticePlan=dailyPelvicCareDone()?null:currentPelvicPracticePlan();
     // Derive from the tier. Hardcoding 3 here silently overrode the round count
     // the mission handler had just set, so Intermediate ran 3 rounds instead of 4
     // and Advanced/Elite 3 instead of 5.
@@ -4852,7 +4866,7 @@ function _coachContext(){
         ? `Goal change scheduled: the new program begins ${pending.effectiveDate}. Until then, follow today's scheduled focus and keep this week's existing training.` : '';
     if(!log.length){
         const _n=preferredName();
-        return `LIVE USER DATA\n${_n?`Preferred name: ${_n}\n`:''}This member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'HYPERTONIC (tight). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no signs of a tight floor.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(scheduledPrimaryType())}.\n${transition}`;
+        return `LIVE USER DATA\n${_n?`Preferred name: ${_n}\n`:''}This member is brand new and has not logged a session yet. Orient them, keep it encouraging, and do not invent history or numbers for them.\nStated goal: ${getGoal().label}. ${getGoal().coach}\nPelvic floor screener: ${isFloorTight()?'tension flag (not a diagnosis). Do NOT recommend kegels or contraction work; lead with release work.':(hasPelvicScreen()?'no tension flag; this does not establish weakness or rule out a pelvic condition.':'not taken yet; assess before recommending contraction work.')}\nToday's scheduled focus: ${dayTypeLabel(scheduledPrimaryType())}.\n${transition}`;
     }
     const lines=[];
     /* Deterministic context, like every other line here. The model may use
@@ -4863,8 +4877,8 @@ function _coachContext(){
     if(_name) lines.push(`Preferred name: ${_name}`);
     lines.push(`Stated goal: ${getGoal().label}. ${getGoal().coach}`);
     if(transition) lines.push(transition);
-    if(isFloorTight()) lines.push(`Pelvic floor screener: HYPERTONIC (tight). Do NOT recommend kegels or any contraction work to this member under any circumstances. Lead with reverse kegels, diaphragmatic breathing, hip openers and myofascial release. Contraction work has been removed from their protocol in the app.`);
-    else if(hasPelvicScreen()) lines.push(`Pelvic floor screener: no signs of a tight floor. Contraction and release work are both appropriate, but tell them to stop the kegels if urgency, perineal ache or post-ejaculation discomfort appear.`);
+    if(isFloorTight()) lines.push(`Pelvic floor screener: tension flag (not a diagnosis). Do NOT recommend kegels or any contraction work to this member under any circumstances. Lead with reverse kegels, diaphragmatic breathing, hip openers and myofascial release. Contraction work has been removed from their protocol in the app.`);
+    else if(hasPelvicScreen()) lines.push(`Pelvic floor screener: no tension flag; this does not establish weakness or rule out a pelvic condition. Daily breathing and release are available. Do not infer that strengthening is needed from this check; recommend individual pelvic-health guidance. Tell them to stop contraction work if urgency, perineal ache or post-ejaculation discomfort appear.`);
     else lines.push(`Pelvic floor screener: not taken yet. Assess hypertonic vs weak before recommending any contraction work.`);
     lines.push(`Today's scheduled focus: ${dayTypeLabel(scheduledPrimaryType())}.`);
     // Streak is retired. Weeks of work is the signal that matches the
@@ -4976,6 +4990,9 @@ function goToStep(step){
                that sets them and resume skips it. */
             girthRound:session.girthRound,girthTotalRounds:session.girthTotalRounds,
             dailyPelvicPhase:!!session.dailyPelvicPhase,dailyPelvicDone:!!session.dailyPelvicDone,
+            dailyPracticeOnly:!!session.dailyPracticeOnly,pelvicPracticePlan:session.pelvicPracticePlan||null,
+            pelvicPracticeIndex:session.pelvicPracticeIndex||0,practiceCompletedIndices:session.practiceCompletedIndices||[],
+            recoveryDoseByIndex:session.recoveryDoseByIndex||{},
             recoveryQueue:session.recoveryQueue||null,recoveryQueuePos:session.recoveryQueuePos||0,
             sessionStartTime:_sessionStartTime,savedAt:Date.now(),prescription:_launchedPrescription||null};
         localStorage.setItem('bp_session_draft_'+currentUser.id,JSON.stringify(draft));
@@ -5038,7 +5055,7 @@ function goToStep(step){
         unlockTierIfEligible('intermediate');
     }
     if(step===4){if(!session._resuming){resetSession();_sessionStartTime=Date.now();}updateExUI()}
-    if(step===5){if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'});document.getElementById('photo-preview').classList.add('hidden');document.getElementById('photo-error').classList.add('hidden');document.getElementById('photo-capture-btn').innerText='Take / Upload Photo';document.getElementById('photo-capture-btn').disabled=false;}
+    if(step===5){renderPelvicComfort();if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'});document.getElementById('photo-preview').classList.add('hidden');document.getElementById('photo-error').classList.add('hidden');document.getElementById('photo-capture-btn').innerText='Take / Upload Photo';document.getElementById('photo-capture-btn').disabled=false;}
 }
 // Warmup (step 2) now runs AFTER mission select (step 3), so finishing or
 // skipping it goes straight to the engine.
@@ -5064,7 +5081,8 @@ function stopWarmup(){if(session.warmupTimer){session.warmupTimer.cancel();sessi
 // ═══════════════════════════════════════════════════════════════════════════
 // RECOVERY PICKER
 // ═══════════════════════════════════════════════════════════════════════════
-const RECOVERY_EX_IDS = ['Kegel Contractions','Reverse Kegel Stretch','Pelvic Floor Release','Pelvic Floor Endurance Hold','Deep Squat — Malasana','Happy Baby','Pigeon Pose','Butterfly Stretch'];
+ROUTINES.recovery.push({...DAILY_PELVIC_RESET});
+const RECOVERY_EX_IDS = ROUTINES.recovery.map(ex=>ex.title);
 // The 6 Coach Tee recommends (indices into ROUTINES.recovery)
 const COACH_REC_INDICES = [0,1,2,3,4,5,6,7]; // all 8
 let selectedRecoveryIndices = [0,1,2,3,4,5,6,7]; // default = all 8
@@ -5073,7 +5091,7 @@ let selectedRecoveryIndices = [0,1,2,3,4,5,6,7]; // default = all 8
 const RECOVERY_META = [
     {
         icon:'fa-arrows-up-down',    color:'text-blue-400',
-        category:'Pelvic Strength',  tod:['night'],
+        category:'Pelvic Strength',  tod:[],
         benefit:'Builds voluntary pelvic floor control. Pelvic floor muscle training has reasonable evidence behind it for erectile function and ejaculatory control, provided the floor is not already holding too much tension.'
     },
     {
@@ -5088,7 +5106,7 @@ const RECOVERY_META = [
     },
     {
         icon:'fa-stopwatch',         color:'text-emerald-400',
-        category:'Endurance',        tod:['night'],
+        category:'Endurance',        tod:[],
         benefit:'Builds low intensity endurance rather than peak strength. Better motor control is the goal, and it may help you hold position through a longer session.'
     },
     {
@@ -5111,21 +5129,18 @@ const RECOVERY_META = [
         category:'Inner Thigh',      tod:['afternoon','night'],
         benefit:'Releases the adductors, which sit close to the pelvic floor and commonly get tight from sitting. The connection to floor tension is plausible rather than proven, and it is a comfortable stretch either way.'
     },
+    {icon:'fa-wind',color:'text-cyan-400',category:'Breathing',tod:['morning','afternoon','night'],
+        benefit:'Practice gentle lower-rib and belly breathing. No forced depth, squeezing or breath-holding.'},
 ];
 
 // Time-of-day recommendation
 function getDailyRecommended(){
-    const hour = new Date().getHours();
-    let tod;
-    if(hour < 11) tod = 'morning';
-    else if(hour < 17) tod = 'afternoon';
-    else tod = 'night';
-    // Withhold contraction work from anyone who screens tight. The night set in
-    // particular used to include both kegel exercises.
-    return allowedRecoveryIndices(ROUTINES.recovery.map((_,i)=>i).filter(i => {
-        const meta = RECOVERY_META[i];
-        return meta && meta.tod.includes(tod);
-    }));
+    const plan=currentPelvicPracticePlan();
+    return allowedRecoveryIndices((plan?.steps||[]).map(step=>step.index));
+}
+function recoveryExerciseFor(i){
+    const step=currentPelvicPracticePlan()?.steps.find(x=>x.index===i);
+    return step?{...ROUTINES.recovery[i],sets:step.sets,duration:step.duration,restDur:step.restDur}:ROUTINES.recovery[i];
 }
 
 function buildRecoveryPicker(){
@@ -5133,7 +5148,7 @@ function buildRecoveryPicker(){
     list.innerHTML = '';
     const recommended = getDailyRecommended();
     const hour = new Date().getHours();
-    const todLabel = hour<11?'Morning Picks':hour<17?'Afternoon Picks':'Tonight\'s Protocol';
+    const todLabel = 'Today’s Practice';
     const todIcon = hour<11?'fa-sun':hour<17?'fa-cloud-sun':'fa-moon';
 
     // Daily recommended header
@@ -5144,7 +5159,8 @@ function buildRecoveryPicker(){
         list.appendChild(hdr);
     }
 
-    ROUTINES.recovery.forEach((ex, i) => {
+    ROUTINES.recovery.forEach((raw, i) => {
+        const ex=recoveryExerciseFor(i);
         const selected = selectedRecoveryIndices.includes(i);
         const meta = RECOVERY_META[i] || {};
         const isRec = recommended.includes(i);
@@ -5178,8 +5194,8 @@ function buildRecoveryPicker(){
             </div>
             <p class="ex-pick-benefit">${blocked
                 ? (isFloorTight()
-                    ? 'Not for you right now. Your check points to a floor that is already tight, and squeezing it would add to that. Retake it from the Manual if things ease off.'
-                    : 'Tap to take the 30-second pelvic floor check. Contracting a floor that is already tight makes things worse, so this stays locked until we know.')
+                    ? 'Your symptom check suggests caution with contractions. Breathing and release are available; a clinician can assess persistent symptoms.'
+                    : (['tense','painful'].includes(lastPelvicFeedback()?.pelvicPractice.feedback)?'Your recent practice felt uncomfortable, so contractions are paused. Use gentle practice when comfortable and seek guidance for persistent symptoms.':'Tap to take the 30-second pelvic floor check. Contraction work stays locked until you have completed it; the check is not a diagnosis.'))
                 : (meta.benefit||ex.detail||'')}</p>
         `;
         card.addEventListener('click', () => toggleRecoveryEx(i));
@@ -5244,6 +5260,8 @@ function startRecoverySession(){
     session.recoveryQueue = [...selectedRecoveryIndices];
     session.recoveryQueuePos = 0;
     session.exerciseIndex = session.recoveryQueue[0];
+    session.recoveryDoseByIndex=Object.fromEntries((session.pelvicPracticePlan?.steps||[]).map(x=>[x.index,x]));
+    session.step=4;
     _sessionStartTime=Date.now();
     document.querySelectorAll('.step-content').forEach(s=>{s.classList.add('hidden-step');s.classList.remove('active-step')});
     const t = document.getElementById('step-4');
@@ -5291,9 +5309,15 @@ function startRecoverySession(){
  * rewrote every plan ever generated.
  */
 function getCurEx(){
-    if(session.dailyPelvicPhase) return DAILY_PELVIC_RESET;
+    if(session.dailyPelvicPhase){
+        const step=session.pelvicPracticePlan?.steps[session.pelvicPracticeIndex];
+        return step?{...ROUTINES.recovery[step.index],sets:step.sets,duration:step.duration,restDur:step.restDur}:DAILY_PELVIC_RESET;
+    }
     const ex = ROUTINES[session.routineType][session.exerciseIndex];
-    if(ex.isRecovery) return ex;
+    if(ex.isRecovery){
+        const dose=session.recoveryDoseByIndex?.[session.exerciseIndex];
+        return dose?{...ex,sets:dose.sets,duration:dose.duration,restDur:dose.restDur}:ex;
+    }
     const frozen = frozenStep();
     if(frozen){
         /* The dose from the snapshot, the words from the table. */
@@ -5370,7 +5394,7 @@ function updateExUI(){
     // Phase tag
     const tagEl=document.getElementById('ex-tag');
     if(session.dailyPelvicPhase){
-        tagEl.innerText='Daily pelvic-floor care';
+        tagEl.innerText='Daily practice';
         tagEl.className='text-[10px] font-black uppercase text-amber-400';
     } else if(!session.dailyPelvicPhase&&session.routineType==='girth'){
         const exLabel=ex.title==='Wet Jelq'?'Jelq':'Uli';
@@ -5402,7 +5426,7 @@ function updateExUI(){
     } else if(ex.isDirectional){
         eb.innerText=`PULL ${DIRECTIONALS[session.directionalIndex]} — START`;
     } else {
-        eb.innerText=session.dailyPelvicPhase?'START 2-MINUTE RESET':`START ROUND ${session.setIndex}`;
+        eb.innerText=session.dailyPelvicPhase?'START PRACTICE':`START ROUND ${session.setIndex}`;
     }
     eb.style.display='';
     document.getElementById('ex-pause-btn').style.display='none';
@@ -5538,6 +5562,12 @@ function stopJelqStrokePacer(){
     if(_jelqStrokeInterval){clearInterval(_jelqStrokeInterval);_jelqStrokeInterval=null;}
 }
 
+function pelvicRhythmCue(ex,remaining){
+    if(!ex.pelvicRhythm)return null;
+    if(remaining<=0)return 'Finish with a complete release.';
+    const elapsed=ex.duration-remaining,cycle=ex.pelvicRhythm.hold+ex.pelvicRhythm.release;
+    return elapsed%cycle<ex.pelvicRhythm.hold?'Gentle lift while comfortable. Keep breathing.':'Fully release. Let the muscles relax before the next lift.';
+}
 function startSet(){
     if(session.timer){session.timer.cancel();session.timer=null;}
     stopJelqStrokePacer();
@@ -5554,6 +5584,8 @@ function startSet(){
         updateActiveCue('Maintain firm base clamp.');
     } else if(isWetJelq){
         startJelqStrokePacer();
+    } else if(ex.pelvicRhythm){
+        updateActiveCue(pelvicRhythmCue(ex,ex.duration));
     } else {
         // All other exercises: show first cue immediately from the cues array
         const sortedCues=[...ex.cues].sort((a,b)=>b.time-a.time);
@@ -5566,7 +5598,8 @@ function startSet(){
         timerEl.classList.toggle('timer-urgent',rem>0&&rem<=10);
         document.getElementById('live-xp').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP`;
         // Uli: cue stays static. Wet Jelq: pacer interval owns cue updates.
-        if(!isUli&&!isWetJelq){
+        if(ex.pelvicRhythm)updateActiveCue(pelvicRhythmCue(ex,rem));
+        else if(!isUli&&!isWetJelq){
             const activeCue=[...ex.cues].sort((a,b)=>a.time-b.time).find(c=>c.time>=rem);
             if(activeCue) updateActiveCue(activeCue.text.replace('{DIR}',DIRECTIONALS[session.directionalIndex]));
         }
@@ -5702,24 +5735,28 @@ function skipRest(){
     document.getElementById('rest-overlay').classList.add('hidden');
     session.setIndex++;updateExUI();
 }
+function startRemainingPelvicPractice(){
+    const plan=session.pelvicPracticePlan;
+    if(!plan||!plan.steps.length)return false;
+    const next=plan.steps.findIndex(x=>!(session.practiceCompletedIndices||[]).includes(x.index));
+    if(next<0){session.dailyPelvicDone=true;return false;}
+    session.pelvicPracticeIndex=next;session.dailyPelvicPhase=true;
+    session.setIndex=1;session.directionalIndex=0;updateExUI();return true;
+}
 function completeRoutineWithPelvicCare(){
-    // Recovery already contains release work when either of these was run.
-    const releaseDone=session.routineType==='recovery'&&session.recoveryQueue
-        &&session.recoveryQueue.some(i=>i===1||i===2);
-    if(!session.dailyPelvicDone&&!releaseDone){
-        session.dailyPelvicPhase=true;session.setIndex=1;session.directionalIndex=0;
-        updateExUI();return;
-    }
-    session.dailyPelvicDone=true;
+    if(startRemainingPelvicPractice())return;
+    session.dailyPelvicPhase=false;
     haptic([100,50,100,50,300]);
     document.getElementById('success-xp-text').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
     goToStep(5);
 }
 function advanceEx(){
     if(session.dailyPelvicPhase){
-        session.dailyPelvicPhase=false;session.dailyPelvicDone=true;
+        const step=session.pelvicPracticePlan?.steps[session.pelvicPracticeIndex];
+        if(step&&!session.practiceCompletedIndices.includes(step.index))session.practiceCompletedIndices.push(step.index);
         completeRoutineWithPelvicCare();return;
     }
+    if(session.routineType==='recovery'&&!session.practiceCompletedIndices.includes(session.exerciseIndex))session.practiceCompletedIndices.push(session.exerciseIndex);
     if(session.routineType==='girth'){
         // Move to next exercise within the current round
         if(session.exerciseIndex<executableStepCount()-1){
@@ -6009,10 +6046,14 @@ function buildResolverInput(){
         returnContext:currentReturnContext(),
         recoveryPlan:getDailyRecommendedUnfiltered(),
         contractionIndices:CONTRACTION_RECOVERY_IDX,
-        estimateMinutes:(mission,opts)=>window.BP.estimateSessionMinutes(mission,{
-            routines:ROUTINES, difficulties:DIFFICULTIES, girthCircuit:GIRTH_CIRCUIT,
-            difficulty:getDiff().id, ...opts,
-        }) + ((mission!=='recovery'||!(opts.recoveryIndices||[]).some(i=>i===1||i===2))?2:0),
+        pelvicPain:pelvicPracticeNeedsReview(),
+        estimateMinutes:(mission,opts)=>{
+            const indices=mission==='recovery'?(opts.recoveryIndices||[]):[];
+            const routines=mission==='recovery'?{...ROUTINES,recovery:ROUTINES.recovery.map((_,i)=>recoveryExerciseFor(i))}:ROUTINES;
+            const base=window.BP.estimateSessionSeconds(mission,{routines,difficulties:DIFFICULTIES,girthCircuit:GIRTH_CIRCUIT,difficulty:getDiff().id,...opts});
+            const extra=dailyPelvicCareDone()?0:window.BP.practiceSeconds(currentPelvicPracticePlan(),indices);
+            return Math.round((base+extra)/60);
+        },
     };
 }
 
@@ -6024,11 +6065,7 @@ function buildResolverInput(){
  * contraction work?" is exactly the question the screener gate asks, and a
  * pre-filtered list always answers no.
  */
-function getDailyRecommendedUnfiltered(){
-    const hour=new Date().getHours();
-    const tod=hour<11?'morning':hour<17?'afternoon':'night';
-    return ROUTINES.recovery.map((_,i)=>i).filter(i=>RECOVERY_META[i]&&RECOVERY_META[i].tod.includes(tod));
-}
+function getDailyRecommendedUnfiltered(){return getDailyRecommended();}
 
 /** Cached so the band, the week line and the card all describe the same moment. */
 let _today=null;
@@ -6475,6 +6512,7 @@ const TODAY_COPY={
     PREPARE:  {eyebrow:'Before you start',  icon:'fa-sliders'},
 };
 const PREPARE_COPY={
+    'pelvic-pain':{headline:'Pause Training',cta:'READ PELVIC GUIDANCE'},
     'loading':            {headline:'Loading',          cta:'' },
     'goal':               {headline:'Set Your Goal',    cta:'CHOOSE A GOAL'},
     'pelvic-screen':      {headline:'One Quick Check',  cta:'TAKE THE CHECK'},
@@ -6694,32 +6732,76 @@ function dailyPelvicCareDone(){
         return log.pelvicCare===true&&Number.isFinite(date.getTime())&&window.BP.planDateKey(date)===day;
     });
 }
+function lastPelvicFeedback(){return window.BP.latestPracticeFeedback(persisted.sessionLog,new Date());}
+function pelvicReviewKey(){const last=lastPelvicFeedback();return last&&currentUser?'bp_pelvic_review_'+currentUser.id+'_'+last.date:null;}
+function pelvicPracticeNeedsReview(){
+    const last=lastPelvicFeedback();if(last?.pelvicPractice.feedback!=='painful')return false;
+    try{return localStorage.getItem(pelvicReviewKey())!=='settled';}catch{return true;}
+}
+function plannedPelvicItems(date,slot){
+    const last=lastPelvicFeedback();
+    return window.BP.dailyPracticeItems(window.BP.buildPelvicPracticePlan({date,dayKind:slot==='rest'?'rest':'primary',profile:persisted.pelvicProfile,
+        feedback:last?.pelvicPractice.feedback||'',painCleared:!pelvicPracticeNeedsReview()}));
+}
+function currentPelvicPracticePlan(busy=false){
+    if(!window.BP?.buildPelvicPracticePlan)return null;
+    const date=window.BP.planDateKey(new Date());
+    const last=lastPelvicFeedback();
+    const pres=currentTodayPrescription();
+    if(!pres||pres.ok!==true)return null;
+    const fresh=window.BP.buildPelvicPracticePlan({date,dayKind:pres.dayKind,profile:persisted.pelvicProfile,
+        feedback:last?.pelvicPractice.feedback||'',painCleared:!pelvicPracticeNeedsReview(),busy});
+    if(busy||fresh?.mode!=='daily')return fresh;
+    const stored=todayPlan()?.dailyPractice?.find(x=>x.type==='pelvic-practice');
+    return stored?window.BP.normalisePelvicPracticePlan({v:1,date,mode:stored.dose?.mode,steps:stored.dose?.steps}):fresh;
+}
 function renderDailyPelvicCare(r){
     const card=document.getElementById('daily-pelvic-card');
     const ready=!!currentUser&&_persistedLoaded&&!!r&&r.state!=='COMPLETE'
-        &&!(r.state==='PREPARE'&&r.prepare!=='pelvic-screen');
-    card.classList.toggle('hidden',!ready);
-    if(!ready)return;
-    const done=dailyPelvicCareDone();
-    const integrated=r.state==='TRAIN'||r.state==='MODIFIED'||r.state==='RECOVER'||(r.state==='PREPARE'&&r.prepare==='pelvic-screen');
-    const note=document.getElementById('daily-pelvic-note');
-    note.textContent=done?'Pelvic-floor care complete today.'
-        :r.state==='RESUME'?'Your pelvic-floor care is part of the unfinished routine. Resume it above.'
-        :integrated?'Included in your routine today. Gentle breathing and release, with contraction work controlled by your pelvic-floor check.'
-        :'Keep your rest day gentle: two minutes of breathing and pelvic-floor release. No squeezing or mechanical work.';
-    const btn=document.getElementById('daily-pelvic-start');
-    btn.classList.toggle('hidden',done||integrated||r.state==='RESUME');
+        &&!(r.state==='PREPARE'&&!['pelvic-screen','pelvic-pain'].includes(r.prepare));
+    card.classList.toggle('hidden',!ready);if(!ready)return;
+    const done=dailyPelvicCareDone(),plan=currentPelvicPracticePlan();
+    const integrated=['TRAIN','MODIFIED','RECOVER'].includes(r.state)||(r.state==='PREPARE'&&r.prepare==='pelvic-screen');
+    const paused=pelvicPracticeNeedsReview();
+    const labels=(plan?.steps||[]).map(x=>ROUTINES.recovery[x.index].title).join(' + ');
+    document.getElementById('daily-pelvic-note').textContent=paused?'You reported pain. Pause pelvic exercises. Persistent or recurring symptoms need a pelvic-health clinician. Resume gentle breathing only once symptoms have settled.'
+        :done?'Daily practice complete today.'
+        :r.state==='RESUME'?'Resume your unfinished routine above; its practice is saved.'
+        :plan?`${Math.ceil(window.BP.practiceSeconds(plan)/60)} min · ${labels}. ${integrated?'Included in your routine.':'A small practice for today.'}`
+        :'Daily practice could not be read. No extra work is assigned.';
+    document.getElementById('daily-pelvic-start').classList.toggle('hidden',done||integrated||paused||!plan||r.state==='RESUME');
+    document.getElementById('daily-pelvic-busy').classList.toggle('hidden',done||paused||!plan||r.state==='RESUME'||r.state==='PREPARE');
+    document.getElementById('daily-pelvic-review').classList.toggle('hidden',!paused);
     card.dataset.complete=String(done);
 }
-function startDailyPelvicCare(){
+function startDailyPelvicCare(busy=false){
     const r=window.BP.nextBestAction(buildResolverInput());
-    if(!currentUser||!_persistedLoaded||dailyPelvicCareDone()
-        ||!['REST','SUPPORT_ONLY'].includes(r.state))return;
-    captureLaunchPrescription('recovery');
-    session.routineType='recovery';
-    goToStep(4);
-    session.dailyPelvicPhase=true;
-    updateExUI();
+    if(!currentUser||!_persistedLoaded||dailyPelvicCareDone()||pelvicPracticeNeedsReview()
+        ||!['REST','SUPPORT_ONLY','TRAIN','MODIFIED','RECOVER'].includes(r.state))return;
+    const plan=currentPelvicPracticePlan(busy);if(!plan?.steps.length)return;
+    captureLaunchPrescription('recovery');session.routineType='recovery';
+    // Skip a transient contraction screen while the practice opens.
+    resetSession();session.dailyPracticeOnly=true;session.pelvicPracticePlan=plan;
+    session._resuming=true;goToStep(4);session._resuming=false;_sessionStartTime=Date.now();
+    startRemainingPelvicPractice();
+}
+function recordPelvicComfort(value){
+    if(!['comfortable','tense','painful'].includes(value))return;
+    session.practiceFeedback=value;
+    document.querySelectorAll('[data-pelvic-comfort]').forEach(b=>{
+        b.classList.toggle('active',b.dataset.pelvicComfort===value);
+        b.setAttribute('aria-pressed',String(b.dataset.pelvicComfort===value));
+    });
+    document.getElementById('pelvic-comfort-note').textContent=value==='painful'
+        ?'Stop exercises that cause pain. The next pelvic practice will pause until symptoms settle; persistent symptoms need a clinician.'
+        :value==='tense'?'Your next practice will use gentle breathing only.':'Keep prioritizing comfortable technique and full release.';
+}
+function renderPelvicComfort(){
+    const shown=!!session.dailyPelvicDone;
+    document.getElementById('pelvic-comfort-card').classList.toggle('hidden',!shown);
+    session.practiceFeedback='';
+    document.getElementById('pelvic-comfort-note').textContent='Optional. Your answer helps keep the next practice comfortable.';
+    document.querySelectorAll('[data-pelvic-comfort]').forEach(b=>{b.classList.remove('active');b.setAttribute('aria-pressed','false');});
 }
 
 /**
@@ -7352,6 +7434,7 @@ function syncProgression(reason){
                 directionals:DIRECTIONALS,
                 exExperience:EX_EXPERIENCE,
             },
+            dailyPracticeFor:plannedPelvicItems,
             tier:getDiff().id,
             now:new Date(),
         });
@@ -7503,6 +7586,12 @@ function resumeSession(){
     session.xp=draft.xp;
     session.dailyPelvicPhase=draft.dailyPelvicPhase===true;
     session.dailyPelvicDone=draft.dailyPelvicDone===true;
+    session.dailyPracticeOnly=draft.dailyPracticeOnly===true;session.practiceFeedback='';
+    session.pelvicPracticePlan=window.BP.normalisePelvicPracticePlan(draft.pelvicPracticePlan);
+    if(!session.pelvicPracticePlan&&session.dailyPelvicPhase)session.pelvicPracticePlan=currentPelvicPracticePlan(true);
+    session.practiceCompletedIndices=Array.isArray(draft.practiceCompletedIndices)?draft.practiceCompletedIndices.filter(i=>Object.values(window.BP.PRACTICE_EXERCISES).includes(i)):[];
+    session.pelvicPracticeIndex=Number.isInteger(draft.pelvicPracticeIndex)&&draft.pelvicPracticeIndex>=0&&draft.pelvicPracticeIndex<(session.pelvicPracticePlan?.steps.length||0)?draft.pelvicPracticeIndex:0;
+    session.recoveryDoseByIndex=Object.fromEntries((session.pelvicPracticePlan?.steps||[]).map(x=>[x.index,x]));
     session.recoveryQueue=Array.isArray(draft.recoveryQueue)?allowedRecoveryIndices(draft.recoveryQueue):null;
     session.recoveryQueuePos=Number.isInteger(draft.recoveryQueuePos)?draft.recoveryQueuePos:0;
     _sessionStartTime=draft.sessionStartTime||Date.now();
@@ -7674,7 +7763,7 @@ function finishSession(){
     const _nextCompletedDays=_authoritative
         ? persisted.completedDays
         : [...(persisted.completedDays||[])];
-    if(!_authoritative) _nextCompletedDays[completedAt.getDay()]=true;
+    if(!_authoritative&&!session.dailyPracticeOnly) _nextCompletedDays[completedAt.getDay()]=true;
 
     const _entry={
         /* The real completion timestamp, never rewritten to the prescription
@@ -7682,6 +7771,9 @@ function finishSession(){
         date:completedAt.toISOString(),
         routineType:session.routineType,
         pelvicCare:session.dailyPelvicDone===true,
+        ...(session.dailyPracticeOnly?{workKind:'dailyPractice'}:{}),
+        ...(session.dailyPelvicDone?{pelvicPractice:{v:1,date:session.pelvicPracticePlan?.date||null,
+            mode:session.pelvicPracticePlan?.mode||'daily',completedIndices:[...(session.practiceCompletedIndices||[])],feedback:session.practiceFeedback||null}}:{}),
         /* Which dated prescription this session belongs to. The stable
            identity every authoritative completion question now reads. */
         prescriptionDate:_prescriptionDate,
@@ -7690,7 +7782,7 @@ function finishSession(){
            because the snapshot is captured in startMission() BEFORE
            session.routineType is assigned. */
         scheduledType:_scheduledType,
-        manualOverride:!!_scheduledType&&session.routineType!==_scheduledType,
+        manualOverride:!session.dailyPracticeOnly&&!!_scheduledType&&session.routineType!==_scheduledType,
         xpEarned:earnedXp,
         note,
         eq:selectedEQ,
@@ -8574,6 +8666,7 @@ function selectGoal(key){
         presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
         tables:{routines:ROUTINES,difficulties:DIFFICULTIES,girthCircuit:GIRTH_CIRCUIT,
             directionals:DIRECTIONALS,exExperience:EX_EXPERIENCE},
+        dailyPracticeFor:plannedPelvicItems,
         tier:getDiff().id, now:new Date(),
     });
     if(!change.ok){
@@ -10014,7 +10107,15 @@ function init(){
     });
     // Optional work never counts toward the weekly target, so it goes
     // straight to the Recovery picker rather than through Mission Select.
-    document.getElementById('daily-pelvic-start').addEventListener('click',startDailyPelvicCare);
+    document.getElementById('daily-pelvic-start').addEventListener('click',()=>startDailyPelvicCare(false));
+    document.getElementById('daily-pelvic-busy').addEventListener('click',()=>startDailyPelvicCare(true));
+    document.getElementById('daily-pelvic-review').addEventListener('click',()=>{
+        if(!pelvicPracticeNeedsReview())return;
+        const key=pelvicReviewKey();
+        if(key){try{localStorage.setItem(key,'settled');}catch{return;}}
+        renderDashboard();
+    });
+    document.querySelectorAll('[data-pelvic-comfort]').forEach(b=>b.addEventListener('click',()=>recordPelvicComfort(b.dataset.pelvicComfort)));
     const _optBtn=document.getElementById('today-optional-btn');
     if(_optBtn) _optBtn.addEventListener('click',()=>{
         session.routineType='recovery';
@@ -10027,6 +10128,7 @@ function init(){
         const which=_prepBtn.dataset.prepare;
         track('prepare_cta',{gate:which});
         if(which==='pelvic-screen') openPelvicScreen();
+        else if(which==='pelvic-pain') openManualAt('m-recovery');
         else if(which==='goal') openGoalPicker();
         else if(which==='schedule-unresolved'){
             // The repair interaction is the existing day-type picker, opened
@@ -10428,6 +10530,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
      ../src resolves in the harness and in production alike.
      ─────────────────────────────────────────────────────────────────────── -->
 <script type="module">
+import { buildPelvicPracticePlan, normalisePelvicPracticePlan, practiceSeconds, dailyPracticeItems, latestPracticeFeedback, PRACTICE_EXERCISES } from '../src/pelvicPractice.js';
 import { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED } from '../src/nextBestAction.js';
 /* The ESTIMATE and the ACTUAL PRESCRIPTION now come from the same place.
    They used to not: estimateSessionSeconds() applied MODERATE_SORENESS_SHAPE
@@ -10495,7 +10598,7 @@ import { attributeEntry, ATTRIBUTION } from '../src/sessionAttribution.js';
    substitution, where the programme prescribed nothing to honour. */
 import { validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
          DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS } from '../src/doseExecution.js';
-window.BP = { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
+window.BP = { buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
               weekCompletion, weekKey, normaliseLedger,

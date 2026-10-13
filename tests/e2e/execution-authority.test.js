@@ -798,11 +798,11 @@ describe('the frozen dose decides, even where the tables would agree', () => {
                     advanceEx();
                     const next={step:session.step,index:session.exerciseIndex,title:getCurEx().title};
                     // Daily release is independent of the frozen mechanical dose.
-                    onSetDone();
+                    while(session.dailyPelvicPhase){session.setIndex=getCurEx().sets;onSetDone();}
                     return {...next,finishedStep:session.step};
                 });
                 expect(ended.step).toBe(4);
-                expect(ended.title).toBe('Pelvic-floor reset');
+                expect(ended.title).toBe('Diaphragmatic breathing');
                 expect(ended.finishedStep).toBe(5);
             });
     }, 60_000);

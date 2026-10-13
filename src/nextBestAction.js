@@ -303,6 +303,8 @@ export function nextBestAction(input) {
 
     if (!i.dataLoaded) {
         state = 'PREPARE'; prepare = 'loading'; reason = REASONS.loading;
+    } else if (i.pelvicPain && (i.sessionDraft || (pres.ok===true&&pres.dayKind==='primary'&&!primaryDone))) {
+        state='PREPARE';prepare='pelvic-pain';reason='You reported pelvic pain. Pause training until symptoms settle; persistent symptoms need a pelvic-health clinician.';
     } else if (i.sessionDraft && !resumeBlockedBySoreness) {
         state = 'RESUME';
         mission = draftMission;

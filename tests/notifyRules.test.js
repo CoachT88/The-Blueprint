@@ -386,3 +386,13 @@ describe('AM/PM, custom check-ins and completion follow-ups', () => {
         expect(decide('18:25:00',{sessionLog,deliveredEventKeys:[first.eventKey,second.eventKey]})).toBeNull();
     });
 });
+
+describe('daily practice remains separate from training notifications',()=>{
+ test('a completed practice does not suppress a still-due training reminder',()=>{
+  const r=decideNotification({now:new Date('2026-10-13T19:00:00Z'),timezone:'UTC',schedule:Array(7).fill('length'),sessionLog:[{date:'2026-10-13T18:30:00Z',workKind:'dailyPractice'}]});
+  expect(r?.kind).toBe('daily_reminder');
+ });
+ test('a practice alone does not fabricate completion praise',()=>{
+  expect(decideNotification({now:new Date('2026-10-13T18:50:00Z'),timezone:'UTC',sessionLog:[{date:'2026-10-13T18:30:00Z',workKind:'dailyPractice'}]})).toBeNull();
+ });
+});
