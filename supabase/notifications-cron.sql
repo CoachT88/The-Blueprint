@@ -14,10 +14,10 @@
 --     expect {"checked":0,"dropped":0,"rejected":0,"sent":0,"keySource":"..."}
 --
 -- checked:0 with no error is a pass. An "error" field of any kind is not, and
--- scheduling on top of one means scheduling a failure to run hourly.
+-- scheduling on top of one means scheduling a failure to run every minute.
 --
 --   PART B  Vault secrets        safe, stores two values, sends nothing
---   PART C  cron.schedule        STARTS THE HOURLY JOB
+--   PART C  cron.schedule        STARTS THE MINUTE JOB
 --
 -- Part B alone is harmless. Part C is the switch.
 -- ===========================================================================
@@ -69,9 +69,9 @@ select name, created_at from vault.secrets where name in ('bp_cron_secret', 'bp_
 
 -- ── The schedule ───────────────────────────────────────────────────────────
 --
--- Hourly on the hour. Every member's chosen reminder time falls inside some
--- hour, and the function skips everyone whose hour it is not, so this single
--- schedule covers every timezone including the half-hour ones.
+-- Every minute. The function matches the full local HH:MM and skips everyone
+-- whose chosen minute it is not. This covers fractional-hour timezones too.
+-- The per-local-day stamp prevents a successful reminder from being sent again.
 --
 -- This URL matches the project used by app/index.html.
 -- Retire the old job that invoked the sender without either authentication header.
@@ -91,7 +91,7 @@ select cron.unschedule('send-training-reminders')
 
 select cron.schedule(
     'send-training-reminders',
-    '0 * * * *',
+    '* * * * *',
     $$
     select net.http_post(
         url     := 'https://edqmujiczuvavlemfpaz.supabase.co/functions/v1/send-notifications',
@@ -115,7 +115,7 @@ select cron.schedule(
 --
 -- select cron.schedule(
 --     'send-training-reminders',
---     '0 * * * *',
+--     '* * * * *',
 --     $$
 --     select net.http_post(
 --         url     := 'https://edqmujiczuvavlemfpaz.supabase.co/functions/v1/send-notifications',
@@ -158,8 +158,8 @@ limit 20;
 --                                                rejected before the function
 --                                                ran; check bp_anon_key
 --
---    A 200 body of {"checked":N,"sent":0,...} at every hour of the day means it
---    is running but nobody's reminder hour is being matched.
+--    A 200 body of {"checked":N,"sent":0,...} is normal outside chosen minutes
+--    and when members already trained or have a scheduled rest day.
 select id, status_code, content, created
 from net._http_response
 order by created desc

@@ -1,8 +1,8 @@
 import { describe, test, expect } from 'vitest';
 import {
     MESSAGES,
-    localHourFor, localDateFor, localWeekdayFor,
-    utcDayKey, trainedOn, reminderHour, decideNotification,
+    localHourFor, localMinuteOfDay, localDateFor, localWeekdayFor,
+    utcDayKey, trainedOn, reminderHour, reminderMinuteOfDay, decideNotification,
 } from '../supabase/functions/_shared/notifyRules.js';
 
 /**
@@ -123,6 +123,50 @@ describe('reminderHour', () => {
     });
 });
 
+describe('reminder minutes in the member timezone', () => {
+    test.each(['America/Los_Angeles', 'Asia/Kolkata', 'Asia/Kathmandu'])(
+        'reads 19:10 accurately in %s', timezone => {
+            const utc = {
+                'America/Los_Angeles': '2026-10-13T02:10:00Z',
+                'Asia/Kolkata': '2026-10-12T13:40:00Z',
+                'Asia/Kathmandu': '2026-10-12T13:25:00Z',
+            };
+            expect(localMinuteOfDay(new Date(utc[timezone]), timezone)).toBe(19 * 60 + 10);
+            expect(decideNotification({ now:new Date(utc[timezone]), timezone, reminderTime:'19:10' })).not.toBeNull();
+        }
+    );
+
+    test.each(['', null, '19:99', '24:00', '-1:10', 'wrong'])(
+        'an invalid time %s falls back to 19:00', time => {
+            expect(reminderMinuteOfDay(time)).toBe(19 * 60);
+        }
+    );
+
+    test('preserves valid minute and day boundaries', () => {
+        expect(reminderMinuteOfDay('00:00')).toBe(0);
+        expect(reminderMinuteOfDay('7:10')).toBe(7 * 60 + 10);
+        expect(reminderMinuteOfDay('23:59')).toBe(1439);
+    });
+
+    test.each(['2026-10-13T02:00:00Z', '2026-10-13T02:09:59Z', '2026-10-13T02:11:00Z'])(
+        'a 19:10 reminder does not send at %s', utc => {
+            expect(decideNotification({ now:new Date(utc), timezone:'America/Los_Angeles', reminderTime:'19:10' })).toBeNull();
+        }
+    );
+
+    test('dispatches within the selected minute, then suppresses another send that day', () => {
+        const input = { now:new Date('2026-10-13T02:10:37Z'), timezone:'America/Los_Angeles', reminderTime:'19:10' };
+        expect(decideNotification(input)).not.toBeNull();
+        expect(decideNotification({ ...input, lastNotifiedDate:'2026-10-12' })).toBeNull();
+    });
+
+    test.each(['2026-03-07T03:10:00Z', '2026-03-10T02:10:00Z'])(
+        'keeps 19:10 local across daylight-saving offsets at %s', utc => {
+            expect(decideNotification({ now:new Date(utc), timezone:'America/Los_Angeles', reminderTime:'19:10' })).not.toBeNull();
+        }
+    );
+});
+
 // ---------------------------------------------------------------------------
 // The decision itself
 // ---------------------------------------------------------------------------
@@ -139,7 +183,7 @@ describe('decideNotification', () => {
     };
     const decide = (over = {}) => decideNotification({ ...base, ...over });
 
-    test('sends the reminder at the chosen hour', () => {
+    test('sends the reminder at the chosen minute', () => {
         const r = decide();
         expect(r).not.toBeNull();
         expect(r.kind).toBe('daily_reminder');
