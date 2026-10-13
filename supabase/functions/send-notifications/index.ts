@@ -2,9 +2,9 @@
  * Sends the notifications the settings screen promises, and nothing else.
  *
  * Run every minute by pg_cron (see supabase/notifications-cron.sql). Every member whose
- * chosen reminder minute has arrived in their own timezone is considered; almost
- * all of them are then skipped, because they already trained, already got
- * today's message, are on a rest day, or spent a Recovery Pass.
+ * AM/PM check-in or optional extra time has arrived is considered. Completed
+ * sessions suppress those reminders and qualify for a twenty-minute follow-up.
+ * Each event is reserved once before contacting the push provider.
  *
  * All of that judgement lives in _shared/notifyRules.js, which is unit tested.
  * This file is only plumbing: read, decide, send, record.
@@ -63,6 +63,7 @@ interface Subscription {
     p256dh: string;
     auth: string;
     reminder_time: string | null;
+    custom_enabled: boolean;
     timezone: string | null;
     last_notified_date: string | null;
 }
@@ -194,7 +195,7 @@ Deno.serve(async (req) => {
         for (let page = 0; ; page++) {
             const { data: subs, error } = await supabase
                 .from('push_subscriptions')
-                .select('user_id, endpoint, p256dh, auth, reminder_time, timezone, last_notified_date')
+                .select('user_id, endpoint, p256dh, auth, reminder_time, custom_enabled, timezone, last_notified_date')
                 .order('user_id')
                 .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
@@ -228,6 +229,31 @@ Deno.serve(async (req) => {
                 continue;
             }
             const byUser = new Map<string, TrainingRow>(rows.map(r => [r.id, r]));
+            const history: Array<{user_id:string;event_key:string}> = [];
+            for (let historyPage=0; ; historyPage++) {
+                const {data: events, error: historyError} = await supabase
+                    .from('notification_deliveries')
+                    .select('user_id, event_key')
+                    .order('user_id').order('event_key')
+                    .gte('created_at', new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString())
+                    .range(historyPage * PAGE_SIZE, (historyPage + 1) * PAGE_SIZE - 1)
+                    .in('user_id', ids);
+                if (historyError) {
+                    console.error('send-notifications: reading delivery history failed',
+                        dbErrorDetail(historyError, 'public.notification_deliveries'));
+                    return new Response(JSON.stringify(safeErrorBody('read_failed', {checked, sent, dropped, rejected})), {
+                        status:500, headers:{'Content-Type':'application/json'},
+                    });
+                }
+                history.push(...(events || []));
+                if (!events || events.length < PAGE_SIZE) break;
+            }
+            const byDelivered = new Map<string, string[]>();
+            for (const event of history || []) {
+                const keys = byDelivered.get(event.user_id) || [];
+                keys.push(event.event_key);
+                byDelivered.set(event.user_id, keys);
+            }
 
             for (const sub of subs as Subscription[]) {
                 checked++;
@@ -239,11 +265,26 @@ Deno.serve(async (req) => {
                     schedule: row?.schedule || null,
                     programme: row?.programme || null,
                     reminderTime: sub.reminder_time || '19:00',
+                    customEnabled: sub.custom_enabled !== false,
                     timezone: sub.timezone || 'UTC',
-                    lastNotifiedDate: sub.last_notified_date,
+                    deliveredEventKeys: byDelivered.get(sub.user_id) || [],
                     now,
                 });
                 if (!decision) continue;
+
+                // The unique reservation prevents overlapping cron calls from
+                // sending the same AM, PM, custom or completion event twice.
+                const {data: claimed, error: claimError} = await supabase.rpc('claim_training_notification', {
+                    p_user_id:sub.user_id, p_event_key:decision.eventKey, p_kind:decision.kind,
+                });
+                if (claimError) {
+                    console.error('send-notifications: reserving delivery failed',
+                        dbErrorDetail(claimError, 'public.notification_deliveries'));
+                    return new Response(JSON.stringify(safeErrorBody('claim_failed', {checked, sent, dropped, rejected})), {
+                        status:500, headers:{'Content-Type':'application/json'},
+                    });
+                }
+                if (!claimed) continue;
 
                 try {
                     await webpush.sendNotification(
@@ -257,8 +298,19 @@ Deno.serve(async (req) => {
                     );
                     sent++;
 
-                    // Stamped with the member's local date, which is what the
-                    // one-a-day rule compares against.
+                    const {error: recordError} = await supabase.from('notification_deliveries')
+                        .update({sent_at:new Date().toISOString()})
+                        .eq('user_id',sub.user_id).eq('event_key',decision.eventKey);
+                    if (recordError) {
+                        console.error('send-notifications: recording delivery failed',
+                            dbErrorDetail(recordError, 'public.notification_deliveries'));
+                        return new Response(JSON.stringify(safeErrorBody('record_failed', {checked, sent, dropped, rejected})), {
+                            status:500, headers:{'Content-Type':'application/json'},
+                        });
+                    }
+
+                    // Retain the legacy diagnostic marker. It no longer caps
+                    // all notification types at one message per day.
                     await supabase
                         .from('push_subscriptions')
                         .update({ last_notified_date: localDateFor(now, sub.timezone || 'UTC') })

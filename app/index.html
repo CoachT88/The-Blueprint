@@ -847,7 +847,7 @@
 
 <!-- NOTIFICATION SETTINGS MODAL -->
 <div id="notif-modal" class="hidden fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center p-4 pb-8" style="background:rgba(2,6,23,.92)">
-    <div class="w-full max-w-sm bg-slate-900 border border-slate-700/60 rounded-3xl p-6 space-y-5">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-700/60 rounded-3xl p-6 space-y-5" style="max-height:calc(100dvh - 3rem);overflow-y:auto">
         <div class="flex justify-between items-center">
             <p class="text-[11px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><i class="fas fa-bell"></i> Training Reminders</p>
             <button id="notif-modal-close" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 text-slate-400"><i class="fas fa-xmark text-sm"></i></button>
@@ -857,15 +857,20 @@
         </div>
         <div id="notif-supported">
             <div class="space-y-4">
-                <p class="text-[11px] text-slate-400 leading-relaxed">One reminder a day at the time you choose. Nothing on a rest day, nothing once you've trained, and nothing on a day a Recovery Pass is covering.</p>
-                <p class="text-[10px] u-text-2 leading-relaxed">Notifications only ever say The Blueprint. Nothing about what you train appears on your lock screen.</p>
+                <p class="text-[11px] text-slate-400 leading-relaxed">A check-in at 9 AM and 7 PM, only if you haven't trained that day. Training reminders pause on rest days and days covered by a Recovery Pass.</p>
+                <p class="text-[11px] text-slate-400 leading-relaxed">After you finish, a quick well done arrives about 20 minutes later, even with the app closed.</p>
+                <p class="text-[10px] u-text-2 leading-relaxed">Notifications use The Blueprint name. Your training details stay off your lock screen.</p>
                 <div class="space-y-3">
-                    <div class="flex items-center justify-between">
+                    <label class="flex items-center justify-between gap-3 cursor-pointer" style="min-height:44px">
+                        <span class="text-[11px] font-bold text-slate-300">Add an extra reminder</span>
+                        <input type="checkbox" id="notif-custom-enabled" class="w-4 h-4" style="accent-color:#3b82f6">
+                    </label>
+                    <div id="notif-custom-time" class="hidden flex items-center justify-between gap-3">
                         <div>
-                            <p class="text-[11px] font-bold text-slate-300">Daily reminder</p>
-                            <p class="text-[10px] u-text-2">Sent if you haven't trained that day</p>
+                            <label for="notif-time" class="text-[11px] font-bold text-slate-300">Your extra time</label>
+                            <p class="text-[10px] u-text-2">Only if you haven't trained</p>
                         </div>
-                        <input type="time" id="notif-time" value="19:00" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-slate-300 font-bold">
+                        <input type="time" id="notif-time" value="19:00" min="05:00" max="23:59" class="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-slate-300 font-bold">
                     </div>
                 </div>
                 <button id="notif-enable-btn" class="btn-primary py-3 text-sm w-full">Enable Notifications</button>
@@ -9644,7 +9649,9 @@ async function _refreshNotifUI(){
         :perm==='granted'?'Almost there. Tap Enable to finish setting up reminders.'
         :'';
     const prefs=_readNotifPrefs();
-    if(prefs.time) document.getElementById('notif-time').value=prefs.time;
+    document.getElementById('notif-time').value=prefs.time||'19:00';
+    document.getElementById('notif-custom-enabled').checked=_customReminderEnabled(prefs);
+    _refreshCustomReminderUI();
 }
 async function enableNotifications(){
     const btn=document.getElementById('notif-enable-btn');
@@ -9701,7 +9708,7 @@ async function _pushRegistration(){
         ]);
     }catch(e){ return null; }
 }
-async function _savePushSubscription(sub,reminderTime){
+async function _savePushSubscription(sub,reminderTime,customEnabled){
     if(!currentUser)throw new Error('Sign in to save reminders.');
     const j=sub.toJSON();
     const prefs=_readNotifPrefs();
@@ -9711,6 +9718,7 @@ async function _savePushSubscription(sub,reminderTime){
         p256dh:j.keys.p256dh,
         auth:j.keys.auth,
         reminder_time:reminderTime||prefs.time||'19:00',
+        custom_enabled:typeof customEnabled==='boolean'?customEnabled:_customReminderEnabled(prefs),
         timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         updated_at:new Date().toISOString(),
     },{onConflict:'user_id'});
@@ -9805,12 +9813,31 @@ function _pushTzKey(){ return currentUser?('bp_push_tz_'+currentUser.id):null; }
 function _readNotifPrefs(){
     const k=_notifPrefsKey();
     if(!k) return {};
-    try{ return JSON.parse(localStorage.getItem(k)||'{}'); }catch(e){ return {}; }
+    try{
+        const p=JSON.parse(localStorage.getItem(k)||'{}');
+        return p&&typeof p==='object'&&!Array.isArray(p)?p:{};
+    }catch(e){ return {}; }
+}
+
+function _customReminderEnabled(prefs){
+    // A previously chosen time stays enabled; brand-new accounts get AM/PM.
+    return typeof prefs.customEnabled==='boolean'?prefs.customEnabled:!!prefs.time;
+}
+function _refreshCustomReminderUI(){
+    const enabled=document.getElementById('notif-custom-enabled').checked;
+    document.getElementById('notif-custom-time').classList.toggle('hidden',!enabled);
 }
 
 async function saveNotifPrefs(){
     const time=document.getElementById('notif-time').value;
-    const prefs={time};
+    const customEnabled=document.getElementById('notif-custom-enabled').checked;
+    _refreshCustomReminderUI();
+    const status=document.getElementById('notif-status');
+    if(customEnabled&&(!time||!document.getElementById('notif-time').checkValidity())){
+        status.innerText='Choose an extra reminder time between 5 AM and 11:59 PM.';
+        return;
+    }
+    const prefs={time,customEnabled};
     const _pk=_notifPrefsKey();
     if(_pk) localStorage.setItem(_pk,JSON.stringify(prefs));
     /* The server reads reminder_time, so this write is the only thing that
@@ -9819,7 +9846,6 @@ async function saveNotifPrefs(){
        nothing reads it, because the streak warning it gated is retired. */
     const memberId=currentUser&&currentUser.id;
     if(!memberId)return;
-    const status=document.getElementById('notif-status');
     status.innerText='Saving reminder time...';
     try{
         // Registration can be ready before the startup cache is populated.
@@ -9829,11 +9855,13 @@ async function saveNotifPrefs(){
         if(!currentUser||currentUser.id!==memberId)return;
         if(!reg||!('PushManager' in window))throw new Error('Push registration unavailable.');
         const sub=await reg.pushManager.getSubscription();
+        if(!currentUser||currentUser.id!==memberId)return;
         if(sub){
-            await _savePushSubscription(sub,time);
-            status.innerText='Reminder time saved.';
+            await _savePushSubscription(sub,time,customEnabled);
+            if(!currentUser||currentUser.id!==memberId)return;
+            status.innerText=customEnabled?'Extra reminder saved.':'AM and PM reminders are on. Extra reminder is off.';
         }else{
-            status.innerText='Reminder time saved on this device. Tap Enable to turn on reminders.';
+            status.innerText='Reminder preferences saved on this device. Tap Enable to turn on reminders.';
         }
     }catch(e){
         if(currentUser&&currentUser.id===memberId){
@@ -10210,6 +10238,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     document.getElementById('notif-enable-btn').addEventListener('click',enableNotifications);
     document.getElementById('notif-disable-btn').addEventListener('click',disableNotifications);
     document.getElementById('notif-time').addEventListener('change',saveNotifPrefs);
+    document.getElementById('notif-custom-enabled').addEventListener('change',saveNotifPrefs);
     initServiceWorker();
     // Safety net: if auth + membership check + data load don't complete in 12 s,
     // drop to the login screen so the user isn't stuck on a blank loading screen.

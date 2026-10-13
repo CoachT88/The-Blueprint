@@ -11,8 +11,8 @@
  * A file in src/ would pass its tests here and then fail to deploy, which is
  * the worst of both. tests/notifyRules.test.js imports it from this path.
  *
- * The settings screen promises one reminder a day at a chosen time. This file
- * is the whole of that promise. Anything not expressed here does not get sent.
+ * Two default check-ins, an optional extra time, and a completion follow-up.
+ * Delivery keys distinguish those moments without exposing the training type.
  *
  * WHAT WAS REMOVED, AND WHY. Until Phase 2B.2 this also sent a warning before
  * a daily streak broke, and carried its own port of the app's streak
@@ -32,8 +32,13 @@
 /** Hours a reminder is allowed to land in, member's local time. */
 export const EARLIEST_HOUR = 5;
 export const LATEST_HOUR = 23;
+export const DEFAULT_REMINDER_TIMES = ['09:00', '19:00'];
+export const COMPLETION_DELAY_MS = 20 * 60 * 1000;
+// A short outage can catch up; old or late-synced sessions never get stale praise.
+export const COMPLETION_EXPIRY_MS = 60 * 60 * 1000;
 
 const WEEKDAY_INDEX = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+const formatters = new Map();
 
 /**
  * Read a date in someone else's timezone.
@@ -45,8 +50,10 @@ const WEEKDAY_INDEX = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
  * like Asia/Kolkata and Australia/Adelaide.
  */
 function zonedParts(now, timezone) {
-    let fmt;
-    try {
+    const zone = timezone || 'UTC';
+    let fmt = formatters.get(zone);
+    if (!fmt) {
+        try {
         fmt = new Intl.DateTimeFormat('en-US', {
             timeZone: timezone || 'UTC',
             hourCycle: 'h23',
@@ -60,6 +67,9 @@ function zonedParts(now, timezone) {
             year: 'numeric', month: '2-digit', day: '2-digit',
             hour: '2-digit', minute: '2-digit', weekday: 'short',
         });
+    }
+        if (formatters.size >= 64) formatters.clear();
+        formatters.set(zone, fmt);
     }
     const out = {};
     for (const p of fmt.formatToParts(now)) out[p.type] = p.value;
@@ -78,7 +88,7 @@ export function localMinuteOfDay(now, timezone) {
     return (Number(p.hour) % 24) * 60 + Number(p.minute);
 }
 
-/** YYYY-MM-DD in the member's timezone. Used only for the one-a-day cap. */
+/** YYYY-MM-DD in the member's timezone. Used for training and delivery keys. */
 export function localDateFor(now, timezone) {
     const p = zonedParts(now, timezone);
     return `${p.year}-${p.month}-${p.day}`;
@@ -98,6 +108,17 @@ export function utcDayKey(date) {
 /** Did any session land on this day key? */
 export function trainedOn(sessionLog, dayKey) {
     return (sessionLog || []).some(s => s && typeof s.date === 'string' && s.date.split('T')[0] === dayKey);
+}
+
+/** Real completion dates belong to the member's calendar, not the server's. */
+export function trainedOnLocalDay(sessionLog, dayKey, timezone) {
+    return (Array.isArray(sessionLog) ? sessionLog : []).some(s => {
+        if (!s || typeof s.date !== 'string') return false;
+        // Older date-only history has no timestamp to reinterpret.
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return s.date === dayKey;
+        const when = new Date(s.date);
+        return Number.isFinite(when.getTime()) && localDateFor(when, timezone) === dayKey;
+    });
 }
 
 /** '19:10' -> 1150. Invalid times use the app's default of 19:00. */
@@ -124,8 +145,13 @@ export function reminderHour(reminderTime) {
 export const MESSAGES = {
     daily_reminder: () => ({
         title: 'The Blueprint',
-        body: "Time to train. Open when you're ready.",
+        body: 'Make sure you show up for training today.',
         tag: 'bp-reminder',
+    }),
+    completion_praise: (sameDay = true) => ({
+        title: 'The Blueprint',
+        body: sameDay ? 'Good job for showing up today.' : 'Good job for showing up.',
+        tag: 'bp-completion',
     }),
 };
 
@@ -133,7 +159,7 @@ export const MESSAGES = {
  * The whole decision. Returns null far more often than it returns a message,
  * which is the point.
  *
- * @returns {null|{kind:string,title:string,body:string,tag:string,url:string}}
+ * @returns {null|{kind:string,title:string,body:string,tag:string,url:string,eventKey:string}}
  */
 export function decideNotification({
     sessionLog = [],
@@ -141,26 +167,47 @@ export function decideNotification({
     schedule = null,
     programme = null,
     reminderTime = '19:00',
+    customEnabled = true,
     timezone = 'UTC',
-    lastNotifiedDate = null,
+    deliveredEventKeys = [],
     now = new Date(),
 } = {}) {
     const localDate = localDateFor(now, timezone);
 
-    // 1. One a day, whatever else is true.
-    if (lastNotifiedDate && String(lastNotifiedDate).slice(0, 10) === localDate) return null;
+    const delivered = new Set(deliveredEventKeys || []);
+    const log = Array.isArray(sessionLog) ? sessionLog : [];
+
+    // Completion praise is independent of reminder slots and rest-day guards.
+    // Only actual timestamped completions qualify. A launch or date-only import
+    // cannot fabricate a twenty-minute follow-up.
+    const completed = log.filter(s => s && typeof s.date === 'string' && s.date.includes('T'))
+        .map(s => new Date(s.date)).filter(d => {
+            const age = now.getTime() - d.getTime();
+            return age >= COMPLETION_DELAY_MS && age < COMPLETION_EXPIRY_MS;
+        })
+        .sort((a, b) => a.getTime() - b.getTime());
+    for (const when of completed) {
+        const age = now.getTime() - when.getTime();
+        if (age < COMPLETION_DELAY_MS || age >= COMPLETION_EXPIRY_MS) continue;
+        const eventKey = 'completion:' + when.toISOString();
+        if (!delivered.has(eventKey)) return {
+            kind: 'completion_praise', ...MESSAGES.completion_praise(localDateFor(when, timezone) === localDate),
+            eventKey, tag: 'bp-completion-' + when.getTime(), url: '/app/',
+        };
+    }
 
     // 2. Only in the minute they picked, and never in the middle of the night
     //    even if they picked one.
     const minuteOfDay = localMinuteOfDay(now, timezone);
     const hour = Math.floor(minuteOfDay / 60);
-    if (minuteOfDay !== reminderMinuteOfDay(reminderTime)) return null;
+    const defaultDue = DEFAULT_REMINDER_TIMES.some(t => reminderMinuteOfDay(t) === minuteOfDay);
+    if (!defaultDue && !(customEnabled && minuteOfDay === reminderMinuteOfDay(reminderTime))) return null;
     if (hour < EARLIEST_HOUR || hour > LATEST_HOUR) return null;
 
     const todayKey = utcDayKey(now);
 
     // 3. They already did the work. Saying nothing is the correct behaviour.
-    if (trainedOn(sessionLog, todayKey)) return null;
+    if (trainedOnLocalDay(log, localDate, timezone)) return null;
 
     // 4. A Recovery Pass is covering today. The member has a banked Pass and
     //    this is the day it is spent on, so the gap is already accounted for.
@@ -184,5 +231,10 @@ export function decideNotification({
         if (effectiveSchedule[localWeekdayFor(now, timezone)] === 'rest') return null;
     }
 
-    return { kind: 'daily_reminder', ...MESSAGES.daily_reminder(), url: '/app/' };
+    // A custom time coinciding with AM/PM is one message, never a double alert.
+    const hhmm = String(hour).padStart(2, '0') + ':' + String(minuteOfDay % 60).padStart(2, '0');
+    const eventKey = 'reminder:' + localDate + ':' + hhmm;
+    if (delivered.has(eventKey)) return null;
+    return { kind: 'daily_reminder', ...MESSAGES.daily_reminder(), eventKey,
+        tag: 'bp-reminder-' + localDate + '-' + hhmm.replace(':', ''), url: '/app/' };
 }

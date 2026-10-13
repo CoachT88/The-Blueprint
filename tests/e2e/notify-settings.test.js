@@ -122,7 +122,9 @@ describe('the settings screen no longer promises what it cannot send', () => {
     test('only what can actually be sent is offered', async () => {
         const copy = await app.page.evaluate(() => document.getElementById('notif-supported').textContent);
         expect(copy).not.toMatch(/milestone/i);
-        expect(copy).toMatch(/one reminder a day/i);
+        expect(copy).toMatch(/9 AM and 7 PM/);
+        expect(copy).toMatch(/20 minutes later/);
+        expect(copy).toMatch(/extra reminder/i);
     }, 30_000);
 
     test('REGRESSION: streak warnings are no longer promised or switchable', async () => {
@@ -158,7 +160,7 @@ describe('the settings screen no longer promises what it cannot send', () => {
         expect(body).toContain('reminder_time');
         // The same helper persists both initial setup and time changes.
         // The browser regressions in push-setup exercise its actual write.
-        expect(body).toContain('_savePushSubscription(sub,time)');
+        expect(body).toContain('_savePushSubscription(sub,time,customEnabled)');
         expect(body).not.toContain('streak_warn:');
     }, 30_000);
 });

@@ -2,12 +2,12 @@ import { describe, test, expect } from 'vitest';
 import {
     MESSAGES,
     localHourFor, localMinuteOfDay, localDateFor, localWeekdayFor,
-    utcDayKey, trainedOn, reminderHour, reminderMinuteOfDay, decideNotification,
+    utcDayKey, trainedOn, trainedOnLocalDay, reminderHour, reminderMinuteOfDay, decideNotification,
 } from '../supabase/functions/_shared/notifyRules.js';
 
 /**
- * The settings screen promises a daily reminder at a chosen time and a warning
- * before a streak breaks. These tests are the definition of that promise.
+ * The settings screen offers AM/PM check-ins, an extra time, and completion
+ * praise. These tests define their timing and suppression rules.
  *
  * Most of them assert that nothing is sent. That is the hard part: a reminder
  * that fires when it should not is the failure members actually notice, and it
@@ -148,7 +148,7 @@ describe('reminder minutes in the member timezone', () => {
         expect(reminderMinuteOfDay('23:59')).toBe(1439);
     });
 
-    test.each(['2026-10-13T02:00:00Z', '2026-10-13T02:09:59Z', '2026-10-13T02:11:00Z'])(
+    test.each(['2026-10-13T02:01:00Z', '2026-10-13T02:09:59Z', '2026-10-13T02:11:00Z'])(
         'a 19:10 reminder does not send at %s', utc => {
             expect(decideNotification({ now:new Date(utc), timezone:'America/Los_Angeles', reminderTime:'19:10' })).toBeNull();
         }
@@ -157,7 +157,7 @@ describe('reminder minutes in the member timezone', () => {
     test('dispatches within the selected minute, then suppresses another send that day', () => {
         const input = { now:new Date('2026-10-13T02:10:37Z'), timezone:'America/Los_Angeles', reminderTime:'19:10' };
         expect(decideNotification(input)).not.toBeNull();
-        expect(decideNotification({ ...input, lastNotifiedDate:'2026-10-12' })).toBeNull();
+        expect(decideNotification({ ...input, deliveredEventKeys:['reminder:2026-10-12:19:10'] })).toBeNull();
     });
 
     test.each(['2026-03-07T03:10:00Z', '2026-03-10T02:10:00Z'])(
@@ -190,27 +190,26 @@ describe('decideNotification', () => {
         expect(r.title).toBe('The Blueprint');
     });
 
-    test('says nothing at any other hour', () => {
-        for (const h of ['08:00', '12:00', '20:00', '23:00']) {
-            expect(decide({ reminderTime: h })).toBeNull();
+    test('says nothing outside the default or selected minute', () => {
+        for (const h of [10,12,20,23]) {
+            expect(decide({ now:new Date(`2025-06-16T${String(h).padStart(2,'0')}:01:00-07:00`) })).toBeNull();
         }
     });
 
-    test('says nothing twice in one local day', () => {
-        expect(decide({ lastNotifiedDate: '2025-06-16' })).toBeNull();   // local date, not UTC
+    test('says nothing twice for the same local reminder slot', () => {
+        expect(decide({ deliveredEventKeys:['reminder:2025-06-16:19:00'] })).toBeNull();
     });
 
-    test('a stamp from a previous day does not suppress today', () => {
-        expect(decide({ lastNotifiedDate: '2025-06-15' })).not.toBeNull();
+    test('a delivery from a previous day does not suppress today', () => {
+        expect(decide({ deliveredEventKeys:['reminder:2025-06-15:19:00'] })).not.toBeNull();
     });
 
-    test('a full timestamp in the stamp column still matches', () => {
-        expect(decide({ lastNotifiedDate: '2025-06-16T09:12:00.000Z' })).toBeNull();
+    test('an AM delivery or the legacy daily stamp does not block PM', () => {
+        expect(decide({ deliveredEventKeys:['reminder:2025-06-16:09:00'], lastNotifiedDate:'2025-06-16' })).not.toBeNull();
     });
 
     test('says nothing to someone who already trained', () => {
-        const today = utcDayKey(base.now);
-        expect(decide({ sessionLog: [at(today)] })).toBeNull();
+        expect(decide({ sessionLog:[{date:'2025-06-16T20:00:00Z'}] })).toBeNull();
     });
 
     test('says nothing when a Recovery Pass is covering today', () => {
@@ -238,7 +237,7 @@ describe('decideNotification', () => {
         // Phase 2B.2 retired the streak, so there is exactly one message and
         // nothing on a lock screen refers to a count the member cannot see.
         for (const n of [2, 3, 9, 30]) {
-            const r = decide({ sessionLog: runEnding('2025-06-16', n) });
+            const r = decide({ sessionLog: runEnding('2025-06-15', n) });
             expect(r.kind).toBe('daily_reminder');
             expect(r.body).not.toMatch(/streak|day run|\bdays\b/i);
         }
@@ -247,14 +246,14 @@ describe('decideNotification', () => {
     test('REGRESSION: a streakWarn flag left in a caller changes nothing', () => {
         // The column still exists for backward compatibility. An old caller
         // still passing it must not resurrect the behaviour.
-        expect(decide({ sessionLog: runEnding('2025-06-16', 10), streakWarn: true }).kind)
+        expect(decide({ sessionLog: runEnding('2025-06-15', 10), streakWarn: true }).kind)
             .toBe('daily_reminder');
-        expect(decide({ sessionLog: runEnding('2025-06-16', 10), streakWarn: false }).kind)
+        expect(decide({ sessionLog: runEnding('2025-06-15', 10), streakWarn: false }).kind)
             .toBe('daily_reminder');
     });
 
-    test('there is only one message to send', () => {
-        expect(Object.keys(MESSAGES)).toEqual(['daily_reminder']);
+    test('only the check-in and completion messages are sent', () => {
+        expect(Object.keys(MESSAGES)).toEqual(['daily_reminder','completion_praise']);
     });
 
     test('never fires in the middle of the night, even if asked to', () => {
@@ -315,5 +314,75 @@ describe('scheduled goal changes while the app is closed', () => {
     test('ignores malformed pending schedules', () => {
         expect(decideNotification({schedule,timezone:'UTC',now:new Date('2026-03-16T19:00:00Z'),
             programme:{pendingChange:{effectiveDate:'2026-03-16',schedule:['rest']}}})).not.toBeNull();
+    });
+});
+
+
+describe('AM/PM, custom check-ins and completion follow-ups', () => {
+    const decide = (localTime, extras = {}) => decideNotification({
+        now:new Date('2026-10-12T'+localTime+'-07:00'), timezone:'America/Los_Angeles',
+        customEnabled:false, ...extras,
+    });
+    test('defaults to morning and evening without a custom time', () => {
+        expect(decide('09:00:00')?.body).toBe('Make sure you show up for training today.');
+        expect(decide('19:00:00')?.kind).toBe('daily_reminder');
+        expect(decide('12:00:00')).toBeNull();
+    });
+    test('morning cannot block evening, and either cannot block an optional extra', () => {
+        const am=decide('09:00:00');
+        const pm=decide('19:00:00',{deliveredEventKeys:[am.eventKey]});
+        const custom=decide('21:31:00',{customEnabled:true,reminderTime:'21:31',deliveredEventKeys:[am.eventKey,pm.eventKey]});
+        expect(custom?.kind).toBe('daily_reminder');
+        expect(new Set([am.eventKey,pm.eventKey,custom.eventKey]).size).toBe(3);
+        expect(new Set([am.tag,pm.tag,custom.tag]).size).toBe(3);
+    });
+    test('an extra is off unless enabled, and matching a default never doubles it', () => {
+        expect(decide('21:31:00',{reminderTime:'21:31'})).toBeNull();
+        const am=decide('09:00:00',{customEnabled:true,reminderTime:'09:00'});
+        expect(decide('09:00:00',{customEnabled:true,reminderTime:'09:00',deliveredEventKeys:[am.eventKey]})).toBeNull();
+    });
+    test('changing an extra time permits a new chosen-time event', () => {
+        const first=decide('20:00:00',{customEnabled:true,reminderTime:'20:00'});
+        expect(decide('21:31:00',{customEnabled:true,reminderTime:'21:31',deliveredEventKeys:[first.eventKey]})).not.toBeNull();
+    });
+    test('a completed local-day session suppresses PM and custom across the UTC day boundary', () => {
+        const log=[{date:'2026-10-12T23:50:00Z'}]; // 4:50 PM PDT
+        expect(decide('19:00:00',{sessionLog:log})).toBeNull();
+        expect(decide('21:31:00',{sessionLog:log,customEnabled:true,reminderTime:'21:31'})).toBeNull();
+        expect(trainedOnLocalDay(log,'2026-10-12','America/Los_Angeles')).toBe(true);
+    });
+    test('yesterday evening does not suppress the next morning even on the same UTC date', () => {
+        const input={now:new Date('2026-10-13T16:00:00Z'),timezone:'America/Los_Angeles',customEnabled:false,
+            sessionLog:[{date:'2026-10-13T06:50:00Z'}]};
+        expect(decideNotification(input)?.kind).toBe('daily_reminder');
+    });
+    test('praise waits twenty minutes and is sent once per actual completion', () => {
+        const sessionLog=[{date:'2026-10-13T01:00:00Z'}]; // 6 PM PDT
+        expect(decide('18:19:59',{sessionLog})).toBeNull();
+        const praise=decide('18:20:00',{sessionLog});
+        expect(praise?.kind).toBe('completion_praise');
+        expect(praise?.body).toBe('Good job for showing up today.');
+        expect(decide('18:21:00',{sessionLog,deliveredEventKeys:[praise.eventKey]})).toBeNull();
+    });
+    test('praise remains due after a small scheduler delay, without praising old or future sessions', () => {
+        expect(decide('18:25:00',{sessionLog:[{date:'2026-10-13T01:00:00Z'}]})?.kind).toBe('completion_praise');
+        for(const date of ['2026-10-13T00:00:00Z','2026-10-13T02:00:00Z','2026-10-12','invalid'])
+            expect(decide('18:25:00',{sessionLog:[{date}]})).toBeNull();
+    });
+    test('completing the scheduled work still receives praise on a rest or Pass day', () => {
+        expect(decide('18:20:00',{sessionLog:[{date:'2026-10-13T01:00:00Z'}],schedule:Array(7).fill('rest'),passProtectedDates:['2026-10-13']})?.kind).toBe('completion_praise');
+    });
+    test('a completion follow-up can cross midnight without falsely saying today', () => {
+        const r=decideNotification({now:new Date('2026-10-13T07:10:00Z'),timezone:'America/Los_Angeles',
+            sessionLog:[{date:'2026-10-13T06:50:00Z'}]});
+        expect(r?.kind).toBe('completion_praise');
+        expect(r?.body).toBe('Good job for showing up.');
+    });
+    test('each completion is distinct and equivalent timestamp spellings deduplicate', () => {
+        const sessionLog=[{date:'2026-10-13T01:00:00Z'},{date:'2026-10-12T18:05:00-07:00'}];
+        const first=decide('18:25:00',{sessionLog});
+        const second=decide('18:25:00',{sessionLog,deliveredEventKeys:[first.eventKey]});
+        expect(second?.eventKey).not.toBe(first.eventKey);
+        expect(decide('18:25:00',{sessionLog,deliveredEventKeys:[first.eventKey,second.eventKey]})).toBeNull();
     });
 });
