@@ -1873,8 +1873,8 @@
         <div class="instruction-card mx-2 bg-gradient-to-b from-slate-800/40 to-slate-900/60">
             <p id="ex-live-text" class="text-sm font-semibold text-blue-100 italic mb-4">Ready...</p>
             <div class="grid grid-cols-2 gap-4 w-full border-t border-slate-700/50 pt-4 text-left">
-                <div><p class="text-[9px] font-black text-emerald-400 uppercase mb-1">Optimal Feel</p><p id="feel-msg" class="text-[11px] text-slate-300 italic leading-relaxed">--</p></div>
-                <div class="border-l border-slate-700/50 pl-4"><p class="text-[9px] font-black text-red-400 uppercase mb-1">Danger Sign</p><p id="dont-feel-msg" class="text-[11px] text-slate-300 italic leading-relaxed">--</p></div>
+                <div><p class="text-[9px] font-black text-emerald-400 uppercase mb-1">What you should feel</p><p id="feel-msg" class="text-[11px] text-slate-300 italic leading-relaxed">--</p></div>
+                <div class="border-l border-slate-700/50 pl-4"><p class="text-[9px] font-black text-red-400 uppercase mb-1">When to stop</p><p id="dont-feel-msg" class="text-[11px] text-slate-300 italic leading-relaxed">--</p></div>
             </div>
         </div>
         <div id="howto-panel" class="howto-panel mx-2">
@@ -3244,19 +3244,25 @@ const COACH_TIPS = [
 // after the main work, never once per girth round or at a higher difficulty.
 // Breathing cues follow NHS pelvic-floor relaxation guidance:
 // https://www.plymouthhospitals.nhs.uk/display-pil/pil-pelvic-floor-relaxation-5338/
+// The familiar release comparison is a sensation cue, never an instruction to strain.
+// https://pelvichealthsolutions.ca/knowledge-base/reverse-kegels-pelvic-floor-drops
+// https://www.torbayandsouthdevon.nhs.uk/uploads/25372.pdf
 const DAILY_PELVIC_RESET={
     title:'Diaphragmatic breathing', sets:1, duration:120, isRecovery:true,
     eq:'No EQ needed',
     detail:'Sit or lie comfortably. Breathe gently into your lower ribs and belly. Let the pelvic floor soften with each inhale. Exhale without squeezing. No pushing, straining or breath-holding. Stop if this causes pain.',
     feel:'Gentle breathing and gradual relaxation. Nothing needs to be forced.',
     dontFeel:'Pain, pressure, pushing down or a forced contraction.',
-    howto:['Sit supported or lie on your back with knees bent.',
-        'Breathe in gently through your nose. Let your belly and lower ribs widen.',
-        'Imagine the pelvic floor softening. Breathe out comfortably without squeezing.',
-        'Continue at your own pace. Stop if you feel pain; persistent pelvic symptoms deserve a clinician’s assessment.'],
+    howto:[
+        'Lie on your back with knees bent and feet on the floor, or sit with your back supported. Let your jaw, shoulders and buttocks relax.',
+        'Put one hand on your lower belly and one on your chest. Breathe in gently through your nose; let the lower hand rise and your lower ribs widen. Do not force a big breath.',
+        'As you breathe in, soften the muscles underneath your pelvis. Think of letting go to start peeing, or allowing gas to pass easily. Do not push anything out or brace your stomach.',
+        'Breathe out comfortably. Let your ribs, belly and pelvic floor return naturally without adding a kegel squeeze. Repeat at your own comfortable pace; no breath holding.',
+        'The movement may be subtle. Stop if you feel pain, pelvic pressure or dizziness; return to normal breathing. Persistent pelvic symptoms deserve a clinician assessment.',
+    ],
     cues:[{time:120,text:'Get comfortable. Unclench your jaw and let your shoulders soften.'},
         {time:90,text:'Breathe gently into your belly and lower ribs. No breath-holding.'},
-        {time:60,text:'Let the pelvic floor soften. No pushing down and no squeezing.'},
+        {time:60,text:'Let go as if allowing pee or gas to pass easily. Do not push anything out.'},
         {time:30,text:'Exhale comfortably. Let the next breath arrive without forcing it.'},
         {time:5,text:'One more easy breath. Carry that relaxed feeling with you.'}],
 };
@@ -3329,9 +3335,16 @@ const ROUTINES={
     ],
     recovery:[
         {
-            title:'Kegel Contractions', detail:'When strengthening has been recommended for you, gently lift for up to 3 seconds, then fully release for at least 3 seconds. Release sooner if control fades. Keep breathing; do not squeeze your glutes or thighs.', sets:1, duration:60, pelvicRhythm:{hold:3,release:3}, isRecovery:true,
-            eq:'Soft — 0-3 EQ', feel:'Controlled voluntary contraction and full release. Symmetrical engagement.',
-            dontFeel:'Straining, breath-holding, or hip/glute compensation.',
+            title:'Kegel Contractions', detail:'Only use this strengthening exercise when it has been recommended for you. Gently lift, then let go completely. Keep breathing.', sets:1, duration:60, pelvicRhythm:{hold:3,release:3}, isRecovery:true,
+            howto:[
+                'Sit supported or lie on your back with knees bent and feet resting on the floor. Keep your jaw, buttocks and thighs relaxed.',
+                'Imagine holding in gas and stopping pee at the same time. Gently close and lift those muscles inside your pelvis. This is an image to locate the muscles; do not practise while peeing.',
+                'Follow the lift cue for up to 3 seconds. Keep breathing normally; your hips and legs should stay still.',
+                'At the release cue, let go completely for at least 3 seconds. Feel the muscles return to rest before the next lift.',
+                'Use less effort or release early if the lift fades. Stop if you feel pain, pressure or increasing tightness.',
+            ],
+            eq:'Soft — 0-3 EQ', feel:'A small lift inside the pelvis followed by a clear letting-go feeling. Your buttocks and thighs stay relaxed.',
+            dontFeel:'Pain, pressure, growing tightness, holding your breath or squeezing your buttocks and thighs. Stop if these occur.',
             cues:[
                 {time:60, text:'Fully relax the pelvic floor. Breathe slow and deep.'},
                 {time:55, text:'Contract upward — squeeze as if stopping urine. Hold 3 seconds.'},
@@ -3350,83 +3363,133 @@ const ROUTINES={
                specifically to men whose screener flagged a floor that holds
                tension. The cue is now a sensation a man already knows,
                and every line of it is release rather than push. */
-            title:'Reverse Kegel Stretch', detail:'Let the muscles between your penis and anus open and drop. Think of the feeling of gently letting gas out, or the moment you relax to start urinating. That is the feeling you are after. You are not pushing. That is only a comparison, by the way: do not practise this while you are actually urinating.', sets:3, duration:45, isRecovery:true,
-            eq:'Soft, 0-2 EQ', feel:'A quiet opening and dropping between your legs, like letting go. Belly soft, breath easy.',
-            dontFeel:'Straining or pushing hard. Abs bracing. Holding your breath. Forcing anything downward. If you are working at it, you are doing the opposite of this exercise.',
+            title:'Reverse Kegel Stretch', detail:'Learn the letting-go feeling you use to allow pee or gas to pass. Let your breath help the muscles soften; do not push anything out.', sets:3, duration:45, isRecovery:true,
+            howto:[
+                'Sit with your back supported, or lie on your back with knees bent and feet on the floor. Let your jaw, belly and buttocks relax.',
+                'Find the pelvic floor: the muscles underneath your pelvis, around the openings where pee and gas leave your body.',
+                'Breathe in gently through your nose. Let your lower ribs widen and your belly rise without bracing your stomach.',
+                'Think of the moment you let go to start peeing, or allow gas to pass easily. Use that letting-go feeling to soften the pelvic floor. Do not push, squeeze your abs or try to force pee or gas out.',
+                'Breathe out comfortably and let the muscles return naturally. Do not add a kegel squeeze. Repeat with easy breaths at your own pace.',
+                'The feeling may be very small. Do not chase a big drop or stretch. Use the comparison away from the toilet; stop if you feel pain, pressure or worsening symptoms.',
+            ],
+            eq:'Soft, 0-2 EQ', feel:'A subtle softening or letting-go feeling underneath your pelvis. Your belly stays soft and you can breathe easily.',
+            dontFeel:'Pushing or straining, a hard belly, breath-holding, pain or pressure. Stop rather than trying harder.',
             cues:[
-                {time:45, text:'Belly relaxed. Slow breath into your lower belly.'},
-                {time:30, text:'As you breathe in, let the muscles between your penis and anus open and drop.'},
-                {time:15, text:'Like letting gas out, or relaxing to start urinating. Do not force it.'},
-                {time:5,  text:'Breathe out normally. Let everything stay relaxed.'}
+                {time:45, text:'Belly and jaw soft. Breathe in gently; let your lower ribs widen.'},
+                {time:30, text:'Think of letting pee start or allowing gas to pass easily. Let go; do not push anything out.'},
+                {time:15, text:'The feeling can be small. Keep your belly soft and your breath easy.'},
+                {time:5, text:'Breathe out comfortably. Let the muscles return naturally, without adding a squeeze.'}
             ]
         },
         {
-            title:'Pelvic Floor Release', detail:'Imagine the pelvic floor as a tight fist slowly opening. Use your breath and gravity — no active pushing. Jaw loose, shoulders dropped, floor follows.', sets:3, duration:45, isRecovery:true,
-            eq:'Soft — 0 EQ', feel:'Progressive tension melting from the pelvic floor. Deep tissue warmth and heaviness.',
-            dontFeel:'Straining, breath-holding, or any active pushing downward.',
+            title:'Pelvic Floor Release', detail:'Let tension ease underneath your pelvis using comfortable breathing. This is a gentle relaxation exercise.', sets:3, duration:45, isRecovery:true,
+            howto:[
+                'Sit supported or lie on your back with knees bent. Use a pillow under your head if it helps you settle.',
+                'Relax your jaw, shoulders, belly and buttocks. Notice any tightness around the openings where pee and gas leave your body.',
+                'Breathe in gently into your lower ribs and belly. Imagine a clenched fist slowly opening underneath your pelvis.',
+                'Breathe out comfortably and let the muscles return naturally. Keep breathing; do not squeeze or push downward.',
+                'You do not need to feel warmth, heaviness or a large movement. A small easing of tension is enough. Stop if this causes pain, pressure or worsening symptoms.',
+            ],
+            eq:'Soft — 0 EQ', feel:'A small easing of tension while your belly and breathing remain relaxed. The movement may be subtle.',
+            dontFeel:'Pain, pressure, pushing downward, a braced belly or holding your breath. Stop if these occur.',
             cues:[
-                {time:45, text:'Sit or lie down. Close your eyes. Find your pelvic floor — do nothing with it yet.'},
-                {time:38, text:'Inhale slowly. Imagine the floor is a tight fist — begin to let it open.'},
-                {time:28, text:'Halfway through. The floor should feel wide and heavy. Let gravity do the work.'},
-                {time:15, text:'Deepen the release. Jaw loose, shoulders dropped. Floor follows.'},
-                {time:5,  text:'Take one full breath. Feel the floor completely soft before the next set.'}
+                {time:45, text:'Sit or lie supported. Unclench your jaw, belly and buttocks.'},
+                {time:38, text:'Breathe in gently. Imagine a fist slowly opening underneath your pelvis.'},
+                {time:28, text:'Keep the breath comfortable. A small easing of tension is enough.'},
+                {time:15, text:'Let go of tension. No pushing downward or squeezing.'},
+                {time:5, text:'Breathe out comfortably. Let the muscles return naturally.'}
             ]
         },
         {
-            title:'Pelvic Floor Endurance Hold', detail:'When strengthening has been recommended for you, gently lift for up to 5 seconds, then relax fully for 5 seconds. Release early if the lift fades or full relaxation becomes difficult. The minute contains six short repetitions; it is not a continuous hold.', sets:1, duration:60, isRecovery:true, pelvicRhythm:{hold:5,release:5},
-            eq:'No EQ needed', feel:'A gentle lift followed by a clear, comfortable release.',
-            dontFeel:'Pain, increasing tension, breath-holding or glute and thigh compensation.',
+            title:'Pelvic Floor Endurance Hold', detail:'Only use this strengthening exercise when it has been recommended for you. Follow the short lift and release cues; never hold for the whole minute.', sets:1, duration:60, isRecovery:true, pelvicRhythm:{hold:5,release:5},
+            howto:[
+                'Sit supported or lie on your back with knees bent and feet on the floor. Keep your jaw, buttocks and thighs relaxed.',
+                'Imagine holding in gas and stopping pee at the same time. Gently close and lift inside your pelvis. Do not practise while actually peeing.',
+                'Follow the lift cue for up to 5 seconds while breathing normally. Use a small, comfortable effort.',
+                'At the release cue, let go fully for 5 seconds before lifting again. The minute contains six short repetitions, not one long hold.',
+                'Release early if the lift fades or you cannot relax fully. Stop if you feel pain, pressure or increasing tightness.',
+            ],
+            eq:'No EQ needed', feel:'A small, steady lift followed by a clear letting-go feeling between repetitions.',
+            dontFeel:'Pain, pressure, growing tightness, holding your breath or squeezing your buttocks and thighs. Stop if these occur.',
             cues:[{time:60,text:'Only lift while comfortable. Breathe normally.'},
                 {time:30,text:'Release fully between each short hold. Stop if technique fades.'},
                 {time:5,text:'Finish with a complete release.'}]
 
         },
         {
-            title:'Deep Squat — Malasana', detail:'Feet flat, wider than hip-width. Drop your butt toward the floor and use your elbows to nudge your knees outward. This opens the hips and groin.', sets:2, duration:60, isRecovery:true,
-            eq:'No EQ needed', feel:'Pelvic outlet opening. Knees pushing wide, tailbone dropping toward the floor.',
-            dontFeel:'Heel lift — if heels come up, widen your stance until they stay flat.',
+            title:'Deep Squat — Malasana', detail:'Use a stable support and lower into a comfortable squat. Keep your heels supported and stop before discomfort.', sets:2, duration:60, isRecovery:true,
+            howto:[
+                'Stand with your feet a little wider than your hips and toes turned slightly outward. Hold a stable counter or railing for balance.',
+                'Bend your knees and lower your hips slowly, as if sitting down. Keep your knees pointing in the same direction as your toes.',
+                'Stop at a comfortable depth. Keep your heels supported; use a shallower squat if they lift. You do not need to reach the floor.',
+                'Keep holding your support. Breathe gently into your lower ribs and belly, letting the pelvic floor soften without pushing downward.',
+                'Stand up slowly using the support. Stop for knee, hip or back pain, pelvic pressure or loss of balance.',
+            ],
+            eq:'No EQ needed', feel:'A gentle stretch around your hips or inner thighs. Your position feels stable and you can breathe easily.',
+            dontFeel:'Knee, hip or back pain, pelvic pressure or loss of balance. Do not force a deeper squat.',
             cues:[
-                {time:60, text:'Feet flat, wider than hip-width. Drop your butt toward the floor.'},
-                {time:48, text:'Elbows on inner knees — gently nudge them outward. This opens the pelvic outlet.'},
-                {time:30, text:'Breathe deep into your belly. Let the floor soften with a gentle inhale, then exhale comfortably.'},
-                {time:15, text:'Use support if needed. Stay within a comfortable depth and keep breathing.'},
-                {time:5,  text:'Rise slowly. Shake out your legs before the next set.'}
+                {time:60, text:'Feet a little wider than hips. Hold a stable support and lower slowly.'},
+                {time:48, text:'Knees follow your toes. Stop at a comfortable depth; keep your heels supported.'},
+                {time:30, text:'Breathe gently into your lower ribs and belly. Let the pelvic floor soften without pushing.'},
+                {time:15, text:'Stay within a comfortable depth. Use your support and keep breathing.'},
+                {time:5, text:'Stand up slowly using your support.'}
             ]
         },
         {
-            title:'Happy Baby', detail:'Lie on your back, grab the outsides of both feet, pull knees toward armpits. Rock gently side to side. This is a quick way to take tension out of a tight pelvic floor.', sets:2, duration:45, isRecovery:true,
-            eq:'No EQ needed', feel:'Pelvic floor manually releasing. Inner groin and sacrum softening toward the floor.',
-            dontFeel:'Neck strain — keep your head on the ground and your shoulders relaxed.',
+            title:'Happy Baby', detail:'Lie on your back, bring your knees toward your chest and gently let them widen. Support your legs without pulling hard.', sets:2, duration:45, isRecovery:true,
+            howto:[
+                'Lie on your back on a comfortable surface. Rest your head on the floor or a small pillow.',
+                'Bend your knees toward your chest and let them move apart. Point the soles of your feet toward the ceiling.',
+                'Hold your feet if you can reach them comfortably. Otherwise hold behind your thighs; do not strain your neck to reach.',
+                'Let your knees move gently toward your armpits. Keep your head and back supported, and breathe normally. Rock a little only if it feels comfortable.',
+                'Release your legs slowly when the set ends. Stop for pain in your knees, hips, back or neck, or pressure in the pelvis.',
+            ],
+            eq:'No EQ needed', feel:'A gentle stretch in your hips or inner thighs while your head and back stay supported.',
+            dontFeel:'Pain in your knees, hips, back or neck, pelvic pressure, or pulling hard to make the stretch deeper.',
             cues:[
-                {time:45, text:'Lie on your back. Grab the outsides of both feet.'},
-                {time:35, text:'Pull your knees toward your armpits. Feet point up toward the ceiling.'},
-                {time:22, text:'Rock gently side to side. Stay within a comfortable range. Let your breathing remain easy.'},
-                {time:10, text:'Hold still. Breathe into the stretch. Feel the sacrum drop.'},
-                {time:3,  text:'Release. Let your legs rest flat before the next set.'}
+                {time:45, text:'Lie on your back. Keep your head supported and bring your knees toward your chest.'},
+                {time:35, text:'Let the knees widen. Hold your feet, or behind your thighs if reaching is difficult.'},
+                {time:22, text:'Keep the stretch gentle. A small rock is optional; breathe easily.'},
+                {time:10, text:'Keep your head and back supported. Do not pull harder.'},
+                {time:3, text:'Release your legs slowly and rest.'}
             ]
         },
         {
-            title:'Pigeon Pose', detail:'Fold one leg in front at 90 degrees, stretch the other back. Sink your hips toward the floor. Targets the glutes and deep hip rotators that pull on your pelvis from sitting too much.', sets:2, duration:60, isRecovery:true,
-            eq:'No EQ needed', feel:'Deep glute and hip rotator stretch. The tissue that pulls on your pelvis when you sit too much.',
-            dontFeel:'Sharp knee pain — if you feel it in the knee instead of the hip, adjust the angle.',
+            title:'Pigeon Pose', detail:'Use a comfortable front-knee angle and support your hips. Stretch gently through the hip; never force the knee.', sets:2, duration:60, isRecovery:true,
+            howto:[
+                'Start on hands and knees on a comfortable surface. Bring your right knee forward toward your right hand.',
+                'Let the right shin rest in front of you and slide your left leg back. Keep the right foot close enough to your body that your knee stays comfortable; do not force the shin sideways.',
+                'Support your body with your hands. Place a cushion under the right hip if needed so you are not hanging or twisting into the stretch.',
+                'Stay upright or lean forward a little from your hips if comfortable. Breathe normally; a gentle stretch should be in the hip or buttock, not the knee.',
+                'Come out slowly. Use the left leg in front for the next set. Stop for knee, hip or back pain, numbness or pelvic pressure; do not train through it.',
+            ],
+            eq:'No EQ needed', feel:'A gentle stretch in the hip or buttock of your front leg. Your knee remains comfortable.',
+            dontFeel:'Knee, hip or back pain, numbness, or pelvic pressure. Stop instead of forcing a different angle.',
             cues:[
-                {time:60, text:'Fold one leg in front at roughly a 90-degree angle. Stretch the other leg back.'},
-                {time:45, text:'Lower your torso forward over your front leg. Let your hips sink toward the floor.'},
-                {time:30, text:'This targets the glutes and deep hip rotators. Breathe into the resistance.'},
-                {time:15, text:'Tight glutes pull on the pelvis and kill your hang. Stay here and let them open.'},
-                {time:5,  text:'Switch sides for the next set.'}
+                {time:60, text:'Bring one knee forward and slide the other leg back. Keep the front knee comfortable.'},
+                {time:45, text:'Use your hands and a cushion to support your hips. Do not force the shin sideways.'},
+                {time:30, text:'A gentle stretch belongs in the hip or buttock, not the knee. Breathe normally.'},
+                {time:15, text:'Stay comfortable. Do not force the stretch deeper.'},
+                {time:5, text:'Come out slowly. Switch the front leg for the next set.'}
             ]
         },
         {
-            title:'Butterfly Stretch', detail:'Soles of feet together, knees falling out. Hinge forward at the hips — not the lower back. Tight adductors (inner thighs) are common from sitting. Let these open fully.', sets:2, duration:45, isRecovery:true,
-            eq:'No EQ needed', feel:'Inner thigh and adductor release. A pulling sensation along the inner groin — not sharp.',
-            dontFeel:'Bouncing your knees — that activates the stretch reflex and tightens what you are trying to open.',
+            title:'Butterfly Stretch', detail:'Sit supported with the soles of your feet together. Let your knees settle naturally; do not press them down.', sets:2, duration:45, isRecovery:true,
+            howto:[
+                'Sit on the floor or a folded towel with your back upright. Lean against a wall if that is more comfortable.',
+                'Bend your knees, bring the soles of your feet together and let your knees fall gently to the sides. Keep your feet at a comfortable distance from your body.',
+                'Hold your feet or ankles lightly. Place cushions under your knees if needed. Do not press or bounce your knees downward.',
+                'Stay upright, or lean forward a little from the hips while keeping your back long. Stop when you feel a gentle inner-thigh stretch and keep breathing.',
+                'Sit back upright and release your legs slowly. Stop for knee, hip or back pain, tingling or pelvic pressure.',
+            ],
+            eq:'No EQ needed', feel:'A gentle pulling sensation along your inner thighs. Your knees remain comfortable and your breathing stays easy.',
+            dontFeel:'Knee, hip or back pain, tingling or pelvic pressure. Avoid bouncing or pushing your knees down.',
             cues:[
-                {time:45, text:'Sit up straight. Soles of your feet together, knees falling out to the sides.'},
-                {time:32, text:'Hold your feet and gently hinge forward at the hips — not the lower back.'},
-                {time:20, text:'Tight adductors mean your pelvic floor stays retracted. Let these release fully.'},
-                {time:8,  text:'Breathe out and sink a little deeper. Feel the inner thighs soften.'},
-                {time:3,  text:'Sit back up slowly. Reset before the next set.'}
+                {time:45, text:'Sit upright. Soles of feet together; let your knees settle to the sides.'},
+                {time:32, text:'Hold your feet lightly. Use cushions under your knees if helpful.'},
+                {time:20, text:'Keep breathing. Stay upright or lean a little from the hips only if comfortable.'},
+                {time:8, text:'Keep the stretch gentle. Do not press or bounce your knees down.'},
+                {time:3, text:'Sit upright and release your legs slowly.'}
             ]
         }
     ],
@@ -5710,7 +5773,7 @@ function updateExUI(){
 
     // Detail card (recovery)
     const detailCard=document.getElementById('ex-detail-card');
-    if(ex.isRecovery&&ex.detail){detailCard.innerHTML=ex.detail;detailCard.classList.add('show')}
+    if(ex.isRecovery&&ex.detail&&!ex.howto?.length){detailCard.innerHTML=ex.detail;detailCard.classList.add('show')}
     else{detailCard.classList.remove('show');detailCard.innerHTML=''}
 
     // How-to panel
@@ -5740,7 +5803,8 @@ function updateExUI(){
     setFocusedMode(false);
     updateActiveCue((ex.isDirectional?`Direction: ${DIRECTIONALS[session.directionalIndex]}. `:'')+window.BP.guideSetup(ex));
     const technique=document.getElementById('guide-technique');
-    technique.open=!ex.isRecovery&&(persisted.allTimeSessionCount||0)<FULL_SAFETY_SESSIONS;
+    // Beginners need the same visible setup for recovery as for primary work.
+    technique.open=(persisted.allTimeSessionCount||0)<FULL_SAFETY_SESSIONS;
     document.getElementById('ex-info-btn').setAttribute('aria-expanded',String(technique.open));
     document.getElementById('guide-breath-visual').classList.toggle('hidden',ex.title!=='Diaphragmatic breathing');
     document.querySelector('#step-4 .guided-target').classList.toggle('hidden',!!ex.isRecovery);

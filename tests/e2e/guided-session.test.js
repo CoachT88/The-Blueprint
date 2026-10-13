@@ -20,6 +20,7 @@ describe('the guided session uses real execution and completion',()=>{
   localStorage.removeItem('bp_guide_audio_'+currentUser.id);
   localStorage.removeItem('bp_session_draft_'+currentUser.id);localStorage.removeItem(getTodaySorenessKey());
   persisted.programme=window.__legacyProgramme();persisted.dayPlans=[];persisted.primaryGoal='all';persisted.pelvicProfile='';persisted.sessionLog=[];
+  persisted.allTimeSessionCount=0;
   persisted.schedule=Array(7).fill('rest');persisted.completedDays=Array(7).fill(false);
   persisted.seenMilestones=MILESTONES.map(x=>x.id);localStorage.setItem('bp_push_prompted_'+currentUser.id,'1');
   document.getElementById('milestone-modal').classList.remove('show');document.getElementById('session-summary-modal').classList.remove('show');
@@ -27,11 +28,46 @@ describe('the guided session uses real execution and completion',()=>{
  });});
  test('the prescribed practice opens with a setup cue, visible controls, and audio off',async()=>{
   expect(await app.page.locator('#ex-cue-text').textContent()).toMatch(/comfortable position/i);
-  expect(await app.page.locator('#guide-technique').getAttribute('open')).toBeNull();
+  expect(await app.page.locator('#guide-technique').getAttribute('open')).not.toBeNull();
   expect(await app.page.locator('#guide-audio-btn').getAttribute('aria-pressed')).toBe('false');
   await app.page.locator('#ex-btn').click();
+  expect(await app.page.locator('#guide-technique').getAttribute('open')).toBeNull();
   const r=await app.page.evaluate(()=>({running:session.timer.isRunning(),duration:getCurEx().duration,sets:getCurEx().sets,spoken:window.__spoken.length}));
   expect(r).toEqual({running:true,duration:120,sets:1,spoken:0});
+ });
+ test('every exercise renders numbered beginner instructions, feel and stop cues',async()=>{
+  const rows=await app.page.evaluate(()=>{
+   session.dailyPelvicPhase=false;session.dailyPracticeOnly=false;
+   return Object.entries(ROUTINES).flatMap(([type,exercises])=>exercises.map((ex,index)=>{
+    session.routineType=type;session.exerciseIndex=index;session.setIndex=1;session.directionalIndex=0;
+    updateExUI();
+    const steps=[...document.querySelectorAll('#howto-steps .howto-step p')].map(x=>x.textContent);
+    return {title:ex.title,steps,open:document.getElementById('guide-technique').open,
+     howtoVisible:document.getElementById('howto-panel').classList.contains('show'),
+     duplicateDetail:document.getElementById('ex-detail-card').classList.contains('show'),
+     feel:document.getElementById('feel-msg').textContent,stop:document.getElementById('dont-feel-msg').textContent};
+   }));
+  });
+  expect(rows).toHaveLength(15);
+  for(const row of rows){
+   expect(row.open,row.title).toBe(true);expect(row.howtoVisible,row.title).toBe(true);
+   expect(row.steps.length,row.title).toBeGreaterThanOrEqual(4);
+   expect(row.feel.length,row.title).toBeGreaterThan(12);expect(row.stop.length,row.title).toBeGreaterThan(12);
+   expect(row.duplicateDetail,row.title).toBe(false);
+  }
+  const reverse=rows.find(x=>x.title==='Reverse Kegel Stretch');
+  expect(reverse.steps.join(' ')).toMatch(/let go to start peeing/);
+  expect(reverse.steps.join(' ')).toMatch(/Do not push/);
+  const breath=rows.find(x=>x.title==='Diaphragmatic breathing');
+  expect(breath.steps.join(' ')).toMatch(/allowing gas to pass easily/);
+ });
+ test('an experienced member can open the full guide before starting',async()=>{
+  await app.page.evaluate(()=>{persisted.allTimeSessionCount=FULL_SAFETY_SESSIONS;updateExUI();});
+  expect(await app.page.locator('#guide-technique').getAttribute('open')).toBeNull();
+  await app.page.locator('#ex-info-btn').click();
+  await expect.poll(()=>app.page.locator('#howto-panel').isVisible()).toBe(true);
+  expect(await app.page.locator('#howto-steps .howto-step').count()).toBe(5);
+  expect(await app.page.evaluate(()=>session.timer?.isRunning()||false)).toBe(false);
  });
  test('audio requires a tap, does not repeat on every tick, and cancels when paused or left',async()=>{
   await app.page.locator('#guide-audio-btn').click();await app.page.locator('#ex-btn').click();

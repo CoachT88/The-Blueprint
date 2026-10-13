@@ -30,8 +30,8 @@ export function createGuideSpeech({synth,Utterance,isAllowed=()=>true,onUnavaila
  */
 export function guideSetup(ex={}) {
     const cues={
-        'Diaphragmatic breathing':'Settle into a comfortable position. Let your lower ribs and belly move gently as you breathe.',
-        'Reverse Kegel Stretch':'Soften your jaw and belly. Allow the pelvic floor to relax without pushing down.',
+        'Diaphragmatic breathing':'Settle into a comfortable position. Breathe gently into your lower ribs and belly. Let go as if allowing pee or gas to pass easily; do not push anything out.',
+        'Reverse Kegel Stretch':'Sit or lie supported, with your belly soft. Breathe in gently and let go as if allowing pee or gas to pass easily. Do not push anything out.',
         'Pelvic Floor Release':'Let your body settle. Breathe comfortably and let the pelvic floor soften.',
         'Happy Baby':'Lie on your back and bring your knees toward your chest. Keep the position comfortable.',
         'Deep Squat — Malasana':'Find a comfortable squat, using support if needed. Keep breathing and avoid forcing depth.',
