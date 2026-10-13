@@ -74,7 +74,7 @@ describe('intro to tour chain', () => {
     }, 60_000);
     afterAll(async () => { await app?.close(); });
 
-    test('finishing the intro flows into the tour', async () => {
+    test('finishing the intro returns to Today without forcing a tour', async () => {
         await app.page.evaluate(() => showOnboarding());
         await app.page.waitForTimeout(400);
         expect(await app.page.evaluate(
@@ -88,9 +88,10 @@ describe('intro to tour chain', () => {
         }
 
         expect(await app.page.evaluate(() => localStorage.getItem('bp_onboarded_newbie'))).toBe('1');
-        await app.page.waitForTimeout(1_200); // finishOnboarding defers the tour by 450ms
+        await app.page.waitForTimeout(600); // no delayed tour should interrupt the next action
         expect(await app.page.evaluate(
-            () => document.getElementById('tour-layer').classList.contains('show'))).toBe(true);
+            () => document.getElementById('tour-layer').classList.contains('show'))).toBe(false);
+        expect(await app.page.evaluate(() => session.step)).toBe(0);
     }, 40_000);
 
     test('skipping the intro does not force the tour', async () => {

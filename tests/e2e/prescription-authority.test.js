@@ -842,8 +842,8 @@ describe('the Weekly Report reads the canonical week', () => {
         expect(tile).not.toContain('/ 7');
     });
 
-    test('the Sessions tile is a count, not a fraction of seven', () => {
-        const tile = r.tiles.find(t => t.startsWith('Sessions'));
+    test('the Logged activities tile is a count, not a fraction of seven', () => {
+        const tile = r.tiles.find(t => t.startsWith('Logged activities'));
         expect(tile).toBeTruthy();
         expect(tile).not.toContain('/7');
         expect(tile).not.toContain('/ 7');
