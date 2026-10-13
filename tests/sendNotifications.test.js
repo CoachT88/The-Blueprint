@@ -601,7 +601,7 @@ describe('the sender does not route detail around the sanitiser', () => {
 describe('sender against the real user_data identity schema', () => {
     afterEach(() => vi.useRealTimers());
     function sender({ training, missing = [], readFailure = false, historyFailure = false, claimFailure = false, recordFailure = false, pushFailure = false, customEnabled = true }) {
-        const pushes = [], reads = [], deliveries = new Map();
+        const pushes = [], pushOptions = [], reads = [], deliveries = new Map();
         const subscription = { user_id:'member-a', endpoint:'test-endpoint', p256dh:'test', auth:'test',
             timezone:'America/Los_Angeles', reminder_time:'19:00', custom_enabled:customEnabled, last_notified_date:null };
         const client = { async rpc(name, args) {
@@ -637,7 +637,7 @@ describe('sender against the real user_data identity schema', () => {
         }};
         const deno = {env:{get:name=>name==='CRON_SECRET'?'test-cron-secret':undefined},
             serve(handler) { this.handler=handler; }};
-        const webpush = {setVapidDetails() {}, async sendNotification(_sub,payload) { pushes.push(JSON.parse(payload)); if(pushFailure) throw {statusCode:503}; }};
+        const webpush = {setVapidDetails() {}, async sendNotification(_sub,payload,options) { pushes.push(JSON.parse(payload)); pushOptions.push(options); if(pushFailure) throw {statusCode:503}; }};
         const code=transformSync(src.replace(/^import .*;\n/gm,''),{loader:'ts',format:'cjs'}).code;
         new Function('Deno','createClient','webpush','decideNotification','localDateFor',
             'authoriseCron','resolveServiceKey','safeErrorBody','dbErrorDetail','pushErrorDetail','console',code)(
@@ -645,7 +645,7 @@ describe('sender against the real user_data identity schema', () => {
             ()=>({key:'test-backend-key',source:'test',notes:[]}),safeErrorBody,dbErrorDetail,pushErrorDetail,
             {log() {},warn() {},error() {}});
         return { run:()=>deno.handler(new Request('https://example.test/send-notifications',
-            {method:'POST',headers:{'x-cron-secret':'test-cron-secret'}})),pushes,reads,deliveries,subscription };
+            {method:'POST',headers:{'x-cron-secret':'test-cron-secret'}})),pushes,pushOptions,reads,deliveries,subscription };
     }
     const row = overrides => ({id:'member-a',schedule:Array(7).fill('length'),
         session_log:[],pass_protected_dates:[],programme:null,...overrides});
@@ -690,6 +690,13 @@ describe('sender against the real user_data identity schema', () => {
         expect(await (await app.run()).json()).toMatchObject({sent:1});
         expect(app.pushes).toHaveLength(3);
         expect(new Set(app.pushes.map(p=>p.tag)).size).toBe(3);
+    });
+    test('offline delivery expires promptly instead of building a days-old reminder backlog', async () => {
+        clock();
+        const app=sender({training:[row({})]});
+        await app.run();
+        expect(app.pushOptions[0].TTL).toBeGreaterThan(0);
+        expect(app.pushOptions[0].TTL).toBeLessThanOrEqual(15 * 60);
     });
     test('overlapping production handlers reserve and send an event once', async () => {
         clock();

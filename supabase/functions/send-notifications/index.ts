@@ -294,7 +294,9 @@ Deno.serve(async (req) => {
                             body: decision.body,
                             tag: decision.tag,
                             url: decision.url,
-                        })
+                        }),
+                        // These are timely check-ins, not a backlog for an offline device.
+                        {TTL:15 * 60}
                     );
                     sent++;
 
