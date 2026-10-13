@@ -7,7 +7,7 @@
 -- safe on its own: it creates tables and nothing else. This file is the one
 -- that starts sending, so it comes last and only after a green smoke test:
 --
---     curl -s -X POST https://<PROJECT-REF>.supabase.co/functions/v1/send-notifications \
+--     curl -s -X POST https://edqmujiczuvavlemfpaz.supabase.co/functions/v1/send-notifications \
 --       -H "Authorization: Bearer <SUPABASE_ANON_KEY>" \
 --       -H "x-cron-secret: <CRON_SECRET>"
 --
@@ -73,7 +73,8 @@ select name, created_at from vault.secrets where name in ('bp_cron_secret', 'bp_
 -- hour, and the function skips everyone whose hour it is not, so this single
 -- schedule covers every timezone including the half-hour ones.
 --
--- Replace <PROJECT-REF> with the project ref from the Supabase dashboard URL.
+-- This URL matches the project used by app/index.html.
+-- Retire the old job that invoked the sender without either authentication header.
 -- The secrets are read from Vault at call time, so nothing sensitive is stored
 -- in cron.job.command, which is plain text and readable by anyone who can read
 -- the table.
@@ -81,6 +82,9 @@ select name, created_at from vault.secrets where name in ('bp_cron_secret', 'bp_
 -- vault.decrypted_secrets is restricted to privileged roles. A pg_cron job runs
 -- as the role that scheduled it, so postgres can read these while anon and
 -- authenticated cannot.
+
+select cron.alter_job(job_id := jobid, active := false)
+    from cron.job where jobname = 'send-notifications-hourly';
 
 select cron.unschedule('send-training-reminders')
     where exists (select 1 from cron.job where jobname = 'send-training-reminders');
@@ -90,7 +94,7 @@ select cron.schedule(
     '0 * * * *',
     $$
     select net.http_post(
-        url     := 'https://<PROJECT-REF>.supabase.co/functions/v1/send-notifications',
+        url     := 'https://edqmujiczuvavlemfpaz.supabase.co/functions/v1/send-notifications',
         headers := jsonb_build_object(
             'Content-Type',  'application/json',
             'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'bp_anon_key'),
@@ -114,7 +118,7 @@ select cron.schedule(
 --     '0 * * * *',
 --     $$
 --     select net.http_post(
---         url     := 'https://<PROJECT-REF>.supabase.co/functions/v1/send-notifications',
+--         url     := 'https://edqmujiczuvavlemfpaz.supabase.co/functions/v1/send-notifications',
 --         headers := jsonb_build_object(
 --             'Content-Type',  'application/json',
 --             'Authorization', 'Bearer <SUPABASE_ANON_KEY>',

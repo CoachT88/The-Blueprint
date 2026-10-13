@@ -2,6 +2,8 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { transformSync } from 'esbuild';
+import { decideNotification, localDateFor } from '../supabase/functions/_shared/notifyRules.js';
 import { authoriseCron, secretsMatch, CRON_SECRET_HEADER } from '../supabase/functions/_shared/cronAuth.js';
 import { resolveServiceKey, DEFAULT_KEY_NAME } from '../supabase/functions/_shared/serviceKey.js';
 import { safeErrorBody, dbErrorDetail, pushErrorDetail } from '../supabase/functions/_shared/errorResponse.js';
@@ -192,7 +194,10 @@ describe('the setup SQL', () => {
     });
 
     test('ships no real secret, only placeholders', () => {
-        expect(sql).toMatch(/<PROJECT-REF>/);
+        const client=readFileSync(path.join(ROOT,'app/index.html'),'utf8');
+        const projectUrl=client.match(/https:\/\/[a-z0-9]+\.supabase\.co/)[0];
+        expect(live).toContain(projectUrl+'/functions/v1/send-notifications');
+        expect(live).not.toContain('<PROJECT-REF>');
         expect(sql).toMatch(/<CRON_SECRET>/);
         expect(sql).toMatch(/<SUPABASE_ANON_KEY>/);
         // A pasted JWT or a long random string would mean a leaked value.
@@ -587,5 +592,78 @@ describe('the sender does not route detail around the sanitiser', () => {
 
     test('sends database detail to the log on the read path', () => {
         expect(src).toMatch(/dbErrorDetail\(error, 'public\.push_subscriptions'\)/);
+    });
+});
+
+
+// Run the production sender against a schema-accurate fake database. These
+// tests fail when user_data is queried or mapped with the subscription key.
+describe('sender against the real user_data identity schema', () => {
+    afterEach(() => vi.useRealTimers());
+    function sender({ training, missing = [], readFailure = false }) {
+        const pushes = [], reads = [];
+        const subscription = { user_id:'member-a', endpoint:'test-endpoint', p256dh:'test', auth:'test',
+            timezone:'America/Los_Angeles', reminder_time:'19:00', last_notified_date:null };
+        const client = { from(table) {
+            let columns = '';
+            return {
+                select(value) { columns=value; return this; },
+                order() { return this; },
+                async range(first) { return {data:first===0?[subscription]:[],error:null}; },
+                async in(key, ids) {
+                    reads.push({ table, columns, key, ids });
+                    const cols=columns.split(',').map(c=>c.trim());
+                    if (key!=='id' || cols.includes('user_id') || cols.some(c=>missing.includes(c)))
+                        return {data:null,error:{code:'42703',message:'column does not exist'}};
+                    if(readFailure) return {data:null,error:{code:'42501',message:'read denied'}};
+                    return {data:training.filter(row=>ids.includes(row.id))
+                        .map(row=>Object.fromEntries(cols.map(c=>[c,row[c]]))),error:null};
+                },
+                update() { return this; }, delete() { return this; },
+                async eq() { return {error:null}; },
+            };
+        }};
+        const deno = {env:{get:name=>name==='CRON_SECRET'?'test-cron-secret':undefined},
+            serve(handler) { this.handler=handler; }};
+        const webpush = {setVapidDetails() {}, async sendNotification(_sub,payload) { pushes.push(JSON.parse(payload)); }};
+        const code=transformSync(src.replace(/^import .*;\n/gm,''),{loader:'ts',format:'cjs'}).code;
+        new Function('Deno','createClient','webpush','decideNotification','localDateFor',
+            'authoriseCron','resolveServiceKey','safeErrorBody','dbErrorDetail','pushErrorDetail','console',code)(
+            deno,()=>client,webpush,decideNotification,localDateFor,authoriseCron,
+            ()=>({key:'test-backend-key',source:'test',notes:[]}),safeErrorBody,dbErrorDetail,pushErrorDetail,
+            {log() {},warn() {},error() {}});
+        return { run:()=>deno.handler(new Request('https://example.test/send-notifications',
+            {method:'POST',headers:{'x-cron-secret':'test-cron-secret'}})),pushes,reads };
+    }
+    const row = overrides => ({id:'member-a',schedule:Array(7).fill('length'),
+        session_log:[],pass_protected_dates:[],programme:null,...overrides});
+    const clock = () => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-13T02:00:00Z')); };
+    test('a completed session suppresses a push using user_data.id', async () => {
+        clock();
+        const app=sender({training:[row({session_log:[{date:'2026-10-13T01:00:00Z',routineType:'length'}]})]});
+        expect(await (await app.run()).json()).toMatchObject({checked:1,sent:0});
+        expect(app.pushes).toEqual([]);
+        expect(app.reads[0]).toMatchObject({table:'user_data',key:'id',ids:['member-a']});
+    });
+    test('a prescribed rest day suppresses a push after mapping row.id', async () => {
+        clock();
+        const schedule=Array(7).fill('length'); schedule[1]='rest';
+        const app=sender({training:[row({schedule})]});
+        expect(await (await app.run()).json()).toMatchObject({checked:1,sent:0});
+        expect(app.pushes).toEqual([]);
+    });
+    test.each([[],['programme'],['programme','schedule','pass_protected_dates']])(
+        'an eligible member is read through the supported schema tier %j', async missing => {
+            clock();
+            const app=sender({training:[row({}),row({id:'member-b',session_log:[{date:'2026-10-13T01:00:00Z'}]})],missing});
+            expect(await (await app.run()).json()).toMatchObject({checked:1,sent:1});
+            expect(app.pushes).toHaveLength(1);
+            expect(app.reads.every(r=>r.key==='id'&&!r.columns.includes('user_id'))).toBe(true);
+        });
+    test('a failed training read never becomes permission to send', async () => {
+        clock();
+        const app=sender({training:[],readFailure:true});
+        expect(await (await app.run()).json()).toMatchObject({checked:0,sent:0});
+        expect(app.pushes).toEqual([]);
     });
 });
