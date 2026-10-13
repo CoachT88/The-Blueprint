@@ -113,6 +113,7 @@ describe('jargon glosses', () => {
     test('EQ and RPE are explained where they are first asked for', async () => {
         const r = await app.page.evaluate(() => {
             goToStep(5);
+            document.getElementById('session-extra-details').open=true;
             return {
                 step5: document.getElementById('step-5').innerText,
                 targetEq: document.querySelector('#step-4 .text-right p').textContent,
