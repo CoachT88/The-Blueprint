@@ -7591,7 +7591,7 @@ function resumeSession(){
     session.dailyPelvicDone=draft.dailyPelvicDone===true;
     session.dailyPracticeOnly=draft.dailyPracticeOnly===true;session.practiceFeedback='';
     session.pelvicPracticePlan=window.BP.normalisePelvicPracticePlan(draft.pelvicPracticePlan);
-    if(!session.pelvicPracticePlan&&session.dailyPelvicPhase)session.pelvicPracticePlan=currentPelvicPracticePlan(true);
+    if(!Object.prototype.hasOwnProperty.call(draft,'pelvicPracticePlan')&&!dailyPelvicCareDone())session.pelvicPracticePlan=currentPelvicPracticePlan(session.dailyPelvicPhase);
     session.practiceCompletedIndices=Array.isArray(draft.practiceCompletedIndices)?draft.practiceCompletedIndices.filter(i=>Object.values(window.BP.PRACTICE_EXERCISES).includes(i)):[];
     session.pelvicPracticeIndex=Number.isInteger(draft.pelvicPracticeIndex)&&draft.pelvicPracticeIndex>=0&&draft.pelvicPracticeIndex<(session.pelvicPracticePlan?.steps.length||0)?draft.pelvicPracticeIndex:0;
     session.recoveryDoseByIndex=Object.fromEntries((session.pelvicPracticePlan?.steps||[]).map(x=>[x.index,x]));

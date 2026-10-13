@@ -6,7 +6,14 @@ describe('prescribed pelvic practice in the real app',()=>{
  beforeAll(async()=>{app=await openApp();await signIn(app.page,{id:'daily-pelvic'});},60000);
  afterAll(async()=>{await app?.close();});
  beforeEach(async()=>{await app.page.evaluate(()=>{
+  session._aborting=true;goToStep(0);session._aborting=false;
   _finishState='idle';_launchedPrescription=null;_launchLegacyDraft=false;
+  document.getElementById('milestone-modal').classList.remove('show');
+  document.getElementById('session-summary-modal').classList.remove('show');
+  document.getElementById('notif-modal').classList.add('hidden');
+  persisted.seenMilestones=MILESTONES.map(m=>m.id);
+  localStorage.setItem('bp_push_prompted_'+currentUser.id,'1');
+  localStorage.removeItem(getTodaySorenessKey());
   persisted.programme=window.__legacyProgramme();persisted.dayPlans=[];persisted.primaryGoal='all';persisted.pelvicProfile='';persisted.sessionLog=[];
   persisted.completedDays=Array(7).fill(false);persisted.schedule=['rest','length','girth','stamina','rest','length','rest'];persisted.schedule[new Date().getDay()]='rest';
   localStorage.removeItem('bp_session_draft_'+currentUser.id);goToStep(0);

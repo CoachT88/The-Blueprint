@@ -119,7 +119,7 @@ describe('a tight result actually changes the protocol', () => {
         expect(r.kegelLocked).toBe(true);
         expect(r.enduranceLocked).toBe(true);
         expect(r.releaseLocked).toBe(false);
-        expect(r.reason).toMatch(/already tight/i);
+        expect(r.reason).toMatch(/suggests caution/i);
     });
 
     test('Coach Tee is told not to recommend contraction work', async () => {
@@ -422,7 +422,7 @@ describe('unscreened members', () => {
         });
         expect(r.pickerShown).toBe(true);
         // Screened tight, so the reason is the result, not an invitation to screen.
-        expect(r.reason).toMatch(/already tight/i);
+        expect(r.reason).toMatch(/suggests caution/i);
         expect(r.reason).not.toMatch(/30-second/i);
     }, 30_000);
 });
