@@ -51,14 +51,14 @@ function zonedParts(now, timezone) {
             timeZone: timezone || 'UTC',
             hourCycle: 'h23',
             year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', weekday: 'short',
+            hour: '2-digit', minute: '2-digit', weekday: 'short',
         });
     } catch {
         // An unrecognised timezone must not take the whole run down with it.
         fmt = new Intl.DateTimeFormat('en-US', {
             timeZone: 'UTC', hourCycle: 'h23',
             year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', weekday: 'short',
+            hour: '2-digit', minute: '2-digit', weekday: 'short',
         });
     }
     const out = {};
@@ -70,6 +70,12 @@ function zonedParts(now, timezone) {
 export function localHourFor(now, timezone) {
     // h23 should never produce 24, but ICU has historically disagreed.
     return Number(zonedParts(now, timezone).hour) % 24;
+}
+
+/** Minutes since midnight in the member's timezone, including fractional offsets. */
+export function localMinuteOfDay(now, timezone) {
+    const p = zonedParts(now, timezone);
+    return (Number(p.hour) % 24) * 60 + Number(p.minute);
 }
 
 /** YYYY-MM-DD in the member's timezone. Used only for the one-a-day cap. */
@@ -94,12 +100,18 @@ export function trainedOn(sessionLog, dayKey) {
     return (sessionLog || []).some(s => s && typeof s.date === 'string' && s.date.split('T')[0] === dayKey);
 }
 
-/** '19:00' -> 19. Anything unparseable falls back to the app's own default. */
-export function reminderHour(reminderTime) {
+/** '19:10' -> 1150. Invalid times use the app's default of 19:00. */
+export function reminderMinuteOfDay(reminderTime) {
     const m = /^(\d{1,2}):(\d{2})$/.exec(String(reminderTime || '').trim());
-    if (!m) return 19;
+    if (!m) return 19 * 60;
     const h = Number(m[1]);
-    return h >= 0 && h <= 23 ? h : 19;
+    const minute = Number(m[2]);
+    return h >= 0 && h <= 23 && minute >= 0 && minute <= 59 ? h * 60 + minute : 19 * 60;
+}
+
+/** Kept for callers that only need the hour; decisions use the full time. */
+export function reminderHour(reminderTime) {
+    return Math.floor(reminderMinuteOfDay(reminderTime) / 60);
 }
 
 /**
@@ -138,11 +150,11 @@ export function decideNotification({
     // 1. One a day, whatever else is true.
     if (lastNotifiedDate && String(lastNotifiedDate).slice(0, 10) === localDate) return null;
 
-    // 2. Only in the hour they picked, and never in the middle of the night
+    // 2. Only in the minute they picked, and never in the middle of the night
     //    even if they picked one.
-    const hour = localHourFor(now, timezone);
-    const wanted = reminderHour(reminderTime);
-    if (hour !== wanted) return null;
+    const minuteOfDay = localMinuteOfDay(now, timezone);
+    const hour = Math.floor(minuteOfDay / 60);
+    if (minuteOfDay !== reminderMinuteOfDay(reminderTime)) return null;
     if (hour < EARLIEST_HOUR || hour > LATEST_HOUR) return null;
 
     const todayKey = utcDayKey(now);

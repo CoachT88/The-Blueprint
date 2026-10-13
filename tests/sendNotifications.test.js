@@ -164,9 +164,9 @@ describe('the setup SQL', () => {
         expect(sql).toMatch(/notifications-schema\.sql/);
     });
 
-    test('schedules the run hourly', () => {
+    test('checks every minute so the time picker minutes can be honored', () => {
         expect(live).toMatch(/cron\.schedule/);
-        expect(live).toMatch(/'0 \* \* \* \*'/);
+        expect(live).toMatch(/'\* \* \* \* \*'/);
     });
 
     test('sends both headers, in the right places', () => {

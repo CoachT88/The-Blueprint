@@ -1,8 +1,8 @@
 /**
  * Sends the notifications the settings screen promises, and nothing else.
  *
- * Run hourly by pg_cron (see supabase/notifications.sql). Every member whose
- * chosen reminder hour has arrived in their own timezone is considered; almost
+ * Run every minute by pg_cron (see supabase/notifications-cron.sql). Every member whose
+ * chosen reminder minute has arrived in their own timezone is considered; almost
  * all of them are then skipped, because they already trained, already got
  * today's message, are on a rest day, or spent a Recovery Pass.
  *
