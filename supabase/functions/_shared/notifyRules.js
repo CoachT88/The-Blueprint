@@ -113,7 +113,7 @@ export function trainedOn(sessionLog, dayKey) {
 /** Real completion dates belong to the member's calendar, not the server's. */
 export function trainedOnLocalDay(sessionLog, dayKey, timezone) {
     return (Array.isArray(sessionLog) ? sessionLog : []).some(s => {
-        if (!s || typeof s.date !== 'string') return false;
+        if (!s || (s.workKind==='dailyPractice' && s.trainingRestSatisfied!==true) || typeof s.date !== 'string') return false;
         // Older date-only history has no timestamp to reinterpret.
         if (/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return s.date === dayKey;
         const when = new Date(s.date);
@@ -180,7 +180,7 @@ export function decideNotification({
     // Completion praise is independent of reminder slots and rest-day guards.
     // Only actual timestamped completions qualify. A launch or date-only import
     // cannot fabricate a twenty-minute follow-up.
-    const completed = log.filter(s => s && typeof s.date === 'string' && s.date.includes('T'))
+    const completed = log.filter(s => s && s.workKind!=='dailyPractice' && typeof s.date === 'string' && s.date.includes('T'))
         .map(s => new Date(s.date)).filter(d => {
             const age = now.getTime() - d.getTime();
             return age >= COMPLETION_DELAY_MS && age < COMPLETION_EXPIRY_MS;

@@ -41,14 +41,15 @@ const ROUTINES = {
         { title: 'Lateral Compression', sets: 3, duration: 15, restDur: 30 },
     ],
     recovery: [
-        { title: 'Kegel Contractions', sets: 3, duration: 60 },
+        { title: 'Kegel Contractions', sets: 1, duration: 60 },
         { title: 'Reverse Kegel Stretch', sets: 3, duration: 45 },
         { title: 'Pelvic Floor Release', sets: 3, duration: 45 },
-        { title: 'Pelvic Floor Endurance Hold', sets: 3, duration: 60 },
+        { title: 'Pelvic Floor Endurance Hold', sets: 1, duration: 60 },
         { title: 'Deep Squat — Malasana', sets: 2, duration: 60 },
         { title: 'Happy Baby', sets: 2, duration: 45 },
         { title: 'Pigeon Pose', sets: 2, duration: 60 },
         { title: 'Butterfly Stretch', sets: 2, duration: 45 },
+        { title: 'Diaphragmatic breathing', sets: 1, duration: 120 },
     ],
 };
 const base = { routines: ROUTINES, difficulties: DIFFICULTIES, girthCircuit: GIRTH_CIRCUIT };
@@ -139,7 +140,7 @@ describe('estimateSessionSeconds', () => {
 
     test('recovery runs with no warmup, no difficulty and no deload', () => {
         const all = estimateSessionSeconds('recovery', at('intermediate'));
-        expect(all).toBe(1290);
+        expect(all).toBe(1090);
         // Difficulty must not move it: getCurEx() returns recovery as written.
         expect(estimateSessionSeconds('recovery', at('elite'))).toBe(all);
         expect(estimateSessionSeconds('recovery', at('elite', { deload: true }))).toBe(all);
@@ -147,7 +148,7 @@ describe('estimateSessionSeconds', () => {
 
     test('recovery counts only the selected exercises', () => {
         // The night set: the four pelvic floor exercises.
-        expect(estimateSessionSeconds('recovery', at('intermediate', { recoveryIndices: [0, 1, 2, 3] }))).toBe(790);
+        expect(estimateSessionSeconds('recovery', at('intermediate', { recoveryIndices: [0, 1, 2, 3] }))).toBe(470);
     });
 
     test('an empty recovery selection is zero, not the whole library', () => {
@@ -202,7 +203,7 @@ describe('estimateSessionMinutes', () => {
         expect(estimateSessionMinutes('length', at('intermediate'))).toBe(14);
         expect(estimateSessionMinutes('girth', at('intermediate'))).toBe(23);
         expect(estimateSessionMinutes('stamina', at('intermediate'))).toBe(9);
-        expect(estimateSessionMinutes('recovery', at('intermediate', { recoveryIndices: [0, 1, 2, 3] }))).toBe(13);
+        expect(estimateSessionMinutes('recovery', at('intermediate', { recoveryIndices: [0, 1, 2, 3] }))).toBe(8);
     });
 
     test('zero stays zero rather than rounding up to a minute', () => {
@@ -241,7 +242,7 @@ describe('fixtures still match app/index.html', () => {
     });
 
     test('recovery takes no shape at all, and girth shapes the work interval only', () => {
-        expect(html).toContain('if(ex.isRecovery) return ex;');
+        expect(html).toContain('if(ex.isRecovery){');
         expect(html).toContain('return shapeEx({...ex, sets:1, duration:dur}, shapes);');
         expect(html).toContain('return shapeEx(applyDifficulty(ex), shapes);');
     });
@@ -277,8 +278,8 @@ describe('fixtures still match app/index.html', () => {
 
     test('the per-exercise sets and durations', () => {
         for (const [title, sets, duration] of [
-            ['Kegel Contractions', 3, 60], ['Reverse Kegel Stretch', 3, 45],
-            ['Pelvic Floor Release', 3, 45], ['Pelvic Floor Endurance Hold', 3, 60],
+            ['Kegel Contractions', 1, 60], ['Reverse Kegel Stretch', 3, 45],
+            ['Pelvic Floor Release', 3, 45], ['Pelvic Floor Endurance Hold', 1, 60],
             ['Deep Squat — Malasana', 2, 60], ['Happy Baby', 2, 45],
             ['Pigeon Pose', 2, 60], ['Butterfly Stretch', 2, 45],
         ]) {

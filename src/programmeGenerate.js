@@ -305,11 +305,11 @@ export function resolveDose(type, tier, tables) {
 
 /** One dated plan, from one legacy slot. */
 function planFor(date, slot, opts) {
-    const { key, tier, tables, generatedAt } = opts;
+    const { key, tier, tables, generatedAt, dailyPracticeFor } = opts;
     const base = {
         date,
         supportingWork: [],
-        dailyPractice: [],
+        dailyPractice: typeof dailyPracticeFor==='function' ? dailyPracticeFor(date,slot) : [],
         status: PLAN_STATUS.PENDING,
         generatedAt,
         generatedFrom: { programmeKey: key, version: PROGRAMME_CONTENT_VERSION },
@@ -343,7 +343,7 @@ export function generatePlans(input) {
         /* Weekday from the date key itself, at local noon, so the slot for a
            date never depends on when generation ran. */
         const weekday = new Date(date + 'T12:00:00').getDay();
-        return planFor(date, shape[weekday], { key, tier, tables: i.tables, generatedAt });
+        return planFor(date, shape[weekday], { key, tier, tables: i.tables, generatedAt, dailyPracticeFor:i.dailyPracticeFor });
     });
 
     for (const p of plans) {
@@ -466,13 +466,13 @@ export function cutoverPlan(input) {
     }
 
     const gen = generatePlans({
-        key: key || pending.key, now: i.now, tier: i.tier, presets: i.presets, tables: i.tables,
+        key: key || pending.key, now: i.now, tier: i.tier, presets: i.presets, tables: i.tables, dailyPracticeFor:i.dailyPracticeFor,
     });
     if (!gen.ok) return gen;
 
     if (pending && !due) {
         const next = generatePlans({ key: pending.key, now: i.now,
-            tier: i.tier, presets: i.presets, tables: i.tables });
+            tier: i.tier, presets: i.presets, tables: i.tables, dailyPracticeFor:i.dailyPracticeFor });
         if (!next.ok) return next;
         const stored = new Map((Array.isArray(i.existingPlans) ? i.existingPlans : [])
             .filter(isPlainObject).map(p => [p.date, p]));

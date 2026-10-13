@@ -143,7 +143,9 @@ describe('a preset member cuts over on load', () => {
             expect(p.generatedFrom).toEqual({ programmeKey: 'lastLonger', version: 1 });
             expect(p.status).toBe('pending');
             expect(p.supportingWork).toEqual([]);
-            expect(p.dailyPractice).toEqual([]);
+            expect(p.dailyPractice).toHaveLength(1);
+            expect(p.dailyPractice[0].type).toBe('pelvic-practice');
+            expect(p.dailyPractice[0].dose.steps[0].id).toBe('breathing');
             expect(['prescribed', 'rest']).toContain(p.mode);
             if (p.primarySession) {
                 expect(p.primarySession.dose.shape).toBe('sets');

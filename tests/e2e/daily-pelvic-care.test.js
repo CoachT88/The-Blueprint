@@ -1,95 +1,83 @@
-import { beforeAll, afterAll, beforeEach, describe, test, expect } from 'vitest';
-import { openApp, signIn } from './harness.js';
+import {beforeAll,afterAll,beforeEach,describe,test,expect} from 'vitest';
+import {openApp,signIn} from './harness.js';
 
-describe('daily pelvic-floor care in the real session engine', () => {
-    let app;
-    beforeAll(async () => { app=await openApp(); await signIn(app.page,{id:'daily-pelvic'}); },60000);
-    afterAll(async () => { await app?.close(); });
-    beforeEach(async () => {
-        await app.page.evaluate(() => {
-            _finishState='idle'; _launchedPrescription=null; _launchLegacyDraft=false;
-            persisted.programme=window.__legacyProgramme(); persisted.dayPlans=[];
-            persisted.primaryGoal='all'; persisted.pelvicProfile=''; persisted.sessionLog=[];
-            persisted.completedDays=Array(7).fill(false);
-            persisted.schedule=['rest','length','girth','stamina','rest','length','rest'];
-            persisted.schedule[new Date().getDay()]='rest';
-            localStorage.removeItem('bp_session_draft_'+currentUser.id);
-            goToStep(0);
-        });
-    });
-
-    test('rest days offer a visible two-minute release without unlocking contractions', async () => {
-        await expect(app.page.locator('#daily-pelvic-start').isVisible()).resolves.toBe(true);
-        await app.page.locator('#daily-pelvic-start').click();
-        const r=await app.page.evaluate(() => ({ex:getCurEx(),blocked:isExerciseBlocked(0),kind:session.routineType}));
-        expect(r.ex.title).toBe('Pelvic-floor reset'); expect(r.ex.duration).toBe(120);
-        expect(r.ex.sets).toBe(1); expect(r.blocked).toBe(true); expect(r.kind).toBe('recovery');
-        await app.page.evaluate(() => { onSetDone(); finishSession(); closeSessionSummary(); });
-        const result=await app.page.evaluate(() => ({log:persisted.sessionLog.at(-1),done:dailyPelvicCareDone(),state:currentPrescription().state,week:currentWeekCompletion()}));
-        expect(result.log.pelvicCare).toBe(true); expect(result.log.routineType).toBe('recovery');
-        expect(result.done).toBe(true); expect(result.state).toBe('REST');
-        expect(result.week.completed).toBe(0);
-        await expect(app.page.locator('#daily-pelvic-start').isVisible()).resolves.toBe(false);
-    });
-
-    test.each(['length','girth','stamina'])('%s reaches release before success and retains its original identity',async mission => {
-        const before=await app.page.evaluate(m => {
-            persisted.pelvicProfile='tight'; persisted.difficulty='elite';
-            persisted.schedule[new Date().getDay()]=m;
-            startMission(m,'test'); goToStep(4);
-            session.exerciseIndex=executableStepCount()-1;
-            session.girthRound=session.girthTotalRounds;
-            advanceEx();
-            return {step:session.step,ex:getCurEx(),kind:session.routineType,tag:document.getElementById('ex-tag').textContent,button:document.getElementById('ex-btn').textContent};
-        },mission);
-        expect(before.step).toBe(4); expect(before.kind).toBe(mission);
-        expect(before.ex.title).toBe('Pelvic-floor reset'); expect(before.ex.duration).toBe(120);
-        expect(before.ex.sets).toBe(1); expect(before.tag).not.toMatch(/Round/); expect(before.button).toMatch(/2-MINUTE/);
-        const after=await app.page.evaluate(() => { onSetDone(); finishSession(); return {step:session.step,log:persisted.sessionLog.at(-1)}; });
-        expect(after.step).toBe(5); expect(after.log.routineType).toBe(mission); expect(after.log.pelvicCare).toBe(true);
-    });
-
-    test('a girth round before the final round does not add release',async () => {
-        const r=await app.page.evaluate(() => {
-            persisted.pelvicProfile='standard'; startMission('girth','test');goToStep(4);
-            session.exerciseIndex=executableStepCount()-1;session.girthRound=1;advanceEx();
-            const result={phase:session.dailyPelvicPhase,round:session.girthRound};
-            session.timer?.cancel(); session.timer=null; return result;
-        });
-        expect(r.phase).toBe(false);expect(r.round).toBe(2);
-    });
-
-    test('recovery with release does not add a duplicate reset; mobility alone does', async () => {
-        const r=await app.page.evaluate(() => {
-            selectedRecoveryIndices=[2];startRecoverySession();
-            session.setIndex=getCurEx().sets;onSetDone();
-            const release={step:session.step,done:session.dailyPelvicDone};
-            selectedRecoveryIndices=[5];startRecoverySession();
-            session.setIndex=getCurEx().sets;onSetDone();
-            return {release,mobility:getCurEx().title};
-        });
-        expect(r.release).toEqual({step:5,done:true});expect(r.mobility).toBe('Pelvic-floor reset');
-    });
-
-    test('leaving and resuming the reset preserves its phase and original mission', async () => {
-        const r=await app.page.evaluate(() => {
-            persisted.pelvicProfile='standard';startMission('stamina','test');goToStep(4);
-            session.exerciseIndex=executableStepCount()-1;advanceEx();goToStep(0);
-            const draft=JSON.parse(localStorage.getItem('bp_session_draft_'+currentUser.id));
-            resumeSession();return {draft,ex:getCurEx(),kind:session.routineType};
-        });
-        expect(r.draft.dailyPelvicPhase).toBe(true);expect(r.ex.title).toBe('Pelvic-floor reset');expect(r.kind).toBe('stamina');
-    });
-
-    test('morning, afternoon and evening recovery recommendations include pelvic release', async () => {
-        const times=await app.page.evaluate(() => RECOVERY_META[2].tod);
-        expect(times).toEqual(['morning','afternoon','night']);
-    });
-
-    test('a failed account load never offers practice from defaults', async () => {
-        await app.page.evaluate(() => { _persistedLoaded=false;renderToday(); });
-        await expect(app.page.locator('#daily-pelvic-card').isVisible()).resolves.toBe(false);
-        await app.page.evaluate(() => { _persistedLoaded=true; });
-        expect(app.errors).toEqual([]);
-    });
+describe('prescribed pelvic practice in the real app',()=>{
+ let app;
+ beforeAll(async()=>{app=await openApp();await signIn(app.page,{id:'daily-pelvic'});},60000);
+ afterAll(async()=>{await app?.close();});
+ beforeEach(async()=>{await app.page.evaluate(()=>{
+  session._aborting=true;goToStep(0);session._aborting=false;
+  _finishState='idle';_launchedPrescription=null;_launchLegacyDraft=false;
+  document.getElementById('milestone-modal').classList.remove('show');
+  document.getElementById('session-summary-modal').classList.remove('show');
+  document.getElementById('notif-modal').classList.add('hidden');
+  persisted.seenMilestones=MILESTONES.map(m=>m.id);
+  localStorage.setItem('bp_push_prompted_'+currentUser.id,'1');
+  localStorage.removeItem(getTodaySorenessKey());
+  persisted.programme=window.__legacyProgramme();persisted.dayPlans=[];persisted.primaryGoal='all';persisted.pelvicProfile='';persisted.sessionLog=[];
+  persisted.completedDays=Array(7).fill(false);persisted.schedule=['rest','length','girth','stamina','rest','length','rest'];persisted.schedule[new Date().getDay()]='rest';
+  localStorage.removeItem('bp_session_draft_'+currentUser.id);goToStep(0);
+ });});
+ const finishPractice=()=>app.page.evaluate(()=>{
+  const titles=[];let guard=0;
+  while(session.dailyPelvicPhase&&guard++<10){titles.push(getCurEx().title);session.setIndex=getCurEx().sets;onSetDone();}
+  return {titles,step:session.step};
+ });
+ test('rest days assign breathing, release and one mobility exercise, with separate completion',async()=>{
+  await app.page.locator('#daily-pelvic-start').click();
+  expect(await app.page.evaluate(()=>getCurEx().title)).toBe('Diaphragmatic breathing');
+  const r=await finishPractice();expect(r.step).toBe(5);expect(r.titles).toHaveLength(3);expect(r.titles[1]).toBe('Reverse Kegel Stretch');
+  await app.page.evaluate(()=>{recordPelvicComfort('comfortable');finishSession();closeSessionSummary();});
+  const out=await app.page.evaluate(()=>({log:persisted.sessionLog.at(-1),done:dailyPelvicCareDone(),state:currentPrescription().state,week:currentWeekCompletion()}));
+  expect(out.log.workKind).toBe('dailyPractice');expect(out.log.pelvicPractice.feedback).toBe('comfortable');expect(out.done).toBe(true);expect(out.state).toBe('REST');expect(out.week.completed).toBe(0);
+  await expect(app.page.locator('#daily-pelvic-start').isVisible()).resolves.toBe(false);
+ });
+ test.each(['length','girth','stamina'])('%s keeps its mission and gets a short breathing/release tail',async mission=>{
+  const r=await app.page.evaluate(m=>{persisted.pelvicProfile='tight';persisted.difficulty='elite';persisted.schedule[new Date().getDay()]=m;startMission(m,'test');goToStep(4);session.exerciseIndex=executableStepCount()-1;session.girthRound=session.girthTotalRounds;advanceEx();return {step:session.step,ex:getCurEx(),kind:session.routineType};},mission);
+  expect(r.step).toBe(4);expect(r.kind).toBe(mission);expect(r.ex.duration).toBe(120);expect(r.ex.sets).toBe(1);
+  expect((await finishPractice()).titles).toEqual(['Diaphragmatic breathing','Reverse Kegel Stretch']);
+  await app.page.evaluate(()=>finishSession());const log=await app.page.evaluate(()=>persisted.sessionLog.at(-1));expect(log.routineType).toBe(mission);expect(log.pelvicCare).toBe(true);expect(log.workKind).toBeUndefined();
+ });
+ test('a two-minute practice before training leaves the primary task due and is not repeated after training',async()=>{
+  await app.page.evaluate(()=>{persisted.pelvicProfile='standard';persisted.schedule[new Date().getDay()]='length';renderDashboard();});
+  await app.page.locator('#daily-pelvic-busy').click();expect((await finishPractice()).titles).toEqual(['Diaphragmatic breathing']);
+  await app.page.evaluate(()=>{finishSession();closeSessionSummary();});
+  expect(await app.page.evaluate(()=>persisted.sessionLog.at(-1).manualOverride)).toBe(false);
+  expect(await app.page.evaluate(()=>currentPrescription().state)).toBe('TRAIN');expect(await app.page.evaluate(()=>currentWeekCompletion().completed)).toBe(0);
+  const r=await app.page.evaluate(()=>{startMission('length','test');goToStep(4);session.exerciseIndex=executableStepCount()-1;advanceEx();return {phase:session.dailyPelvicPhase,step:session.step};});expect(r).toEqual({phase:false,step:5});
+ });
+ test('a completed foundation on a recovery day does not invite the same practice again',async()=>{
+  await app.page.evaluate(()=>{persisted.schedule[new Date().getDay()]='length';localStorage.setItem(getTodaySorenessKey(),'high');renderDashboard();});
+  await app.page.locator('#daily-pelvic-busy').click();await finishPractice();await app.page.evaluate(()=>{finishSession();closeSessionSummary();});
+  await expect(app.page.locator('#launch-btn').isVisible()).resolves.toBe(false);
+  expect(await app.page.locator('#today-headline').textContent()).toBe('Recovery Practice Complete');
+  expect(await app.page.evaluate(()=>persisted.sessionLog.at(-1).trainingRestSatisfied)).toBe(true);
+  expect(await app.page.evaluate(()=>currentWeekCompletion().completed)).toBe(0);
+  await app.page.evaluate(()=>localStorage.removeItem(getTodaySorenessKey()));
+ });
+ test('a girth round before the final round never adds daily practice',async()=>{
+  const r=await app.page.evaluate(()=>{persisted.pelvicProfile='standard';startMission('girth','test');goToStep(4);session.exerciseIndex=executableStepCount()-1;session.girthRound=1;advanceEx();const r={phase:session.dailyPelvicPhase,round:session.girthRound};session.timer?.cancel();session.timer=null;return r;});expect(r.phase).toBe(false);expect(r.round).toBe(2);
+ });
+ test('a recovery session that already includes breathing and release receives only remaining daily work',async()=>{
+  const r=await app.page.evaluate(()=>{persisted.schedule[new Date().getDay()]='length';selectedRecoveryIndices=[8,1];startRecoverySession();session.setIndex=getCurEx().sets;onSetDone();session.setIndex=getCurEx().sets;onSetDone();return {step:session.step,done:session.dailyPelvicDone,covered:session.practiceCompletedIndices};});expect(r.step).toBe(5);expect(r.done).toBe(true);expect(r.covered).toEqual([8,1]);
+ });
+ test('leaving and resuming preserves the practice plan and current position',async()=>{
+  const r=await app.page.evaluate(()=>{persisted.pelvicProfile='standard';startDailyPelvicCare(false);onSetDone();const before=getCurEx().title;goToStep(0);const draft=JSON.parse(localStorage.getItem('bp_session_draft_'+currentUser.id));resumeSession();return {before,after:getCurEx().title,draft,kind:session.routineType};});expect(r.before).toBe('Pelvic Floor Release');expect(r.after).toBe(r.before);expect(r.draft.pelvicPracticeIndex).toBe(1);expect(r.kind).toBe('recovery');
+ });
+ test('increased tension reduces the next assignment without increasing strength volume',async()=>{
+  await app.page.locator('#daily-pelvic-busy').click();await finishPractice();await app.page.evaluate(()=>{recordPelvicComfort('tense');finishSession();closeSessionSummary();});
+  const r=await app.page.evaluate(()=>({plan:currentPelvicPracticePlan(),strengthBlocked:isExerciseBlocked(0)}));expect(r.plan.mode).toBe('foundation');expect(r.plan.steps).toHaveLength(1);expect(r.strengthBlocked).toBe(true);
+ });
+ test('pain feedback holds primary training and resumes gentle breathing only after symptoms settle',async()=>{
+  await app.page.evaluate(()=>{persisted.pelvicProfile='standard';persisted.schedule[new Date().getDay()]='length';renderDashboard();});
+  await app.page.locator('#daily-pelvic-busy').click();await finishPractice();await app.page.evaluate(()=>{recordPelvicComfort('painful');finishSession();closeSessionSummary();});
+  expect(await app.page.evaluate(()=>currentPrescription().prepare)).toBe('pelvic-pain');
+  await app.page.locator('#daily-pelvic-review').click();const r=await app.page.evaluate(()=>currentPelvicPracticePlan());expect(r.mode).toBe('foundation');expect(r.steps.map(x=>x.id)).toEqual(['breathing']);
+ });
+ test('contraction blocks alternate short lifts and full release rather than a minute-long hold',async()=>{
+  const r=await app.page.evaluate(()=>({start:pelvicRhythmCue(ROUTINES.recovery[3],60),release:pelvicRhythmCue(ROUTINES.recovery[3],55),next:pelvicRhythmCue(ROUTINES.recovery[3],50),sets:ROUTINES.recovery[3].sets}));expect(r.start).toMatch(/lift/i);expect(r.release).toMatch(/release/i);expect(r.next).toMatch(/lift/i);expect(r.sets).toBe(1);
+ });
+ test('failed account loading cannot launch practice',async()=>{
+  await app.page.evaluate(()=>{_persistedLoaded=false;renderToday();startDailyPelvicCare();});await expect(app.page.locator('#daily-pelvic-card').isVisible()).resolves.toBe(false);await app.page.evaluate(()=>{_persistedLoaded=true;});expect(app.errors).toEqual([]);
+ });
 });

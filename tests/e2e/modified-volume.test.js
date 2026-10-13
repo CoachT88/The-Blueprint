@@ -206,7 +206,7 @@ describe('moderate soreness reduces the session the member is actually given', (
         // Recovery is served exactly as written in ROUTINES, by both the
         // engine and estimateSessionSeconds(). Scaling an already low
         // prescription would mostly mean scaling it away.
-        expect(normal[0]).toMatchObject({ title: 'Kegel Contractions', sets: 3, duration: 60 });
+        expect(normal[0]).toMatchObject({ title: 'Kegel Contractions', sets: 1, duration: 60 });
     }, 90_000);
 
     test('a resumed session is not reduced', async () => {
