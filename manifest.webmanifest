@@ -7,8 +7,8 @@
   "scope": "/app/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0d1015",
-  "theme_color": "#0d1015",
+  "background_color": "#101727",
+  "theme_color": "#101727",
   "categories": [
     "health",
     "fitness"
