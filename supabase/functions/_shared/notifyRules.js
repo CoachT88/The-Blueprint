@@ -139,17 +139,17 @@ export function reminderHour(reminderTime) {
  * Wording.
  *
  * Neutral on purpose. Someone glancing at a phone on a table should learn
- * nothing beyond the app's name, and the member gets the real coaching once
+ * nothing beyond the app and coach names, and the member gets the real coaching once
  * they open it.
  */
 export const MESSAGES = {
     daily_reminder: () => ({
-        title: 'The Blueprint',
+        title: 'From Coach Tee',
         body: 'Make sure you show up for training today.',
         tag: 'bp-reminder',
     }),
     completion_praise: (sameDay = true) => ({
-        title: 'The Blueprint',
+        title: 'From Coach Tee',
         body: sameDay ? 'Good job for showing up today.' : 'Good job for showing up.',
         tag: 'bp-completion',
     }),
