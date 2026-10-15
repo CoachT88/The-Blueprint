@@ -7,7 +7,7 @@ self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('push', e => {
     if (!e.data) return;
     const data = e.data.json();
-    const title = data.title || 'From Coach Tee';
+    const title = data.title || 'Coach Tee';
     const options = {
         body: data.body || '',
         icon: data.icon || '/icons/icon-192.png',

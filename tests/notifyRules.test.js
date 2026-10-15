@@ -187,7 +187,7 @@ describe('decideNotification', () => {
         const r = decide();
         expect(r).not.toBeNull();
         expect(r.kind).toBe('daily_reminder');
-        expect(r.title).toBe('From Coach Tee');
+        expect(r.title).toBe('Coach Tee');
     });
 
     test('says nothing outside the default or selected minute', () => {
@@ -285,7 +285,7 @@ describe('what a lock screen reveals', () => {
     });
 
     test('the sender title names Coach Tee without repeating the app name', () => {
-        for (const m of everyMessage) expect(m.title).toBe('From Coach Tee');
+        for (const m of everyMessage) expect(m.title).toBe('Coach Tee');
     });
 
     test('and nothing the decision returns leaks either', () => {
