@@ -12,7 +12,7 @@
     --bp-selected:#192d59; --bp-success-surface:#12362f;
 }
 html,body {background:var(--canvas);color:var(--text)}
-.ambient-bg {display:none}
+.ambient-bg>div {display:none}
 .tip-card::before {content:none}
 /* Readable secondary text across settings, recovery, Coach Tee and errors. */
 .text-slate-400,.text-slate-500,.text-slate-600 {color:var(--text-secondary)}
@@ -139,3 +139,17 @@ html,body {background:var(--canvas);color:var(--text)}
     #step-0 .hq-wordmark {font-size:15px}
 }
 @media(prefers-reduced-motion:reduce) {.btn-primary {transition:none}}
+
+/* A short phone cannot show four full-width rows and the persistent footer.
+   Use two readable columns here; retain full-width rows on taller screens. */
+@media(max-height:700px) {
+    #onboarding-overlay.goal-picker-only #ob-slide-4 {padding:16px;bottom:145px}
+    #onboarding-overlay.goal-picker-only #ob-slide-4 h2 {font-size:26px;margin:6px 0 10px}
+    #onboarding-overlay.goal-picker-only #ob-slide-4>p {font-size:13px;margin-bottom:10px}
+    #onboarding-overlay.goal-picker-only #goal-options {grid-template-columns:1fr 1fr;gap:8px}
+    #onboarding-overlay.goal-picker-only .goal-opt {display:block;padding:14px 22px 12px 12px;min-height:96px}
+    #onboarding-overlay.goal-picker-only .goal-opt i {display:none}
+    #onboarding-overlay.goal-picker-only .goal-opt span {display:block;font-size:14px;line-height:1.3}
+    #onboarding-overlay.goal-picker-only .goal-opt em {display:block;margin-top:6px}
+    #onboarding-overlay.goal-picker-only .goal-opt.selected::after {right:7px;top:10px;font-size:16px}
+}
