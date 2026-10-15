@@ -35,7 +35,8 @@ const definedSelectors = () => {
 
 /** The app's own hand-written classes are not Tailwind's responsibility. */
 const ownClasses = () => {
-    const style = (HTML.match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1];
+    const style = (HTML.match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1]
+        + readFileSync(path.join(ROOT, 'app/blueprint.css'), 'utf8');
     return new Set([...style.matchAll(/\.([a-zA-Z][\w-]*)/g)].map(m => m[1]));
 };
 
@@ -102,7 +103,8 @@ describe('vendored CSS covers every class the app can emit', () => {
         /* The declaration above is a claim. This is the check. If someone
            adds a DAY_TYPES key without a matching .type-X rule, the class
            silently stops applying and this fails. */
-        const style = (HTML.match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1];
+        const style = (HTML.match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1]
+        + readFileSync(path.join(ROOT, 'app/blueprint.css'), 'utf8');
         const defined = definedSelectors();
         const unresolved = [];
         for (const r of RUNTIME_COMPOSED)

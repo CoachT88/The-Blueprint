@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE BLUEPRINT | Session Pilot</title>
-    <meta name="theme-color" content="#101727">
+    <meta name="theme-color" content="#0b1220">
 
     <!-- Installability. Without a manifest declaring standalone display there
          is no install prompt on Android, and iOS will not deliver web push at
@@ -708,7 +708,6 @@
         #step-5 .guided-shell{gap:16px}
         #step-5 .guided-complete-icon{font-size:24px;color:#9ac4af}
         #step-5 #success-xp-text{font-size:12px;color:#a6adb8;font-weight:400}
-        #step-5 #finish-session-btn{background:#f0f1ed!important}
         #step-5 .guided-extra-body{display:flex;flex-direction:column;gap:16px;padding-top:8px}
         #step-5 #session-extra-details:not([open]) .guided-extra-body{display:none}
         #step-5 .glass-input,#step-5 .measure-field input{border-color:#ffffff20;background:#15191f;box-shadow:none}
@@ -846,104 +845,6 @@
             .hq-anim{opacity:1 !important}
         }
 
-        /* Blueprint visual identity: presentation only; state, timing and dose stay in JS. */
-        :root{--bp-ink:#101727;--bp-surface:#182231;--bp-ivory:#f2f0e8;
-            --bp-citrus:#d9f36a;--bp-teal:#68bcaf;--bp-secondary:#b2bdc9;
-            --bp-contours:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20320%20280%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%221%22%3E%3Cpath%20d%3D%22M%2065%20-20%20C%2030%2055%2C%20215%2055%2C%20135%20130%20S%20225%20215%2C%20290%20300%22%2F%3E%3Cpath%20d%3D%22M%2084%20-20%20C%2049%2057%2C%20223%2057%2C%20152%20133%20S%20237%20217%2C%20303%20300%22%2F%3E%3Cpath%20d%3D%22M%20103%20-20%20C%2068%2059%2C%20231%2059%2C%20169%20136%20S%20249%20219%2C%20316%20300%22%2F%3E%3Cpath%20d%3D%22M%20122%20-20%20C%2087%2061%2C%20239%2061%2C%20186%20139%20S%20261%20221%2C%20329%20300%22%2F%3E%3Cpath%20d%3D%22M%20141%20-20%20C%20106%2063%2C%20247%2063%2C%20203%20142%20S%20273%20223%2C%20342%20300%22%2F%3E%3Cpath%20d%3D%22M%20160%20-20%20C%20125%2065%2C%20255%2065%2C%20220%20145%20S%20285%20225%2C%20355%20300%22%2F%3E%3Cpath%20d%3D%22M%20179%20-20%20C%20144%2067%2C%20263%2067%2C%20237%20148%20S%20297%20227%2C%20368%20300%22%2F%3E%3Cpath%20d%3D%22M%20198%20-20%20C%20163%2069%2C%20271%2069%2C%20254%20151%20S%20309%20229%2C%20381%20300%22%2F%3E%3Cpath%20d%3D%22M%20217%20-20%20C%20182%2071%2C%20279%2071%2C%20271%20154%20S%20321%20231%2C%20394%20300%22%2F%3E%3Cpath%20d%3D%22M%20236%20-20%20C%20201%2073%2C%20287%2073%2C%20288%20157%20S%20333%20233%2C%20407%20300%22%2F%3E%3Cpath%20d%3D%22M%20255%20-20%20C%20220%2075%2C%20295%2075%2C%20305%20160%20S%20345%20235%2C%20420%20300%22%2F%3E%3C%2Fsvg%3E");}
-        #step-0,.guided-step,#chart-modal,#weekly-report-modal,#session-summary-modal{
-            background:var(--bp-ink);color:var(--bp-ivory);--accent:var(--bp-citrus);--rest:var(--bp-teal)}
-        #step-0 .hq-wordmark{font-size:18px;font-weight:800;letter-spacing:.055em;
-            text-transform:uppercase;color:var(--bp-ivory)}
-        #step-0 .hq-shell{gap:20px}
-        #step-0 .today-card{position:relative;isolation:isolate;background:none;border:0;
-            border-radius:0;padding:26px 0 12px;box-shadow:none;--bp-motif:var(--bp-citrus)}
-        #step-0 .today-card::before,#chart-modal>.inner-step-wrapper::before,
-        .guided-step .guided-shell::before{content:'';position:absolute;top:-24px;right:0;
-            width:210px;height:240px;background:var(--bp-motif,var(--bp-citrus));opacity:.25;
-            mask:var(--bp-contours) center/contain no-repeat;
-            -webkit-mask:var(--bp-contours) center/contain no-repeat;
-            pointer-events:none;z-index:-1}
-        #step-0 .today-card[data-state="REST"],#step-0 .today-card[data-state="SUPPORT_ONLY"],
-        #step-0 .today-card[data-state="RECOVER"]{--bp-motif:var(--bp-teal)}
-        #step-0 .today-card[data-state="MODIFIED"]{--bp-motif:var(--caution)}
-        #step-0 #today-headline{font-size:clamp(32px,9vw,42px);font-weight:800;
-            line-height:1.08;letter-spacing:-.05em;color:var(--bp-ivory);margin-top:18px;max-width:16ch}
-        #step-0 #today-sub,#step-0 #today-why,#step-0 #today-meta,
-        #step-0 #today-plan-context,#step-0 #daily-pelvic-note{color:var(--bp-secondary);font-size:14px;line-height:1.65}
-        #step-0 #today-sub{margin-top:14px}
-        #step-0 .u-state-badge{color:var(--bp-citrus);letter-spacing:.14em;font-weight:600}
-        #step-0 .today-card[data-state="REST"] .u-state-badge,
-        #step-0 .today-card[data-state="SUPPORT_ONLY"] .u-state-badge{color:var(--bp-teal)}
-        #step-0 .today-card[data-state="RECOVER"] .u-state-badge{color:var(--safety)}
-        #step-0 .today-card[data-state="MODIFIED"] .u-state-badge{color:var(--caution)}
-        #step-0 .today-card[data-state="PREPARE"] .u-state-badge{color:var(--bp-secondary)}
-        #step-0 .btn-primary,.guided-step .btn-primary,#chart-modal .btn-primary,
-        #session-summary-modal .btn-primary{background:var(--bp-citrus);color:var(--bp-ink);
-            min-height:54px;border:0;border-radius:14px;box-shadow:none;
-            font-size:16px;font-weight:700;letter-spacing:-.015em;text-transform:none}
-        #step-0 .btn-primary:active:not(:disabled),.guided-step .btn-primary:active:not(:disabled),
-        #chart-modal .btn-primary:active:not(:disabled){background:#c8e25b;transform:scale(.985)}
-        #step-0 .btn-primary:disabled,.guided-step .btn-primary:disabled,#chart-modal .btn-primary:disabled{
-            background:#293445;color:#b2bdc9;opacity:.65;box-shadow:none;transform:none}
-        #step-0 .btn-primary.u-btn--caution{background:#d8c7a4;color:#231e16}
-        #step-0 #today-actions{margin-top:24px}
-        #step-0 #daily-pelvic-card{margin-top:22px;padding-top:22px;border-top-color:#f2f0e825}
-        #step-0 #daily-pelvic-title{font-size:17px;font-weight:650;color:var(--bp-ivory)}
-        #step-0 #daily-pelvic-card[data-integrated="true"] #daily-pelvic-start{
-            background:transparent;color:var(--bp-ivory);border:1px solid #f2f0e840}
-        #step-0 #daily-pelvic-card[data-integrated="true"] #daily-pelvic-start:active{background:#f2f0e80c}
-        #step-0 #daily-pelvic-busy,#step-0 .hq-practice-details,#step-0 #today-alt-btn,
-        #step-0 #today-why-btn{color:var(--bp-secondary);font-size:13px}
-        #step-0 .week-cell{border-radius:50%;min-height:48px;gap:6px}
-        #step-0 .week-cell[data-today="1"]{background:var(--bp-citrus);border-color:var(--bp-citrus);color:var(--bp-ink)}
-        #step-0 .week-cell[data-today="1"]>span,#step-0 .week-cell[data-today="1"]>i{color:var(--bp-ink)}
-        #step-0 .week-cell[data-state="satisfied"]::after{color:var(--bp-citrus);background:var(--bp-ink)}
-        #step-0 #hq-week-label{color:var(--bp-secondary)}
-        #step-0 #hq-nav{background:var(--bp-ink);border-top-color:#f2f0e825}
-        #step-0 .hq-nav-tile{color:var(--bp-secondary)}
-        #step-0 .hq-nav-tile[aria-current="page"]{background:none;color:var(--bp-citrus)}
-        #step-0 #personal-progress-nudge{color:var(--bp-citrus)}
-        #step-0 button:focus-visible,#step-0 summary:focus-visible,
-        .guided-step button:focus-visible,.guided-step summary:focus-visible,
-        #chart-modal button:focus-visible,#chart-modal select:focus-visible{outline:2px solid var(--bp-citrus);outline-offset:4px}
-        .guided-step .guided-shell{position:relative;isolation:isolate;--bp-motif:var(--bp-teal)}
-        .guided-step .guided-shell::before{width:170px;height:200px;opacity:.16;top:0}
-        .guided-step h2{font-weight:750;color:var(--bp-ivory)}
-        .guided-step .instruction-card,#step-4 #ex-active-cue,#step-4 #ex-pause-btn{
-            background:var(--bp-surface);border-color:#f2f0e825}
-        #step-4 #ex-timer,#step-2 #warmup-timer{color:var(--bp-ivory)}
-        #step-4 #guide-breath-visual{border-color:#68bcaf88;background:#68bcaf0a}
-        #step-4 #guide-breath-visual::before{border-color:var(--bp-teal);background:#68bcaf14}
-        #step-5 .guided-complete-icon{color:var(--bp-citrus);animation:bp-arrive 280ms ease-out both}
-        #step-5 #finish-session-btn{background:var(--bp-citrus)!important}
-        .guided-step .quick-tap.selected,.guided-step .eq-btn.selected,.guided-step .rpe-btn.selected{
-            background:var(--bp-citrus);border-color:var(--bp-citrus);color:var(--bp-ink)}
-        #chart-modal>.inner-step-wrapper{position:relative;isolation:isolate;padding:38px 22px 44px;gap:24px}
-        #chart-modal>.inner-step-wrapper::before{top:0;opacity:.17;--bp-motif:var(--bp-teal)}
-        #chart-modal h2{font-size:36px;font-style:normal;text-transform:none;
-            letter-spacing:-.05em;font-weight:800;color:var(--bp-ivory)}
-        #chart-modal .bp-progress-intro{font-size:14px;color:var(--bp-secondary);margin-top:6px}
-        #chart-modal #personal-progress{background:none;border:0;border-top:1px solid #f2f0e825;
-            border-radius:0;padding:24px 0 0;box-shadow:none}
-        #chart-modal #personal-progress-heading{font-size:20px;letter-spacing:-.025em}
-        #chart-modal #personal-progress-summary{font-size:14px}
-        #chart-modal #personal-progress-summary strong{font-size:22px;color:var(--bp-citrus)}
-        #chart-modal .text-slate-400{color:var(--bp-secondary)}
-        #chart-modal #personal-checkin-btn,#chart-modal #personal-checkin-cancel{
-            min-height:48px;border:1px solid #f2f0e840;background:none;box-shadow:none;
-            border-radius:12px;font-size:14px;letter-spacing:0;text-transform:none;color:var(--bp-ivory)}
-        #chart-modal #progress-week-summary{min-height:44px;color:var(--bp-citrus)}
-        #chart-modal #personal-checkin-fields select{background:var(--bp-surface);border-color:#f2f0e840}
-        #chart-modal .stat-chip,#chart-modal .chart-svg-wrap,#session-summary-modal .summary-stat{
-            background:var(--bp-surface);border-color:#f2f0e820;box-shadow:none}
-        #chart-modal .guided-details{padding:16px 8px;border-top:1px solid #f2f0e825;color:var(--bp-secondary)}
-        #chart-modal .guided-details summary{cursor:pointer;min-height:44px}
-        @keyframes bp-arrive{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-        @media(max-width:360px){#step-0 .today-card{padding:22px 0 10px}
-            #step-0 .hq-wordmark{font-size:16px;letter-spacing:.015em}
-            #step-0 #today-headline{font-size:32px}#chart-modal>.inner-step-wrapper{padding-left:16px;padding-right:16px}}
-        @media(prefers-reduced-motion:reduce){#step-5 .guided-complete-icon{animation:none}
-            #step-0 .btn-primary,.guided-step .btn-primary,#chart-modal .btn-primary{transition:none}}
     </style>
     <!-- Tailwind last on purpose. The CDN runtime injected its stylesheet into
          <head> at load, i.e. AFTER the inline <style> above, so utilities won
@@ -952,6 +853,7 @@
          beat .hidden{display:none} and the deload banner rendered on every
          HQ. Keep this link below the <style>. -->
     <link rel="stylesheet" href="./vendor/tw.css">
+    <link rel="stylesheet" href="./blueprint.css">
 </head>
 <body>
 <div class="ambient-bg"><div class="ambient-glow-1"></div><div class="ambient-glow-2"></div></div>
@@ -986,16 +888,12 @@
 
 <div id="auth-screen" class="hidden">
     <div class="auth-card">
-        <div class="text-center mb-7">
-            <div class="relative inline-block mb-4">
-                <div class="absolute inset-0 bg-blue-500/20 blur-[30px] rounded-full"></div>
-                <div class="relative p-5 bg-blue-500/5 rounded-full border border-blue-500/20 w-fit mx-auto">
-                    <i class="fas fa-fingerprint text-4xl text-blue-400"></i>
-                </div>
-            </div>
-            <h1 class="text-2xl font-black italic uppercase tracking-tighter text-white">The Blueprint</h1>
-            <p class="u-text-2 text-[11px] mt-1 font-semibold uppercase tracking-widest">Members Only</p>
-        </div>
+        <header class="bp-auth-heading">
+            <p class="bp-wordmark"><span class="bp-brand-mark" aria-hidden="true">B</span>The Blueprint</p>
+            <p class="bp-eyebrow">Your next chapter</p>
+            <h1>Welcome to<br>your Blueprint.</h1>
+            <p class="bp-intro">A clear plan. One session at a time.</p>
+        </header>
 
     <!-- Tabs -->
     <div class="flex gap-1 bg-slate-900/60 p-1 rounded-xl mb-5">
@@ -1004,14 +902,16 @@
     </div>
 
     <!-- Error / Success -->
-    <div class="auth-error mb-4" id="auth-error"></div>
-    <div class="auth-success mb-4" id="auth-success"></div>
+    <div class="auth-error mb-4" id="auth-error" role="alert"></div>
+    <div class="auth-success mb-4" id="auth-success" role="status"></div>
 
     <!-- Form -->
     <div class="space-y-3">
-        <input type="email" id="auth-email" class="auth-input" placeholder="Email address">
-        <input type="password" id="auth-password" class="auth-input" placeholder="Password">
-        <input type="password" id="auth-confirm" class="auth-input hidden" placeholder="Confirm password">
+        <label class="bp-field-label" for="auth-email">Purchase email</label>
+        <input type="email" id="auth-email" class="auth-input" placeholder="Email address" autocomplete="email">
+        <label class="bp-field-label" for="auth-password">Password</label>
+        <input type="password" id="auth-password" class="auth-input" placeholder="Password" autocomplete="current-password">
+        <input type="password" id="auth-confirm" class="auth-input hidden" placeholder="Confirm password" aria-label="Confirm password" autocomplete="new-password">
         <label id="remember-me-row" class="flex items-center gap-2.5 px-1 cursor-pointer select-none">
             <div id="remember-me-toggle" class="w-9 h-5 rounded-full bg-slate-700 border border-slate-600 relative transition-colors flex-shrink-0">
                 <div id="remember-me-thumb" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-400 transition-all"></div>
@@ -1418,6 +1318,7 @@
                 <span id="today-eyebrow" class="u-state-badge"><i id="today-state-icon" class="fas"></i><span id="today-state-label">Today</span></span>
                 <p id="today-meta" class="text-[10px] font-bold u-text-2 hidden" style="font-family:'JetBrains Mono',monospace"></p>
             </div>
+            <p class="bp-member-goal hidden" data-member-goal></p>
             <!-- Slot 2: headline. 24px, down from 30px: at 30px RESUME's
                  "Pick Up Where You Left Off" wrapped to two lines and the
                  card height swung from 153 to 347 across states. -->
@@ -2021,6 +1922,8 @@
     <div class="inner-step-wrapper py-12 space-y-6 text-center guided-shell">
         <i class="fas fa-check guided-complete-icon" aria-hidden="true"></i>
         <h2 class="text-4xl font-black italic uppercase text-slate-50" id="guided-success-title">Session finished</h2>
+        <p class="bp-completion-copy">You showed up. Save your session when you’re ready.</p>
+        <p class="bp-member-goal hidden" data-member-goal></p>
         <p id="success-xp-text" class="text-yellow-400 font-bold text-sm">+0 XP EARNED</p>
 
     <div id="pelvic-comfort-card" class="hidden instruction-card mx-2 text-left">
@@ -2033,7 +1936,7 @@
         <p id="pelvic-comfort-note" class="text-[10px] text-slate-400 mt-2 leading-relaxed"></p>
     </div>
 
-    <div class="px-2 w-full pt-2"><button id="finish-session-btn" class="btn-primary py-5 text-lg" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%)">Save session</button></div>
+    <div class="px-2 w-full pt-2"><button id="finish-session-btn" class="btn-primary py-5 text-lg">Save session</button></div>
     <p class="guided-stop">Extra details are optional. Save when you’re ready.</p>
     <details id="session-extra-details" class="guided-details">
         <summary>Add session details <span>Optional</span></summary>
@@ -5550,7 +5453,7 @@ function goToStep(step){
         unlockTierIfEligible('intermediate');
     }
     if(step===4){if(!session._resuming){resetSession();_sessionStartTime=Date.now();}updateExUI()}
-    if(step===5){document.getElementById('session-extra-details').open=false;document.getElementById('guided-success-title').textContent=session.dailyPracticeOnly?'Practice finished':'Session finished';document.querySelectorAll('#eq-checkin-btns .eq-btn,#rpe-btns .rpe-btn').forEach(b=>b.classList.remove('selected'));renderPelvicComfort();if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'});document.getElementById('photo-preview').classList.add('hidden');document.getElementById('photo-error').classList.add('hidden');document.getElementById('photo-capture-btn').innerText='Take / Upload Photo';document.getElementById('photo-capture-btn').disabled=false;}
+    if(step===5){renderMemberGoal();document.getElementById('session-extra-details').open=false;document.getElementById('guided-success-title').textContent=session.dailyPracticeOnly?'Practice finished':'Session finished';document.querySelectorAll('#eq-checkin-btns .eq-btn,#rpe-btns .rpe-btn').forEach(b=>b.classList.remove('selected'));renderPelvicComfort();if(currentUser)localStorage.removeItem('bp_session_draft_'+currentUser.id);selectedEQ=null;selectedRPE=null;['ai-recovery-response','session-note-input','input-bpel','input-mseg','ai-recovery-input'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value='';else el.style.display='none'});document.getElementById('photo-preview').classList.add('hidden');document.getElementById('photo-error').classList.add('hidden');document.getElementById('photo-capture-btn').innerText='Take / Upload Photo';document.getElementById('photo-capture-btn').disabled=false;}
 }
 // Warmup (step 2) now runs AFTER mission select (step 3), so finishing or
 // skipping it goes straight to the engine.
@@ -8058,7 +7961,16 @@ function currentProgression(){
     return window.BP.progressionState(persisted.progressionLedger,holds);
 }
 
+// Presentation reads the saved choice; it never changes the prescribed plan.
+function renderMemberGoal(){
+    const goal=GOALS[persisted.primaryGoal];
+    document.querySelectorAll('[data-member-goal]').forEach(el=>{
+        el.textContent=goal ? `Your focus: ${goal.label}` : '';
+        el.classList.toggle('hidden',!goal);
+    });
+}
 function renderDashboard(){
+    renderMemberGoal();
     // Stagger-animate HQ sections on each render
     document.querySelectorAll('#step-0 .hq-anim').forEach((el,i)=>{
         el.style.animation='none';
@@ -9213,6 +9125,7 @@ function renderGoalOptions(){
     const cur=persisted.primaryGoal||'';
     document.querySelectorAll('#goal-options .goal-opt').forEach(b=>{
         b.classList.toggle('selected',b.dataset.goal===cur);
+        b.setAttribute('aria-pressed',String(b.dataset.goal===cur));
     });
     const note=document.getElementById('goal-confirm');
     if(note) note.classList.add('hidden');

@@ -1,0 +1,155 @@
+/* Approved cobalt / ink / ivory identity. Presentation only: readiness,
+   prescription, training timers, entitlement and saving remain in index.html.
+   Loaded after vendor utilities; never override .hidden or state display rules. */
+:root {
+    --canvas:#0b1220; --surface:#131f32; --surface-raised:#1b2940;
+    --border:#34445e; --border-strong:#718199;
+    --text:#f3f1e9; --text-secondary:#b4c2d6; --text-muted:#a5b5cd;
+    --accent:#9fbaff; --accent-press:#2855db; --success:#9ce7d1;
+    --bg-deep:var(--canvas); --accent-blue:var(--accent);
+    --accent-emerald:var(--success); --rest:var(--success);
+    --bp-cobalt:#2855db; --bp-cobalt-press:#234bc4;
+    --bp-selected:#192d59; --bp-success-surface:#12362f;
+}
+html,body {background:var(--canvas);color:var(--text)}
+.ambient-bg>div {display:none}
+.tip-card::before {content:none}
+/* Readable secondary text across settings, recovery, Coach Tee and errors. */
+.text-slate-400,.text-slate-500,.text-slate-600 {color:var(--text-secondary)}
+.text-white,.text-slate-50 {color:var(--text)}
+.text-blue-400 {color:var(--accent)}
+:is(p,span,label,button,em)[class*="text-[8px]"],
+:is(p,span,label,button,em)[class*="text-[9px]"],
+:is(p,span,label,button,em)[class*="text-[10px]"] {font-size:12px}
+:is(button,input,select,textarea,summary,a):focus-visible {
+    outline:3px solid var(--accent);outline-offset:3px;
+}
+.instruction-card,.auth-card,.summary-stat {
+    background:var(--surface);border:1px solid var(--border);
+    box-shadow:none;backdrop-filter:none;
+}
+.btn-primary,.u-btn--primary,
+#step-0 .btn-primary,.guided-step .btn-primary,#chart-modal .btn-primary,
+#session-summary-modal .btn-primary {
+    background:var(--bp-cobalt);color:#fff;border:1px solid #7899ff;
+    border-radius:12px;box-shadow:none;min-height:54px;padding:15px 16px;
+    font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:none;
+    transition:background 120ms ease;
+}
+.btn-primary:active:not(:disabled),#step-0 .btn-primary:active:not(:disabled),
+.guided-step .btn-primary:active:not(:disabled),#chart-modal .btn-primary:active:not(:disabled) {
+    background:var(--bp-cobalt-press);transform:none;opacity:1;
+}
+.btn-primary:disabled,#step-0 .btn-primary:disabled,.guided-step .btn-primary:disabled {
+    background:#29364c;color:var(--text-secondary);border-color:var(--border);
+    opacity:1;box-shadow:none;cursor:not-allowed;
+}
+.btn-primary.u-btn--caution,#step-0 .btn-primary.u-btn--caution {
+    background:#d8c7a4;color:#231e16;border-color:#d8c7a4;box-shadow:none;
+}
+.btn-ai {background:var(--bp-cobalt)!important;box-shadow:none!important}
+.btn-outline {color:var(--text-secondary);border-color:var(--border-strong);box-shadow:none;backdrop-filter:none}
+.auth-input,.glass-input {background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+.auth-input::placeholder,.glass-input::placeholder {color:var(--text-muted)}
+.auth-error {background:#361e2b;color:#ffc0c7;border-color:#c77b8c}
+.auth-success {background:var(--bp-success-surface);color:var(--success);border-color:#6fae9e}
+
+/* Member entry. Keep authentication selectors and event handlers intact. */
+#auth-screen {padding:24px;overflow-y:auto;align-items:flex-start}
+#auth-screen .auth-card {max-width:390px;margin:auto;padding:26px;border-radius:22px}
+.bp-wordmark {display:flex;align-items:center;gap:10px;color:var(--text);font-size:13px;font-weight:750;letter-spacing:.12em;text-transform:uppercase;margin-bottom:28px}
+.bp-brand-mark {display:grid;place-items:center;flex:0 0 30px;height:30px;background:var(--bp-cobalt);color:#fff;border-radius:7px;letter-spacing:0}
+.bp-eyebrow {font-size:11px;font-weight:650;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.bp-auth-heading h1 {font-size:34px;line-height:1.08;letter-spacing:-.04em;font-weight:700;margin:14px 0;color:var(--text)}
+.bp-intro {font-size:15px;line-height:1.6;color:var(--text-secondary);margin-bottom:24px}
+.bp-field-label {display:block;font-size:13px;color:var(--text);font-weight:500}
+#auth-screen .auth-input {margin-top:7px}
+.auth-tab {min-height:44px;font-size:12px;color:var(--text-secondary);letter-spacing:.02em}
+.auth-tab.active {background:var(--bp-selected);color:var(--text);box-shadow:inset 0 -2px var(--accent)}
+#auth-forgot-btn,#remember-me-row {min-height:44px}
+#remember-me-row span {font-size:13px}
+#password-reset-modal .auth-card {border-color:var(--border-strong)}
+
+/* Welcome and goal setup share the same calm, legible first impression. */
+#step-welcome h1 {background:none;color:var(--text);-webkit-text-fill-color:var(--text);font-size:38px;font-style:normal;text-transform:none;letter-spacing:-.04em}
+#step-welcome [class*="blur-"],.ob-slide [class*="blur-"] {display:none}
+#step-welcome .instruction-card p,#step-welcome label span {font-size:13px;line-height:1.65}
+#onboarding-overlay .ob-slide {bottom:170px;padding:26px 24px;overflow-y:auto;justify-content:flex-start;align-items:stretch;text-align:left;max-width:438px;margin:0 auto}
+#onboarding-overlay .ob-slide>div:first-child {display:none}
+#onboarding-overlay .ob-slide h2 {font-size:32px;font-weight:700;font-style:normal;text-transform:none;letter-spacing:-.04em;line-height:1.12;margin:12px 0}
+#onboarding-overlay .ob-slide>p {max-width:none;font-size:14px;line-height:1.6;color:var(--text-secondary)}
+#onboarding-overlay #goal-options {grid-template-columns:1fr;max-width:none;gap:10px;margin-top:8px}
+#goal-options .goal-opt {position:relative;display:grid;grid-template-columns:24px 1fr;column-gap:12px;row-gap:4px;text-align:left;align-items:center;padding:14px 44px 14px 16px;min-height:70px;border-radius:12px;background:var(--surface);border:1px solid var(--border-strong)}
+#goal-options .goal-opt i {grid-row:1 / 3;color:var(--accent);font-size:17px}
+#goal-options .goal-opt span {font-size:16px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--text)}
+#goal-options .goal-opt em {grid-column:2;font-size:12px;color:var(--text-secondary);line-height:1.35}
+#goal-options .goal-opt.selected {background:var(--bp-selected);border-color:var(--accent)}
+#goal-options .goal-opt.selected::after {content:'✓';position:absolute;right:16px;top:23px;color:var(--accent);font-size:20px}
+#onboarding-overlay>div:last-child {padding:16px 24px;background:var(--canvas);border-top:1px solid var(--border);gap:10px}
+#ob-next-btn {max-width:390px}
+#ob-skip-btn,#ob-name-skip {min-height:44px;font-size:13px}
+
+/* Today remains first, including every readiness / rest / resume state. */
+#step-0,.guided-step,#chart-modal,#weekly-report-modal,#session-summary-modal {background:var(--canvas);color:var(--text)}
+#step-0 .hq-shell {gap:18px}
+#step-0 .hq-wordmark {font-size:17px;letter-spacing:.015em;font-weight:750;color:var(--text)}
+#step-0 .today-card {position:relative;background:var(--surface);border:1px solid var(--border-strong);border-top:3px solid #7899ff;border-radius:16px;padding:22px;box-shadow:none}
+#step-0 #today-headline {font-size:30px;line-height:1.12;font-weight:700;letter-spacing:-.04em;color:var(--text);max-width:none}
+#step-0 #today-sub,#step-0 #today-why,#step-0 #today-plan-context,#step-0 #daily-pelvic-note {font-size:14px;line-height:1.6;color:var(--text-secondary)}
+#step-0 .u-state-badge {color:var(--accent);font-weight:600}
+#step-0 .today-card[data-state="REST"] .u-state-badge,
+#step-0 .today-card[data-state="SUPPORT_ONLY"] .u-state-badge,
+#step-0 .today-card[data-state="COMPLETE"] .u-state-badge {color:var(--success)}
+#step-0 .today-card[data-state="RECOVER"] .u-state-badge,
+#step-0 .today-card[data-state="MODIFIED"] .u-state-badge {color:#f4d5a3}
+.bp-member-goal {font-size:12px;line-height:1.5;color:var(--text-secondary);margin-top:10px}
+#step-0 #today-actions {margin-top:18px}
+#step-0 #today-meta {color:var(--text-secondary);font-size:12px}
+#step-0 #hq-nav {background:var(--canvas);border-top-color:var(--border)}
+#step-0 .hq-nav-tile,#step-0 .u-icon-btn {color:var(--text-secondary)}
+#step-0 .hq-nav-tile[aria-current="page"] {background:var(--bp-selected);color:var(--accent)}
+#step-0 .week-cell[data-today="1"] {background:var(--bp-selected);color:var(--text);border-color:var(--accent)}
+#step-0 .week-cell[data-today="1"]>span,#step-0 .week-cell[data-today="1"]>i {color:var(--text)}
+#step-0 #daily-pelvic-card[data-integrated="true"] #daily-pelvic-start {background:transparent;color:var(--text);border:1px solid var(--border-strong)}
+
+/* Training and completion: acknowledge effort, then use the real save flow. */
+.guided-step .instruction-card,#step-4 #ex-active-cue,#step-4 #ex-pause-btn {background:var(--surface);border-color:var(--border)}
+.guided-step h2 {color:var(--text);font-weight:700}
+.guided-step .guided-stop {color:var(--text-secondary);font-size:13px}
+#step-4 #ex-timer,#step-2 #warmup-timer {color:var(--text)}
+#step-5 .guided-complete-icon {display:grid;place-items:center;width:74px;height:74px;border-radius:50%;margin:8px auto 0;background:var(--bp-success-surface);color:var(--success);font-size:30px}
+#step-5 #guided-success-title {font-size:34px;line-height:1.1}
+.bp-completion-copy {font-size:15px;line-height:1.6;color:var(--text-secondary)}
+.guided-step .quick-tap.selected,.guided-step .eq-btn.selected,.guided-step .rpe-btn.selected {background:var(--bp-selected);color:var(--text);border-color:var(--accent)}
+
+/* Supporting progress surfaces use the same text, controls and borders. */
+#chart-modal h2 {font-size:32px;font-style:normal;text-transform:none;letter-spacing:-.04em;color:var(--text)}
+#chart-modal .bp-progress-intro {font-size:14px;color:var(--text-secondary);margin-top:6px}
+#chart-modal #personal-progress-summary {font-size:14px}
+#chart-modal #personal-progress-summary strong {font-size:22px;color:var(--accent)}
+#chart-modal #personal-checkin-btn,#chart-modal #personal-checkin-cancel {min-height:48px;border:1px solid var(--border-strong);background:var(--surface);border-radius:12px;font-size:14px;color:var(--text);box-shadow:none}
+#chart-modal #personal-checkin-fields select {background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+#chart-modal .stat-chip,#chart-modal .chart-svg-wrap {background:var(--surface);border-color:var(--border);box-shadow:none}
+@media(max-width:360px) {
+    #auth-screen {padding:16px}
+    #auth-screen .auth-card {padding:22px}
+    .bp-auth-heading h1 {font-size:30px}
+    #step-0 .today-card {padding:18px}
+    #step-0 #today-headline {font-size:28px}
+    #step-0 .hq-wordmark {font-size:15px}
+}
+@media(prefers-reduced-motion:reduce) {.btn-primary {transition:none}}
+
+/* A short phone cannot show four full-width rows and the persistent footer.
+   Use two readable columns here; retain full-width rows on taller screens. */
+@media(max-height:700px) {
+    #onboarding-overlay.goal-picker-only #ob-slide-4 {padding:16px;bottom:145px}
+    #onboarding-overlay.goal-picker-only #ob-slide-4 h2 {font-size:26px;margin:6px 0 10px}
+    #onboarding-overlay.goal-picker-only #ob-slide-4>p {font-size:13px;margin-bottom:10px}
+    #onboarding-overlay.goal-picker-only #goal-options {grid-template-columns:1fr 1fr;gap:8px}
+    #onboarding-overlay.goal-picker-only .goal-opt {display:block;padding:14px 22px 12px 12px;min-height:96px}
+    #onboarding-overlay.goal-picker-only .goal-opt i {display:none}
+    #onboarding-overlay.goal-picker-only .goal-opt span {display:block;font-size:14px;line-height:1.3}
+    #onboarding-overlay.goal-picker-only .goal-opt em {display:block;margin-top:6px}
+    #onboarding-overlay.goal-picker-only .goal-opt.selected::after {right:7px;top:10px;font-size:16px}
+}
