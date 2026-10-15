@@ -97,6 +97,17 @@ describe('deployed assets cover what the browser imports', () => {
         expect(excluded).toEqual([]);
     });
 
+    it('ships every local stylesheet linked by the member app', () => {
+        const links=[...page.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)]
+            .map(m=>m[1]).filter(href=>href.startsWith('.'));
+        expect(links).toContain('./blueprint.css');
+        for(const href of links){
+            const file=path.resolve(ROOT,'app',href);
+            expect(existsSync(file),href).toBe(true);
+            expect(isIgnored(path.relative(ROOT,file),rules),href).toBe(false);
+        }
+    });
+
     it('deploys the production Worker by its exact current name', () => {
         /* A stale Worker name silently deploys the wrong service. PR #111
            exposed an out-of-date name alongside a Workers Builds command
