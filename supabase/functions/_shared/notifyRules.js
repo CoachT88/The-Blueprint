@@ -144,12 +144,12 @@ export function reminderHour(reminderTime) {
  */
 export const MESSAGES = {
     daily_reminder: () => ({
-        title: 'From Coach Tee',
+        title: 'Coach Tee',
         body: 'Make sure you show up for training today.',
         tag: 'bp-reminder',
     }),
     completion_praise: (sameDay = true) => ({
-        title: 'From Coach Tee',
+        title: 'Coach Tee',
         body: sameDay ? 'Good job for showing up today.' : 'Good job for showing up.',
         tag: 'bp-completion',
     }),
