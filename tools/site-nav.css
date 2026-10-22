@@ -1,0 +1,170 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   THE SHARED SITE HEADER. One source, ten pages.
+
+   WHY IT IS COPIED INTO EACH PAGE RATHER THAN LINKED. Every page on this
+   site is self-contained: one inline <style>, no external stylesheet, no
+   font CDN. tests/landingCss.test.js enforces that on the home page and
+   explains why, and a man reading a page about erectile function should not
+   have the visit announced to a third party. So "shared" cannot mean a
+   <link>. It means ONE canonical file, written into every page by
+   tools/sync-site-nav.mjs, with tests/siteNav.test.js failing the build if
+   any page drifts. Edit this file, run the sync, never edit a page's copy.
+
+   SCOPED CUSTOM PROPERTIES. The home page and the supporting pages use
+   different palettes (--bone/--edge/--ink versus --text/--line/--bg), so
+   this block declares its own --sn-* values and depends on neither. That is
+   also why it survives tests/landingCss.test.js, which requires every
+   :root property to be used: these live on .sn, not :root.
+   ────────────────────────────────────────────────────────────────────── */
+/* Declared on all three, NOT on .sn alone: the scrim and the drawer are
+   SIBLINGS of the header, not descendants, so they inherit nothing from it.
+   Scoped here rather than on :root so this block stays independent of each
+   page's own palette and of the :root audit in tests/landingCss.test.js. */
+.sn,.sn-scrim,.sn-drawer{
+  --sn-bg:rgba(2,6,23,.88);
+  --sn-ink:#f8fafc;
+  --sn-text:#cbd5e1;
+  --sn-muted:#94a3b8;
+  --sn-edge:#1f2c40;
+  --sn-blue:#3b82f6;
+  --sn-blue-press:#2563eb;
+  --sn-panel:#0b1120;
+  --sn-h:60px;
+}
+.sn{
+  position:sticky;top:0;z-index:50;
+  background:var(--sn-bg);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--sn-edge);
+  padding-top:env(safe-area-inset-top);
+}
+.sn *{box-sizing:border-box}
+.sn-in{
+  width:min(100% - 32px,1100px);margin:0 auto;
+  min-height:var(--sn-h);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  /* nowrap, and this is the bug it fixes: the old bars were flex-wrap:wrap
+     inside a fixed 60px, so on a narrow phone the first line was simply
+     clipped off the top. */
+  flex-wrap:nowrap;
+}
+
+/* ---- brand. The home page lockup, unchanged, now on every page. -------- */
+.sn-brand{
+  display:flex;align-items:center;gap:10px;flex:0 1 auto;min-width:0;
+  font-size:15px;font-weight:900;font-style:italic;letter-spacing:-.02em;
+  text-transform:uppercase;color:var(--sn-ink);text-decoration:none;
+  white-space:nowrap;min-height:44px;
+}
+.sn-brand .sn-mark{
+  width:26px;height:26px;flex:none;border-radius:8px;
+  background:linear-gradient(150deg,var(--sn-blue),#1d4ed8);
+  display:grid;place-items:center;
+  font-size:12px;color:#fff;font-weight:900;font-style:italic;
+}
+.sn-brand span:not(.sn-mark){overflow:hidden;text-overflow:ellipsis}
+
+/* ---- desktop links ----------------------------------------------------- */
+.sn-links{display:none;align-items:center;gap:4px;flex:1 1 auto;min-width:0;
+  margin-left:14px}
+.sn-links a,.sn-learn-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:0 10px;min-height:44px;border:0;background:none;
+  color:var(--sn-text);font:inherit;font-size:13.5px;font-weight:650;
+  text-decoration:none;white-space:nowrap;border-radius:9px;cursor:pointer;
+}
+.sn-links a:hover,.sn-learn-btn:hover{color:var(--sn-ink);background:rgba(255,255,255,.05)}
+.sn-links a[aria-current="page"]{color:var(--sn-ink)}
+.sn-learn{position:relative}
+.sn-learn-btn svg{transition:transform 140ms cubic-bezier(.2,.8,.2,1)}
+.sn-learn[data-open="true"] .sn-learn-btn svg{transform:rotate(180deg)}
+.sn-learn-menu{
+  position:absolute;top:calc(100% + 6px);left:0;min-width:230px;
+  background:var(--sn-panel);border:1px solid var(--sn-edge);border-radius:14px;
+  box-shadow:0 18px 44px -12px rgba(0,0,0,.7);padding:6px;display:none;
+}
+.sn-learn[data-open="true"] .sn-learn-menu{display:block}
+.sn-learn-menu a{display:flex;width:100%;padding:0 12px;min-height:44px;border-radius:9px;
+  font-size:13.5px}
+
+/* ---- right-hand actions ------------------------------------------------ */
+.sn-act{display:flex;align-items:center;gap:8px;flex:none;flex-wrap:nowrap}
+.sn-signin{
+  display:none;align-items:center;padding:0 13px;min-height:44px;border-radius:10px;
+  border:1px solid var(--sn-edge);color:var(--sn-text);text-decoration:none;
+  font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  white-space:nowrap;
+}
+.sn-signin:hover{color:var(--sn-ink);border-color:#35425e}
+/* The purchase CTA. Present at every width, because it is the one action
+   the site exists for. #2563eb against white is 5.17:1; #3b82f6 would be
+   3.68:1 and fail AA for this size. */
+.sn-buy{
+  display:inline-flex;align-items:center;padding:0 14px;min-height:44px;
+  border-radius:10px;background:var(--sn-blue-press);color:#fff;text-decoration:none;
+  font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  white-space:nowrap;box-shadow:0 8px 22px -10px rgba(37,99,235,.9);
+}
+.sn-buy:hover{background:#1d4ed8}
+.sn-toggle{
+  display:inline-grid;place-items:center;width:44px;height:44px;flex:none;
+  border-radius:10px;border:1px solid var(--sn-edge);background:transparent;
+  color:var(--sn-ink);cursor:pointer;
+}
+.sn-toggle:hover{background:rgba(255,255,255,.05)}
+
+/* ---- slide-out drawer -------------------------------------------------- */
+.sn-scrim{
+  position:fixed;inset:0;z-index:60;background:rgba(2,6,23,.72);
+  backdrop-filter:blur(2px);opacity:0;visibility:hidden;
+  transition:opacity 200ms cubic-bezier(.2,.8,.2,1),visibility 200ms;
+}
+.sn-drawer{
+  position:fixed;top:0;right:0;bottom:0;z-index:61;
+  width:min(86vw,340px);
+  background:var(--sn-panel);border-left:1px solid var(--sn-edge);
+  padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  overflow-y:auto;transform:translateX(100%);
+  transition:transform 220ms cubic-bezier(.2,.8,.2,1);
+  display:flex;flex-direction:column;gap:4px;
+}
+body[data-sn-open="true"] .sn-scrim{opacity:1;visibility:visible}
+body[data-sn-open="true"] .sn-drawer{transform:translateX(0)}
+body[data-sn-open="true"]{overflow:hidden}
+.sn-drawer-top{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px}
+.sn-drawer-title{font-size:11px;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--sn-muted)}
+.sn-group{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--sn-muted);padding:16px 12px 6px}
+.sn-drawer a{
+  display:flex;align-items:center;min-height:48px;padding:0 12px;border-radius:11px;
+  color:var(--sn-text);text-decoration:none;font-size:15px;font-weight:650;
+}
+.sn-drawer a:hover{background:rgba(255,255,255,.05);color:var(--sn-ink)}
+.sn-drawer a[aria-current="page"]{color:var(--sn-ink);background:rgba(59,130,246,.12)}
+.sn-drawer .sn-buy{margin-top:14px;justify-content:center;min-height:50px;font-size:13px}
+.sn-drawer .sn-signin{display:flex;justify-content:center;min-height:48px;margin-top:8px}
+.sn-sep{height:1px;background:var(--sn-edge);margin:14px 4px 0}
+
+/* Keyboard focus. The site had none: a keyboard user could not see where
+   they were anywhere in this header. */
+.sn :focus-visible,.sn-drawer :focus-visible{
+  outline:2px solid var(--sn-blue);outline-offset:2px;border-radius:10px;
+}
+
+/* ---- 860px is where the five links and both actions stop fitting ------- */
+@media (min-width:860px){
+  .sn-links{display:flex}
+  .sn-signin{display:inline-flex}
+  .sn-toggle{display:none}
+  .sn-scrim,.sn-drawer{display:none}
+}
+@media (max-width:400px){
+  .sn-in{width:min(100% - 24px,1100px);gap:8px}
+  .sn-brand{font-size:12.5px;gap:7px}
+  .sn-brand .sn-mark{width:22px;height:22px;font-size:10px}
+  .sn-buy{padding:0 11px;font-size:11px;letter-spacing:.04em}
+}
+@media (prefers-reduced-motion:reduce){
+  .sn-scrim,.sn-drawer,.sn-learn-btn svg{transition:none}
+}
