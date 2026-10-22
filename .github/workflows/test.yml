@@ -38,7 +38,14 @@ jobs:
     # Only on pull requests: 20 files open a browser each and run serially, so
     # this is minutes rather than seconds. Every merge still passes through it.
     if: github.event_name == 'pull_request'
-    timeout-minutes: 20
+    # The JOB budget covers setup as well as the suite. It used to be 20, and
+    # that is what cancelled the run on PR #134: `Install Chromium` took 619s
+    # on a cache miss, against 23s on the three runs before it, so the suite
+    # had 581s of the budget left for work that needs about 630s. Nothing
+    # failed. The job simply ran out of clock during setup's bad day, and
+    # because a cancelled job skips `Post Cache Chromium`, the cache was never
+    # re-saved either, which would have made the next run miss again.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -60,9 +67,18 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-1.62.1
+          # So an evicted or renamed exact key still restores a usable browser
+          # instead of paying the full download again.
+          restore-keys: |
+            playwright-chromium-
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      # The suite gets its own budget, so slow setup can never eat it and a
+      # genuinely hanging test is still cut promptly. It runs in about 630s on
+      # a runner, so 20 minutes is roughly double, which is a real ceiling
+      # rather than a number chosen to make a red run go green.
       - name: Run browser suites
+        timeout-minutes: 20
         run: npm run test:e2e
