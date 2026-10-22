@@ -19,11 +19,15 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+/* Every public page. A new learning-centre guide is added here, and
+   tests/siteNav.test.js reads the same list, so a page that is never synced
+   fails rather than quietly shipping without a header. */
 export const PAGES = [
     'index.html',
     'learn/index.html',
     'last-longer/index.html',
     'stronger-erections/index.html',
+    'stronger-erections/why-hard-alone-but-lose-it-during-sex/index.html',
     'better-sexual-performance/index.html',
     'how-it-works/index.html',
     'whats-inside/index.html',
