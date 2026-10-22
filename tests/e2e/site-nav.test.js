@@ -302,3 +302,41 @@ describe('it reads clearly', () => {
         }
     }, 90_000);
 });
+
+describe('every page at every width, not just the home page', () => {
+    /* The gap that let a real defect through. The suite above checked six
+       widths on the home page and the supporting pages at 390 only, so
+       "supporting page at desktop" was never covered. At 1280 those pages
+       styled the bare `nav` element for their own old header
+       (min-height:76px, flex-wrap:wrap) and that rule was still reaching
+       the shared one, laying it out on two rows. Found by sweeping the
+       matrix, not by the tests. */
+    const PAGES = ['/index.html', '/learn/index.html', '/last-longer/index.html',
+        '/stronger-erections/index.html', '/better-sexual-performance/index.html',
+        '/how-it-works/index.html', '/whats-inside/index.html', '/faq/index.html',
+        '/support/index.html', '/safety/index.html'];
+
+    for (const [tag, w] of WIDTHS) {
+        test(`${tag} (${w}px): all ten pages are one header on one row`, async () => {
+            const page = await browser.newPage({ viewport: { width: w, height: 860 } });
+            const bad = [];
+            for (const p of PAGES) {
+                await page.goto(`${srv.origin}${p}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+                await page.waitForTimeout(120);
+                const m = await page.evaluate(() => {
+                    const bar = document.querySelector('.sn-in');
+                    const rows = new Set([...bar.children].map(c => c.getBoundingClientRect())
+                        .filter(r => r.width > 0 && r.height > 0).map(r => Math.round(r.top)));
+                    return { headers: document.querySelectorAll('header').length,
+                             overflowX: document.documentElement.scrollWidth > window.innerWidth + 1,
+                             rows: rows.size,
+                             barH: Math.round(bar.getBoundingClientRect().height) };
+                });
+                if (m.headers !== 1 || m.overflowX || m.rows !== 1 || m.barH > 72)
+                    bad.push(`${p} ${JSON.stringify(m)}`);
+            }
+            await page.close();
+            expect(bad, bad.join(' | ')).toEqual([]);
+        }, 120_000);
+    }
+});

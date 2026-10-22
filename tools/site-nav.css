@@ -64,8 +64,14 @@
 .sn-brand span:not(.sn-mark){overflow:hidden;text-overflow:ellipsis}
 
 /* ---- desktop links ----------------------------------------------------- */
-.sn-links{display:none;align-items:center;gap:4px;flex:1 1 auto;min-width:0;
-  margin-left:14px}
+.sn .sn-links{
+  /* .sn .sn-links, not .sn-links: these pages style the bare `nav` element
+     for their own old header, and `nav{min-height:76px;flex-wrap:wrap}` was
+     still reaching this one and laying it out on two rows. The dead rules
+     are gone, and the extra class keeps a future one from doing it again. */
+  display:none;align-items:center;gap:4px;flex:1 1 auto;min-width:0;
+  margin-left:14px;min-height:0;flex-wrap:nowrap;justify-content:flex-start;
+}
 .sn-links a,.sn-learn-btn{
   display:inline-flex;align-items:center;gap:5px;
   padding:0 10px;min-height:44px;border:0;background:none;
@@ -154,7 +160,7 @@ body[data-sn-open="true"]{overflow:hidden}
 
 /* ---- 860px is where the five links and both actions stop fitting ------- */
 @media (min-width:860px){
-  .sn-links{display:flex}
+  .sn .sn-links{display:flex}
   .sn-signin{display:inline-flex}
   .sn-toggle{display:none}
   .sn-scrim,.sn-drawer{display:none}
