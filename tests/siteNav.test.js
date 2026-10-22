@@ -25,7 +25,7 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 const PAGES = [
     'index.html', 'learn/index.html', 'last-longer/index.html',
     'stronger-erections/index.html',
-    'stronger-erections/why-hard-alone-but-lose-it-during-sex/index.html',
+    'performance-anxiety-erections/index.html',
     'better-sexual-performance/index.html',
     'how-it-works/index.html', 'whats-inside/index.html', 'faq/index.html',
     'support/index.html', 'safety/index.html',

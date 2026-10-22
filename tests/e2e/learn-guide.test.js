@@ -20,7 +20,7 @@ import { startServer, launchOptions } from './harness.js';
  * rgba(255,255,255,.03) as white and reports 1.10:1 for legible text.
  */
 
-const GUIDE = '/stronger-erections/why-hard-alone-but-lose-it-during-sex/index.html';
+const GUIDE = '/performance-anxiety-erections/index.html';
 const HUB = '/stronger-erections/index.html';
 const WIDTHS = [['320', 320], ['375', 375], ['390', 390], ['430', 430],
                 ['tablet', 768], ['desktop', 1280]];
@@ -73,8 +73,8 @@ describe('the guide reads on a phone', () => {
             });
             expect(m.overflowX, 'no horizontal scrolling').toBe(false);
             expect(m.h1).toBe(1);
-            expect(m.sections, 'seven numbered sections plus the topic footer')
-                .toBeGreaterThanOrEqual(8);
+            expect(m.sections, 'nine numbered sections plus the offer and topic headings')
+                .toBeGreaterThanOrEqual(10);
             expect(m.lefts, 'the prose is a single column').toBe(1);
             expect(m.noteVisible, 'the medical note is rendered').toBe(true);
             await page.close();
@@ -134,7 +134,7 @@ describe('the route to the guide and out of it', () => {
         /* The hub links the directory, not index.html, and the server
            resolves it. That is the URL the article will actually be shared
            and indexed under. */
-        expect(m.path).toBe('/stronger-erections/why-hard-alone-but-lose-it-during-sex/');
+        expect(m.path).toBe('/performance-anxiety-erections/');
         expect(m.h1).toBe('Why Can I Get Hard Alone but Lose It During Sex?');
         expect(m.headers, 'the guide carries the shared header').toBe(1);
         await page.close();
@@ -169,6 +169,115 @@ describe('the route to the guide and out of it', () => {
         const href = await page.evaluate(() =>
             document.querySelector('.sn-in .sn-buy').getAttribute('href'));
         expect(href).toBe('/#get');
+        await page.close();
+    }, 60_000);
+});
+
+describe('the free seven-day check is usable on the page itself', () => {
+    test('IT RENDERS WHOLE, WITH NOTHING GATED BEHIND A PURCHASE', async () => {
+        const page = await open(390, GUIDE);
+        const m = await page.evaluate(() => {
+            const s = document.getElementById('seven-day-check');
+            const r = s.getBoundingClientRect();
+            return {
+                heading: s.querySelector('h2').textContent,
+                /* Five daily observations and the review questions, all
+                   painted. A collapsed <details> or a hidden block would
+                   read as present in the HTML and be unusable here. */
+                daily: [...s.querySelectorAll('.check li')].map(li => ({
+                    label: li.querySelector('strong').textContent,
+                    shown: li.getBoundingClientRect().height > 0,
+                })),
+                review: s.querySelectorAll('.ask li').length,
+                limitsShown: s.querySelector('.limits').getBoundingClientRect().height > 0,
+                /* The one section a non-buyer can use must not route him
+                   into the funnel to use it. */
+                ctas: s.querySelectorAll('a.cta,a[href="/whats-inside/"],a[href="/app/"]').length,
+                links: s.querySelectorAll('a').length,
+                wide: r.width <= document.documentElement.clientWidth,
+            };
+        });
+        expect(m.heading).toBe('6. Try This: Your 7-Day Erection Consistency Check');
+        expect(m.daily.map(d => d.label))
+            .toEqual(['Sleep', 'Stress', 'Morning erection', 'Situation', 'Worry']);
+        expect(m.daily.every(d => d.shown), 'every observation is visible').toBe(true);
+        expect(m.review, 'the review questions').toBeGreaterThanOrEqual(3);
+        expect(m.limitsShown, 'the limits of the check are on screen').toBe(true);
+        expect(m.ctas, 'the free exercise sells something').toBe(0);
+        expect(m.links, 'the free exercise links out').toBe(0);
+        expect(m.wide, 'the section fits the viewport').toBe(true);
+        await page.close();
+    }, 60_000);
+
+    test('and it says on screen that it cannot diagnose anything', async () => {
+        const page = await open(390, GUIDE);
+        const t = await page.evaluate(() =>
+            document.querySelector('#seven-day-check .limits').textContent.replace(/\s+/g, ' '));
+        expect(t).toMatch(/cannot diagnose the cause of erection difficulties/i);
+        expect(t).toMatch(/not a reason to delay an appointment/i);
+        await page.close();
+    }, 60_000);
+});
+
+describe('the references are real links a reader can follow', () => {
+    test('EVERY SOURCE IS HTTPS, OPENS SAFELY, AND SAYS WHAT IT SUPPORTS', async () => {
+        const page = await open(390, GUIDE);
+        const refs = await page.evaluate(() =>
+            [...document.querySelectorAll('.refs li')].map(li => {
+                const a = li.querySelector('a');
+                return {
+                    href: a.href,
+                    rel: a.rel,
+                    target: a.target,
+                    /* The anchor must name the source to a screen reader
+                       reading links out of context, not just "here". */
+                    label: a.textContent.replace(/\s+/g, ' ').trim(),
+                    supports: (li.querySelector('a + span') || {}).textContent || '',
+                    shown: li.getBoundingClientRect().height > 0,
+                };
+            }));
+        expect(refs.length, 'too few sources').toBeGreaterThanOrEqual(5);
+        for (const r of refs) {
+            expect(r.href.startsWith('https://'), `${r.href}`).toBe(true);
+            expect(r.rel).toBe('noopener noreferrer');
+            expect(r.target).toBe('_blank');
+            expect(r.label.length, `link text too short: ${r.label}`).toBeGreaterThan(25);
+            expect(r.label).toContain('(opens in a new tab)');
+            expect(r.supports).toMatch(/^Supports /);
+            expect(r.shown).toBe(true);
+        }
+        await page.close();
+    }, 60_000);
+
+    test('the new-tab notice reaches a screen reader without being painted', async () => {
+        const page = await open(390, GUIDE);
+        const m = await page.evaluate(() => {
+            const a = document.querySelector('.refs li a');
+            const sr = a.querySelector('.sr-only');
+            const r = sr.getBoundingClientRect();
+            const cs = getComputedStyle(sr);
+            return {
+                w: Math.round(r.width), h: Math.round(r.height),
+                position: cs.position, clip: cs.clip, overflow: cs.overflow,
+                /* It has to stay in the accessible name. Hiding it with
+                   display:none or visibility:hidden would take it out of
+                   the name as well as off the screen, which is the whole
+                   failure this pattern exists to avoid. */
+                inName: a.textContent.includes('(opens in a new tab)'),
+                display: cs.display, visibility: cs.visibility,
+            };
+        });
+        /* innerText is not the probe here: Chromium reports clipped text in
+           innerText, so a passing innerText check would prove nothing. The
+           1px clipped box is what keeps it off the screen. */
+        expect(m.w).toBeLessThanOrEqual(1);
+        expect(m.h).toBeLessThanOrEqual(1);
+        expect(m.position).toBe('absolute');
+        expect(m.clip).toBe('rect(0px, 0px, 0px, 0px)');
+        expect(m.overflow).toBe('hidden');
+        expect(m.display, 'display:none would drop it from the name').not.toBe('none');
+        expect(m.visibility, 'visibility:hidden would drop it from the name').not.toBe('hidden');
+        expect(m.inName, 'the notice is not in the accessible name').toBe(true);
         await page.close();
     }, 60_000);
 });
