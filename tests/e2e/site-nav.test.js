@@ -312,12 +312,14 @@ describe('every page at every width, not just the home page', () => {
        the shared one, laying it out on two rows. Found by sweeping the
        matrix, not by the tests. */
     const PAGES = ['/index.html', '/learn/index.html', '/last-longer/index.html',
-        '/stronger-erections/index.html', '/better-sexual-performance/index.html',
+        '/stronger-erections/index.html',
+        '/performance-anxiety-erections/index.html',
+        '/better-sexual-performance/index.html',
         '/how-it-works/index.html', '/whats-inside/index.html', '/faq/index.html',
         '/support/index.html', '/safety/index.html'];
 
     for (const [tag, w] of WIDTHS) {
-        test(`${tag} (${w}px): all ten pages are one header on one row`, async () => {
+        test(`${tag} (${w}px): every page is one header on one row`, async () => {
             const page = await browser.newPage({ viewport: { width: w, height: 860 } });
             const bad = [];
             for (const p of PAGES) {
