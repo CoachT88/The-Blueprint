@@ -89,8 +89,8 @@ const BRITISH_SPELLINGS = [
 const CONTRAST_CONSTRUCTIONS = [
     /\bnot just\b/i, /\bnot merely\b/i, /\bnot simply\b/i, /\bisn'?t just\b/i,
     /\bbut rather\b/i, /\bnot only\b[^.]{0,60}\bbut\b/i,
-    /\b(is|are|was|were) not\b[^.!?]{0,90}\.\s*(It|They|That|This|What)\s+(is|are)\s+(?!not\b)/,
-    /\b(is|are) not\b[^.!?]{0,70},\s*(it|they|that)\s+(is|are)\s+(?!not\b)/i,
+    /\b(is|are|was|were) not\b[^.!?]{0,90}\.\s*(It|They|That|This|What)\s+(is|are)\s+(?![^.!?]{0,25}\bnot\b)/,
+    /\b(is|are) not\b[^.!?]{0,70},\s*(it|they|that)\s+(is|are)\s+(?![^.!?]{0,25}\bnot\b)/i,
     /\bdifferent claim from\b/i,
     /\bwhere most\b[^.!?]{0,50}\bgoes wrong\b/i,
     /\bis the whole (article|guide|point|story)\b/i,

@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#020617">
+<meta name="description" content="An independent look at sexual performance methods men actually discuss, including practices the medical literature barely touches. What the evidence shows, what is only reported, and what nobody knows.">
+<title>The Research Lab | The Blueprint</title>
+<link rel="canonical" href="https://theblueprint.site/research-lab/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="The Blueprint">
+<meta property="og:title" content="The Research Lab">
+<meta property="og:description" content="An independent look at sexual performance methods men actually discuss. What the evidence shows, what is only reported, and what nobody knows.">
+<meta property="og:url" content="https://theblueprint.site/research-lab/">
+<meta property="og:image" content="https://theblueprint.site/img/og-card.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"CollectionPage","name":"The Research Lab","description":"An independent look at sexual performance methods men actually discuss. What the evidence shows, what is only reported, and what nobody knows.","inLanguage":"en","isAccessibleForFree":true,"url":"https://theblueprint.site/research-lab/","publisher":{"@type":"Organization","name":"The Blueprint","url":"https://theblueprint.site/"}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Learn","item":"https://theblueprint.site/learn/"},{"@type":"ListItem","position":2,"name":"The Research Lab","item":"https://theblueprint.site/research-lab/"}]}]}</script>
+<style>
+/* GUIDE-CSS:START */
+/* ──────────────────────────────────────────────────────────────────────────
+   THE LEARNING CENTRE GUIDE STYLESHEET. One source, every guide.
+
+   Same reasoning as tools/site-nav.css. Every page on this site is
+   self-contained: one inline <style>, no external stylesheet, no font CDN,
+   because a man reading a page about erectile function should not have the
+   visit announced to a third party. So "shared" cannot mean a <link>. It
+   means ONE canonical file, written into every guide by
+   tools/sync-site-nav.mjs, with tests/learnGuides.test.js failing the build
+   if any copy drifts. Edit this file, run the sync, never edit a guide's
+   copy.
+
+   The guides are a set. A reader who arrives on one from a search and then
+   follows a related link must not feel he has changed websites, so the
+   principle cards, the action plans, the reference lists and the safety
+   notes are defined once, here, and not per page.
+   ────────────────────────────────────────────────────────────────────── */
+:root{
+  color-scheme:dark;
+  --bg:#020617;
+  --panel:#0f172a;
+  --panel-2:#131f36;
+  --line:#263449;
+  --text:#f8fafc;
+  --muted:#b4c3d6;
+  --blue:#60a5fa;
+  --blue-press:#2563eb;
+  --amber:#fbbf24;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  line-height:1.65;
+}
+a{color:var(--blue)}
+.wrap{width:min(100% - 40px,980px);margin:auto}
+main{padding:52px 0 90px}
+
+/* ---- breadcrumb -------------------------------------------------------- */
+/* The guide's only route back to its hub sits in a line of prose. Inline
+   targets are exempt from WCAG 2.5.8, but this one is at the top of the page
+   where a thumb lands first, so it gets a real height rather than the 16px a
+   bare inline anchor measures. */
+.crumb{font-size:.9rem;color:var(--muted);line-height:2.3}
+.crumb a{display:inline-block;padding:6px 0;text-decoration:none}
+.crumb a:hover{text-decoration:underline}
+
+/* ---- headings and prose ------------------------------------------------ */
+.eyebrow{color:var(--blue);text-transform:uppercase;letter-spacing:.13em;
+  font-size:.76rem;font-weight:800;margin:22px 0 0}
+h1,h2,h3{line-height:1.18;letter-spacing:-.035em}
+h1{font-size:clamp(2rem,5.4vw,3.3rem);max-width:820px;margin:12px 0 22px}
+h2{font-size:clamp(1.35rem,3.4vw,1.95rem);margin:0 0 16px}
+h3{font-size:1.1rem;margin:30px 0 8px;letter-spacing:-.02em}
+.lead{font-size:1.18rem;color:var(--muted)}
+p{margin:0 0 15px}
+section{margin-top:52px}
+ul,ol{margin:0 0 15px;padding-left:22px}
+li{margin:0 0 9px}
+strong{color:var(--text)}
+/* One measure for every block of prose, so the guide reads as one column
+   instead of each section finding its own line length. 70ch at 17px is about
+   65 to 70 characters, which is the range long-form reading is easiest in. */
+.reading,.reading p,.reading li,.lead{max-width:70ch}
+.reading{font-size:17px;line-height:1.7}
+
+/* ---- quoted thoughts and self-check questions -------------------------- */
+/* Set apart so they are not read as the guide's own assertions. */
+.inner{color:var(--text);font-style:italic;border-left:3px solid var(--line);
+  padding-left:16px;margin:0 0 18px}
+.ask{list-style:none;padding-left:0}
+.ask li{border-bottom:1px solid var(--line);padding:11px 0;margin:0;color:var(--muted)}
+.cycle{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:16px 18px;color:var(--muted);font-weight:650}
+
+/* ---- the principle card ------------------------------------------------ */
+/* Four parts, always in the same order and always labeled, so a reader who
+   has seen one guide can find the same thing in the next without reading the
+   whole section: the principle, why it matters, a real situation, and the
+   action. The label is a heading for assistive tech, not decoration. */
+.principle{background:var(--panel);border:1px solid var(--line);
+  border-left:4px solid var(--blue);border-radius:0 16px 16px 0;
+  padding:22px 24px;margin:0 0 18px}
+.principle h3{margin:0 0 14px;font-size:1.16rem;color:var(--text);line-height:1.35}
+.principle dl{margin:0}
+.principle dt{font-size:.72rem;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--blue);margin:14px 0 4px}
+.principle dt:first-of-type{margin-top:0}
+.principle dd{margin:0;color:var(--muted)}
+.principle dd:last-child{margin-bottom:0}
+/* The one worth remembering, repeated near the end of the guide. */
+.takeaway{background:var(--panel-2);border:1px solid var(--blue);
+  border-radius:16px;padding:22px 24px;margin:30px 0 0}
+.takeaway p{margin:0;color:var(--text);font-size:1.08rem;line-height:1.6}
+.takeaway .label{display:block;font-size:.72rem;font-weight:800;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--blue);margin-bottom:8px}
+
+/* ---- the free action plan ---------------------------------------------- */
+/* A plain list a man can copy onto paper, into a notes app, or print,
+   because the exercise has to work for someone who buys nothing and signs up
+   for nothing. */
+.check{list-style:none;padding-left:0;margin:0 0 20px;counter-reset:step}
+.check li{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:15px 18px;margin:0 0 10px;color:var(--muted)}
+.check strong{display:block;color:var(--text);margin-bottom:3px}
+.steps{list-style:none;padding-left:0;margin:0 0 20px;counter-reset:step}
+.steps li{position:relative;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:16px 18px 16px 58px;margin:0 0 10px;color:var(--muted)}
+.steps li::before{counter-increment:step;content:counter(step);
+  position:absolute;left:16px;top:15px;width:28px;height:28px;border-radius:9px;
+  background:var(--blue-press);color:#fff;font-weight:800;font-size:.9rem;
+  display:grid;place-items:center}
+.steps strong{display:block;color:var(--text);margin-bottom:3px}
+.limits{border-left:3px solid var(--blue);background:var(--panel);
+  border-radius:0 12px 12px 0;padding:16px 18px;margin:26px 0 0}
+.limits p{color:var(--muted)}
+.limits p:last-child{margin-bottom:0}
+/* Safety instructions are never decoration. Amber, like the medical note, so
+   "stop if this happens" looks the same in every guide. */
+.safety{border-left:3px solid var(--amber);background:var(--panel);
+  border-radius:0 12px 12px 0;padding:16px 18px;margin:22px 0 0}
+.safety p:last-child,.safety ul:last-child{margin-bottom:0}
+.safety p,.safety li{color:var(--muted)}
+.safety .label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--amber);margin-bottom:8px}
+
+/* ---- references -------------------------------------------------------- */
+/* Each one names the claim it is there to support, so a reader can check the
+   specific statement rather than the guide as a whole. */
+.refs{list-style:none;padding-left:0;margin:0}
+.refs li{border-top:1px solid var(--line);padding:15px 0;margin:0}
+.refs a{font-weight:700}
+.refs span{display:block;color:var(--muted);font-size:.95rem;margin-top:4px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---- related guides and the Blueprint step ----------------------------- */
+.topics{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+.topics a{display:block;padding:22px;background:var(--panel);border:1px solid var(--line);
+  border-radius:16px;text-decoration:none;color:var(--text)}
+.topics a:hover{border-color:var(--blue)}
+.topics strong{display:block;margin-bottom:6px}
+.topics span{display:block;color:var(--muted);margin-top:0}
+.offer{background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  padding:26px;margin-top:30px}
+.offer h3{margin:0 0 10px;font-size:1.25rem}
+.offer ul{color:var(--muted)}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
+.cta{display:inline-block;border-radius:12px;padding:13px 21px;
+  background:var(--blue-press);color:#fff;text-decoration:none;font-weight:800}
+.cta.secondary{background:transparent;border:1px solid var(--line);color:var(--text)}
+.price{margin:14px 0 0;color:var(--muted);font-weight:700}
+.small{font-size:.92rem;color:var(--muted)}
+.note{border-left:3px solid var(--amber);padding:14px 18px;background:var(--panel);
+  color:var(--muted);border-radius:0 12px 12px 0;margin-top:52px}
+footer{border-top:1px solid var(--line);padding:26px 0 40px;color:var(--muted);font-size:.88rem}
+footer a{margin-right:16px}
+
+@media(max-width:650px){
+  main{padding-top:30px}
+  .principle,.takeaway,.offer{padding:18px 18px}
+  .steps li{padding-left:54px}
+}
+
+/* ---- printing the free resource ---------------------------------------- */
+/* Native, no dependency, no account. A man can print the action plan and
+   keep it by the bed or on the fridge, which is the whole point of an
+   exercise that has to work without the app. Everything that is navigation
+   or sales is dropped, and the plan prints on white with real contrast. */
+@media print{
+  .sn,.sn-scrim,.sn-drawer,.crumb,.eyebrow,.offer,.topics,footer{display:none}
+  body{background:#fff;color:#000;font-size:12pt}
+  .wrap{width:auto}
+  main{padding:0}
+  h1{font-size:20pt}
+  h2{font-size:14pt}
+  section{margin-top:22pt;page-break-inside:avoid}
+  .check li,.steps li,.principle{background:#fff;border:1px solid #999;color:#000;
+    page-break-inside:avoid}
+  .check strong,.steps strong,.principle h3,.principle dd{color:#000}
+  .limits,.safety,.note{background:#fff;color:#000;border-left:3px solid #000}
+  .limits p,.safety p,.safety li{color:#000}
+  .refs a{color:#000}
+  .refs a::after{content:" (" attr(href) ")";font-weight:400;font-size:10pt;
+    word-break:break-all}
+  .sr-only{display:none}
+}
+/* GUIDE-CSS:END */
+/* RESEARCH-CSS:START */
+/* ──────────────────────────────────────────────────────────────────────────
+   THE RESEARCH LAB. One source, every Research Lab page.
+
+   Loaded after tools/guide.css, which supplies the design system. This file
+   adds only what the Lab needs on top: the evidence labels, the method
+   cards, and the claim-versus-evidence blocks.
+
+   WHY THE LABELS LOOK DELIBERATELY PLAIN. A badge that looks like a rating
+   invites a reader to skim the badge and skip the reasoning, and the
+   reasoning is the part that is actually true. So the labels are typographic
+   rather than decorative, they carry no stars, scores or percentages, and
+   every one of them sits directly above prose that says what the evidence
+   actually is. The colour separates categories. It does not rank them.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* ---- evidence labels --------------------------------------------------- */
+.ev{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;
+  font-size:.74rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  border:1px solid var(--line);background:var(--panel);color:var(--muted);
+  margin:0 0 12px}
+.ev::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+/* Four categories, four hues, no implied ladder. Each pairs a readable
+   foreground with the panel behind it. */
+.ev-clinical{color:#7dd3a0;border-color:#2b5440}
+.ev-prelim{color:#8fb8f0;border-color:#2a3f5e}
+.ev-community{color:#e3b778;border-color:#5a4526}
+.ev-none{color:#c0c8d4;border-color:#36414f}
+
+/* The key that explains what each label means. */
+.ev-key{list-style:none;padding:0;margin:0}
+.ev-key li{border-top:1px solid var(--line);padding:18px 0}
+.ev-key li:last-child{border-bottom:1px solid var(--line)}
+.ev-key p{margin:0;color:var(--muted)}
+
+/* ---- method cards ------------------------------------------------------ */
+.method{background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  padding:26px;margin:0 0 20px}
+.method h3{margin:0 0 4px;font-size:1.35rem;letter-spacing:-.025em}
+.method .alias{display:block;color:var(--muted);font-size:.92rem;margin:0 0 14px}
+.method h4{font-size:.74rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--blue);margin:22px 0 6px}
+.method h4:first-of-type{margin-top:0}
+.method p,.method li{color:var(--muted)}
+.method p:last-child{margin-bottom:0}
+
+/* ---- the claim ledger -------------------------------------------------- */
+/* A claim, and what is actually known about it, side by side on desktop and
+   stacked on a phone. The claim never appears without its assessment. */
+.ledger{border:1px solid var(--line);border-radius:16px;overflow:hidden;margin:0 0 18px}
+.ledger-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);
+  border-top:1px solid var(--line)}
+.ledger-row:first-child{border-top:0}
+.ledger-claim{padding:18px;background:var(--panel);color:var(--text);font-weight:700}
+.ledger-real{padding:18px;color:var(--muted)}
+.ledger-real .ev{margin-bottom:8px}
+@media(max-width:700px){
+  .ledger-row{grid-template-columns:1fr}
+  .ledger-claim{border-bottom:1px solid var(--line)}
+}
+
+/* ---- review stamp ------------------------------------------------------ */
+.stamp{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;
+  border-left:3px solid var(--blue);background:var(--panel);
+  border-radius:0 12px 12px 0;padding:14px 18px;margin:22px 0 0;
+  font-size:.9rem;color:var(--muted)}
+.stamp strong{color:var(--text)}
+
+/* ---- topic index on the landing page ----------------------------------- */
+.topics .ev{margin:10px 0 0}
+.lab-hero{border-left:3px solid var(--blue);background:var(--panel);
+  border-radius:0 16px 16px 0;padding:20px 22px;margin:24px 0}
+.lab-hero p:last-child{margin-bottom:0}
+.lab-hero p{color:var(--muted)}
+
+@media print{
+  .ev{border:1px solid #000;color:#000;background:#fff}
+  .method,.ledger,.stamp,.lab-hero{background:#fff;color:#000;border-color:#999}
+  .method p,.method li,.ledger-real,.stamp,.lab-hero p{color:#000}
+}
+/* RESEARCH-CSS:END */
+
+/* SITE-NAV:START */
+/* ──────────────────────────────────────────────────────────────────────────
+   THE SHARED SITE HEADER. One source, every public page.
+
+   WHY IT IS COPIED INTO EACH PAGE RATHER THAN LINKED. Every page on this
+   site is self-contained: one inline <style>, no external stylesheet, no
+   font CDN. tests/landingCss.test.js enforces that on the home page and
+   explains why, and a man reading a page about erectile function should not
+   have the visit announced to a third party. So "shared" cannot mean a
+   <link>. It means ONE canonical file, written into every page by
+   tools/sync-site-nav.mjs, with tests/siteNav.test.js failing the build if
+   any page drifts. Edit this file, run the sync, never edit a page's copy.
+
+   SCOPED CUSTOM PROPERTIES. The home page and the supporting pages use
+   different palettes (--bone/--edge/--ink versus --text/--line/--bg), so
+   this block declares its own --sn-* values and depends on neither. That is
+   also why it survives tests/landingCss.test.js, which requires every
+   :root property to be used: these live on .sn, not :root.
+   ────────────────────────────────────────────────────────────────────── */
+/* Declared on all three, NOT on .sn alone: the scrim and the drawer are
+   SIBLINGS of the header, not descendants, so they inherit nothing from it.
+   Scoped here rather than on :root so this block stays independent of each
+   page's own palette and of the :root audit in tests/landingCss.test.js. */
+.sn,.sn-scrim,.sn-drawer{
+  --sn-bg:rgba(2,6,23,.88);
+  --sn-ink:#f8fafc;
+  --sn-text:#cbd5e1;
+  --sn-muted:#94a3b8;
+  --sn-edge:#1f2c40;
+  --sn-blue:#3b82f6;
+  --sn-blue-press:#2563eb;
+  --sn-panel:#0b1120;
+  --sn-h:60px;
+}
+.sn{
+  position:sticky;top:0;z-index:50;
+  background:var(--sn-bg);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--sn-edge);
+  padding-top:env(safe-area-inset-top);
+}
+.sn *{box-sizing:border-box}
+.sn-in{
+  width:min(100% - 32px,1100px);margin:0 auto;
+  min-height:var(--sn-h);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  /* nowrap, and this is the bug it fixes: the old bars were flex-wrap:wrap
+     inside a fixed 60px, so on a narrow phone the first line was simply
+     clipped off the top. */
+  flex-wrap:nowrap;
+}
+
+/* ---- brand. The home page lockup, unchanged, now on every page. -------- */
+.sn-brand{
+  display:flex;align-items:center;gap:10px;flex:0 1 auto;min-width:0;
+  font-size:15px;font-weight:900;font-style:italic;letter-spacing:-.02em;
+  text-transform:uppercase;color:var(--sn-ink);text-decoration:none;
+  white-space:nowrap;min-height:44px;
+}
+.sn-brand .sn-mark{
+  width:26px;height:26px;flex:none;border-radius:8px;
+  background:linear-gradient(150deg,var(--sn-blue),#1d4ed8);
+  display:grid;place-items:center;
+  font-size:12px;color:#fff;font-weight:900;font-style:italic;
+}
+.sn-brand span:not(.sn-mark){overflow:hidden;text-overflow:ellipsis}
+
+/* ---- desktop links ----------------------------------------------------- */
+.sn .sn-links{
+  /* .sn .sn-links, not .sn-links: these pages style the bare `nav` element
+     for their own old header, and `nav{min-height:76px;flex-wrap:wrap}` was
+     still reaching this one and laying it out on two rows. The dead rules
+     are gone, and the extra class keeps a future one from doing it again. */
+  display:none;align-items:center;gap:4px;flex:1 1 auto;min-width:0;
+  margin-left:14px;min-height:0;flex-wrap:nowrap;justify-content:flex-start;
+}
+.sn-links a,.sn-learn-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:0 10px;min-height:44px;border:0;background:none;
+  color:var(--sn-text);font:inherit;font-size:13.5px;font-weight:650;
+  text-decoration:none;white-space:nowrap;border-radius:9px;cursor:pointer;
+}
+.sn-links a:hover,.sn-learn-btn:hover{color:var(--sn-ink);background:rgba(255,255,255,.05)}
+.sn-links a[aria-current="page"]{color:var(--sn-ink)}
+.sn-learn{position:relative}
+.sn-learn-btn svg{transition:transform 140ms cubic-bezier(.2,.8,.2,1)}
+.sn-learn[data-open="true"] .sn-learn-btn svg{transform:rotate(180deg)}
+.sn-learn-menu{
+  position:absolute;top:calc(100% + 6px);left:0;min-width:230px;
+  background:var(--sn-panel);border:1px solid var(--sn-edge);border-radius:14px;
+  box-shadow:0 18px 44px -12px rgba(0,0,0,.7);padding:6px;display:none;
+}
+.sn-learn[data-open="true"] .sn-learn-menu{display:block}
+.sn-learn-menu a{display:flex;width:100%;padding:0 12px;min-height:44px;border-radius:9px;
+  font-size:13.5px}
+
+/* ---- right-hand actions ------------------------------------------------ */
+.sn-act{display:flex;align-items:center;gap:8px;flex:none;flex-wrap:nowrap}
+.sn-signin{
+  display:none;align-items:center;padding:0 13px;min-height:44px;border-radius:10px;
+  border:1px solid var(--sn-edge);color:var(--sn-text);text-decoration:none;
+  font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  white-space:nowrap;
+}
+.sn-signin:hover{color:var(--sn-ink);border-color:#35425e}
+/* The purchase CTA. Present at every width, because it is the one action
+   the site exists for. #2563eb against white is 5.17:1; #3b82f6 would be
+   3.68:1 and fail AA for this size. */
+.sn-buy{
+  display:inline-flex;align-items:center;padding:0 14px;min-height:44px;
+  border-radius:10px;background:var(--sn-blue-press);color:#fff;text-decoration:none;
+  font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  white-space:nowrap;box-shadow:0 8px 22px -10px rgba(37,99,235,.9);
+}
+.sn-buy:hover{background:#1d4ed8}
+.sn-toggle{
+  display:inline-grid;place-items:center;width:44px;height:44px;flex:none;
+  border-radius:10px;border:1px solid var(--sn-edge);background:transparent;
+  color:var(--sn-ink);cursor:pointer;
+}
+.sn-toggle:hover{background:rgba(255,255,255,.05)}
+
+/* ---- slide-out drawer -------------------------------------------------- */
+.sn-scrim{
+  position:fixed;inset:0;z-index:60;background:rgba(2,6,23,.72);
+  backdrop-filter:blur(2px);opacity:0;visibility:hidden;
+  transition:opacity 200ms cubic-bezier(.2,.8,.2,1),visibility 200ms;
+}
+.sn-drawer{
+  position:fixed;top:0;right:0;bottom:0;z-index:61;
+  width:min(86vw,340px);
+  background:var(--sn-panel);border-left:1px solid var(--sn-edge);
+  padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+  overflow-y:auto;transform:translateX(100%);
+  transition:transform 220ms cubic-bezier(.2,.8,.2,1);
+  display:flex;flex-direction:column;gap:4px;
+}
+body[data-sn-open="true"] .sn-scrim{opacity:1;visibility:visible}
+body[data-sn-open="true"] .sn-drawer{transform:translateX(0)}
+body[data-sn-open="true"]{overflow:hidden}
+.sn-drawer-top{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px}
+.sn-drawer-title{font-size:11px;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--sn-muted)}
+.sn-group{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--sn-muted);padding:16px 12px 6px}
+.sn-drawer a{
+  display:flex;align-items:center;min-height:48px;padding:0 12px;border-radius:11px;
+  color:var(--sn-text);text-decoration:none;font-size:15px;font-weight:650;
+}
+.sn-drawer a:hover{background:rgba(255,255,255,.05);color:var(--sn-ink)}
+.sn-drawer a[aria-current="page"]{color:var(--sn-ink);background:rgba(59,130,246,.12)}
+.sn-drawer .sn-buy{margin-top:14px;justify-content:center;min-height:50px;font-size:13px}
+.sn-drawer .sn-signin{display:flex;justify-content:center;min-height:48px;margin-top:8px}
+.sn-sep{height:1px;background:var(--sn-edge);margin:14px 4px 0}
+
+/* Keyboard focus. The site had none: a keyboard user could not see where
+   they were anywhere in this header. */
+.sn :focus-visible,.sn-drawer :focus-visible{
+  outline:2px solid var(--sn-blue);outline-offset:2px;border-radius:10px;
+}
+
+/* ---- 860px is where the five links and both actions stop fitting ------- */
+@media (min-width:860px){
+  .sn .sn-links{display:flex}
+  .sn-signin{display:inline-flex}
+  .sn-toggle{display:none}
+  .sn-scrim,.sn-drawer{display:none}
+}
+@media (max-width:400px){
+  .sn-in{width:min(100% - 24px,1100px);gap:8px}
+  .sn-brand{font-size:12.5px;gap:7px}
+  .sn-brand .sn-mark{width:22px;height:22px;font-size:10px}
+  .sn-buy{padding:0 11px;font-size:11px;letter-spacing:.04em}
+}
+@media (prefers-reduced-motion:reduce){
+  .sn-scrim,.sn-drawer,.sn-learn-btn svg{transition:none}
+}
+/* SITE-NAV:END */
+</style>
+</head>
+<body>
+<!-- SITE-NAV:START -->
+<header class="sn">
+  <div class="sn-in">
+    <a class="sn-brand" href="/"><span class="sn-mark" aria-hidden="true">B</span><span>The&nbsp;Blueprint</span></a>
+    <nav class="sn-links" aria-label="Main">
+      <div class="sn-learn" data-open="false">
+        <button type="button" class="sn-learn-btn" id="sn-learn-btn" aria-expanded="false" aria-controls="sn-learn-menu">Learn<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="sn-learn-menu" id="sn-learn-menu">
+          <a href="/last-longer/">Last Longer</a>
+          <a href="/stronger-erections/">Stronger Erections</a>
+          <a href="/better-sexual-performance/">Better Sexual Performance</a>
+        </div>
+      </div>
+      <a href="/how-it-works/">How It Works</a>
+      <a href="/whats-inside/">What&rsquo;s Inside</a>
+      <a href="/faq/">FAQ</a>
+      <a href="/support/">Support</a>
+    </nav>
+    <div class="sn-act">
+      <a class="sn-signin" href="/app/">Sign in</a>
+      <a class="sn-buy" href="/#get">Get the app</a>
+      <button type="button" class="sn-toggle" id="sn-toggle" aria-expanded="false" aria-controls="sn-drawer" aria-label="Open menu"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="sn-scrim" id="sn-scrim" hidden></div>
+<div class="sn-drawer" id="sn-drawer" role="dialog" aria-modal="true" aria-label="Site menu" hidden>
+  <div class="sn-drawer-top">
+    <span class="sn-drawer-title">Menu</span>
+    <button type="button" class="sn-toggle" id="sn-close" aria-label="Close menu"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="sn-group">Learn</div>
+  <a href="/last-longer/">Last Longer</a>
+  <a href="/stronger-erections/">Stronger Erections</a>
+  <a href="/better-sexual-performance/">Better Sexual Performance</a>
+  <div class="sn-group">The app</div>
+  <a href="/how-it-works/">How It Works</a>
+  <a href="/whats-inside/">What&rsquo;s Inside</a>
+  <a href="/faq/">FAQ</a>
+  <a href="/support/">Support</a>
+  <a href="/safety/">Safety</a>
+  <div class="sn-sep"></div>
+  <a class="sn-signin" href="/app/">Sign in</a>
+  <a class="sn-buy" href="/#get">Get the app</a>
+</div>
+<script>
+/* The drawer. Every destination above is a real anchor, so with JavaScript
+   off the markup is still a complete, crawlable list of links; only the
+   open and close behaviour needs this. */
+(function(){
+  var body=document.body,tog=document.getElementById('sn-toggle'),
+      close=document.getElementById('sn-close'),scrim=document.getElementById('sn-scrim'),
+      drawer=document.getElementById('sn-drawer'),learn=document.querySelector('.sn-learn'),
+      learnBtn=document.getElementById('sn-learn-btn');
+  if(!tog||!drawer) return;
+  /* hidden is removed once the script runs, so a no-JS visitor never sees a
+     drawer they cannot close. */
+  drawer.hidden=false; if(scrim) scrim.hidden=false;
+  var last=null;
+  function open(){
+    last=document.activeElement;
+    body.setAttribute('data-sn-open','true');
+    tog.setAttribute('aria-expanded','true');
+    var f=drawer.querySelector('a,button'); if(f) f.focus();
+  }
+  function shut(){
+    body.removeAttribute('data-sn-open');
+    tog.setAttribute('aria-expanded','false');
+    if(last&&last.focus) last.focus();
+  }
+  tog.addEventListener('click',open);
+  if(close) close.addEventListener('click',shut);
+  if(scrim) scrim.addEventListener('click',shut);
+  drawer.addEventListener('click',function(e){ if(e.target.closest('a')) shut(); });
+  function setLearn(v){
+    if(!learn) return;
+    learn.setAttribute('data-open',v?'true':'false');
+    if(learnBtn) learnBtn.setAttribute('aria-expanded',v?'true':'false');
+  }
+  if(learnBtn) learnBtn.addEventListener('click',function(e){
+    e.stopPropagation(); setLearn(learn.getAttribute('data-open')!=='true');
+  });
+  document.addEventListener('click',function(e){
+    if(learn&&!learn.contains(e.target)) setLearn(false);
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape') return;
+    setLearn(false);
+    if(body.getAttribute('data-sn-open')==='true') shut();
+  });
+  /* Keep focus inside the drawer while it is modal. */
+  drawer.addEventListener('keydown',function(e){
+    if(e.key!=='Tab'||body.getAttribute('data-sn-open')!=='true') return;
+    var f=drawer.querySelectorAll('a,button');
+    if(!f.length) return;
+    var first=f[0],lastEl=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();lastEl.focus();}
+    else if(!e.shiftKey&&document.activeElement===lastEl){e.preventDefault();first.focus();}
+  });
+  /* Mark the current page, from the URL, so no page carries a hand-set flag
+     that goes stale when it is copied to the next one. */
+  var here=location.pathname.replace(/index\.html$/,'');
+  document.querySelectorAll('.sn-links a,.sn-drawer a').forEach(function(a){
+    var h=a.getAttribute('href')||'';
+    if(h.charAt(0)==='/'&&h!=='/'&&h===here) a.setAttribute('aria-current','page');
+  });
+})();
+</script>
+<!-- SITE-NAV:END -->
+
+<main class="wrap">
+<p class="crumb"><a href="/learn/">Learn</a> / The Research Lab</p>
+<p class="eyebrow">The Research Lab</p>
+<h1>What is actually known, and what is only claimed</h1>
+
+<div class="reading">
+<p class="lead">Men discuss a great many methods for improving sexual performance. Some have been studied properly. Some have been studied in a different population, for a different purpose, and then borrowed. Some have never been studied at all and circulate entirely on reported experience.</p>
+<p>The Research Lab goes through them one at a time and says which is which.</p>
+</div>
+
+<div class="lab-hero reading">
+<p><strong>This is not a set of instructions.</strong> These pages describe what a method involves so that you can recognize what is being discussed and understand the claims attached to it. They do not provide training protocols, repetitions, durations or progressions, and publishing one is not the purpose.</p>
+<p><strong>It is also not an endorsement.</strong> Describing a method accurately, including the reasons men are drawn to it, is a different act from recommending it. Where the honest answer is that nobody knows, these pages say nobody knows.</p>
+</div>
+
+<section class="reading">
+<h2>1. How we read the evidence</h2>
+<p>Every claim in the Lab carries one of four labels. The label is a shorthand for the kind of evidence behind a claim. It is not a score, it is not a rating, and it never appears without prose underneath it explaining what the evidence actually is and where it falls short.</p>
+<p>That last point matters more than the labels themselves. A badge is easy to skim and easy to misread as a verdict. The reasoning beside it is the part that is true.</p>
+
+<ul class="ev-key">
+<li>
+<span class="ev ev-clinical">Supported by clinical evidence</span>
+<p>Controlled studies in humans, published in peer-reviewed journals, that tested this intervention for this purpose and found an effect. The label says the evidence exists. It does not say the effect is large, that it applies to you, or that the studies were free of limitations, which is why the text beside it describes the actual findings.</p>
+</li>
+<li>
+<span class="ev ev-prelim">Preliminary evidence</span>
+<p>Published human research exists, and it is early: small samples, short follow-up, no control group, a single centre, or results that have not been reproduced. Enough to take seriously as a question. Not enough to act on as a conclusion.</p>
+</li>
+<li>
+<span class="ev ev-community">Community-reported, unverified</span>
+<p>The claim comes from what men say about their own experience in forums and videos. These reports are real in the sense that people genuinely wrote them. They are unverified in every other sense: nobody measured anything, nobody tracked who stopped, and the men who had a bad outcome are not a group that posts as often as the men who had a good one.</p>
+</li>
+<li>
+<span class="ev ev-none">Insufficient evidence</span>
+<p>No published study has tested this claim, or the studies that exist cannot answer it. This label is not a verdict that the claim is false. It means the question is open and currently unanswerable from the literature.</p>
+</li>
+</ul>
+</section>
+
+<section class="reading">
+<h2>2. What the Lab is trying to be</h2>
+<p><strong>Curious.</strong> Methods that have not been studied are still worth understanding, because men are already doing them and deserve a straight account rather than silence.</p>
+<p><strong>Independent.</strong> The Blueprint sells a training app. That is a reason to be more careful here rather than less, so the Lab does not recommend our own product as the answer to questions the evidence has not settled, and these pages carry no sales offer.</p>
+<p><strong>Transparent.</strong> Sources are cited and linked. Where a source says something less convenient than the popular claim, the page says so. Where we could not find evidence either way, the page says that too, which is a more common outcome than you might expect.</p>
+<p><strong>Educational.</strong> The goal is that you finish a page understanding the subject well enough to judge the next claim you read about it on your own.</p>
+</section>
+
+<section class="reading">
+<h2>3. Topics</h2>
+<div class="topics">
+<a href="/research-lab/manual-techniques/"><strong>Manual techniques</strong><span>Directional pulls, the V-stretch, the wet jelq and the uli. What each one mechanically is, why men try them, what the literature does and does not establish, and the risks that follow from the mechanics.</span><span class="ev ev-none">Insufficient evidence</span></a>
+</div>
+<p class="small">More topics are being prepared. Each will be published when the sources behind it have been checked, rather than on a schedule.</p>
+</section>
+
+<section class="reading">
+<h2>4. Before you read further</h2>
+<p>Two things worth settling.</p>
+<p>The first is that a method having no evidence behind it does not make it harmless, and a method having evidence behind it does not make it right for you. Those are separate questions and the Lab treats them separately.</p>
+<p>The second is that most men who are worried about their penis have a normal one. The NHS puts it plainly, and so does Healthy Male, the Australian government funded men's health service: concern about size is common, and the size itself usually is not the problem. A systematic review of interventions in men complaining of small penis size found that counseling helped many of them accept that they were normal, which was more than most of the physical interventions achieved.</p>
+<p>If what brought you here is distress rather than curiosity, that is worth taking to a clinician or a therapist, and it is a more promising path than anything described on these pages.</p>
+</section>
+
+<section class="reading">
+<h2>5. Related reading</h2>
+<div class="topics">
+<a href="/learn/"><strong>The Learning Center</strong><span>Six guides on erections, ejaculation timing, the pelvic floor and conditioning, each with a free exercise and cited sources.</span></a>
+<a href="/assessment/"><strong>What should I work on?</strong><span>Five questions, answered privately, that point you at a starting point and two free things to try. Your answers stay in your browser.</span></a>
+</div>
+</section>
+
+<div class="stamp reading">
+<span><strong>Last reviewed:</strong> 23 October 2026</span>
+<span><strong>Reviewed by:</strong> The Blueprint editorial team. No clinician has reviewed these pages.</span>
+</div>
+
+<p class="note reading"><strong>Medical note:</strong> This material is general educational information for adults. It does not diagnose or treat any condition, and nothing here is a recommendation to perform any technique. Pain, swelling, bruising, a change in shape or curvature, difficulty passing urine, or any new lump should be evaluated promptly by a qualified healthcare professional.</p>
+</main>
+<footer><div class="wrap">Educational information for adults 18 and older. Persistent sexual health symptoms deserve medical evaluation.<p><a href="/learn/">Learn</a><a href="/safety/">Safety</a><a href="/support/">Support</a></p>&copy; The Blueprint</div></footer>
+</body>
+</html>

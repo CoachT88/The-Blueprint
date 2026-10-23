@@ -29,6 +29,8 @@ const PAGES = [
     'how-it-works/index.html', 'whats-inside/index.html', 'faq/index.html',
     'support/index.html', 'safety/index.html',
     'assessment/index.html',
+    'research-lab/index.html',
+    'research-lab/manual-techniques/index.html',
     'performance-anxiety-erections/index.html',
     'blood-sugar-erections/index.html',
     'hydration-erections/index.html',

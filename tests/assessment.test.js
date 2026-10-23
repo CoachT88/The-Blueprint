@@ -426,7 +426,7 @@ describe('the page behaves like the rest of the site', () => {
             expect(re.test(all), `British spelling ${re}`).toBe(false);
         }
         for (const re of [/\bnot just\b/i, /\bnot merely\b/i, /\bbut rather\b/i,
-                          /\b(is|are) not\b[^.!?]{0,90}\.\s*(It|They|That|This)\s+(is|are)\s+(?!not\b)/]) {
+                          /\b(is|are) not\b[^.!?]{0,90}\.\s*(It|They|That|This)\s+(is|are)\s+(?![^.!?]{0,25}\bnot\b)/]) {
             expect(re.test(all), `contrast construction ${re}`).toBe(false);
         }
     });

@@ -36,12 +36,23 @@ export const GUIDES = [
     'improve-sexual-stamina/index.html',
 ];
 
+/* The Research Lab pages. Declared before STYLED, which spreads it. */
+export const RESEARCH = [
+    'research-lab/index.html',
+    'research-lab/manual-techniques/index.html',
+];
+
 /* Pages that take tools/guide.css: the guides, plus the assessment.
    The assessment is not a guide. It runs logic, it has no references and
    no action plan, and the guide content rules in tests/learnGuides.test.js
    would be nonsense applied to it. It does need the same design system,
    which is what this list is for. */
-export const STYLED = [...GUIDES, 'assessment/index.html'];
+export const STYLED = [...GUIDES, 'assessment/index.html', ...RESEARCH];
+
+/* The Research Lab. Takes the design system like the assessment, and
+   additionally takes tools/research.css for the evidence labels and method
+   cards, which exist nowhere else on the site. */
+export const RESEARCH_CSS_PAGES = RESEARCH;
 
 /* Every public page. A new learning-centre guide is added here, and
    tests/siteNav.test.js reads the same list, so a page that is never synced
@@ -58,6 +69,7 @@ export const PAGES = [
     'support/index.html',
     'safety/index.html',
     'assessment/index.html',
+    ...RESEARCH,
     ...GUIDES,
 ];
 
@@ -67,10 +79,13 @@ export const HTML_START = '<!-- SITE-NAV:START -->';
 export const HTML_END = '<!-- SITE-NAV:END -->';
 export const GUIDE_START = '/* GUIDE-CSS:START */';
 export const GUIDE_END = '/* GUIDE-CSS:END */';
+export const RESEARCH_START = '/* RESEARCH-CSS:START */';
+export const RESEARCH_END = '/* RESEARCH-CSS:END */';
 
 export const navCss = () => readFileSync(path.join(ROOT, 'tools/site-nav.css'), 'utf8').trim();
 export const navHtml = () => readFileSync(path.join(ROOT, 'tools/site-nav.html'), 'utf8').trim();
 export const guideCss = () => readFileSync(path.join(ROOT, 'tools/guide.css'), 'utf8').trim();
+export const researchCss = () => readFileSync(path.join(ROOT, 'tools/research.css'), 'utf8').trim();
 
 /** Replace between markers, or insert them if this page has none yet. */
 function put(src, startTag, endTag, body, insert) {
@@ -82,8 +97,13 @@ function put(src, startTag, endTag, body, insert) {
     return insert(src, startTag + '\n' + body + '\n' + endTag);
 }
 
-export function render(src, isGuide = false) {
+export function render(src, isGuide = false, isResearch = false) {
     let out = src;
+    if (isResearch) {
+        out = put(out, RESEARCH_START, RESEARCH_END, researchCss(), () => {
+            throw new Error('a Research Lab page must carry the RESEARCH-CSS markers');
+        });
+    }
     if (isGuide) {
         /* Replace only. A guide is authored with these markers already in
            its <style>, above the header block, so the ordering is whatever
@@ -131,7 +151,7 @@ let drifted = 0;
 for (const rel of PAGES) {
     const p = path.join(ROOT, rel);
     const before = readFileSync(p, 'utf8');
-    const after = render(before, STYLED.includes(rel));
+    const after = render(before, STYLED.includes(rel), RESEARCH.includes(rel));
     if (before === after) continue;
     drifted++;
     if (check) console.log('DRIFT', rel);
