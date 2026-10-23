@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# The application behind sign-in. Nothing here is useful in a search result,
+# and a member's session URLs are not something to invite crawling of.
+Disallow: /app/
+
+Sitemap: https://theblueprint.site/sitemap.xml

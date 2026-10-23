@@ -22,6 +22,17 @@ import { startServer, launchOptions } from './harness.js';
 
 const GUIDE = '/performance-anxiety-erections/index.html';
 const HUB = '/stronger-erections/index.html';
+/* Every published guide. The per-guide checks below run against all of
+   them, because the thing that breaks is one page quietly diverging from
+   the set, and the set is what a reader moves through. */
+const GUIDES = [
+    '/performance-anxiety-erections/index.html',
+    '/blood-sugar-erections/index.html',
+    '/hydration-erections/index.html',
+    '/pelvic-floor-premature-ejaculation/index.html',
+    '/hip-mobility-sexual-performance/index.html',
+    '/improve-sexual-stamina/index.html',
+];
 const WIDTHS = [['320', 320], ['375', 375], ['390', 390], ['430', 430],
                 ['tablet', 768], ['desktop', 1280]];
 
@@ -73,7 +84,7 @@ describe('the guide reads on a phone', () => {
             });
             expect(m.overflowX, 'no horizontal scrolling').toBe(false);
             expect(m.h1).toBe(1);
-            expect(m.sections, 'nine numbered sections plus the offer and topic headings')
+            expect(m.sections, 'the numbered sections plus related guides')
                 .toBeGreaterThanOrEqual(10);
             expect(m.lefts, 'the prose is a single column').toBe(1);
             expect(m.noteVisible, 'the medical note is rendered').toBe(true);
@@ -197,7 +208,7 @@ describe('the free seven-day check is usable on the page itself', () => {
                 wide: r.width <= document.documentElement.clientWidth,
             };
         });
-        expect(m.heading).toBe('6. Try This: Your 7-Day Erection Consistency Check');
+        expect(m.heading).toBe('7. Try This: Your 7-Day Erection Consistency Check');
         expect(m.daily.map(d => d.label))
             .toEqual(['Sleep', 'Stress', 'Morning erection', 'Situation', 'Worry']);
         expect(m.daily.every(d => d.shown), 'every observation is visible').toBe(true);
@@ -280,4 +291,123 @@ describe('the references are real links a reader can follow', () => {
         expect(m.inName, 'the notice is not in the accessible name').toBe(true);
         await page.close();
     }, 60_000);
+});
+
+describe('every guide, driven', () => {
+    /* The static suite reads the files. This renders them. A guide that
+       parses perfectly can still paint its principle cards off the side of
+       a 320px screen, or print a safety block in a colour nobody can read
+       against the panel behind it. */
+    for (const g of GUIDES) {
+        test(`${g}: renders as part of the set, not as its own website`, async () => {
+            const page = await open(390, g);
+            const m = await page.evaluate(() => ({
+                headers: document.querySelectorAll('header').length,
+                overflowX: document.documentElement.scrollWidth > window.innerWidth + 1,
+                h1: document.querySelectorAll('h1').length,
+                /* The shared components, all painted. */
+                principles: [...document.querySelectorAll('.principle')]
+                    .filter(e => e.getBoundingClientRect().height > 0).length,
+                parts: [...document.querySelectorAll('.principle')]
+                    .map(p => [...p.querySelectorAll('dt')].map(d => d.textContent)),
+                takeaway: !!document.querySelector('.takeaway')
+                    && document.querySelector('.takeaway').getBoundingClientRect().height > 0,
+                plan: !!document.querySelector('[id$="-check"] .check, [id$="-check"] .steps'),
+                limits: !!document.querySelector('.limits')
+                    && document.querySelector('.limits').getBoundingClientRect().height > 0,
+                refs: document.querySelectorAll('.refs li').length,
+                related: document.querySelectorAll('.topics a').length,
+                price: (document.querySelector('.price') || {}).textContent,
+                /* The one section a non-buyer uses must not sell him anything. */
+                planLinks: document.querySelectorAll('[id$="-check"] a').length,
+                /* Body text in the range the brief asks for. */
+                bodyPx: parseFloat(getComputedStyle(document.querySelector('.reading')).fontSize),
+                lineH: parseFloat(getComputedStyle(document.querySelector('.reading')).lineHeight)
+                       / parseFloat(getComputedStyle(document.querySelector('.reading')).fontSize),
+            }));
+            expect(m.headers, 'exactly one header').toBe(1);
+            expect(m.overflowX, 'no horizontal scrolling').toBe(false);
+            expect(m.h1).toBe(1);
+            expect(m.principles, 'fewer than three principles painted').toBeGreaterThanOrEqual(3);
+            for (const parts of m.parts) {
+                expect(parts).toEqual(['Why it matters', 'Practical example', 'Apply it']);
+            }
+            expect(m.takeaway, 'no takeaway on screen').toBe(true);
+            expect(m.plan, 'no action plan list').toBe(true);
+            expect(m.limits, 'no limits block on screen').toBe(true);
+            expect(m.refs, 'too few references').toBeGreaterThanOrEqual(4);
+            expect(m.related, 'no related guides').toBeGreaterThanOrEqual(2);
+            expect(m.price.trim()).toBe('$49 one-time access.');
+            expect(m.planLinks, 'the free plan links out').toBe(0);
+            expect(m.bodyPx).toBeGreaterThanOrEqual(17);
+            expect(m.bodyPx).toBeLessThanOrEqual(18);
+            expect(m.lineH).toBeGreaterThanOrEqual(1.6);
+            expect(m.lineH).toBeLessThanOrEqual(1.75);
+            await page.close();
+        }, 60_000);
+    }
+
+    test('NO LINE OF ANY GUIDE FAILS AA, AT THE NARROWEST WIDTH', async () => {
+        /* Composited down to the canvas. Reading the first non-transparent
+           background instead reports 1.10:1 for perfectly legible text. */
+        const bad = [];
+        const page = await browser.newPage({ viewport: { width: 320, height: 860 } });
+        for (const g of GUIDES) {
+            await page.goto(`${srv.origin}${g}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+            await page.waitForTimeout(150);
+            const low = await page.evaluate((probeSrc) => {
+                const { R, px, bgOf } = eval(probeSrc);
+                const out = [];
+                document.querySelectorAll('main p,main li,main h1,main h2,main h3,main a,'
+                    + 'main strong,main dt,main dd,main span').forEach(el => {
+                    const t = (el.textContent || '').trim();
+                    if (!t || el.getBoundingClientRect().height === 0) return;
+                    const cs = getComputedStyle(el);
+                    const size = parseFloat(cs.fontSize), wt = parseInt(cs.fontWeight) || 400;
+                    const need = (size >= 24 || (size >= 18.66 && wt >= 700)) ? 3 : 4.5;
+                    const got = R(px(cs.color), bgOf(el));
+                    if (got < need) out.push(`${el.tagName} "${t.slice(0, 24)}" ${got.toFixed(2)}/${need}`);
+                });
+                return out;
+            }, PROBE);
+            if (low.length) bad.push(`${g}: ${low.join(', ')}`);
+        }
+        await page.close();
+        expect(bad, bad.join(' | ')).toEqual([]);
+    }, 120_000);
+
+    test('the prose column stays in the comfortable reading range', async () => {
+        const page = await open(1280, '/blood-sugar-erections/index.html');
+        const ch = await page.evaluate(() => {
+            const p = [...document.querySelectorAll('.reading > p')]
+                .find(e => e.textContent.trim().length > 200);
+            const cs = getComputedStyle(p);
+            /* Approximate character count from the average advance width of
+               the actual font, measured rather than assumed. */
+            const c = document.createElement('canvas').getContext('2d');
+            c.font = `${cs.fontSize} ${cs.fontFamily}`;
+            const avg = c.measureText('abcdefghijklmnopqrstuvwxyz ').width / 27;
+            return p.getBoundingClientRect().width / avg;
+        });
+        expect(ch, `measured ${Math.round(ch)} characters per line`).toBeGreaterThan(55);
+        expect(ch, `measured ${Math.round(ch)} characters per line`).toBeLessThan(85);
+        await page.close();
+    }, 60_000);
+
+    test('and every related link actually lands on a guide', async () => {
+        const page = await open(390, '/blood-sugar-erections/index.html');
+        const hrefs = await page.evaluate(() =>
+            [...document.querySelectorAll('.topics a')].map(a => a.getAttribute('href')));
+        expect(hrefs.length).toBeGreaterThanOrEqual(2);
+        for (const h of hrefs) {
+            await page.goto(`${srv.origin}${h}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+            const ok = await page.evaluate(() => ({
+                h1: (document.querySelector('h1') || {}).textContent || '',
+                header: document.querySelectorAll('header').length,
+            }));
+            expect(ok.h1.trim().length, `${h} has no heading`).toBeGreaterThan(0);
+            expect(ok.header, `${h} is not a real page`).toBe(1);
+        }
+        await page.close();
+    }, 90_000);
 });

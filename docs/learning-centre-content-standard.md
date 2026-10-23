@@ -36,6 +36,58 @@ In this order:
 Sections 5 and 7 are what separate a guide from an advertisement. Both are
 load-bearing. Neither is optional.
 
+## Principles
+
+Stage 4 is at least three principles, each presented the same way in every
+guide, as a `.principle` card:
+
+- **A statement.** One sentence naming a relationship or mechanism. Not a
+  slogan, and not the article's headline reworded. A principle whose words
+  mostly repeat the title teaches nobody anything, and the test rejects it.
+- **Why it matters**, tying it to what the reader came for.
+- **Practical example**, a real situation, not an abstraction.
+- **Apply it**, one specific thing to do.
+
+The strongest of the three is repeated near the end as a `.takeaway`, which
+is the line a reader should still have a week later.
+
+## The free action plan
+
+- It is `.check` for an observation list, `.steps` for a physical or
+  behavioural routine. A routine states position, duration, repetitions,
+  an easier variation and the common mistake.
+- A routine also carries a `.safety` block saying what to stop for.
+- Every plan carries a `.limits` block saying what it cannot tell the
+  reader, and never lets a clean-looking week read as reassurance.
+- The section contains no link and no call to action at all. The test
+  counts anchors in it and requires zero.
+
+## Metadata
+
+Every guide carries Open Graph for the link preview, and one
+`application/ld+json` block holding an `Article` and a `BreadcrumbList`.
+
+The structured data must be true. The author is the organisation. There is
+no `reviewedBy`, no named clinician and no credential, because nobody with
+medical credentials has reviewed these pages, and claiming otherwise in
+machine-readable form is still claiming it. Dates are real and not in the
+future. Every URL in `citation` is one the page itself lists.
+
+`tools/sync-site-nav.mjs` writes `sitemap.xml` from the same `PAGES` list
+that drives the header, so a guide cannot be published and left
+undiscoverable. The sitemap has no `lastmod`: a date we cannot derive
+truthfully is a fabricated signal, and it is an optional field.
+
+## Privacy
+
+A guide runs no script of its own. The only script on the page is the
+shared header's drawer, plus the structured data, which is not executable.
+No analytics, no tag manager, no pixel. Nothing reads or writes
+`localStorage`, `sessionStorage` or cookies, so a reader's answers to a
+checklist exist only on his paper or in his own notes app. This is enforced
+by test, because a sexual health page is the worst possible place to leak a
+behavioural signal.
+
 ## Sources
 
 - Allowed domains are listed in `CREDIBLE_DOMAINS` in
@@ -58,6 +110,18 @@ load-bearing. Neither is optional.
 
 - Never promise an outcome. The copy says "can", "may", "can help". It never
   says a result is guaranteed, cured or fixed.
+- **Keep the claim the size of the evidence.** A symptom is not a diagnosis
+  and an observation is not a measurement. Three corrections worth
+  remembering, because each one read as reasonable until it was challenged:
+  an erection is not a measurement of circulation, though a sustained
+  change in one is a fair reason to ask for cardiovascular and metabolic
+  assessment; an A1C test speaks to diabetes risk, while the cause of an
+  erection problem needs a broader evaluation; and symptoms alone cannot
+  establish that a pelvic floor is overactive, because overactive and weak
+  muscles produce overlapping complaints.
+- **State the whole time cost of an exercise.** A five-minute routine that
+  needs a ten-minute warm-up is a fifteen-minute routine, and the title
+  says so.
 - Never state a result a member will get. No invented trends, no
   individualised health claims, no outcomes.
 - The app is an educational training tool. Every guide says, on the page,
@@ -69,8 +133,19 @@ load-bearing. Neither is optional.
 
 ## Language
 
+- **Practical American English.** Not British. Five guides written in one
+  sitting drifted into "recognised", "behavioural", "programme",
+  "practise", "colour" and "counselling", and nobody catches that by
+  reading. `BRITISH_SPELLINGS` in `tests/learnGuides.test.js` is the list,
+  anchored per inflection so that words spelled the same on both sides,
+  such as "analysis", "emphasis" and "realistic", do not trip it.
 - No em dashes. None. The test checks for `—`, `–` and the two-em and
   three-em dashes.
+- No rhetorical contrast constructions: no "not just", "not merely", "not
+  simply", "but rather", or "not only X but Y". Write the thing that is
+  true. `CONTRAST_CONSTRUCTIONS` holds the list. A plain negation that
+  limits a claim, such as saying a checklist cannot diagnose anything, is
+  not a contrast construction and is often required.
 - No contrast-based rhetoric. Write the thing that is true. Do not set it
   against a thing that is not.
 - Practical and direct. Short paragraphs. Plain words over clinical ones
@@ -82,6 +157,11 @@ load-bearing. Neither is optional.
 
 - Self-contained: one inline `<style>`, no external stylesheet, no font CDN.
   `tests/landingCss.test.js` explains why.
+- The whole stylesheet comes from `tools/guide.css`, written in between the
+  `GUIDE-CSS` markers by the sync. A guide has no CSS of its own, and the
+  test fails if it grows any: six hand-maintained stylesheets become six
+  different-looking articles within a month. Body text is 17px at 1.7 line
+  height, in a column of roughly 65 to 70 characters.
 - Its own `<link rel="canonical">` on `https://theblueprint.site`.
 - A breadcrumb back to `/learn/` and to its hub. The shared header marks a
   link current only on an exact path match, so a guide does not light up its
