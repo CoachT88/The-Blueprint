@@ -285,8 +285,15 @@ for (const g of GUIDES) {
             const cls = g.planKind === 'steps' ? 'steps' : 'check';
             expect(plan, `expected a .${cls} list`).toContain(`class="${cls}"`);
             if (g.planKind === 'steps') {
-                /* A physical routine has to say how long and how many. */
-                expect(planText).toMatch(/\b(seconds|minute|repetitions)\b/i);
+                /* Every step states its own dosage: a duration, a count, or
+                   the day it belongs to. Checking the section as a whole let
+                   one step lose its "30 seconds each side" while the other
+                   steps carried the match, which a mutation found. */
+                const labels = [...plan.matchAll(/<li><strong>([^<]*)<\/strong>/g)].map(m => m[1]);
+                expect(labels.length, 'steps without labels').toBeGreaterThanOrEqual(4);
+                for (const l of labels) {
+                    expect(/\d/.test(l), `step states no duration, count or day: "${l}"`).toBe(true);
+                }
             }
         });
 
@@ -602,6 +609,19 @@ describe('the standard itself is written down', () => {
                              'When medical evaluation matters', 'Credible references',
                              'Relevant Blueprint next step']) {
             expect(doc, `the standard omits "${stage}"`).toContain(stage);
+        }
+    });
+
+    test('it keeps a section for every rule family this file enforces', () => {
+        /* Without this the Principles section could be deleted from the
+           standard and nothing would fail, which a mutation found. */
+        for (const h of ['## Principles', '## The free action plan', '## Metadata',
+                         '## Privacy', '## Sources', '## Claims', '## Language',
+                         '## Page mechanics', '## Adding a guide']) {
+            expect(doc, `the standard has lost "${h}"`).toContain(h);
+        }
+        for (const part of ['Why it matters', 'Practical example', 'Apply it']) {
+            expect(doc, `the standard omits the principle part "${part}"`).toContain(part);
         }
     });
 
