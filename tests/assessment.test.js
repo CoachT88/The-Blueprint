@@ -116,6 +116,7 @@ describe('the five questions', () => {
         expect(text).toContain('When does it happen?');
         expect(text).toContain('What are your morning and solo erections like?');
         expect(text).toContain('How long has this been going on?');
+        expect(text).toContain('How does this compare to earlier in your life?');
         expect(text).toContain('Have you talked to a doctor about it?');
     });
 
@@ -127,6 +128,46 @@ describe('the five questions', () => {
         /* The branches are genuinely different, not the same list relabelled. */
         expect(where).toContain('Some positions get uncomfortable');
         expect(where).toContain('During or after sex');
+    });
+
+    test('QUESTION 4 ASKS THE TIMING BRANCH ABOUT HISTORY, NOT DURATION', () => {
+        /* Duration cannot establish whether ejaculation difficulty is
+           lifelong or acquired. A man who has had it since his first
+           experiences and only began minding it last month reads as a
+           recent change. The timing branch asks the comparison directly. */
+        const d = ownScript.match(/var DURATION = \{([\s\S]*?)\n  \};/)[1];
+        expect(d).toContain("['changed_recent'");
+        expect(d).toContain("['changed_long'");
+        expect(d).toContain("['unsure_history'");
+        expect(d).toMatch(/used to be satisfactory, and changed/);
+        expect(d).toMatch(/since I became sexually active/);
+        /* And the generic duration options survive for every other branch. */
+        expect(d).toContain("['lt1m'");
+        expect(d).toContain("['gt6m'");
+    });
+
+    test('THE ACQUIRED RULE READS THE REPORTED CHANGE, NEVER THE DURATION', () => {
+        const rules = ownScript.match(/var RULES = \[([\s\S]*?)\n  \];/)[1];
+        const acquired = rules.match(/id: 'timing_acquired'[\s\S]*?\} \},/)[0];
+        expect(acquired).toContain("a.duration === 'changed_recent'");
+        expect(acquired).toContain("a.duration === 'changed_long'");
+        /* The bug this replaced: inferring "acquired" from a short duration. */
+        expect(acquired, 'the acquired rule still reads a plain duration')
+            .not.toMatch(/'lt1m'|'1to6m'|'gt6m'/);
+        const lifelong = rules.match(/id: 'timing_lifelong'[\s\S]*?\} \},/)[0];
+        expect(lifelong).toContain("a.duration === 'always'");
+        /* And an unestablished history falls to the neutral result. */
+        expect(rules.indexOf("id: 'timing_general'"))
+            .toBeGreaterThan(rules.indexOf("id: 'timing_lifelong'"));
+    });
+
+    test('the neutral timing result claims neither pattern', () => {
+        const results = ownScript.match(/var RESULTS = \{([\s\S]*?)\n  \};/)[1];
+        const g = results.match(/\n    timing_general: \{([\s\S]*?)\n    \},/)[1];
+        expect(g).toContain("verdict: 'Ejaculation timing concerns'");
+        expect(g).toMatch(/did not establish which applies to you/);
+        expect(g).toMatch(/does not assume either/);
+        expect(g).toMatch(/Take the history question to a clinician/);
     });
 
     test('question 3 is skipped where it has no bearing', () => {
@@ -155,7 +196,8 @@ describe('the five questions', () => {
 /* ──────────────────────────────────────────────────────────── results ── */
 
 const PROFILES = ['urgent', 'pelvic', 'erection_physical', 'erection_situational',
-    'erection_mixed', 'timing_acquired', 'timing_lifelong', 'conditioning'];
+    'erection_mixed', 'timing_acquired', 'timing_general', 'timing_lifelong',
+    'conditioning'];
 
 describe('every result profile', () => {
     const results = ownScript.match(/var RESULTS = \{([\s\S]*?)\n  \};/)[1];

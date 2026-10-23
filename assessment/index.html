@@ -675,6 +675,21 @@ body[data-sn-open="true"]{overflow:hidden}
     ]
   };
 
+  var DURATION = {
+    other: [
+      ['lt1m', 'Less than a month'],
+      ['1to6m', 'One to six months'],
+      ['gt6m', 'More than six months'],
+      ['always', 'As long as I can remember']
+    ],
+    timing: [
+      ['changed_recent', 'It used to be satisfactory, and changed within the last six months'],
+      ['changed_long', 'It used to be satisfactory, and changed more than six months ago'],
+      ['always', 'It has been this way since I became sexually active'],
+      ['unsure_history', 'I am not sure how it compares to before']
+    ]
+  };
+
   var QUESTIONS = [
     {
       key: 'concern',
@@ -712,14 +727,28 @@ body[data-sn-open="true"]{overflow:hidden}
     },
     {
       key: 'duration',
-      text: 'How long has this been going on?',
-      hint: 'A recent change and a long-standing pattern point in different directions.',
-      options: [
-        ['lt1m', 'Less than a month'],
-        ['1to6m', 'One to six months'],
-        ['gt6m', 'More than six months'],
-        ['always', 'As long as I can remember']
-      ]
+      /* Adaptive, like question 2, and for a clinical reason. Clinicians
+         separate lifelong ejaculation difficulty from the acquired kind,
+         which follows a period of satisfactory control, because the two
+         point at different things. Duration cannot make that distinction:
+         a man who has had the difficulty since his first experiences and
+         only started minding it last month would read as a recent change.
+         So the timing branch asks about the comparison directly, and the
+         options carry the duration as well, which keeps the flow at five
+         questions. */
+      text: function () {
+        return answers.concern === 'timing'
+          ? 'How does this compare to earlier in your life?'
+          : 'How long has this been going on?';
+      },
+      hint: function () {
+        return answers.concern === 'timing'
+          ? 'Whether this changed or has always been this way is one of the first things a clinician asks.'
+          : 'A recent change and a long-standing pattern point in different directions.';
+      },
+      options: function () {
+        return answers.concern === 'timing' ? DURATION.timing : DURATION.other;
+      }
     },
     {
       key: 'seen',
@@ -761,9 +790,15 @@ body[data-sn-open="true"]{overflow:hidden}
     { id: 'erection_mixed', test: function (a) {
         return a.concern === 'erection' || a.concern === 'unsure'; } },
     { id: 'timing_acquired', test: function (a) {
+        /* Only when he reports the change himself. Duration cannot
+           establish this, which is what the earlier version got wrong. */
         return a.concern === 'timing'
-          && (a.duration === 'lt1m' || a.duration === '1to6m'); } },
-    { id: 'timing_lifelong', test: function (a) { return a.concern === 'timing'; } },
+          && (a.duration === 'changed_recent' || a.duration === 'changed_long'); } },
+    { id: 'timing_lifelong', test: function (a) {
+        return a.concern === 'timing' && a.duration === 'always'; } },
+    /* Unsure about the history, or the question was skipped. Neither
+       pattern has been established, so the result does not claim one. */
+    { id: 'timing_general', test: function (a) { return a.concern === 'timing'; } },
     { id: 'conditioning', test: function (a) { return a.concern === 'conditioning'; } },
     { id: 'erection_mixed', test: function () { return true; } }
   ];
@@ -831,9 +866,9 @@ body[data-sn-open="true"]{overflow:hidden}
       guides: ['anxiety', 'sugar']
     },
     timing_acquired: {
-      verdict: 'A recent change is worth raising with a doctor',
+      verdict: 'You described a change, which is worth raising with a doctor',
       body: [
-        'Mayo Clinic separates lifelong premature ejaculation from the acquired kind, which develops after a period without the problem. Your answers describe a change, and a change can have an underlying cause worth identifying.',
+        'Mayo Clinic separates lifelong premature ejaculation from the acquired kind, which develops after a period of satisfactory control. You told us this used to be satisfactory and then changed, which is the report that distinguishes the two. Only a clinician can confirm it, and a change is worth looking into because it can have an underlying cause.',
         'The practice below is still worth starting. It works alongside a medical conversation rather than in place of one.'
       ],
       actions: [
@@ -842,10 +877,23 @@ body[data-sn-open="true"]{overflow:hidden}
       ],
       guides: ['stamina', 'pelvic']
     },
+    timing_general: {
+      verdict: 'Ejaculation timing concerns',
+      body: [
+        'Clinicians separate ejaculation difficulty that has been present since a man became sexually active from the kind that develops after a period of satisfactory control, because the two lead them to look at different things. Your answers did not establish which applies to you, so this result does not assume either.',
+        'That is worth saying plainly rather than guessing. The history is a question someone can take properly, with follow-up, and it is one of the first things a clinician will ask. Mayo Clinic notes the exact cause of premature ejaculation is not known in general, and the NHS suggests treatment may help if around half of your attempts at sex result in it.',
+        'In the meantime the awareness practice below is safe and useful whichever pattern turns out to apply, because every behavioral technique depends on it.'
+      ],
+      actions: [
+        ['Take the history question to a clinician', 'The useful version is one sentence: whether this has been the case since you became sexually active, or whether it changed after a period when it was fine. You do not need to have tried self-help first.'],
+        ['Start the seven-day arousal awareness plan', 'Days one to four are only about noticing where your arousal is. It is the foundation for every technique, and it costs nothing.']
+      ],
+      guides: ['stamina', 'pelvic']
+    },
     timing_lifelong: {
       verdict: 'Arousal awareness is the skill to build first',
       body: [
-        'The behavioral techniques clinicians teach, stop-start and the squeeze method, both work by acting before the point of no return. That means feeling it approach, which is a skill most men have never practiced.',
+        'You described this as present since you became sexually active. The behavioral techniques clinicians teach, stop-start and the squeeze method, both work by acting before the point of no return. That means feeling it approach, which is a skill most men have never practiced.',
         'These techniques help some people and not others. If seven days changes nothing, that is information and a reason to talk to a clinician rather than to try harder alone.'
       ],
       actions: [
@@ -869,8 +917,9 @@ body[data-sn-open="true"]{overflow:hidden}
   };
 
   function steer(a) {
-    return (a.duration === 'gt6m' || a.duration === 'always')
-      && (a.seen === 'no' || a.seen === 'mentioned');
+    var longStanding = a.duration === 'gt6m' || a.duration === 'always'
+      || a.duration === 'changed_long';
+    return longStanding && (a.seen === 'no' || a.seen === 'mentioned');
   }
 
   function pick(a) {
@@ -894,11 +943,12 @@ body[data-sn-open="true"]{overflow:hidden}
     if (step > qs.length - 1) step = qs.length - 1;
     if (step < 0) step = 0;
     var q = qs[step];
-    var opts = typeof q.options === 'function' ? q.options() : q.options;
+    var val = function (x) { return typeof x === 'function' ? x() : x; };
+    var opts = val(q.options);
     $('prog').textContent = 'Question ' + (step + 1) + ' of ' + qs.length;
     $('bar').style.width = Math.round(((step + 1) / qs.length) * 100) + '%';
-    $('qtext').textContent = q.text;
-    $('qhint').textContent = q.hint;
+    $('qtext').textContent = val(q.text);
+    $('qhint').textContent = val(q.hint);
     $('opts').innerHTML = opts.map(function (o, i) {
       var id = 'o' + step + '_' + i;
       return '<label class="opt"><input type="radio" name="q" id="' + id + '" value="'
@@ -908,7 +958,7 @@ body[data-sn-open="true"]{overflow:hidden}
     $('back').disabled = step === 0;
     $('next').textContent = step === qs.length - 1 ? 'See my result' : 'Next';
     $('qtext').focus();
-    $('live').textContent = 'Question ' + (step + 1) + ' of ' + qs.length + '. ' + q.text;
+    $('live').textContent = 'Question ' + (step + 1) + ' of ' + qs.length + '. ' + val(q.text);
   }
 
   function guideCards(keys) {

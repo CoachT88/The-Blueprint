@@ -198,8 +198,10 @@ describe('every result profile is reachable through the UI', () => {
             'This pattern looks situational'],
         ['erection_mixed', ['erection', 'varies', 'unknown', 'lt1m', 'no'],
             'Your answers do not point clearly in one direction yet'],
-        ['timing_acquired', ['timing', 'partner_only', 'usually', '1to6m', 'no'],
-            'A recent change is worth raising with a doctor'],
+        ['timing_acquired', ['timing', 'partner_only', 'usually', 'changed_recent', 'no'],
+            'You described a change, which is worth raising with a doctor'],
+        ['timing_general', ['timing', 'both', 'usually', 'unsure_history', 'no'],
+            'Ejaculation timing concerns'],
         ['timing_lifelong', ['timing', 'both', 'usually', 'always', 'evaluated'],
             'Arousal awareness is the skill to build first'],
         ['conditioning', ['conditioning', 'positions', 'gt6m', 'evaluated'],
@@ -254,6 +256,73 @@ describe('every result profile is reachable through the UI', () => {
         expect(t).toMatch(/Kegel exercises can make symptoms worse/);
         expect(t).toMatch(/strengthening is left out on purpose/);
         expect(t).toMatch(/pelvic health physiotherapy assessment/);
+        await page.close();
+    }, 60_000);
+});
+
+describe('the acquired and lifelong distinction', () => {
+    test('QUESTION 4 ASKS THE TIMING BRANCH ABOUT HISTORY', async () => {
+        const page = await open();
+        await run(page, ['timing', 'partner_only', 'usually']);
+        const m = await page.evaluate(() => ({
+            q: document.getElementById('qtext').textContent,
+            opts: [...document.querySelectorAll('input[name="q"]')].map(i => i.value),
+        }));
+        expect(m.q).toBe('How does this compare to earlier in your life?');
+        expect(m.opts).toEqual(['changed_recent', 'changed_long', 'always', 'unsure_history']);
+        await page.close();
+    }, 60_000);
+
+    test('and every other branch still gets the duration question', async () => {
+        const page = await open();
+        await run(page, ['erection', 'both', 'usually']);
+        const m = await page.evaluate(() => ({
+            q: document.getElementById('qtext').textContent,
+            opts: [...document.querySelectorAll('input[name="q"]')].map(i => i.value),
+        }));
+        expect(m.q).toBe('How long has this been going on?');
+        expect(m.opts).toEqual(['lt1m', '1to6m', 'gt6m', 'always']);
+        await page.close();
+    }, 60_000);
+
+    test('A SHORT HISTORY ALONE NEVER PRODUCES THE ACQUIRED RESULT', async () => {
+        /* The defect this replaced. "Not sure how it compares" is the
+           closest a visitor can get to answering only recently, and it must
+           land on the neutral result rather than on acquired. */
+        const page = await open();
+        await run(page, ['timing', 'partner_only', 'usually', 'unsure_history', 'no']);
+        const t = await resultText(page);
+        expect(await verdict(page)).toBe('Ejaculation timing concerns');
+        expect(t, 'the neutral result claimed a change').not.toMatch(/You described a change/);
+        expect(t).toMatch(/did not establish which applies to you/i);
+        await page.close();
+    }, 60_000);
+
+    test('skipping the history question also lands on the neutral result', async () => {
+        const page = await open();
+        await run(page, ['timing', 'both', 'usually', null, 'no']);
+        expect(await verdict(page)).toBe('Ejaculation timing concerns');
+        await page.close();
+    }, 60_000);
+
+    test('the acquired result only appears when the change is reported', async () => {
+        for (const v of ['changed_recent', 'changed_long']) {
+            const page = await open();
+            await run(page, ['timing', 'partner_only', 'usually', v, 'no']);
+            const t = await resultText(page);
+            expect(await verdict(page), v)
+                .toBe('You described a change, which is worth raising with a doctor');
+            expect(t).toMatch(/used to be satisfactory and then changed/i);
+            expect(t, 'it overstates what the answers established')
+                .toMatch(/Only a clinician can confirm it/i);
+            await page.close();
+        }
+    }, 60_000);
+
+    test('a long-standing change still triggers the appointment steer', async () => {
+        const page = await open();
+        await run(page, ['timing', 'both', 'usually', 'changed_long', 'no']);
+        expect(await resultText(page)).toMatch(/that is worth an appointment/);
         await page.close();
     }, 60_000);
 });

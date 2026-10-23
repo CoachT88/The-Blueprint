@@ -74,10 +74,32 @@ asking it anyway is the kind of thing that makes a tool feel like a form.
 Values: `usually` (usually present and firm), `sometimes`, `rarely` (rarely
 or never), `unknown` (not sure, I have not paid attention).
 
-### Q4. How long (`duration`)
+### Q4. How long, or how it compares (`duration`)
 
-`lt1m` (less than a month), `1to6m`, `gt6m` (more than six months),
-`always` (as long as I can remember).
+Adaptive, like Q2, and for a clinical reason.
+
+For every branch except timing: `lt1m` (less than a month), `1to6m`,
+`gt6m` (more than six months), `always` (as long as I can remember).
+
+For the timing branch the question becomes "How does this compare to
+earlier in your life?" with:
+
+- `changed_recent`: it used to be satisfactory, and changed within the
+  last six months
+- `changed_long`: it used to be satisfactory, and changed more than six
+  months ago
+- `always`: it has been this way since I became sexually active
+- `unsure_history`: I am not sure how it compares to before
+
+**Why the timing branch is different.** Clinicians separate lifelong
+premature ejaculation from the acquired kind, which follows a period of
+satisfactory control, because the two lead them to look at different
+things. Duration cannot make that distinction. A man who has had the
+difficulty since his first experiences and only began minding it last
+month would read as a recent change, and the first version of this
+assessment would have told him so. The timing branch therefore asks about
+the comparison directly, and carries the duration inside the same options,
+which keeps the flow at five questions.
 
 ### Q5. Medically evaluated (`seen`)
 
@@ -138,22 +160,33 @@ rule out a physical cause.
 The honest result. Says the answers do not point clearly in one direction,
 and that a week of observation will say more than more questions would.
 
-### 6. `timing_acquired` — A change worth asking about
+### 6. `timing_acquired` — A reported change
 
-**When:** Q1 is `timing` and Q4 is `lt1m` or `1to6m`.
+**When:** Q1 is `timing` and Q4 is `changed_recent` or `changed_long`.
 
-Mayo Clinic distinguishes lifelong from acquired premature ejaculation, and
-a change after a period without the problem can have an underlying cause.
-Points at the stamina guide and recommends raising it with a clinician.
+Fires only when the visitor reports the change himself. The copy says what
+he told us and immediately adds that only a clinician can confirm it.
 
 ### 7. `timing_lifelong` — Arousal awareness
 
-**When:** Q1 is `timing` and Q4 is `gt6m` or `always`.
+**When:** Q1 is `timing` and Q4 is `always`.
 
 Points at the stamina guide's seven-day arousal awareness plan and the
 pelvic floor guide as secondary.
 
-### 8. `conditioning` — Comfort and positioning
+### 8. `timing_general` — Ejaculation timing concerns
+
+**When:** Q1 is `timing` and the history was not established, meaning Q4 is
+`unsure_history` or was skipped.
+
+The neutral result. It states that clinicians separate the two patterns,
+that this assessment did not establish which applies, and that it is
+therefore not assuming either. It routes the history question to a
+clinician who can ask it properly with follow-up, and offers the arousal
+awareness plan, which is safe and useful whichever pattern turns out to
+apply.
+
+### 9. `conditioning` — Comfort and positioning
 
 **When:** Q1 is `conditioning`.
 
@@ -171,7 +204,9 @@ than adding a banner to it.
 
 **Layer 2, the evaluation steer.** A persistent problem that has never been
 examined gets an added emphasis block on any non-urgent result. Triggered
-when `duration` is `gt6m` or `always`, and `seen` is `no` or `mentioned`.
+when `duration` is `gt6m`, `always` or `changed_long`, and `seen` is `no`
+or `mentioned`. `changed_long` is in that list because a change more than
+six months ago is long-standing by any reading.
 The copy recommends booking an appointment and does not tell him what is
 wrong.
 
