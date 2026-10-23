@@ -161,6 +161,17 @@ describe('the five questions', () => {
             .toBeGreaterThan(rules.indexOf("id: 'timing_lifelong'"));
     });
 
+    test('EVERY RESULT THAT NAMES A PATTERN ALSO QUALIFIES IT', () => {
+        /* The acquired result is the one that repeats back something the
+           visitor told us, so it is the one that most needs to say what it
+           has and has not established. */
+        const results = ownScript.match(/var RESULTS = \{([\s\S]*?)\n  \};/)[1];
+        const acq = results.match(/\n    timing_acquired: \{([\s\S]*?)\n    \},/)[1];
+        expect(acq, 'the acquired result lost its qualifier')
+            .toContain('Only a clinician can confirm it');
+        expect(acq).toMatch(/You told us this used to be satisfactory and then changed/);
+    });
+
     test('the neutral timing result claims neither pattern', () => {
         const results = ownScript.match(/var RESULTS = \{([\s\S]*?)\n  \};/)[1];
         const g = results.match(/\n    timing_general: \{([\s\S]*?)\n    \},/)[1];
@@ -224,10 +235,18 @@ describe('every result profile', () => {
 
     test('THE EXPLANATIONS CARRY UNCERTAINTY RATHER THAN VERDICTS', () => {
         /* Nothing may tell a visitor what he has. */
-        for (const re of [/\byou have (diabetes|erectile dysfunction|premature)/i,
-                          /\bthis means you\b/i, /\bdiagnos(is|ed) (is|of)\b/i,
-                          /\byou are suffering from\b/i]) {
-            expect(re.test(results), `${re} appears in a result`).toBe(false);
+        /* Adjectives between "you have" and the condition slipped past the
+           first version of this list. A mutation replaced a qualifier with
+           "This confirms you have acquired premature ejaculation" and
+           survived, which is a page telling a man his diagnosis. */
+        for (const re of [
+            /\byou (have|had|are showing)\b[^.!?]{0,30}\b(diabetes|erectile dysfunction|premature ejaculation|pelvic floor dysfunction|an? infection)\b/i,
+            /\bconfirms?\b[^.!?]{0,20}\byou (have|are)\b/i,
+            /\bthis means you\b/i, /\bdiagnos(is|ed|es)\b[^.!?]{0,20}\byou\b/i,
+            /\byou are suffering from\b/i, /\bwhat you have is\b/i,
+        ]) {
+            const m = results.match(re);
+            expect(m, `diagnostic claim "${m && m[0]}" appears in a result`).toBeNull();
         }
         /* And the hedging language is actually present. */
         expect(results).toMatch(/cannot (rule out|establish)/i);
