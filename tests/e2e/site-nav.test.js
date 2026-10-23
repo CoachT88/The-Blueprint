@@ -313,10 +313,15 @@ describe('every page at every width, not just the home page', () => {
        matrix, not by the tests. */
     const PAGES = ['/index.html', '/learn/index.html', '/last-longer/index.html',
         '/stronger-erections/index.html',
-        '/performance-anxiety-erections/index.html',
         '/better-sexual-performance/index.html',
         '/how-it-works/index.html', '/whats-inside/index.html', '/faq/index.html',
-        '/support/index.html', '/safety/index.html'];
+        '/support/index.html', '/safety/index.html',
+        '/performance-anxiety-erections/index.html',
+        '/blood-sugar-erections/index.html',
+        '/hydration-erections/index.html',
+        '/pelvic-floor-premature-ejaculation/index.html',
+        '/hip-mobility-sexual-performance/index.html',
+        '/improve-sexual-stamina/index.html'];
 
     for (const [tag, w] of WIDTHS) {
         test(`${tag} (${w}px): every page is one header on one row`, async () => {

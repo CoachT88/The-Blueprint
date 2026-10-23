@@ -25,10 +25,15 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 const PAGES = [
     'index.html', 'learn/index.html', 'last-longer/index.html',
     'stronger-erections/index.html',
-    'performance-anxiety-erections/index.html',
     'better-sexual-performance/index.html',
     'how-it-works/index.html', 'whats-inside/index.html', 'faq/index.html',
     'support/index.html', 'safety/index.html',
+    'performance-anxiety-erections/index.html',
+    'blood-sugar-erections/index.html',
+    'hydration-erections/index.html',
+    'pelvic-floor-premature-ejaculation/index.html',
+    'hip-mobility-sexual-performance/index.html',
+    'improve-sexual-stamina/index.html',
 ];
 
 /** Every destination the header offers, and where it must resolve. */
