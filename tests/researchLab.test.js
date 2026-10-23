@@ -2,6 +2,7 @@ import { describe, test, expect, beforeAll } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BRITISH_SPELLINGS, CONTRAST_CONSTRUCTIONS, context } from './prose.js';
 
 /**
  * THE RESEARCH LAB.
@@ -464,6 +465,49 @@ describe('what the Lab must not disturb', () => {
                 const m = t.match(re);
                 expect(m, `${p} contrast construction "${m && m[0]}"`).toBeNull();
             }
+        }
+    });
+});
+
+describe('the house style applies here too', () => {
+    /* These rules lived inside tests/learnGuides.test.js and so covered the
+       six guides and nothing else. The Research Lab is member-facing prose
+       written to the same standard and was covered by neither.
+
+       That was not theoretical. A review of these two pages found "a single
+       centre" on the landing page and "respectable looking neighbour" on the
+       topic page, both in published copy, after an ad-hoc grep that was
+       meant to catch them and did not. The rules now live in tests/prose.js
+       and both suites read the same list.
+
+       prose() strips the shared nav and stylesheet blocks first, so a
+       spelling inside tools/site-nav.html is not this PR's problem and does
+       not fail here. */
+
+    test('AMERICAN ENGLISH, ON BOTH PAGES', () => {
+        for (const p of PAGES) {
+            const t = prose(read(p));
+            for (const re of BRITISH_SPELLINGS) {
+                const m = t.match(re);
+                expect(m, m ? `${p} uses "${m[0]}": ${context(t, m[0])}` : '').toBeNull();
+            }
+        }
+    });
+
+    test('and no rhetorical contrast constructions', () => {
+        for (const p of PAGES) {
+            const t = prose(read(p));
+            for (const re of CONTRAST_CONSTRUCTIONS) {
+                const m = t.match(re);
+                expect(m, m ? `${p} uses a contrast construction: ${context(t, m[0])}` : '')
+                    .toBeNull();
+            }
+        }
+    });
+
+    test('no em dashes', () => {
+        for (const p of PAGES) {
+            expect(prose(read(p)).includes('\u2014'), `${p} has an em dash`).toBe(false);
         }
     });
 });
