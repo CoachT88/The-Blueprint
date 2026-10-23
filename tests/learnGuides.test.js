@@ -71,10 +71,31 @@ const BRITISH_SPELLINGS = [
     /\bhumour\b/i, /\bneighbour(s|hood)?\b/i, /\bmodelling\b/i, /\benquir(e|ed|y|ies)\b/i,
 ];
 
-/** Rhetorical contrast constructions, which the house style does not use. */
+/**
+ * Rhetorical contrast constructions, which the house style does not use.
+ *
+ * The first version of this list caught the obvious forms and missed the
+ * one the guides were actually full of: define a thing by denying
+ * something first, then assert the real answer. "Stamina is not endurance.
+ * It is the ability to notice where your arousal is." Three article
+ * openings were built that way and the guard said nothing.
+ *
+ * The negation patterns below require a POSITIVE assertion to follow,
+ * which is what makes the construction rhetorical. A run of plain
+ * negations that limits a claim, such as "it is not a treatment, it is not
+ * a strengthening program", is a scope statement and is often medically
+ * required, so the lookahead lets it through.
+ */
 const CONTRAST_CONSTRUCTIONS = [
     /\bnot just\b/i, /\bnot merely\b/i, /\bnot simply\b/i, /\bisn'?t just\b/i,
     /\bbut rather\b/i, /\bnot only\b[^.]{0,60}\bbut\b/i,
+    /\b(is|are|was|were) not\b[^.!?]{0,90}\.\s*(It|They|That|This|What)\s+(is|are)\s+(?!not\b)/,
+    /\b(is|are) not\b[^.!?]{0,70},\s*(it|they|that)\s+(is|are)\s+(?!not\b)/i,
+    /\bdifferent claim from\b/i,
+    /\bwhere most\b[^.!?]{0,50}\bgoes wrong\b/i,
+    /\bis the whole (article|guide|point|story)\b/i,
+    /\bnot the first place\b/i,
+    /\bnot a matter of\b/i,
 ];
 
 /**
@@ -114,7 +135,7 @@ const GUIDES = [
         hubQuestion: 'Why can I get hard alone but lose it during sex?',
         title: 'Why Can I Get Hard Alone but Lose It During Sex?',
         plan: '7. Try This: Your 7-Day Erection Consistency Check',
-        mustSay: ['Checking whether you are still hard is not a neutral act'],
+        mustSay: ['Checking whether you are still hard spends the attention'],
         planKind: 'check',
         sections: 11,
     },
