@@ -155,8 +155,11 @@ const GUIDES = [
         title: 'Can a Tight Pelvic Floor Affect Sexual Performance?',
         plan: '6. Try This: A Five-Minute Pelvic Relaxation Routine',
         mustSay: [
-            /* The breathing cue, and the two warnings that travel with it. */
-            'Do not actually urinate or pass gas',
+            /* The breathing cue, and the two warnings that travel with it.
+               The do-not-actually warning belongs both where the cue is
+               explained and in the step that uses it, so it is required
+               twice. */
+            ['Do not actually urinate or pass gas', 2],
             'Do not squeeze it back',
             'lengthens and relaxes',
             /* Symptoms cannot establish muscle tone. */
@@ -491,8 +494,16 @@ for (const g of GUIDES) {
             /* Safety cues and scope limits are the first thing a rewrite
                loses, because they read as throat-clearing. Each guide names
                its own, so deleting or inverting one fails here. */
-            for (const phrase of (g.mustSay || [])) {
-                expect(text.includes(phrase), `lost a required statement: "${phrase}"`).toBe(true);
+            for (const entry of (g.mustSay || [])) {
+                /* An entry may demand a minimum count. Some warnings belong
+                   in two places, once where the mechanism is explained and
+                   once in the step that performs it, and a presence check
+                   alone passes while one of the two is deleted. A mutation
+                   found exactly that. */
+                const [phrase, times] = Array.isArray(entry) ? entry : [entry, 1];
+                const n = text.split(phrase).length - 1;
+                expect(n, `required statement "${phrase}" appears ${n} times, needs ${times}`)
+                    .toBeGreaterThanOrEqual(times);
             }
         });
 
