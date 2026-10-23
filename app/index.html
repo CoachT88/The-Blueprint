@@ -4877,9 +4877,20 @@ function _renderPhotoCompare(){
     }
 }
 // While comparing, a tap picks the After shot instead of opening the viewer.
-function onGalleryTap(i,url,date,path){
+/* Takes the index and nothing else.
+   It used to take the url, the date and the path, which meant the markup
+   below had to embed all three inside an onclick attribute. Two of them
+   derive from the object name returned by storage.list(), and an object can
+   be uploaded through the API under any name its owner chooses, so a name
+   carrying a quote closed the string and the rest of it was parsed as code.
+   The index is a number this function generated, and _galleryItems is
+   already the source compare mode reads, so looking the item up here keeps
+   member-controlled text out of executable markup entirely. */
+function onGalleryTap(i){
+    const p=_galleryItems[i];
+    if(!p)return;
     if(_compareMode){_compareAfterIdx=i;_renderPhotoCompare();return;}
-    openPhotoViewer(url,date,path);
+    openPhotoViewer(p.url,p.date,p.path);
 }
 
 async function renderGalleryInto(elId){
@@ -4912,7 +4923,11 @@ async function renderGalleryInto(elId){
         });
         // Keep the newest-first list around so compare mode can use it without refetching.
         _galleryItems=urls;
-        el.innerHTML=urls.map((p,i)=>`<div class="cursor-pointer" onclick="onGalleryTap(${i},'${p.url}','${p.date}','${p.path}')"><img src="${p.url}" loading="lazy" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] u-text-2 text-center mt-1 truncate">${p.date}</p></div>`).join('');
+        /* The handler carries an index and the attribute values are escaped.
+           p.url embeds the object name, and p.date falls back to it when the
+           name does not parse as a timestamp, so both are member-controlled
+           text rather than values this code produced. */
+        el.innerHTML=urls.map((p,i)=>`<div class="cursor-pointer" onclick="onGalleryTap(${Number(i)})"><img src="${escAttr(p.url)}" loading="lazy" class="w-full aspect-square object-cover rounded-xl bg-slate-800 active:opacity-70 transition-opacity"><p class="text-[9px] u-text-2 text-center mt-1 truncate">${esc(p.date)}</p></div>`).join('');
         _refreshCompareAvailability();
     }catch(e){el.innerHTML='<p class="col-span-3 u-text-2 text-[11px] italic text-center py-4">Could not load photos.</p>';}
 }
@@ -5173,6 +5188,12 @@ async function _uploadPhoto(path,blob){
 // AI ENGINE — Claude API
 // ═══════════════════════════════════════════════════════════════════════════
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+/* esc() is for TEXT between tags. It leaves quotes alone, which is fine
+   there and unsafe inside an attribute: one `"` ends the attribute and
+   everything after it is parsed as more attributes, which is how an
+   onerror= gets in. Anything interpolated into a quoted attribute value
+   goes through escAttr() instead. */
+function escAttr(s){return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 
 /* Coach Tee is told to separate paragraphs with a blank line, and .chat-msg
    now renders those breaks instead of swallowing them. Trust the instruction,

@@ -361,9 +361,19 @@ function installSupabaseStub(cfg) {
                     list: () => (window.__hangStorage
                         ? new Promise(() => {})
                         : Promise.resolve({ data: window.__files, error: null })),
+                    /* A real signed URL carries the object path, so an object
+                       name chosen by its owner ends up inside the <img src>
+                       the gallery writes. Most suites only need a URL that
+                       renders, so the inline image stays the default and a
+                       suite testing escaping sets __signedUrlsEchoPath to get
+                       the production shape instead. */
                     createSignedUrls: (paths) => (window.__hangSignedUrls
                         ? new Promise(() => {})
-                        : Promise.resolve({ data: paths.map(() => ({ signedUrl: cfg.pngDataUri })) })),
+                        : Promise.resolve({ data: paths.map((p) => ({
+                            signedUrl: window.__signedUrlsEchoPath
+                                ? `https://stub.invalid/object/sign/progress-photos/${p}?token=stub`
+                                : cfg.pngDataUri,
+                        })) })),
                     upload: (path) => {
                         window.__uploads = window.__uploads || [];
                         window.__uploads.push(path);
@@ -385,9 +395,15 @@ function installSupabaseStub(cfg) {
                         window.__storageExisting.push(path);
                         return Promise.resolve({ data: { path }, error: null });
                     },
-                    remove: () => (window.__hangRemove
-                        ? new Promise(() => {})
-                        : Promise.resolve({ error: null })),
+                    /* Removals are recorded the way uploads are, so a suite
+                       can assert it deleted nothing. A photo is the one
+                       thing in this app a member cannot recreate. */
+                    remove: (paths) => {
+                        window.__removed = (window.__removed || []).concat(paths || []);
+                        return window.__hangRemove
+                            ? new Promise(() => {})
+                            : Promise.resolve({ error: null });
+                    },
                 }),
             },
         }),
