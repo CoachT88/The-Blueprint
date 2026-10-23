@@ -618,12 +618,41 @@ export async function authSignIn(page, { id = 'testuser', email = 'test@example.
         null, { timeout: 15_000 });
 }
 
-/** Sign out the way the member does: the real handleLogout(). */
+/**
+ * Sign out the way the member does: the real handleLogout().
+ *
+ * WAITS FOR THE SIGNED_OUT EVENT, NOT JUST FOR THE AUTH SCREEN.
+ *
+ * handleLogout() shows the auth screen synchronously, and the stub defers
+ * SIGNED_OUT to a macrotask on purpose, because the real one arrives after a
+ * network round trip. So the auth screen appearing says nothing about whether
+ * the event has been delivered, and returning on that signal alone let a
+ * following authSignIn() fire SIGNED_IN first.
+ *
+ * That interleaving then reached onUserSignedIn(), which sets currentUser to
+ * the new account and awaits checkMembership(). The pending SIGNED_OUT landed
+ * inside that await, set currentUser to null, and the sign-in hit its own
+ * `Bail if logout happened while we were awaiting` guard and returned. The
+ * auth screen stayed up, and the next thing the test did timed out.
+ *
+ * The product guard is correct and is not the bug. app/index.html says why:
+ * supabase-js serialises auth events on one client, so a SIGNED_OUT for the
+ * previous account cannot arrive after the next account's SIGNED_IN. The stub
+ * was less serialised than the real client, so the harness was manufacturing
+ * an interleaving production cannot produce, and the test failed on CI
+ * roughly one run in three while passing locally.
+ *
+ * Waiting for delivery makes the handoff deterministic. No assertion is
+ * relaxed and no authentication behaviour is touched.
+ */
 export async function authSignOut(page) {
+    const before = await page.evaluate(() => window.__authEvents.length);
     await page.evaluate(() => handleLogout());
     await page.waitForFunction(
-        () => !document.getElementById('auth-screen').classList.contains('hidden'),
-        null, { timeout: 15_000 });
+        (n) => window.__authEvents.length > n
+            && window.__authEvents.lastIndexOf('SIGNED_OUT') >= n
+            && !document.getElementById('auth-screen').classList.contains('hidden'),
+        before, { timeout: 15_000 });
 }
 
 /** Which `.step-content` is currently visible, by id. */
