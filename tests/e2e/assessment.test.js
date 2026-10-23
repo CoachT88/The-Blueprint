@@ -146,6 +146,31 @@ describe('the flow runs', () => {
         await page.close();
     }, 60_000);
 
+    test('SKIPPING CLEARS AN ANSWER ALREADY GIVEN', async () => {
+        /* Skipping after answering has to erase the answer, not leave the
+           stale one in place. A mutation replaced the delete with a no-op
+           and nothing noticed, because the existing skip test skipped from
+           the start, where there was nothing to clear. */
+        const page = await open();
+        // Answer Q1 as pain, which routes to a four-question flow.
+        await page.evaluate(() => document.querySelector('input[value="pain"]').click());
+        await page.click('#next');
+        await page.waitForTimeout(90);
+        // Answer Q2 with the red flag, then go back and skip it.
+        await page.evaluate(() => document.querySelector('input[value="urinating"]').click());
+        await page.click('#next');
+        await page.waitForTimeout(90);
+        await page.click('#back');
+        await page.waitForTimeout(90);
+        await page.click('#skip');
+        await page.waitForTimeout(90);
+        await run(page, ['gt6m', 'no']);
+        /* With the red flag cleared, the urgent rule must no longer fire. */
+        expect(await verdict(page), 'a skipped answer still steered the result')
+            .toBe('A pelvic health assessment is the most useful next step');
+        await page.close();
+    }, 60_000);
+
     test('Start again clears the answers', async () => {
         const page = await open();
         await run(page, ['timing', 'partner_only', 'usually', 'always', 'no']);

@@ -241,6 +241,10 @@ describe('medical safety logic', () => {
            can be added later that quietly omits them. */
         const show = ownScript.match(/function show\(id\) \{([\s\S]*?)\n  \}/)[1];
         expect(show).toContain('URGENT_SIGNS.map');
+        /* Visible, not merely present. Wrapping either block in `hidden`
+           keeps the text in the source and takes it off the screen. */
+        expect(show).toMatch(/html \+= '<div class="a-red">/);
+        expect(show).toMatch(/html \+= '<div class="limits">/);
         expect(show).toMatch(/whatever this result said/);
         const flat = show.replace(/'\s*\+\s*'/g, '');
         expect(flat).toMatch(/cannot diagnose erectile dysfunction, premature ejaculation, pelvic floor dysfunction or any other condition/);
@@ -295,7 +299,15 @@ describe('the page behaves like the rest of the site', () => {
     });
 
     test('it is registered everywhere a page has to be', () => {
-        expect(read('tools/sync-site-nav.mjs')).toContain("'assessment/index.html'");
+        /* PAGES specifically. The name also appears in STYLED, so grepping
+           the whole file passes even after it is dropped from the list that
+           actually drives the header and the sitemap. A mutation found
+           that. */
+        const sync = read('tools/sync-site-nav.mjs');
+        const pages = sync.match(/export const PAGES = \[([\s\S]*?)\];/)[1];
+        expect(pages, 'not in PAGES').toContain("'assessment/index.html'");
+        const styled = sync.match(/export const STYLED = ([^;]*);/)[1];
+        expect(styled, 'not in STYLED').toContain("'assessment/index.html'");
         expect(read('tests/siteNav.test.js')).toContain("'assessment/index.html'");
         expect(read('tests/e2e/site-nav.test.js')).toContain("'/assessment/index.html'");
         expect(read('sitemap.xml')).toContain('<loc>https://theblueprint.site/assessment/</loc>');
