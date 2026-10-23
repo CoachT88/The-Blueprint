@@ -77,6 +77,27 @@ const CONTRAST_CONSTRUCTIONS = [
     /\bbut rather\b/i, /\bnot only\b[^.]{0,60}\bbut\b/i,
 ];
 
+/**
+ * Claims no guide may make, as a category rather than a sentence.
+ *
+ * Every one of these read as reasonable prose when it was written, and each
+ * had to be corrected in review. The failure mode is quiet: an observation
+ * gets described as a measurement, or a single test gets described as
+ * answering a question it cannot answer, and nothing in the page looks
+ * wrong. These are the shapes to refuse.
+ */
+const OVERCLAIMS = [
+    /\bmeasurement of (your )?(circulation|arousal|blood flow)\b/i,
+    /\b(is|are) a measurement of\b/i,
+    /\btells you why your erections?\b/i,
+    /* "tells you that your muscles are too tight" is left to the pelvic
+       guide's own mustSay, because the sentence that belongs there is the
+       negated form of it and a pattern here would fire on the correct
+       copy. A guard that flags the right answer is worse than no guard. */
+    /\bconfirms? (that )?you have\b/i,
+    /\bthis (test|check|list|plan|routine) (proves|shows you|diagnoses)\b/i,
+];
+
 const FEATURES = [
     'Guided sessions focused on sexual stamina and pelvic floor awareness.',
     'Erection quality and progress tracking.',
@@ -93,6 +114,7 @@ const GUIDES = [
         hubQuestion: 'Why can I get hard alone but lose it during sex?',
         title: 'Why Can I Get Hard Alone but Lose It During Sex?',
         plan: '7. Try This: Your 7-Day Erection Consistency Check',
+        mustSay: ['Checking whether you are still hard is not a neutral act'],
         planKind: 'check',
         sections: 11,
     },
@@ -103,6 +125,11 @@ const GUIDES = [
         hubQuestion: 'Can high blood sugar affect erections?',
         title: 'Can High Blood Sugar Affect Erections?',
         plan: '6. Try This: Your 7-Day Metabolic Habits Check',
+        mustSay: [
+            'An erection is not a measurement',
+            'It cannot tell you why your erections have changed.',
+            'ask whether an A1C test is appropriate',
+        ],
         planKind: 'check',
         sections: 10,
     },
@@ -113,6 +140,10 @@ const GUIDES = [
         hubQuestion: 'Does hydration affect erection quality?',
         title: 'Does Hydration Affect Erection Quality?',
         plan: '6. Try This: Your Daily Hydration Check',
+        mustSay: [
+            'has not been established as a treatment for erection problems',
+            'follow that individual advice',
+        ],
         planKind: 'check',
         sections: 10,
     },
@@ -123,6 +154,15 @@ const GUIDES = [
         hubQuestion: 'Can pelvic floor tension affect ejaculation timing?',
         title: 'Can a Tight Pelvic Floor Affect Sexual Performance?',
         plan: '6. Try This: A Five-Minute Pelvic Relaxation Routine',
+        mustSay: [
+            /* The breathing cue, and the two warnings that travel with it. */
+            'Do not actually urinate or pass gas',
+            'Do not squeeze it back',
+            'lengthens and relaxes',
+            /* Symptoms cannot establish muscle tone. */
+            'Nothing on this list tells you that your muscles are too tight.',
+            'Kegel exercises can make symptoms worse',
+        ],
         planKind: 'steps',
         sections: 10,
     },
@@ -133,6 +173,12 @@ const GUIDES = [
         hubQuestion: 'How does hip mobility affect comfort during sex?',
         title: 'How Does Hip Mobility Affect Sexual Performance?',
         plan: '6. Try This: A Beginner Hip Routine, 10 to 15 Minutes',
+        mustSay: [
+            /* The whole time cost, and the AAOS warm-up it depends on. */
+            '5 to 10 minutes of warm-up',
+            '5 to 10 minutes of low impact activity',
+            'this guide does not claim it',
+        ],
         planKind: 'steps',
         sections: 10,
     },
@@ -143,6 +189,11 @@ const GUIDES = [
         hubQuestion: 'How can I improve sexual stamina?',
         title: 'How Can I Improve Sexual Stamina?',
         plan: '6. Try This: A 7-Day Arousal Awareness Plan',
+        mustSay: [
+            'subjective awareness exercise',
+            'not a measurement of anything',
+            'It should not be painful',
+        ],
         planKind: 'steps',
         sections: 10,
     },
@@ -436,6 +487,22 @@ for (const g of GUIDES) {
             }
         });
 
+        test('IT STILL CARRIES THE STATEMENTS REVIEW PUT THERE', () => {
+            /* Safety cues and scope limits are the first thing a rewrite
+               loses, because they read as throat-clearing. Each guide names
+               its own, so deleting or inverting one fails here. */
+            for (const phrase of (g.mustSay || [])) {
+                expect(text.includes(phrase), `lost a required statement: "${phrase}"`).toBe(true);
+            }
+        });
+
+        test('AND IT MAKES NONE OF THE CLAIMS REVIEW REJECTED', () => {
+            for (const re of OVERCLAIMS) {
+                const m = ownProse(src).match(re);
+                expect(m, `overclaim "${m && m[0]}" appears`).toBeNull();
+            }
+        });
+
         test('and it avoids rhetorical contrast constructions', () => {
             for (const re of CONTRAST_CONSTRUCTIONS) {
                 const m = ownProse(src).match(re);
@@ -683,6 +750,8 @@ describe('the standard itself is written down', () => {
 
     test('it records the rules this file enforces, so the two cannot drift apart', () => {
         expect(doc).toContain('CREDIBLE_DOMAINS');
+        expect(doc).toContain('BRITISH_SPELLINGS');
+        expect(doc).toContain('CONTRAST_CONSTRUCTIONS');
         expect(doc).toContain('tools/sync-site-nav.mjs');
         expect(doc).toContain('$49 one-time access.');
         expect(doc).toMatch(/No em dashes/);
