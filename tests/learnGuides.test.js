@@ -186,6 +186,12 @@ const GUIDES = [
             /* Symptoms cannot establish muscle tone. */
             'Nothing on this list tells you that your muscles are too tight.',
             'Kegel exercises can make symptoms worse',
+            /* The routine's own scope line. A mutation written as a control,
+               to prove the contrast guard does not fire on a limiting
+               negation, instead replaced this with "It is a treatment
+               program" and survived. A relaxation routine described as a
+               treatment is the exact claim this guide must not make. */
+            'It is not a treatment, it is not a strengthening program',
         ],
         planKind: 'steps',
         sections: 10,
