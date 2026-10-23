@@ -588,8 +588,12 @@ for (const g of GUIDES) {
             expect(hrefs.length).toBeGreaterThanOrEqual(2);
             for (const h of hrefs) {
                 expect(h, 'a guide links to itself').not.toBe(g.slug);
-                expect(GUIDES.map(x => x.slug), `${h} is not a published guide`).toContain(h);
+                /* The assessment is a legitimate destination here: it is the
+                   "not sure where to start" card every guide carries. */
+                expect([...GUIDES.map(x => x.slug), '/assessment/'],
+                    `${h} is neither a published guide nor the assessment`).toContain(h);
             }
+            expect(hrefs, 'the guide does not offer the assessment').toContain('/assessment/');
         });
     });
 

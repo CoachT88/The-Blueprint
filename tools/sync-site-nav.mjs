@@ -36,6 +36,13 @@ export const GUIDES = [
     'improve-sexual-stamina/index.html',
 ];
 
+/* Pages that take tools/guide.css: the guides, plus the assessment.
+   The assessment is not a guide. It runs logic, it has no references and
+   no action plan, and the guide content rules in tests/learnGuides.test.js
+   would be nonsense applied to it. It does need the same design system,
+   which is what this list is for. */
+export const STYLED = [...GUIDES, 'assessment/index.html'];
+
 /* Every public page. A new learning-centre guide is added here, and
    tests/siteNav.test.js reads the same list, so a page that is never synced
    fails rather than quietly shipping without a header. */
@@ -50,6 +57,7 @@ export const PAGES = [
     'faq/index.html',
     'support/index.html',
     'safety/index.html',
+    'assessment/index.html',
     ...GUIDES,
 ];
 
@@ -123,7 +131,7 @@ let drifted = 0;
 for (const rel of PAGES) {
     const p = path.join(ROOT, rel);
     const before = readFileSync(p, 'utf8');
-    const after = render(before, GUIDES.includes(rel));
+    const after = render(before, STYLED.includes(rel));
     if (before === after) continue;
     drifted++;
     if (check) console.log('DRIFT', rel);
