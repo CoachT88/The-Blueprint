@@ -36,14 +36,128 @@ function fromAppSource() {
 
 export const { url: SUPABASE_URL, anon: ANON_KEY } = fromAppSource();
 
-/** The credentials this suite needs, and which only a human can provision. */
+/** The credentials the cross-account suite needs. Only a human can provision them. */
 export const REQUIRED_ENV = [
     'BP_TEST_A_EMAIL', 'BP_TEST_A_PASSWORD',
     'BP_TEST_B_EMAIL', 'BP_TEST_B_PASSWORD',
 ];
 
-export function missingEnv() {
-    return REQUIRED_ENV.filter(k => !process.env[k]);
+/**
+ * The claim suite additionally needs the service key, because it has to
+ * create throwaway auth accounts and seed entitlement rows, and both of
+ * those are service-role operations by design.
+ */
+export const REQUIRED_ADMIN_ENV = ['SUPABASE_SERVICE_ROLE_KEY'];
+
+export const missingEnv = (keys = REQUIRED_ENV) => keys.filter(k => !process.env[k]);
+
+/**
+ * Every throwaway account and every seeded entitlement row this suite
+ * creates carries this in its address.
+ *
+ * public.members holds real purchase records. The guard is asserted before
+ * every insert and before every delete, so a row that was not created by
+ * this suite cannot be removed by it even if an edit aimed a cleanup step at
+ * one. A purchase record is not recoverable from a test run.
+ */
+export const PROBE_EMAIL = 'bp-claim-probe-';
+
+export const probeEmail = () =>
+    `${PROBE_EMAIL}${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+
+export const isProbeEmail = (e) =>
+    typeof e === 'string' && e.toLowerCase().trim().startsWith(PROBE_EMAIL);
+
+const serviceKey = () => {
+    const k = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!k) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+    return k;
+};
+
+/** A call made with the service role, which bypasses RLS entirely. */
+export async function admin(sub, { method = 'GET', body, prefer, rest: isRest = false } = {}) {
+    const key = serviceKey();
+    const headers = {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'content-type': 'application/json',
+    };
+    if (prefer) headers.Prefer = prefer;
+    const r = await fetch(`${SUPABASE_URL}/${isRest ? 'rest' : 'auth'}/v1/${sub}`, {
+        method, headers, body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await r.text();
+    let parsed = null;
+    try { parsed = text ? JSON.parse(text) : null; } catch { parsed = text; }
+    /* The key is never echoed into the result, so a failing assertion can be
+       pasted into a report without leaking it. */
+    return { status: r.status, ok: r.ok, body: parsed };
+}
+
+export const adminRest = (sub, opts = {}) => admin(sub, { ...opts, rest: true });
+
+/** Create a throwaway auth account. Refuses an address outside the probe space. */
+export async function createUser(email, password, { confirmed = true } = {}) {
+    if (!isProbeEmail(email)) {
+        throw new Error(`refusing to create an account outside the probe space: ${email}`);
+    }
+    const r = await admin('admin/users', {
+        method: 'POST',
+        body: { email, password, email_confirm: confirmed },
+    });
+    if (!r.ok) throw new Error(`createUser failed: HTTP ${r.status} ${JSON.stringify(r.body)}`);
+    return { uid: r.body.id, email, password };
+}
+
+export async function setUserEmail(uid, email, { confirmed = true } = {}) {
+    if (!isProbeEmail(email)) {
+        throw new Error(`refusing to move an account outside the probe space: ${email}`);
+    }
+    return admin(`admin/users/${uid}`, {
+        method: 'PUT', body: { email, email_confirm: confirmed },
+    });
+}
+
+export const deleteUser = (uid) => admin(`admin/users/${uid}`, { method: 'DELETE' });
+
+/** Seed an entitlement row. Refuses any address this suite did not mint. */
+export async function seedMember(email, extra = {}) {
+    if (!isProbeEmail(email)) {
+        throw new Error(`refusing to write a members row for ${email}`);
+    }
+    const r = await adminRest('members', {
+        method: 'POST',
+        prefer: 'return=representation',
+        body: { email, ...extra },
+    });
+    if (!r.ok) {
+        throw new Error(
+            `seedMember failed: HTTP ${r.status} ${JSON.stringify(r.body)}. `
+            + 'If a NOT NULL column has no default, add it to the extra argument '
+            + 'in tests/live/claimMembership.test.js.');
+    }
+    return Array.isArray(r.body) ? r.body[0] : r.body;
+}
+
+/** Read entitlement rows for one probe address. */
+export async function readMembers(email) {
+    if (!isProbeEmail(email)) throw new Error(`refusing to query members for ${email}`);
+    const r = await adminRest(`members?email=eq.${encodeURIComponent(email)}&select=*`);
+    return Array.isArray(r.body) ? r.body : [];
+}
+
+/** Remove entitlement rows for one probe address, and nothing else, ever. */
+export async function deleteMembers(email) {
+    if (!isProbeEmail(email)) {
+        throw new Error(`REFUSING to delete members rows for ${email}`);
+    }
+    return adminRest(`members?email=eq.${encodeURIComponent(email)}`, { method: 'DELETE' });
+}
+
+/** How many entitlement rows exist in total. Used as a before-and-after guard. */
+export async function countMembers() {
+    const r = await adminRest('members?select=email', { prefer: 'count=exact' });
+    return Array.isArray(r.body) ? r.body.length : -1;
 }
 
 /**

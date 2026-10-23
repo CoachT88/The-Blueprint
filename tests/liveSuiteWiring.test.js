@@ -22,11 +22,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
 const SUITE = 'tests/live/crossAccount.test.js';
+const CLAIM = 'tests/live/claimMembership.test.js';
 const CLIENT = 'tests/live/client.js';
 
 describe('the live access-control suite exists', () => {
-    test('THE SUITE AND ITS CLIENT ARE BOTH PRESENT', () => {
-        for (const f of [SUITE, CLIENT, 'tests/live/README.md']) {
+    test('THE SUITES AND THEIR CLIENT ARE ALL PRESENT', () => {
+        for (const f of [SUITE, CLAIM, CLIENT, 'tests/live/README.md']) {
             expect(existsSync(path.join(ROOT, f)), `${f} is missing`).toBe(true);
         }
     });
@@ -96,6 +97,91 @@ describe('the live access-control suite exists', () => {
         /* And it checks the key is the anon key, so a service key swapped in
            cannot make every isolation test pass by having full access. */
         expect(read(SUITE)).toMatch(/payload\.role[\s\S]{0,80}toBe\('anon'\)/);
+    });
+});
+
+describe('the claim_membership suite covers what it has to', () => {
+    test('ALL SIX REVIEWED SCENARIOS ARE PRESENT', () => {
+        /* Named one by one, so deleting a case fails here rather than
+           quietly shrinking the coverage of the call that grants paid
+           access. */
+        const src = read(CLAIM);
+        const required = [
+            'an existing purchaser keeps their access',
+            'a first-time claim attaches a confirmed purchaser',
+            'an unconfirmed account cannot activate',
+            'a nonbuyer is refused and no row is invented',
+            'an entitlement already owned cannot be taken by another account',
+            'concurrent activation attaches exactly once',
+        ];
+        for (const r of required) {
+            expect(src, `no test for: ${r}`).toContain(r);
+        }
+    });
+
+    test('the concurrency case actually runs calls in parallel', () => {
+        /* Sequential calls would pass without proving anything about the
+           `user_id is null` predicate under contention. */
+        const src = read(CLAIM);
+        expect(src).toMatch(/Promise\.all\(/);
+        expect(src).toMatch(/Array\.from\(\{ length: \d+ \}/);
+    });
+
+    test('the unconfirmed case reports which layer refused, rather than assuming', () => {
+        /* The two project configurations reject that caller at different
+           layers, and a test that assumed one would be wrong half the time
+           and silent about it. */
+        const src = read(CLAIM);
+        expect(src).toMatch(/posture:/);
+        expect(src).toMatch(/signInRefused/);
+    });
+
+    test('A MISSING SERVICE KEY FAILS AND DOES NOT SKIP', () => {
+        const src = read(CLAIM);
+        expect(src).toMatch(/expect\.fail\(/);
+        expect(src).toMatch(/THIS IS NOT A PASS/);
+    });
+
+    test('IT CANNOT TOUCH A REAL PURCHASE RECORD', () => {
+        /* public.members holds real purchase rows. Every write, read and
+           delete in the client refuses an address outside the probe space,
+           and the suite checks the total row count across the run. */
+        const client = read(CLIENT);
+        expect(client).toMatch(/PROBE_EMAIL\s*=\s*'bp-claim-probe-'/);
+        for (const fn of ['createUser', 'setUserEmail', 'seedMember',
+            'readMembers', 'deleteMembers']) {
+            const body = client.slice(client.indexOf(`function ${fn}`),
+                client.indexOf(`function ${fn}`) + 600);
+            expect(body, `${fn} does not refuse a non-probe address`)
+                .toMatch(/isProbeEmail\(/);
+        }
+        const src = read(CLAIM);
+        expect(src, 'the run does not check the members row count came back')
+            .toMatch(/members row count changed across the run/);
+    });
+
+    test('the service key is never echoed into a result', () => {
+        /* A failing assertion gets pasted into reports. */
+        const client = read(CLIENT);
+        expect(client).toMatch(/never echoed into the result/);
+    });
+
+    test('and the migration it reviews is in version control', () => {
+        const f = 'supabase/migrations/20261023180000_claim_membership_require_confirmed_email.sql';
+        expect(existsSync(path.join(ROOT, f)), `${f} is missing`).toBe(true);
+        const sql = read(f);
+        expect(sql, 'the migration is not idempotent')
+            .toMatch(/create or replace function public\.claim_membership\(\)/);
+        expect(sql, 'the confirmation safeguard is absent')
+            .toMatch(/email_confirmed_at is not null/);
+        expect(sql, 'the search path pin was dropped')
+            .toMatch(/set search_path to 'public', 'pg_temp'/);
+        expect(sql, 'the concurrency predicate was dropped')
+            .toMatch(/and user_id is null/);
+        /* The operational dependency is the whole reason this safeguard can
+           be worth nothing, so it must stay written down next to it. */
+        expect(sql, 'the Confirm email dependency is not documented')
+            .toMatch(/Confirm email/);
     });
 });
 
