@@ -75,7 +75,7 @@ strong{color:var(--text)}
   padding:16px 18px;color:var(--muted);font-weight:650}
 
 /* ---- the principle card ------------------------------------------------ */
-/* Four parts, always in the same order and always labelled, so a reader who
+/* Four parts, always in the same order and always labeled, so a reader who
    has seen one guide can find the same thing in the next without reading the
    whole section: the principle, why it matters, a real situation, and the
    action. The label is a heading for assistive tech, not decoration. */

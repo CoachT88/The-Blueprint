@@ -37,7 +37,8 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
  *  something a new guide does on its way past. */
 const CREDIBLE_DOMAINS = [
     'www.niddk.nih.gov', 'www.nhs.uk', 'www.mayoclinic.org', 'www.heart.org',
-    'my.clevelandclinic.org', 'orthoinfo.aaos.org', 'www.urologyhealth.org',
+    'my.clevelandclinic.org', 'orthoinfo.aaos.org', 'www.plymouthhospitals.nhs.uk',
+    'www.urologyhealth.org',
     'medlineplus.gov', 'www.ncbi.nlm.nih.gov', 'www.cdc.gov',
 ];
 
@@ -46,6 +47,34 @@ const CREDIBLE_DOMAINS = [
 const BANNED_PHRASES = [
     'bear down', 'bearing down', 'neural reset', 'rewire your nervous system',
     'rewires your nervous system', 'pelvic down-training', 'down-training',
+];
+
+/**
+ * British spellings, which the guides must not use. The site writes practical
+ * American English and these drifted in across five articles written in one
+ * sitting, which is exactly the kind of thing nobody catches by reading.
+ *
+ * Each pattern is anchored and inflection-specific so it cannot flag a word
+ * that is correct in American English: "analysis", "emphasis" and "realistic"
+ * are all spelled the same on both sides and must not trip this.
+ */
+const BRITISH_SPELLINGS = [
+    /\brecognis(e|ed|es|ing|able)\b/i, /\bbehaviour(s|al|ally)?\b/i,
+    /\bcolour(s|ed|ing|less)?\b/i, /\banalys(e|ed|es|ing)\b/i,
+    /\bsummaris(e|ed|es|ing)\b/i, /\bemphasis(e|ed|es|ing)\b/i,
+    /\b(individual|personal|normal|prioriti|special|minimi|maximi|organi|real|apologi)s(e|ed|es|ing|ation)\b/i,
+    /\bcharacteris(e|ed|es|ing|ation)\b/i, /\bpractis(e|ed|es|ing)\b/i,
+    /\bprogramme(s)?\b/i, /\bwhilst\b/i, /\blitre(s)?\b/i, /\bmetre(s)?\b/i,
+    /\bfibre(s)?\b/i, /\bdefence\b/i, /\blicence\b/i, /\btravelling\b/i,
+    /\blabell(ed|ing)\b/i, /\bcounselling\b/i, /\bjudgement\b/i, /\bageing\b/i,
+    /\bgrey\b/i, /\bcentre(s)?\b/i, /\bfavour(s|ed|ite)?\b/i, /\bhonour(s|ed)?\b/i,
+    /\bhumour\b/i, /\bneighbour(s|hood)?\b/i, /\bmodelling\b/i, /\benquir(e|ed|y|ies)\b/i,
+];
+
+/** Rhetorical contrast constructions, which the house style does not use. */
+const CONTRAST_CONSTRUCTIONS = [
+    /\bnot just\b/i, /\bnot merely\b/i, /\bnot simply\b/i, /\bisn'?t just\b/i,
+    /\bbut rather\b/i, /\bnot only\b[^.]{0,60}\bbut\b/i,
 ];
 
 const FEATURES = [
@@ -103,7 +132,7 @@ const GUIDES = [
         hub: 'better-sexual-performance/index.html',
         hubQuestion: 'How does hip mobility affect comfort during sex?',
         title: 'How Does Hip Mobility Affect Sexual Performance?',
-        plan: '6. Try This: A Five-Minute Beginner Hip Routine',
+        plan: '6. Try This: A Beginner Hip Routine, 10 to 15 Minutes',
         planKind: 'steps',
         sections: 10,
     },
@@ -124,6 +153,17 @@ const file = (g) => g.slug.replace(/^\//, '') + 'index.html';
 function pageCss(src) {
     return [...src.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n')
         .replace(/\/\* SITE-NAV:START \*\/[\s\S]*?\/\* SITE-NAV:END \*\//, '');
+}
+
+/**
+ * The guide's OWN visible prose: the synced header and guide stylesheet
+ * removed first, because both have their own source file and neither is
+ * reader-facing language this guide is responsible for.
+ */
+function ownProse(src) {
+    return prose(src
+        .replace(/\/\* GUIDE-CSS:START \*\/[\s\S]*?\/\* GUIDE-CSS:END \*\//, ' ')
+        .replace(/<!-- SITE-NAV:START -->[\s\S]*?<!-- SITE-NAV:END -->/, ' '));
 }
 
 /** Visible text: tags, scripts and the stylesheet removed. */
@@ -384,6 +424,22 @@ for (const g of GUIDES) {
         test('it uses none of the banned member-facing phrases', () => {
             for (const phrase of BANNED_PHRASES) {
                 expect(text.toLowerCase().includes(phrase), `"${phrase}" appears`).toBe(false);
+            }
+        });
+
+        test('IT IS WRITTEN IN AMERICAN ENGLISH', () => {
+            /* Prose only. The synced header and stylesheet have their own
+               sources, and a code comment is not reader-facing language. */
+            for (const re of BRITISH_SPELLINGS) {
+                const m = ownProse(src).match(re);
+                expect(m, `British spelling "${m && m[0]}" appears`).toBeNull();
+            }
+        });
+
+        test('and it avoids rhetorical contrast constructions', () => {
+            for (const re of CONTRAST_CONSTRUCTIONS) {
+                const m = ownProse(src).match(re);
+                expect(m, `contrast construction "${m && m[0]}" appears`).toBeNull();
             }
         });
 

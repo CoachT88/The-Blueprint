@@ -110,6 +110,18 @@ behavioural signal.
 
 - Never promise an outcome. The copy says "can", "may", "can help". It never
   says a result is guaranteed, cured or fixed.
+- **Keep the claim the size of the evidence.** A symptom is not a diagnosis
+  and an observation is not a measurement. Three corrections worth
+  remembering, because each one read as reasonable until it was challenged:
+  an erection is not a measurement of circulation, though a sustained
+  change in one is a fair reason to ask for cardiovascular and metabolic
+  assessment; an A1C test speaks to diabetes risk, while the cause of an
+  erection problem needs a broader evaluation; and symptoms alone cannot
+  establish that a pelvic floor is overactive, because overactive and weak
+  muscles produce overlapping complaints.
+- **State the whole time cost of an exercise.** A five-minute routine that
+  needs a ten-minute warm-up is a fifteen-minute routine, and the title
+  says so.
 - Never state a result a member will get. No invented trends, no
   individualised health claims, no outcomes.
 - The app is an educational training tool. Every guide says, on the page,
@@ -121,8 +133,19 @@ behavioural signal.
 
 ## Language
 
+- **Practical American English.** Not British. Five guides written in one
+  sitting drifted into "recognised", "behavioural", "programme",
+  "practise", "colour" and "counselling", and nobody catches that by
+  reading. `BRITISH_SPELLINGS` in `tests/learnGuides.test.js` is the list,
+  anchored per inflection so that words spelled the same on both sides,
+  such as "analysis", "emphasis" and "realistic", do not trip it.
 - No em dashes. None. The test checks for `—`, `–` and the two-em and
   three-em dashes.
+- No rhetorical contrast constructions: no "not just", "not merely", "not
+  simply", "but rather", or "not only X but Y". Write the thing that is
+  true. `CONTRAST_CONSTRUCTIONS` holds the list. A plain negation that
+  limits a claim, such as saying a checklist cannot diagnose anything, is
+  not a contrast construction and is often required.
 - No contrast-based rhetoric. Write the thing that is true. Do not set it
   against a thing that is not.
 - Practical and direct. Short paragraphs. Plain words over clinical ones
