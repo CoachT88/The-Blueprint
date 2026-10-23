@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writesBlockedFor } from './live/gate.js';
 
 /**
  * THE LIVE SUITE CANNOT RUN HERE, SO THIS GUARDS ITS WIRING INSTEAD.
@@ -158,6 +159,59 @@ describe('the claim_membership suite covers what it has to', () => {
         const src = read(CLAIM);
         expect(src, 'the run does not check the members row count came back')
             .toMatch(/members row count changed across the run/);
+    });
+
+    describe('IT REFUSES TO WRITE TO PRODUCTION WITHOUT BEING TOLD TO', () => {
+        /* The probe guards keep the suite inside its own space. This gate is
+           the separate question of whether it belongs in the customers'
+           database at all. Both, not either.
+           The decision is tested as a function rather than matched as text:
+           a mutation changed the gate to `= false` while every word this
+           used to look for stayed in the file. */
+        test.each([
+            [{ isProduction: true, allowEnv: undefined }, true, 'production, no opt-in'],
+            [{ isProduction: true, allowEnv: '' }, true, 'production, empty opt-in'],
+            [{ isProduction: true, allowEnv: 'yes' }, true, 'production, wrong opt-in'],
+            [{ isProduction: true, allowEnv: '1' }, false, 'production, explicit opt-in'],
+            [{ isProduction: false, allowEnv: undefined }, false, 'staging'],
+            [{ isProduction: false, allowEnv: '1' }, false, 'staging, opt-in is moot'],
+        ])('%o blocks: %s (%s)', (input, expected) => {
+            expect(writesBlockedFor(input)).toBe(expected);
+        });
+
+        test('and the suite asks that function rather than deciding for itself', () => {
+            const src = read(CLAIM);
+            expect(src, 'the gate is no longer computed from writesBlockedFor')
+                .toMatch(/const blockedByTarget = writesBlockedFor\(\{/);
+            expect(src).toMatch(/isProduction: IS_PRODUCTION/);
+            expect(src).toMatch(/allowEnv: process\.env\.BP_ALLOW_PRODUCTION_WRITES/);
+            expect(src, 'the refusal is not wired into the skip condition')
+                .toMatch(/describe\.skipIf\(missing\.length \|\| blockedByTarget\)/);
+            expect(src).toMatch(/REFUSING TO WRITE TO PRODUCTION, AND THIS IS NOT A PASS/);
+        });
+    });
+
+    test('and the target of every run is printed, never assumed', () => {
+        const client = read(CLIENT);
+        expect(client).toMatch(/export const targetBanner/);
+        /* Half a staging config is an error, because it would pair a
+           staging address with a production key or the reverse. */
+        expect(client).toMatch(/Set BOTH BP_SUPABASE_URL and BP_SUPABASE_ANON_KEY/);
+        for (const f of [SUITE, CLAIM]) {
+            expect(read(f), `${f} does not print its target`).toMatch(/targetBanner\(\)/);
+        }
+    });
+
+    test('the write inventory is documented for review', () => {
+        /* "Review every write and delete operation before enabling tests
+           against production" needs a list that is kept current, not a
+           reading of the source each time. */
+        const readme = read('tests/live/README.md');
+        expect(readme).toMatch(/Every write and delete, in full/);
+        for (const op of ['admin/users', 'POST members', 'PATCH members',
+            'DELETE members', 'rpc claim_membership']) {
+            expect(readme, `the inventory does not list ${op}`).toContain(op);
+        }
     });
 
     test('the service key is never echoed into a result', () => {

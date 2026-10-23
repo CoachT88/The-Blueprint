@@ -35,6 +35,81 @@ configured, so the suite necessarily targets the same project the deployed
 app talks to. A security test pointed at the wrong project proves nothing and
 reads as proof.
 
+## Which project it talks to
+
+The default is **production**, read from `app/index.html`, so the suite
+provably targets the project the deployed app uses. A security test pointed
+at the wrong project proves nothing and reads as proof.
+
+A staging project is opted into with **both** variables:
+
+```sh
+BP_SUPABASE_URL=https://<staging>.supabase.co
+BP_SUPABASE_ANON_KEY=<staging anon key>
+```
+
+Setting one alone is an error rather than a quiet fallback, because that
+pairs a staging address with a production key or the reverse. Every run
+prints one line naming its target and whether that target is production.
+
+**`claimMembership.test.js` refuses to run against production** unless
+`BP_ALLOW_PRODUCTION_WRITES=1` is set, and it fails rather than skips when
+it refuses. It creates accounts and writes entitlement rows, and a staging
+project answers the same question without touching the database holding the
+paying customers. `crossAccount.test.js` carries no such gate: its writes
+are confined to the two test accounts' own row and folder, which is what
+any member does by using the app.
+
+Staging wants the same schema, the same policies and the same auth
+configuration, in particular the **Confirm email** setting, because the
+confirmed-email scenario behaves differently with it off. **Do not copy
+customer records or photos into it.** Both suites create everything they
+need.
+
+## Every write and delete, in full
+
+Reviewed before enabling anything against production.
+
+### `crossAccount.test.js`
+
+| Operation | Target | Cleanup |
+|---|---|---|
+| `POST user_data` upsert | account B's own row, id only | left in place, there is no delete policy to remove it with |
+| `POST` object | `<B uid>/__rls-probe-<ts>.jpg` | deleted by B in `afterAll` |
+| `PATCH user_data` as A | aimed at B's row, **expected to affect nothing** | nothing to clean |
+| `POST user_data` as A | carrying B's id, **expected to be refused** | nothing to clean |
+| `POST` object as A | into B's folder, **expected to be refused** | deleted if the policy failed and it landed |
+| `DELETE` object as A | B's probe object, **expected to be refused** | the object is asserted still present afterwards |
+
+The last four are the negative probes. They are writes only in the sense
+that they are attempted; each is asserted to have changed nothing.
+
+### `claimMembership.test.js`
+
+| Operation | Target | Cleanup |
+|---|---|---|
+| `POST admin/users` | throwaway accounts, `bp-claim-probe-…@example.com` | deleted in `afterAll` |
+| `PUT admin/users/<id>` | moves one probe account's address to another probe address | account deleted in `afterAll` |
+| `POST members` | one row per probe address | deleted in `afterAll` |
+| `PATCH members` | attaches one probe row to its own probe account | row deleted in `afterAll` |
+| `rpc claim_membership` | writes `user_id` and `claimed_at`, probe rows only | row deleted in `afterAll` |
+| `DELETE members` | probe addresses only | this is the cleanup |
+| `DELETE admin/users/<id>` | probe accounts only | this is the cleanup |
+
+Six guards sit under that table:
+
+1. `createUser`, `setUserEmail`, `seedMember`, `readMembers` and
+   `deleteMembers` each throw unless the address begins `bp-claim-probe-`.
+2. Addresses are minted by `probeEmail()` and never written by hand.
+3. `beforeAll` records the total `members` row count and `afterAll` throws
+   if it moved.
+4. The storage probe name is asserted to carry `__rls-probe-` immediately
+   before the delete that targets it.
+5. The production gate above, which is a pure function in `gate.js` so that
+   the unit suite can test the decision rather than read it.
+6. The service key is never echoed into a returned result, because failing
+   assertions get pasted into reports.
+
 ## What it touches
 
 - Upserts a `user_data` row for account B, keyed to B's own id. This is what

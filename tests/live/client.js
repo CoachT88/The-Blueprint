@@ -34,7 +34,43 @@ function fromAppSource() {
     return { url: url[1].replace(/\/$/, ''), anon: key[1] };
 }
 
-export const { url: SUPABASE_URL, anon: ANON_KEY } = fromAppSource();
+export const PRODUCTION = fromAppSource();
+
+/**
+ * Which project the suites talk to.
+ *
+ * The default is production, read from the shipped source, because a
+ * security test pointed at the wrong project proves nothing and reads as
+ * proof. A staging project is opted into explicitly by setting BOTH
+ * BP_SUPABASE_URL and BP_SUPABASE_ANON_KEY. Setting one alone is an error
+ * rather than a quiet fallback, because that pairs a staging address with a
+ * production key or the reverse.
+ *
+ * IS_PRODUCTION is exported because the suites differ on it. A read-only
+ * probe is fine anywhere. A suite that creates accounts and writes
+ * entitlement rows is not, and it refuses production unless somebody says
+ * so in as many words.
+ */
+function resolveProject() {
+    const url = process.env.BP_SUPABASE_URL;
+    const anon = process.env.BP_SUPABASE_ANON_KEY;
+    if (!url && !anon) return { ...PRODUCTION, isProduction: true };
+    if (!url || !anon) {
+        throw new Error(
+            'Set BOTH BP_SUPABASE_URL and BP_SUPABASE_ANON_KEY to target a staging '
+            + 'project, or neither to target production. Setting one alone would '
+            + 'mix a staging address with a production key or the reverse.');
+    }
+    const clean = url.replace(/\/$/, '');
+    return { url: clean, anon, isProduction: clean === PRODUCTION.url };
+}
+
+export const { url: SUPABASE_URL, anon: ANON_KEY, isProduction: IS_PRODUCTION } =
+    resolveProject();
+
+/** One line, printed by every suite, so no run is ambiguous about its target. */
+export const targetBanner = () =>
+    `target: ${SUPABASE_URL} ${IS_PRODUCTION ? '(PRODUCTION)' : '(non-production)'}`;
 
 /** The credentials the cross-account suite needs. Only a human can provision them. */
 export const REQUIRED_ENV = [

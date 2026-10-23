@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import {
-    SUPABASE_URL, ANON, ANON_KEY, REQUIRED_ENV, missingEnv,
+    SUPABASE_URL, ANON, ANON_KEY, REQUIRED_ENV, missingEnv, targetBanner,
     signIn, rest, rpc, storage, listFolder, probeName, PROBE_PREFIX, JPEG_1PX,
 } from './client.js';
 
@@ -75,7 +75,7 @@ if (missing.length) {
                 + 'Set all of: ' + REQUIRED_ENV.join(', ') + '\n'
                 + 'using two dedicated test accounts with confirmed emails, then re-run\n'
                 + '  npm run test:live\n\n'
-                + 'Target project (read from app/index.html): ' + SUPABASE_URL);
+                + targetBanner());
         });
     });
 }
@@ -86,6 +86,7 @@ describe.skipIf(missing.length)('real sessions, two accounts, one server', () =>
     let bObject = null;
 
     beforeAll(async () => {
+        console.log('  ' + targetBanner());
         A = await signIn(process.env.BP_TEST_A_EMAIL, process.env.BP_TEST_A_PASSWORD);
         B = await signIn(process.env.BP_TEST_B_EMAIL, process.env.BP_TEST_B_PASSWORD);
         expect(A.uid, 'the two test accounts resolved to the same user id')

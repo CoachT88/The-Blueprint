@@ -1,10 +1,11 @@
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import {
-    SUPABASE_URL, ANON, REQUIRED_ADMIN_ENV, missingEnv,
+    ANON, REQUIRED_ADMIN_ENV, missingEnv, IS_PRODUCTION, targetBanner,
     signIn, rpc, createUser, setUserEmail, deleteUser,
     seedMember, readMembers, deleteMembers, countMembers,
     probeEmail, isProbeEmail,
 } from './client.js';
+import { writesBlockedFor } from './gate.js';
 
 /**
  * claim_membership(), against the real function.
@@ -48,6 +49,24 @@ import {
 const missing = missingEnv(REQUIRED_ADMIN_ENV);
 const PASSWORD = 'probe-' + Math.random().toString(36).slice(2) + '-Aa1!';
 
+/**
+ * THIS SUITE WRITES. IT WILL NOT WRITE TO PRODUCTION BY ACCIDENT.
+ *
+ * It creates auth accounts, seeds entitlement rows, moves an address and
+ * deletes what it made. Every one of those is confined to the probe space,
+ * the probe guards are real, and that is still not a reason to point it at
+ * the database holding the paying customers when a staging project answers
+ * the same question.
+ *
+ * So production has to be said out loud with BP_ALLOW_PRODUCTION_WRITES=1.
+ * Staging needs only BP_SUPABASE_URL and BP_SUPABASE_ANON_KEY, which is the
+ * friction pointing the right way.
+ */
+const blockedByTarget = writesBlockedFor({
+    isProduction: IS_PRODUCTION,
+    allowEnv: process.env.BP_ALLOW_PRODUCTION_WRITES,
+});
+
 if (missing.length) {
     describe('live claim_membership suite', () => {
         test('THE SERVICE KEY IS REQUIRED, AND THIS IS NOT A PASS', () => {
@@ -57,12 +76,32 @@ if (missing.length) {
                 + 'Treat a run without it as unverified rather than as green.\n\n'
                 + 'The key is a secret. Pass it in the environment for one run and do\n'
                 + 'not put it in a file, a script, or repository secrets.\n\n'
-                + 'Target project (read from app/index.html): ' + SUPABASE_URL);
+                + targetBanner());
+        });
+    });
+} else if (blockedByTarget) {
+    describe('live claim_membership suite', () => {
+        test('REFUSING TO WRITE TO PRODUCTION, AND THIS IS NOT A PASS', () => {
+            expect.fail(
+                'This suite creates accounts and writes entitlement rows, and the\n'
+                + 'target is production.\n\n'
+                + targetBanner() + '\n\n'
+                + 'Point it at a staging project with the same schema, policies and\n'
+                + 'auth configuration, the Confirm email setting included:\n\n'
+                + '  BP_SUPABASE_URL=https://<staging>.supabase.co \\\n'
+                + '  BP_SUPABASE_ANON_KEY=<staging anon key> \\\n'
+                + '  SUPABASE_SERVICE_ROLE_KEY=<staging service key> \\\n'
+                + '  npm run test:live\n\n'
+                + 'Do not copy customer records or photos into it. The suite creates\n'
+                + 'everything it needs.\n\n'
+                + 'If production really is intended, say so with\n'
+                + 'BP_ALLOW_PRODUCTION_WRITES=1, and read the write inventory in\n'
+                + 'tests/live/README.md first.');
         });
     });
 }
 
-describe.skipIf(missing.length)('claim_membership against production', () => {
+describe.skipIf(missing.length || blockedByTarget)('claim_membership, end to end', () => {
     /** Everything created here, torn down in afterAll whatever happens. */
     const users = [];
     const emails = [];
@@ -76,6 +115,7 @@ describe.skipIf(missing.length)('claim_membership against production', () => {
     };
 
     beforeAll(async () => {
+        console.log('  ' + targetBanner());
         baseline = await countMembers();
         expect(baseline, 'could not count members with the service key').toBeGreaterThan(-1);
     }, 60_000);
