@@ -97,6 +97,50 @@ describe('deployed assets cover what the browser imports', () => {
         expect(excluded).toEqual([]);
     });
 
+    it('INTERNAL NOTES AND BACKEND SOURCE ARE NOT SERVED', () => {
+        /* The other direction of the same mistake. `src` was excluded when
+           it had to ship; `docs`, `supabase` and `functions` were shipping
+           when they had to be excluded.
+
+           wrangler.jsonc points assets.directory at the repository root, so
+           anything not named here is a fetchable URL. docs/ was serving the
+           carried-debt list, the known-failures list and the content
+           standards to anyone who guessed the path.
+
+           This closes the theblueprint.site vector only. The repository is
+           public, so these files remain readable on GitHub. */
+        const mustNotShip = [
+            'docs/carried-debt.md',
+            'docs/known-timezone-failures.md',
+            'docs/assessment-logic.md',
+            'docs/learning-centre-content-standard.md',
+            'supabase/members-rls-hardening.sql',
+            'functions/api/kofi-webhook.js',
+            'tests/deployedAssets.test.js',
+            'tools/sync-site-nav.mjs',
+            'package.json',
+            'wrangler.jsonc',
+        ];
+        const served = mustNotShip.filter(f => !isIgnored(f, rules));
+        expect(served, `served to the public internet: ${served.join(', ')}`).toEqual([]);
+    });
+
+    it('and the things the site genuinely needs are still served', () => {
+        /* The exclusion above must not repeat the src/ outage. */
+        const mustShip = [
+            'src/nextBestAction.js',
+            'app/index.html',
+            'index.html',
+            'img/og-card.jpg',
+            'sitemap.xml',
+            'robots.txt',
+            'research-lab/index.html',
+            'assessment/index.html',
+        ];
+        const blocked = mustShip.filter(f => existsSync(path.join(ROOT, f)) && isIgnored(f, rules));
+        expect(blocked, `excluded but required: ${blocked.join(', ')}`).toEqual([]);
+    });
+
     it('ships every local stylesheet linked by the member app', () => {
         const links=[...page.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)]
             .map(m=>m[1]).filter(href=>href.startsWith('.'));

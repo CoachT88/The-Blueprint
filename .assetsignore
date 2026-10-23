@@ -33,6 +33,18 @@ supabase
 # it from wrangler.jsonc's `main`, so it never needs to be served as an asset.
 src/worker.js
 
+# Internal engineering notes, served by accident. wrangler.jsonc points
+# assets.directory at the repository root, so without this line every file
+# in docs/ was a fetchable URL on the live site: the carried-debt list, the
+# known-failures list and the content standards, which together are a map
+# of what is unfinished. Nothing on the site links to docs/, so excluding
+# it changes nothing a visitor can see.
+#
+# This closes the theblueprint.site vector ONLY. The repository is public,
+# so every one of these files remains readable on GitHub. That is a
+# separate decision about repository visibility, not an asset question.
+docs
+
 # Tests and tooling, not site content. img/ is deliberately absent from this
 # list: the screenshots and the link-preview card have to be fetchable.
 tests
