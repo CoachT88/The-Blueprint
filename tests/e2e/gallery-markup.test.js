@@ -189,11 +189,27 @@ describe('the gallery still works exactly as before', () => {
 
     test('a tap on an index with no item does nothing rather than throwing', async () => {
         /* The lookup replaced four arguments with one, so the out-of-range
-           case is new and has to be a no-op. */
+           case is new and has to be a no-op.
+           Compare mode has to be OFF for this to test anything. Its branch
+           returns before the item is ever read, so with compare still open
+           this passed whether or not the guard existed. A mutation run
+           caught that. */
+        const state = await app.page.evaluate(() => {
+            if (_compareMode) document.getElementById('photo-compare-btn').click();
+            return _compareMode;
+        });
+        await app.page.waitForTimeout(300);
+        expect(await app.page.evaluate(() => _compareMode),
+            `compare mode is still on, so this test proves nothing (was ${state})`)
+            .toBe(false);
+
         const threw = await app.page.evaluate(() => {
             try { onGalleryTap(99); return false; } catch (e) { return String(e); }
         });
         expect(threw).toBe(false);
+        expect(await app.page.evaluate(
+            () => !document.getElementById('photo-viewer-overlay').classList.contains('hidden')),
+        'the viewer opened on an index with no photo').toBe(false);
         expect(app.errors).toEqual([]);
     }, 30_000);
 
