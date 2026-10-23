@@ -172,8 +172,12 @@ describe('the claim_membership suite covers what it has to', () => {
         const sql = read(f);
         expect(sql, 'the migration is not idempotent')
             .toMatch(/create or replace function public\.claim_membership\(\)/);
-        expect(sql, 'the confirmation safeguard is absent')
-            .toMatch(/email_confirmed_at is not null/);
+        /* Anchored to the statement, not to the phrase. The header explains
+           the change in prose and contains the same words, so a looser
+           match passed while the clause was deleted from the body. A
+           mutation run caught that; do not loosen it again. */
+        expect(sql, 'the confirmation safeguard is absent from the lookup')
+            .toMatch(/where id = v_uid\s*\n\s*and email_confirmed_at is not null/);
         expect(sql, 'the search path pin was dropped')
             .toMatch(/set search_path to 'public', 'pg_temp'/);
         expect(sql, 'the concurrency predicate was dropped')
