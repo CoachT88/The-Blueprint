@@ -1,0 +1,124 @@
+// Creates a Stripe Checkout Session for The Blueprint.
+//
+// Exists so the secret key never reaches a browser. The page calls this, gets
+// back a client secret, and mounts Stripe's embedded Checkout with it.
+//
+// Required secrets (Cloudflare Pages -> Variables and Secrets, Encrypt):
+//   STRIPE_SECRET_KEY   - sk_test_... or sk_live_...
+//   STRIPE_PRICE_ID     - the Price object for the $99 one-time product
+//   SUPABASE_URL        - to verify a signed-in buyer's token
+//   SUPABASE_ANON_KEY   - the public key, used only for the token check
+//
+// Optional:
+//   STRIPE_RETURN_URL   - defaults to https://theblueprint.site/welcome/
+
+const json = (body, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+});
+
+function redactEmail(email) {
+  if (typeof email !== 'string' || !email.includes('@')) return '<none>';
+  const [user, domain] = email.split('@');
+  return `${user.slice(0, 2)}***@${domain}`;
+}
+
+/**
+ * Who is buying, established from a token rather than from the request body.
+ *
+ * THE BROWSER MUST NEVER SUPPLY THE UID. client_reference_id ends up as the
+ * account an entitlement attaches to, so a caller who could name it could
+ * attach somebody else's purchase to their own account. The uid is read from
+ * a Supabase access token verified by Supabase itself, and the request body
+ * is not consulted for identity at all.
+ *
+ * No token is the normal case: most buyers have no account yet. That path
+ * returns nulls and the webhook falls back to matching on the purchase
+ * address.
+ */
+async function identifyBuyer(request, env) {
+  const auth = request.headers.get('Authorization') || '';
+  if (!auth.startsWith('Bearer ') || auth.length < 20) return { uid: null, email: null };
+  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return { uid: null, email: null };
+
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: auth },
+    });
+    if (!res.ok) return { uid: null, email: null };
+    const user = await res.json().catch(() => null);
+    if (!user || typeof user.id !== 'string') return { uid: null, email: null };
+    /* Only a confirmed address is used to prefill, for the same reason the
+       webhook only auto-attaches a confirmed one: an unconfirmed address
+       proves nothing and anybody can type it at signup. */
+    const confirmed = Boolean(user.email_confirmed_at || user.confirmed_at);
+    return { uid: user.id, email: confirmed ? user.email : null };
+  } catch (e) {
+    return { uid: null, email: null };
+  }
+}
+
+export async function onRequestPost({ request, env }) {
+  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PRICE_ID) {
+    console.error('Stripe: checkout session config missing; refusing');
+    return json({ error: 'Checkout is unavailable right now.' }, 503);
+  }
+
+  const { uid, email } = await identifyBuyer(request, env);
+  const returnUrl = env.STRIPE_RETURN_URL
+    || 'https://theblueprint.site/welcome/?session_id={CHECKOUT_SESSION_ID}';
+
+  /* Form-encoded, because that is what the Stripe API takes and it avoids
+     pulling the SDK into a Worker. */
+  const form = new URLSearchParams();
+  form.set('ui_mode', 'embedded');
+  form.set('mode', 'payment');
+  form.set('line_items[0][price]', env.STRIPE_PRICE_ID);
+  form.set('line_items[0][quantity]', '1');
+  form.set('return_url', returnUrl);
+  /* So a man who abandons and comes back is not charged twice for the same
+     session, and so the receipt reaches him. */
+  form.set('customer_creation', 'always');
+
+  if (uid) form.set('client_reference_id', uid);
+  if (email) form.set('customer_email', email);
+
+  /* NOTHING ABOUT HIS HEALTH GOES TO STRIPE. No assessment answers, no
+     measurements, no erection-quality ratings, no session history, no Coach
+     Tee conversation, no photographs. The metadata below is a product tag
+     and nothing else, and this comment is here so that stays true when
+     somebody wants to add analytics. */
+  form.set('metadata[product]', 'blueprint');
+
+  try {
+    const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        /* Pin the API version so a Stripe-side default change cannot alter
+           the payload shape the webhook parses. */
+        'Stripe-Version': '2025-09-30.clover',
+      },
+      body: form.toString(),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || !data.client_secret) {
+      /* The upstream body can carry account detail, and the browser has no
+         use for it either way. */
+      console.error('Stripe: session creation failed, status', res.status,
+        data && data.error ? data.error.code : '');
+      return json({ error: 'Checkout is unavailable right now.' }, 502);
+    }
+
+    console.log(`Stripe: session created, signedIn=${Boolean(uid)}`
+      + `, prefill=${redactEmail(email)}`);
+    return json({ clientSecret: data.client_secret });
+  } catch (e) {
+    console.error('Stripe: session creation threw -', e.message);
+    return json({ error: 'Checkout is unavailable right now.' }, 502);
+  }
+}
+
+export const __test = { identifyBuyer, redactEmail };
