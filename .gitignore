@@ -9,3 +9,7 @@ supabase/.temp/
 !.dev.vars.example
 .env*
 !.env.example
+
+# Eval run outputs. Synthetic prompts and model answers, no member data,
+# and still not worth committing.
+tests/eval/results/
