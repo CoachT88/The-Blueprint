@@ -42,12 +42,23 @@ export const RESEARCH = [
     'research-lab/manual-techniques/index.html',
 ];
 
+/* Pages that take the shared header and the design system but must NOT be
+   indexed, so they are deliberately absent from the sitemap.
+
+   /welcome/ only means something to someone who just paid, and its URL
+   carries a Stripe session id. /app/ is already absent from PAGES for the
+   same class of reason: it is the application behind sign-in, not a page for
+   a search engine. */
+export const NOINDEX = [
+    'welcome/index.html',
+];
+
 /* Pages that take tools/guide.css: the guides, plus the assessment.
    The assessment is not a guide. It runs logic, it has no references and
    no action plan, and the guide content rules in tests/learnGuides.test.js
    would be nonsense applied to it. It does need the same design system,
    which is what this list is for. */
-export const STYLED = [...GUIDES, 'assessment/index.html', ...RESEARCH];
+export const STYLED = [...GUIDES, 'assessment/index.html', ...RESEARCH, ...NOINDEX];
 
 /* The Research Lab. Takes the design system like the assessment, and
    additionally takes tools/research.css for the evidence labels and method
@@ -148,7 +159,7 @@ export function sitemap() {
 
 const check = process.argv.includes('--check');
 let drifted = 0;
-for (const rel of PAGES) {
+for (const rel of [...PAGES, ...NOINDEX]) {
     const p = path.join(ROOT, rel);
     const before = readFileSync(p, 'utf8');
     const after = render(before, STYLED.includes(rel), RESEARCH.includes(rel));

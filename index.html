@@ -1082,10 +1082,20 @@ body[data-sn-open="true"]{overflow:hidden}
       </ul>
 
       <div class="btn-row" style="justify-content:center">
-        <a class="btn" href="https://ko-fi.com/s/75a70cb698">Start The Blueprint, $49</a>
+        <a class="btn" id="buy-kofi" href="https://ko-fi.com/s/75a70cb698">Start The Blueprint, $49</a>
+        <button class="btn" id="buy-onsite" type="button" hidden>Start The Blueprint, $49</button>
       </div>
-      <p class="tiny" style="margin-top:16px">
+      <p class="tiny" style="margin-top:16px" id="buy-note-kofi">
         You pay through Ko-fi, then sign in here with the same email address you paid with.
+      </p>
+      <p class="tiny" style="margin-top:16px" id="buy-note-onsite" hidden>
+        Pay here with Apple&nbsp;Pay, Google&nbsp;Pay or a card. Your card statement
+        shows a neutral name, not the product.
+      </p>
+      <div id="checkout-mount" hidden style="margin-top:18px;min-height:320px"></div>
+      <p class="tiny" id="checkout-error" hidden style="margin-top:12px">
+        Checkout could not start. The Ko-fi link above still works, or email
+        <a href="mailto:Therealcoachtee@gmail.com?subject=The%20Blueprint">Therealcoachtee@gmail.com</a>.
       </p>
     </div>
 
@@ -1128,5 +1138,128 @@ body[data-sn-open="true"]{overflow:hidden}
   </div>
 </footer>
 
+
+<script>
+/* ON-SITE CHECKOUT, OFF BY DEFAULT.
+ *
+ * Ko-fi stays the live purchase path until Stripe has been tested end to
+ * end. This code changes nothing for a visitor unless the flag below is on,
+ * which is what makes it safe to ship ahead of the switch.
+ *
+ * Turn it on for one browser with ?checkout=1, or for everyone by setting
+ * ON to true. Both buttons say the same price, so flipping the flag cannot
+ * change what anyone is charged.
+ *
+ * ---------------------------------------------------------------------------
+ * STRIPE.JS IS LOADED ON CLICK, NEVER ON PAGE LOAD.
+ *
+ * Every page here is self-contained on purpose: one inline <style>, no
+ * external stylesheet, no font CDN, because a man reading about erectile
+ * function should not have the visit announced to a third party.
+ * A <script src="https://js.stripe.com/..."> in the head would announce
+ * every home-page visit to Stripe, including the visits of people who never
+ * buy anything.
+ *
+ * So the script is injected by the first click on the buy button. Someone
+ * who reads the page and leaves has still contacted nobody. Someone who
+ * chooses to pay has chosen to contact a payment processor, which is the
+ * only point at which that is a reasonable thing to happen.
+ */
+(function () {
+    'use strict';
+
+    var ON = false;                       // flip to true at the live switch
+    var PUBLISHABLE = '';                 // pk_live_... or pk_test_..., set at the switch
+    var SRC = 'https://js.stripe.com/basil/stripe.js';
+
+    var params = new URLSearchParams(location.search);
+    var enabled = (ON || params.get('checkout') === '1') && PUBLISHABLE;
+
+    var kofi = document.getElementById('buy-kofi');
+    var onsite = document.getElementById('buy-onsite');
+    var noteKofi = document.getElementById('buy-note-kofi');
+    var noteOnsite = document.getElementById('buy-note-onsite');
+    var mount = document.getElementById('checkout-mount');
+    var errEl = document.getElementById('checkout-error');
+
+    if (!enabled || !onsite) return;      // nothing changes, Ko-fi stands
+
+    kofi.hidden = true;
+    noteKofi.hidden = true;
+    onsite.hidden = false;
+    noteOnsite.hidden = false;
+
+    function fail() {
+        /* Always leave a way to pay. A broken checkout must not become a
+           dead end for someone who wants to buy. */
+        if (errEl) errEl.hidden = false;
+        if (kofi) kofi.hidden = false;
+        if (noteKofi) noteKofi.hidden = false;
+        if (onsite) { onsite.disabled = false; onsite.textContent = 'Start The Blueprint, $49'; }
+    }
+
+    var loading = null;
+    function loadStripe() {
+        if (window.Stripe) return Promise.resolve(window.Stripe);
+        if (loading) return loading;
+        loading = new Promise(function (resolve, reject) {
+            var el = document.createElement('script');
+            el.src = SRC;
+            el.async = true;
+            el.onload = function () { window.Stripe ? resolve(window.Stripe) : reject(new Error('no Stripe')); };
+            el.onerror = function () { reject(new Error('stripe.js blocked')); };
+            document.head.appendChild(el);
+        });
+        return loading;
+    }
+
+    /* The access token, when there is one, so the session binds to his
+       account and a different payment address stops mattering. Read from
+       the Supabase session the app stored; absent for a visitor, which is
+       the normal case. */
+    function bearer() {
+        try {
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (!k || k.indexOf('sb-') !== 0 || k.indexOf('-auth-token') < 0) continue;
+                var v = JSON.parse(localStorage.getItem(k));
+                if (v && v.access_token) return v.access_token;
+            }
+        } catch (e) { /* blocked storage, private window */ }
+        return null;
+    }
+
+    var opened = false;
+    onsite.addEventListener('click', function () {
+        if (opened) return;
+        opened = true;
+        onsite.disabled = true;
+        onsite.textContent = 'Opening\u2026';
+
+        var headers = { 'Content-Type': 'application/json' };
+        var token = bearer();
+        if (token) headers.Authorization = 'Bearer ' + token;
+
+        Promise.all([
+            loadStripe(),
+            fetch('/api/create-checkout-session', { method: 'POST', headers: headers })
+                .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('session ' + r.status)); })
+        ]).then(function (out) {
+            var Stripe = out[0], data = out[1];
+            if (!data || !data.clientSecret) throw new Error('no client secret');
+            return Stripe(PUBLISHABLE).initEmbeddedCheckout({ clientSecret: data.clientSecret })
+                .then(function (checkout) {
+                    onsite.hidden = true;
+                    mount.hidden = false;
+                    checkout.mount('#checkout-mount');
+                });
+        }).catch(function (e) {
+            opened = false;
+            console.error('checkout failed:', e && e.message);
+            fail();
+        });
+    });
+})();
+</script>
 </body>
 </html>
