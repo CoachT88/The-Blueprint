@@ -161,13 +161,43 @@ describe('Ko-fi keeps working', () => {
         expect(src).toMatch(/FOUR THINGS THAT MUST AGREE/);
     });
 
-    test('tax is not claimed by the button, it is disclosed in the note', () => {
-        /* Stripe Tax computes tax from the buyer's location, which this page
-           cannot know, so a button claiming a total would be guessing. */
+    test('THE PAGE PROMISES TAX HANDLING ONLY IF THE CODE DOES IT', () => {
+        /* The Price carries tax_behavior=exclusive, which means tax would be
+           added on top of $99. But the session endpoint does not set
+           automatic_tax, so no tax is calculated or collected, and a note
+           saying tax "is shown before you confirm" was a promise the system
+           does not keep.
+           Asserted as a coupling rather than as fixed copy, so the two
+           cannot drift apart: enable automatic_tax and the note must gain
+           the sentence; leave it off and the note must not claim it. */
         const copy = visible(s());
-        expect(copy).toMatch(/tax or VAT your\s*country requires is shown before you confirm/);
+        const endpoint = read('functions/api/create-checkout-session.js');
+        const taxOn = /automatic_tax/.test(endpoint);
+        const claimsTax = /\btax\b|\bVAT\b/i.test(copy);
+
+        if (taxOn) {
+            expect(claimsTax,
+                'automatic_tax is enabled but the page tells nobody tax is added')
+                .toBe(true);
+        } else {
+            expect(claimsTax,
+                'the page promises tax handling while automatic_tax is off')
+                .toBe(false);
+        }
+
+        /* Either way the button itself must not claim a total it cannot
+           compute, since tax depends on the buyer's location. */
         expect(s(), 'the button text claims a tax-inclusive total')
             .not.toMatch(/BUY_TEXT[^;]*tax/i);
+    });
+
+    test('and the webhook compares the PRE-TAX amount', () => {
+        /* tax_behavior=exclusive puts tax on top of the price, so
+           amount_total exceeds it and comparing the total would refuse every
+           taxed purchase the moment automatic_tax is switched on. */
+        const hook = read('functions/api/stripe-webhook.js');
+        expect(hook).toMatch(/session\.amount_subtotal/);
+        expect(hook).toMatch(/amount_subtotal[\s\S]{0,80}amount_total/);
     });
 });
 
