@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { __test as hook } from '../functions/api/stripe-webhook.js';
+import { __test as hook, onRequestPost } from '../functions/api/stripe-webhook.js';
 
 /**
  * THE STRIPE WEBHOOK HANDS OUT PAID ACCESS.
@@ -423,5 +423,290 @@ describe('secrets stay out of the repository and off the website', () => {
     test('the handlers are not served as website assets', () => {
         const ignore = read('.assetsignore').split('\n').map(l => l.trim());
         expect(ignore).toContain('functions');
+    });
+});
+
+/**
+ * THE HANDLER ITSELF, DRIVEN.
+ *
+ * Everything above this point tests the helpers as pure functions. A
+ * mutation run proved that is not enough: deleting the signature check from
+ * the handler, swapping the constant-time comparison for ===, and deleting
+ * the livemode check all left the suite green, because the helpers were
+ * still correct and still called. Only their RESULT had stopped mattering.
+ *
+ * So these tests call onRequestPost with a real signed request and a stubbed
+ * fetch, and assert on what reached Supabase. A rejected request must make
+ * NO Supabase call at all, which is the property that cannot be faked by a
+ * helper that still exists.
+ */
+describe('onRequestPost, end to end against a stubbed Supabase', () => {
+    const ENV_FULL = {
+        STRIPE_WEBHOOK_SECRET: SECRET,
+        SUPABASE_URL: 'https://stub.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'service-role-stub',
+        STRIPE_PRICE_CENTS: '9900',
+        STRIPE_CURRENCY: 'usd',
+        STRIPE_LIVEMODE: 'false',
+    };
+
+    /** Records every outbound call and answers the ones the handler makes. */
+    function stubFetch({ duplicate = false, purchaseEmail = 'buyer@example.com' } = {}) {
+        const calls = [];
+        const real = globalThis.fetch;
+        globalThis.fetch = async (url, opts = {}) => {
+            const u = String(url);
+            const method = opts.method || 'GET';
+            calls.push({ url: u, method, body: opts.body });
+            const ok = (status, json) => new Response(
+                json === undefined ? '' : JSON.stringify(json),
+                { status, headers: { 'content-type': 'application/json' } });
+
+            if (u.includes('/rest/v1/payment_events')) {
+                return duplicate ? ok(409, { code: '23505' }) : ok(201, [{ id: 'evt' }]);
+            }
+            if (u.includes('/rest/v1/purchases') && method === 'PATCH') {
+                return ok(200, [{ email: purchaseEmail }]);
+            }
+            if (u.includes('/rest/v1/purchases')) return ok(201, []);
+            if (u.includes('/rest/v1/members')) return ok(201, []);
+            if (u.includes('/rest/v1/rpc/')) return ok(200, true);
+            if (u.includes('/auth/v1/admin/users')) return ok(200, []);
+            return ok(200, {});
+        };
+        return { calls, restore: () => { globalThis.fetch = real; } };
+    }
+
+    const post = async (rawBody, header, env = ENV_FULL) => onRequestPost({
+        request: new Request('https://theblueprint.site/api/stripe-webhook', {
+            method: 'POST',
+            headers: header ? { 'Stripe-Signature': header } : {},
+            body: rawBody,
+        }),
+        env,
+    });
+
+    const event = (type, object, over = {}) => JSON.stringify({
+        id: 'evt_test_' + Math.random().toString(36).slice(2),
+        type, livemode: false, data: { object }, ...over,
+    });
+
+    const supabaseCalls = (calls) => calls.filter(c => c.url.includes('stub.supabase.co'));
+
+    test('A VALID SIGNED PURCHASE RECORDS A PURCHASE AND AN ENTITLEMENT', async () => {
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            const res = await post(body, header);
+            expect(res.status).toBe(200);
+            const urls = f.calls.map(c => `${c.method} ${c.url}`);
+            expect(urls.some(u => u.includes('payment_events'))).toBe(true);
+            expect(urls.some(u => u.includes('POST') && u.includes('/purchases'))).toBe(true);
+            expect(urls.some(u => u.includes('POST') && u.includes('/members'))).toBe(true);
+        } finally { f.restore(); }
+    });
+
+    test('AN INVALID SIGNATURE MAKES NO SUPABASE CALL WHATSOEVER', async () => {
+        /* The mutation this exists for: deleting the handler's use of the
+           verdict while leaving verifySignature in place. */
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body, { secret: 'whsec_not_the_real_secret_x' });
+        const f = stubFetch();
+        try {
+            const res = await post(body, header);
+            expect(res.status).toBe(401);
+            expect(supabaseCalls(f.calls), 'a rejected request still touched Supabase')
+                .toEqual([]);
+        } finally { f.restore(); }
+    });
+
+    test('A TAMPERED BODY MAKES NO SUPABASE CALL', async () => {
+        const original = event('checkout.session.completed', paidSession());
+        const { header } = await sign(original);
+        const tampered = event('checkout.session.completed',
+            paidSession({ customer_details: { email: 'attacker@example.com' } }));
+        const f = stubFetch();
+        try {
+            expect((await post(tampered, header)).status).toBe(401);
+            expect(supabaseCalls(f.calls)).toEqual([]);
+        } finally { f.restore(); }
+    });
+
+    test('A STALE SIGNATURE MAKES NO SUPABASE CALL', async () => {
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body, { ts: Math.floor(Date.now() / 1000) - 3600 });
+        const f = stubFetch();
+        try {
+            expect((await post(body, header)).status).toBe(401);
+            expect(supabaseCalls(f.calls)).toEqual([]);
+        } finally { f.restore(); }
+    });
+
+    test('A MISSING SIGNATURE HEADER MAKES NO SUPABASE CALL', async () => {
+        const body = event('checkout.session.completed', paidSession());
+        const f = stubFetch();
+        try {
+            expect((await post(body, null)).status).toBe(401);
+            expect(supabaseCalls(f.calls)).toEqual([]);
+        } finally { f.restore(); }
+    });
+
+    test('A TEST EVENT AGAINST LIVE CONFIG IS REFUSED AND WRITES NOTHING', async () => {
+        /* The mutation this exists for: deleting the livemode comparison.
+           The event is correctly signed, so only the livemode check stands
+           between a test purchase and a live entitlement. */
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            const res = await post(body, header, { ...ENV_FULL, STRIPE_LIVEMODE: 'true' });
+            expect(res.status).toBe(401);
+            expect(supabaseCalls(f.calls), 'a test event reached a live database')
+                .toEqual([]);
+        } finally { f.restore(); }
+    });
+
+    test('and a live event against test config is refused the same way', async () => {
+        const body = event('checkout.session.completed', paidSession(), { livemode: true });
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            expect((await post(body, header)).status).toBe(401);
+            expect(supabaseCalls(f.calls)).toEqual([]);
+        } finally { f.restore(); }
+    });
+
+    test('MISSING CONFIG REFUSES AND WRITES NOTHING', async () => {
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+        for (const env of [
+            { ...ENV_FULL, STRIPE_WEBHOOK_SECRET: undefined },
+            { ...ENV_FULL, SUPABASE_URL: undefined },
+            { ...ENV_FULL, SUPABASE_SERVICE_ROLE_KEY: undefined },
+        ]) {
+            const f = stubFetch();
+            try {
+                expect((await post(body, header, env)).status).toBe(503);
+                expect(supabaseCalls(f.calls)).toEqual([]);
+            } finally { f.restore(); }
+        }
+    });
+
+    test('A DUPLICATE EVENT IS 200 AND GRANTS NOTHING A SECOND TIME', async () => {
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+        const f = stubFetch({ duplicate: true });
+        try {
+            const res = await post(body, header);
+            expect(res.status).toBe(200);
+            const urls = f.calls.map(c => `${c.method} ${c.url}`);
+            expect(urls.some(u => u.includes('/members')),
+                'a replayed event wrote an entitlement').toBe(false);
+            expect(urls.some(u => u.includes('POST') && u.includes('/purchases')),
+                'a replayed event wrote a purchase').toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('THE WRONG AMOUNT IS 200 AND GRANTS NOTHING', async () => {
+        const body = event('checkout.session.completed',
+            paidSession({ amount_subtotal: 100, amount_total: 100 }));
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            const res = await post(body, header);
+            expect(res.status).toBe(200);
+            expect(f.calls.some(c => c.url.includes('/members')),
+                'a $1 payment granted access').toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('a session with no usable email grants nothing', async () => {
+        const s = paidSession({ customer_details: null });
+        delete s.customer_email;
+        const body = event('checkout.session.completed', s);
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            expect((await post(body, header)).status).toBe(200);
+            expect(f.calls.some(c => c.url.includes('/members'))).toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('A PARTIAL REFUND DOES NOT CALL revoke_if_unpaid', async () => {
+        const body = event('charge.refunded', {
+            id: 'ch_1', payment_intent: 'pi_test_1', amount: 9900, amount_refunded: 2000,
+        });
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            expect((await post(body, header)).status).toBe(200);
+            expect(f.calls.some(c => c.url.includes('revoke_if_unpaid')),
+                'a partial refund revoked access').toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('A FULL REFUND MARKS THE LEDGER AND CALLS revoke_if_unpaid', async () => {
+        const body = event('charge.refunded', {
+            id: 'ch_1', payment_intent: 'pi_test_1', amount: 9900, amount_refunded: 9900,
+        });
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            expect((await post(body, header)).status).toBe(200);
+            const urls = f.calls.map(c => `${c.method} ${c.url}`);
+            expect(urls.some(u => u.startsWith('PATCH') && u.includes('/purchases'))).toBe(true);
+            expect(urls.some(u => u.includes('revoke_if_unpaid'))).toBe(true);
+        } finally { f.restore(); }
+    });
+
+    test('A WON DISPUTE RESTORES THROUGH restore_if_paid', async () => {
+        const body = event('charge.dispute.closed', {
+            id: 'dp_1', payment_intent: 'pi_test_1', status: 'won',
+        });
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            expect((await post(body, header)).status).toBe(200);
+            expect(f.calls.some(c => c.url.includes('restore_if_paid'))).toBe(true);
+        } finally { f.restore(); }
+    });
+
+    test('a lost dispute restores nothing', async () => {
+        const body = event('charge.dispute.closed', {
+            id: 'dp_1', payment_intent: 'pi_test_1', status: 'lost',
+        });
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            expect((await post(body, header)).status).toBe(200);
+            expect(f.calls.some(c => c.url.includes('restore_if_paid'))).toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('an expired session writes nothing', async () => {
+        const body = event('checkout.session.expired', { id: 'cs_1' });
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            expect((await post(body, header)).status).toBe(200);
+            const urls = f.calls.map(c => c.url);
+            expect(urls.some(u => u.includes('/members'))).toBe(false);
+            expect(urls.some(u => u.includes('/purchases'))).toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('verifySignature uses the constant-time comparison, not ===', () => {
+        /* A mutation swapped it for === and every behavioural test still
+           passed, because === is functionally correct and only the timing
+           property differs. Timing cannot be asserted reliably in a unit
+           test, so the use site is asserted instead. */
+        const s = read('functions/api/stripe-webhook.js');
+        const fn = s.slice(s.indexOf('async function verifySignature'),
+            s.indexOf('/* ── Supabase'));
+        expect(fn, 'verifySignature no longer uses constantTimeEqual')
+            .toMatch(/constantTimeEqual\(candidate, expected\)/);
+        expect(fn, 'verifySignature compares signatures with ===')
+            .not.toMatch(/candidate === expected|expected === candidate/);
     });
 });
