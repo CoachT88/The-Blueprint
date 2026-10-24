@@ -1083,14 +1083,15 @@ body[data-sn-open="true"]{overflow:hidden}
 
       <div class="btn-row" style="justify-content:center">
         <a class="btn" id="buy-kofi" href="https://ko-fi.com/s/75a70cb698">Start The Blueprint, $49</a>
-        <button class="btn" id="buy-onsite" type="button" hidden>Start The Blueprint, $49</button>
+        <button class="btn" id="buy-onsite" type="button" hidden></button>
       </div>
       <p class="tiny" style="margin-top:16px" id="buy-note-kofi">
         You pay through Ko-fi, then sign in here with the same email address you paid with.
       </p>
       <p class="tiny" style="margin-top:16px" id="buy-note-onsite" hidden>
         Pay here with Apple&nbsp;Pay, Google&nbsp;Pay or a card. Your card statement
-        shows a neutral name, not the product.
+        shows a neutral name, not the product. Any sales tax or VAT your
+        country requires is shown before you confirm.
       </p>
       <div id="checkout-mount" hidden style="margin-top:18px;min-height:320px"></div>
       <p class="tiny" id="checkout-error" hidden style="margin-top:12px">
@@ -1172,6 +1173,31 @@ body[data-sn-open="true"]{overflow:hidden}
     var PUBLISHABLE = '';                 // pk_live_... or pk_test_..., set at the switch
     var SRC = 'https://js.stripe.com/basil/stripe.js';
 
+    /* THE PRICE THE ON-SITE BUTTON SHOWS.
+     *
+     * Separate from the Ko-fi button above on purpose. Ko-fi is the live
+     * offer at $49 and nothing here may change it. This is the Stripe price,
+     * which is $99 in test mode, and the two are different numbers until the
+     * live switch moves them together.
+     *
+     * IT IS ONE OF FOUR THINGS THAT MUST AGREE, or the webhook refuses the
+     * payment because the amount does not match:
+     *
+     *     PRICE_LABEL here
+     *     the Stripe Price object
+     *     STRIPE_PRICE_CENTS in Cloudflare
+     *     the headline figure on this page, at the live switch
+     *
+     * A refusal is the safe failure and still a dead checkout, so these move
+     * in one coordinated change rather than one at a time.
+     *
+     * Tax is deliberately absent. Stripe Tax computes it from the buyer's
+     * location, which this page cannot know, so the note under the button
+     * says tax is shown before confirming instead of the button claiming a
+     * total it cannot compute. */
+    var PRICE_LABEL = '$99';
+    var BUY_TEXT = 'Start The Blueprint, ' + PRICE_LABEL;
+
     var params = new URLSearchParams(location.search);
     var enabled = (ON || params.get('checkout') === '1') && PUBLISHABLE;
 
@@ -1186,6 +1212,7 @@ body[data-sn-open="true"]{overflow:hidden}
 
     kofi.hidden = true;
     noteKofi.hidden = true;
+    onsite.textContent = BUY_TEXT;
     onsite.hidden = false;
     noteOnsite.hidden = false;
 
@@ -1195,7 +1222,7 @@ body[data-sn-open="true"]{overflow:hidden}
         if (errEl) errEl.hidden = false;
         if (kofi) kofi.hidden = false;
         if (noteKofi) noteKofi.hidden = false;
-        if (onsite) { onsite.disabled = false; onsite.textContent = 'Start The Blueprint, $49'; }
+        if (onsite) { onsite.disabled = false; onsite.textContent = BUY_TEXT; }
     }
 
     var loading = null;

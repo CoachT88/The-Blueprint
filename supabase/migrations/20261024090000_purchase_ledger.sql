@@ -1,33 +1,52 @@
 -- The purchase ledger, and the entitlement rules that read from it.
 --
+-- NOT YET APPLIED ANYWHERE. public.purchases does not exist in production.
+-- This file is rewritten in place rather than superseded, because nothing
+-- has run it.
+--
 -- SUPERSEDES supabase/migrations/20261023180000_claim_membership_require_confirmed_email.sql.
--- Neither file has been applied. That one carried only the confirmed-email
--- safeguard; this one carries it plus the revocation clauses, so running
--- this alone is correct and complete. Do not run both.
+-- That one carried only the confirmed-email safeguard; this carries it plus
+-- the revocation rules. Run this one, not both.
 --
 -- ---------------------------------------------------------------------------
 -- WHY A LEDGER RATHER THAN COLUMNS ON members
 --
 -- public.members holds one row per email, because the Ko-fi webhook upserts
 -- with resolution=merge-duplicates on email. A man who buys twice still has
--- one row, so transaction columns on that row can hold exactly one
--- reference. Refund his first purchase and the single row gets stamped
--- refunded, access is revoked, and the second purchase he paid for is
--- invisible to the system that just cut him off.
+-- one row, so transaction columns on it could hold exactly one reference.
+-- Refund his first purchase and that row gets stamped refunded, access is
+-- cut, and the second purchase he paid for is invisible to the system that
+-- just cut him off.
 --
--- So the entitlement and the purchase record are separated. members answers
--- "may this person use the app". purchases answers "what was bought, by
--- whom, for how much, and does it still stand". The first is derived from
--- the second.
+-- ---------------------------------------------------------------------------
+-- WHAT CHANGED IN REVIEW, AND WHY IT MATTERS
 --
--- ENTIRELY ADDITIVE. Two new tables, one new nullable column, one new
--- function, and two clauses added to an existing function. No existing row
--- is modified except by the backfill, which only inserts.
+-- The first draft of this file BACKFILLED public.purchases with one synthetic
+-- row per existing members row: provider 'kofi', no reference, status 'paid',
+-- created_at taken from claimed_at or now().
+--
+-- That was wrong. It fabricates a transaction record. It asserts that a
+-- specific purchase happened, for an unknown amount, on a date derived from
+-- when the member happened to claim rather than when they paid. Ko-fi
+-- history was never captured, so the honest statement is that the payment
+-- history of existing members is UNKNOWN, and a row claiming otherwise is a
+-- lie the system would then reason from.
+--
+-- So there is no backfill. Instead members gains `pre_ledger`, which records
+-- the one thing actually known: this entitlement existed before the ledger
+-- did. revoke_if_unpaid() refuses to revoke such a row, so incomplete
+-- payment history can never cost a legacy member their access. Removing
+-- legacy access stays a human decision, which is how refunds already worked.
+--
+-- ENTIRELY ADDITIVE. Two new tables, two new nullable or defaulted columns,
+-- two new functions, and three clauses added to claim_membership(). No
+-- existing row is modified except to set pre_ledger, which grants nothing
+-- and takes nothing away.
 
 begin;
 
 -- ---------------------------------------------------------------------------
--- 1. The ledger. One row per transaction.
+-- 1. The ledger. One row per transaction, and only real transactions.
 -- ---------------------------------------------------------------------------
 create table if not exists public.purchases (
     id            bigint generated always as identity primary key,
@@ -43,8 +62,8 @@ create table if not exists public.purchases (
 );
 
 /* One row per processor transaction, so a replayed webhook cannot create a
-   second purchase. Partial, because the backfilled Ko-fi rows carry no
-   reference and must not collide with each other. */
+   second purchase. Partial so a future provider without a reference does not
+   collide, though nothing writes a null reference today. */
 create unique index if not exists purchases_provider_ref_uniq
     on public.purchases (provider, provider_ref)
     where provider_ref is not null;
@@ -59,57 +78,88 @@ revoke all on public.purchases from public, anon, authenticated;
 grant select, insert, update on public.purchases to service_role;
 
 -- ---------------------------------------------------------------------------
--- 2. The replay gate.
+-- 2. The processing ledger for webhook events.
+--
+-- status is the fix for a real bug in the first version of the handler. It
+-- inserted the event id BEFORE doing the work, so a failure partway through
+-- left the event marked seen: Stripe retried, the handler saw a duplicate,
+-- answered 200, and the purchase was silently dropped with the customer's
+-- money taken.
+--
+-- Now an event is 'processing' until the work finishes and only then 'done'.
+-- A retry of a 'processing' row is allowed to proceed, which is safe because
+-- every write the handler makes is idempotent. See the handler for the audit
+-- of that claim, operation by operation.
 -- ---------------------------------------------------------------------------
 create table if not exists public.payment_events (
-    id          text        primary key,   -- the processor's own event id
-    provider    text        not null,
-    type        text        not null,
-    received_at timestamptz not null default now()
+    id           text        primary key,   -- the processor's own event id
+    provider     text        not null,
+    type         text        not null,
+    status       text        not null default 'processing'
+                 check (status in ('processing', 'done')),
+    attempts     integer     not null default 1,
+    last_error   text,
+    received_at  timestamptz not null default now(),
+    completed_at timestamptz
 );
+
+/* Existing installs, if any, get the new columns. There are none today, and
+   this costs nothing and makes the file safe to re-run. */
+alter table public.payment_events
+    add column if not exists status       text        not null default 'processing',
+    add column if not exists attempts     integer     not null default 1,
+    add column if not exists last_error   text,
+    add column if not exists completed_at timestamptz;
 
 alter table public.payment_events enable row level security;
 revoke all on public.payment_events from public, anon, authenticated;
-grant select, insert on public.payment_events to service_role;
+grant select, insert, update on public.payment_events to service_role;
 
 -- ---------------------------------------------------------------------------
--- 3. members gains one column.
+-- 3. members gains two columns.
 -- ---------------------------------------------------------------------------
 alter table public.members
-    add column if not exists revoked_at timestamptz;
+    add column if not exists revoked_at timestamptz,
+    add column if not exists pre_ledger boolean not null default false;
 
 -- ---------------------------------------------------------------------------
--- 4. BACKFILL. This is what protects every existing Ko-fi purchaser.
+-- 4. Mark every entitlement that predates the ledger.
 --
--- Without it the ledger has no record of them, so the first Stripe refund
--- for any address would find zero remaining paid purchases and revoke
--- someone who never asked for a refund.
+-- THIS IS NOT A BACKFILL AND IT INVENTS NOTHING. It records one fact that is
+-- actually known: this row existed before purchase tracking began, so its
+-- payment history is unavailable. No amount, no date, no transaction
+-- reference is asserted, because none is known.
 --
--- Guarded by `not exists` rather than `on conflict`, because the unique
--- index above is partial and would not catch a repeat run on null
--- references. Re-running this migration inserts nothing.
+-- Every row present when this migration runs is marked, including rows with
+-- user_id null that nobody has claimed yet. A Ko-fi purchase recorded after
+-- this point gets pre_ledger false from the column default, which is correct:
+-- from here on the ledger is the record.
 --
--- Expect it to insert exactly as many rows as members holds.
+-- Expect: updated count equals the current members count. Record it.
 -- ---------------------------------------------------------------------------
-insert into public.purchases (provider, provider_ref, email, status, created_at)
-select 'kofi', null, m.email, 'paid', coalesce(m.claimed_at, now())
-from public.members m
-where not exists (
-    select 1 from public.purchases p
-    where lower(btrim(p.email)) = lower(btrim(m.email))
-);
+update public.members set pre_ledger = true where pre_ledger = false;
 
 -- ---------------------------------------------------------------------------
--- 5. Revocation that respects multiple purchases.
+-- 5. Revocation.
 --
--- THE RULE: access survives while at least one paid purchase remains for
--- that address.
+-- THE RULES, in order:
 --
--- The refund handler marks one ledger row and then calls this. It never
--- decides revocation itself, which is what keeps the rule in one place.
+--   1. At least one paid purchase in the ledger  ->  keep access.
+--      This is what makes a man who bought twice and refunded once keep the
+--      access he paid for twice.
+--
+--   2. No paid purchase, but the entitlement predates the ledger  ->  keep
+--      access, and say so. Incomplete payment history must never cost a
+--      legacy member their access. Removing it is a human decision.
+--
+--   3. No paid purchase and the entitlement is from the ledger era  ->
+--      revoke.
+--
+-- Returns text rather than boolean so the handler can log which rule fired,
+-- and so rule 2 is visible for review rather than looking like a success.
 -- ---------------------------------------------------------------------------
 create or replace function public.revoke_if_unpaid(p_email text)
-returns boolean
+returns text
 language plpgsql
 security definer
 set search_path to 'public', 'pg_temp'
@@ -117,30 +167,44 @@ as $function$
 declare
   v_email     text := lower(btrim(p_email));
   v_remaining integer;
+  v_legacy    boolean;
 begin
   select count(*) into v_remaining
   from public.purchases
   where lower(btrim(email)) = v_email
     and status = 'paid';
 
-  /* At least one purchase still stands. The refunded one is already marked
-     in the ledger, and the man keeps the access he paid for twice. */
   if v_remaining > 0 then
-    return false;
+    return 'kept_paid';
   end if;
 
-  /* Nothing left that was paid for. Clear the attachment and mark the row.
-     Deliberately touches NOTHING else: not user_data, not
-     progress_checkins, not day_plans, not push_subscriptions, and not the
-     progress-photos bucket. A refunded member who repurchases finds his
-     training history and his photographs where he left them, and a
-     disputed charge later won restores access to intact data. */
+  select bool_or(coalesce(pre_ledger, false)) into v_legacy
+  from public.members
+  where lower(btrim(email)) = v_email;
+
+  if v_legacy is null then
+    /* No entitlement row at all. Nothing to revoke. */
+    return 'no_member';
+  end if;
+
+  if v_legacy then
+    /* Rule 2. The ledger cannot speak for this member's history, so it does
+       not get to end their access. */
+    return 'kept_legacy';
+  end if;
+
+  /* Rule 3. Clears the attachment and marks the row. Deliberately touches
+     NOTHING else: not user_data, not progress_checkins, not day_plans, not
+     push_subscriptions, and not the progress-photos bucket. A refunded
+     member who repurchases finds his training history and his photographs
+     where he left them, and a disputed charge later won restores access to
+     intact data. */
   update public.members
      set user_id    = null,
          revoked_at = now()
    where lower(btrim(email)) = v_email;
 
-  return true;
+  return 'revoked';
 end;
 $function$;
 
@@ -151,8 +215,7 @@ grant execute on function public.revoke_if_unpaid(text) to service_role;
 -- 6. Restoring access when a dispute is won.
 --
 -- Clears revoked_at and leaves user_id null on purpose, so the member
--- re-attaches through claim_membership() on next sign-in. One attach path
--- rather than two.
+-- re-attaches through claim_membership() on next sign-in. One attach path.
 -- ---------------------------------------------------------------------------
 create or replace function public.restore_if_paid(p_email text)
 returns boolean
@@ -198,16 +261,21 @@ grant execute on function public.restore_if_paid(text) to service_role;
 --   to an unconfirmed account, so the caller this rejects could not have
 --   reached the function. Defence in depth, not the control itself.
 --
--- CHANGE B, new here: revoked_at is null on both the already-attached check
--- and the attach. Without it a revoked row stays claimable and a refund
--- would not actually remove access.
+--   IT CANNOT LOCK OUT AN EXISTING MEMBER. The already-attached check runs
+--   first and does not consult email_confirmed_at, so anyone currently
+--   attached keeps working regardless of their confirmation state. Only a
+--   FIRST claim requires a confirmed address.
+--
+-- CHANGE B: revoked_at is null, on the already-attached check and on the
+-- attach. Without it a revoked row stays claimable and a refund would not
+-- actually remove access.
 --
 -- UNCHANGED: identity comes from auth.uid() and never from an argument; the
 -- function takes no arguments; the attach is guarded by user_id is null,
--- which is both what stops an entitlement being taken from its owner and
--- what makes concurrent calls safe; claimed_at is wrapped in coalesce so a
--- repeat call cannot rewrite the original stamp; every unattached row
--- sharing the address is claimed, because a man who bought twice owns both.
+-- which both stops an entitlement being taken from its owner and makes
+-- concurrent calls safe; claimed_at is wrapped in coalesce so a repeat call
+-- cannot rewrite the original stamp; every unattached row sharing the
+-- address is claimed, because a man who bought twice owns both.
 -- ---------------------------------------------------------------------------
 create or replace function public.claim_membership()
 returns boolean
@@ -223,7 +291,6 @@ begin
     return false;
   end if;
 
-  -- Already attached, and not revoked. Answer from the row, write nothing.
   if exists (
     select 1 from public.members
     where user_id = v_uid
@@ -232,8 +299,6 @@ begin
     return true;
   end if;
 
-  -- The address comes from the auth record, never from the caller, and
-  -- never from user metadata, which an account can set for itself.
   select lower(btrim(email))
     into v_email
   from auth.users
@@ -266,23 +331,26 @@ grant execute on function public.claim_membership() to authenticated;
 commit;
 
 -- ---------------------------------------------------------------------------
--- Checks. Read only. Run after the above and record the numbers.
+-- Checks. Read only. Run after the above and record every number.
 -- ---------------------------------------------------------------------------
 
--- Expect: backfilled = total members, every row 'paid', provider 'kofi'.
-select provider, status, count(*) from public.purchases group by 1, 2 order by 1, 2;
+-- Expect: ZERO ROWS. Nothing is backfilled, so the ledger starts empty.
+-- A row here means something invented a transaction.
+select provider, status, count(*) from public.purchases group by 1, 2;
 
--- Expect: these two numbers are equal.
-select (select count(*) from public.members)   as members,
-       (select count(*) from public.purchases) as purchases;
-
--- Expect: unchanged from before the migration. Record both.
-select count(*) as total, count(user_id) as attached,
-       count(revoked_at) as revoked
+-- Expect: pre_ledger true for every existing row, and total unchanged from
+-- before the migration. Record all three numbers.
+select count(*) as total,
+       count(*) filter (where pre_ledger)        as marked_legacy,
+       count(*) filter (where not pre_ledger)    as ledger_era,
+       count(user_id)                            as attached,
+       count(revoked_at)                         as revoked
 from public.members;
 
--- Expect: security_definer true, search_path pinned, authenticated only.
-select p.proname, p.prosecdef, array_to_string(p.proconfig, ', ') as config,
+-- Expect: security_definer true, search_path pinned, service_role only for
+-- the two new functions, authenticated only for claim_membership.
+select p.proname, p.prosecdef,
+       array_to_string(p.proconfig, ', ') as config,
        array(select rolname from pg_roles r
              where has_function_privilege(r.rolname, p.oid, 'execute')
                and r.rolname in ('anon', 'authenticated', 'service_role')) as can_execute
@@ -297,3 +365,7 @@ from information_schema.role_table_grants
 where table_schema = 'public'
   and table_name in ('purchases', 'payment_events')
   and grantee in ('anon', 'authenticated', 'PUBLIC');
+
+-- Expect: 'kept_legacy' for any existing member, proving rule 2 holds before
+-- a single Stripe event has ever arrived. Substitute a real address.
+-- select public.revoke_if_unpaid('<an existing member address>');

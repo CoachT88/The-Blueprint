@@ -104,20 +104,117 @@ const sbHeaders = (env, extra = {}) => ({
 });
 
 /**
- * Record the event id, and say whether this is the first time we have seen
- * it. A conflict means already processed, which the caller answers 200 to:
- * anything else makes Stripe retry an event that was handled correctly.
+ * CLAIM AN EVENT FOR PROCESSING, AND SAY WHAT KIND OF DELIVERY THIS IS.
+ *
+ * The bug this replaces. The first version inserted the event id and treated
+ * the insert as "handled". If a later write failed, the handler returned 500,
+ * Stripe retried, the insert conflicted, the retry was read as a duplicate
+ * and answered 200. The purchase was silently dropped with the customer's
+ * money already taken, and nothing anywhere said so.
+ *
+ * So the row now carries a status. It is 'processing' until the work
+ * finishes and only then 'done'.
+ *
+ *   'new'     first delivery, nobody has worked on it
+ *   'retry'   a row exists and is still 'processing', so either a previous
+ *             attempt failed partway or a concurrent delivery is in flight
+ *   'done'    finished successfully before; skip and answer 200
+ *
+ * A 'retry' PROCEEDS. That is only safe because every write this handler
+ * makes is idempotent, so here is that audit, operation by operation:
+ *
+ *   purchases insert    unique on (provider, provider_ref); a repeat is a
+ *                       409 that recordPurchase reports rather than throws
+ *   members upsert      resolution=merge-duplicates on email, so a repeat
+ *                       writes the same row
+ *   attachUid PATCH     filtered user_id=is.null and revoked_at=is.null, so
+ *                       a repeat matches nothing
+ *   purchases PATCH     sets the same status; only resolved_at drifts, which
+ *                       is a timestamp nothing branches on
+ *   revoke_if_unpaid    recomputes the whole decision from the ledger, so
+ *                       calling it twice reaches the same verdict
+ *   restore_if_paid     filtered revoked_at is not null, so a repeat matches
+ *                       nothing
+ *
+ * Two concurrent deliveries both proceeding therefore converge on the same
+ * state. A lease or an advisory lock would serialise them, and would also
+ * mean a crashed holder blocks the event until the lease expires. Idempotent
+ * writes are the stronger property, so they are the one relied on.
  */
-async function firstSight(env, event) {
+async function claimEvent(env, event) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/payment_events`, {
     method: 'POST',
     headers: sbHeaders(env, { Prefer: 'return=representation' }),
     body: JSON.stringify([{ id: event.id, provider: 'stripe', type: event.type }]),
   });
-  if (res.status === 409) return false;            // unique violation
-  if (!res.ok) throw new Error(`payment_events insert failed: ${res.status}`);
-  const rows = await res.json().catch(() => []);
-  return Array.isArray(rows) && rows.length === 1;
+
+  if (res.ok) {
+    const rows = await res.json().catch(() => []);
+    if (Array.isArray(rows) && rows.length === 1) return 'new';
+    throw new Error('payment_events insert returned no row');
+  }
+
+  if (res.status !== 409) {
+    throw new Error(`payment_events insert failed: ${res.status}`);
+  }
+
+  /* Conflict. Read the existing row to find out whether the earlier attempt
+     finished. */
+  const look = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/payment_events`
+    + `?id=eq.${encodeURIComponent(event.id)}&select=status,attempts`,
+    { headers: sbHeaders(env) });
+  if (!look.ok) throw new Error(`payment_events read failed: ${look.status}`);
+  const rows = await look.json().catch(() => []);
+  const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+  if (!row) throw new Error('payment_events conflicted but the row is absent');
+
+  if (row.status === 'done') return 'done';
+
+  /* Still 'processing'. Count the attempt and carry on. */
+  await fetch(
+    `${env.SUPABASE_URL}/rest/v1/payment_events?id=eq.${encodeURIComponent(event.id)}`,
+    {
+      method: 'PATCH',
+      headers: sbHeaders(env, { Prefer: 'return=minimal' }),
+      body: JSON.stringify({ attempts: (Number(row.attempts) || 1) + 1 }),
+    }).catch(() => { /* a lost counter must not stop the work */ });
+
+  return 'retry';
+}
+
+/** The work finished. Nothing will process this event again. */
+async function completeEvent(env, id) {
+  const res = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/payment_events?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: sbHeaders(env, { Prefer: 'return=minimal' }),
+      body: JSON.stringify({ status: 'done', completed_at: new Date().toISOString() }),
+    });
+  if (!res.ok) {
+    /* The work is done and only the bookkeeping failed. Throwing here would
+       turn a success into a 500 and invite a retry that redoes idempotent
+       work for no reason, so it is logged and swallowed. The row stays
+       'processing', and a retry would re-run harmlessly. */
+    console.error(`Stripe: could not mark ${id} done, status ${res.status}`);
+  }
+}
+
+/**
+ * The work failed. Record why, leave the row 'processing' so a retry is
+ * allowed to proceed, and let the caller answer 500 so Stripe sends one.
+ */
+async function failEvent(env, id, message) {
+  try {
+    await fetch(
+      `${env.SUPABASE_URL}/rest/v1/payment_events?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: sbHeaders(env, { Prefer: 'return=minimal' }),
+        /* Truncated, and it is an error string from our own code rather than
+           an upstream body, so it carries no customer detail. */
+        body: JSON.stringify({ last_error: String(message || '').slice(0, 500) }),
+      });
+  } catch (e) { /* diagnosis is best effort */ }
 }
 
 /** Insert the purchase. A duplicate provider_ref means already recorded. */
@@ -221,6 +318,51 @@ const rpc = async (env, fn, args) => {
   return res.json().catch(() => null);
 };
 
+/**
+ * Call revoke_if_unpaid and say, in the log, which rule decided.
+ *
+ * The function returns text rather than a boolean so this can tell apart
+ * four different outcomes that all look like "nothing exploded":
+ *
+ *   revoked      no paid purchase remains and the entitlement is from the
+ *                ledger era, so access ended
+ *   kept_paid    another paid purchase stands. This is the man who bought
+ *                twice and refunded once, and he keeps what he paid for.
+ *   kept_legacy  the entitlement predates the ledger, so its payment history
+ *                is unknown and automation does not get to end it. LOUD,
+ *                because it is the one outcome a human should look at.
+ *   no_member    no entitlement row for that address at all
+ */
+async function describeRevocation(env, email, cause) {
+  const verdict = await rpc(env, 'revoke_if_unpaid', { p_email: email });
+  const who = redactEmail(email);
+
+  if (verdict === 'kept_legacy') {
+    console.error(
+      `Stripe: ${cause} for ${who} did NOT revoke: this entitlement predates`
+      + ' the purchase ledger, so its payment history is unknown. Decide by'
+      + ' hand whether access should end.');
+    return `${cause}, legacy entitlement kept for review`;
+  }
+  if (verdict === 'kept_paid') {
+    console.log(`Stripe: ${cause} for ${who}, another paid purchase stands,`
+      + ' access continues');
+    return `${cause}, another purchase stands`;
+  }
+  if (verdict === 'revoked') {
+    console.log(`Stripe: ${cause} for ${who}, access revoked`);
+    return `${cause}, access revoked`;
+  }
+  if (verdict === 'no_member') {
+    console.error(`Stripe: ${cause} for ${who} matched no entitlement, needs review`);
+    return `${cause}, no entitlement found`;
+  }
+  /* An unrecognised verdict means the function changed and this did not.
+     Throwing puts the event back in the retry path rather than logging a
+     shrug and marking it done. */
+  throw new Error(`revoke_if_unpaid returned an unknown verdict: ${verdict}`);
+}
+
 /* ── Product identity ────────────────────────────────────────────────────── */
 
 /**
@@ -320,21 +462,40 @@ export async function onRequestPost({ request, env }) {
     return new Response('Unauthorized', { status: 401 });
   }
 
+  let claim;
   try {
-    if (!(await firstSight(env, event))) {
-      /* Already handled. 200 so Stripe stops retrying. */
-      console.log(`Stripe: duplicate event ${event.id} (${event.type}), ignored`);
-      return new Response('OK', { status: 200 });
-    }
+    claim = await claimEvent(env, event);
   } catch (e) {
-    /* The replay gate itself failed, so we cannot tell first from repeat.
-       500 makes Stripe retry, which is the safe direction: better a repeat
-       delivery against a working gate than a purchase silently dropped. */
-    console.error('Stripe: replay gate failed -', e.message);
+    /* The gate itself failed, so we cannot tell a first delivery from a
+       repeat. 500 makes Stripe retry, which is the safe direction: a repeat
+       delivery against a working gate beats a purchase silently dropped. */
+    console.error('Stripe: could not claim the event -', e.message);
     return new Response('Internal error', { status: 500 });
   }
 
+  if (claim === 'done') {
+    /* Finished successfully before. 200 so Stripe stops retrying. */
+    console.log(`Stripe: event ${event.id} (${event.type}) already completed`);
+    return new Response('OK', { status: 200 });
+  }
+  if (claim === 'retry') {
+    /* Loud, because it means an earlier attempt took the customer's money
+       and did not finish granting access. The work below repeats safely. */
+    console.error(`Stripe: RETRYING ${event.id} (${event.type}),`
+      + ' an earlier attempt did not finish');
+  }
+
   const obj = (event.data && event.data.object) || {};
+
+  /* Every terminal outcome goes through here, so an event is marked done
+     exactly once and 'processing' means only "unfinished". A decision not to
+     grant access is still a finished decision: re-evaluating it on every
+     retry for three days would be noise, not safety. */
+  const finish = async (reason) => {
+    await completeEvent(env, event.id);
+    if (reason) console.log(`Stripe: ${event.type} -> ${reason}`);
+    return new Response('OK', { status: 200 });
+  };
 
   try {
     switch (event.type) {
@@ -342,17 +503,16 @@ export async function onRequestPost({ request, env }) {
         const reason = notAPurchase(obj, env);
         if (reason) {
           /* Verified as genuinely from Stripe, and not a purchase of this
-             product. 200 so delivery is accepted, logged at error level
-             because if a real purchase ever lands here that line is the only
-             thing that will say so. */
+             product. Logged at error level because if a real purchase ever
+             lands here that line is the only thing that will say so. */
           console.error('Stripe: verified session did not grant access -', reason);
-          return new Response('OK', { status: 200 });
+          return finish('not this product');
         }
 
         const email = sessionEmail(obj);
         if (!isPlausibleEmail(email)) {
-          console.error('Stripe: paid session carried no usable email');
-          return new Response('OK', { status: 200 });
+          console.error('Stripe: paid session carried no usable address');
+          return finish('no usable address');
         }
 
         const ref = typeof obj.payment_intent === 'string'
@@ -378,81 +538,73 @@ export async function onRequestPost({ request, env }) {
 
         console.log(`Stripe: purchase recorded for ${redactEmail(email)}`
           + `, attached=${Boolean(uid)}`);
-        return new Response('OK', { status: 200 });
+        return finish('access granted');
       }
 
       case 'charge.refunded': {
         /* A PARTIAL refund does not revoke. A goodwill refund of part of the
-           price should not cut off access, and guessing at a threshold
-           inside a webhook is how that goes wrong. Flagged for a human
-           instead. */
-        const full = obj.amount_refunded === obj.amount;
-        if (!full) {
+           price must not cut someone off, and guessing at a threshold inside
+           a webhook is how that goes wrong. Flagged for a human instead. */
+        if (obj.amount_refunded !== obj.amount) {
           console.error('Stripe: PARTIAL refund, access left in place, needs review'
             + ` - charge ${obj.id} refunded ${obj.amount_refunded} of ${obj.amount}`);
-          return new Response('OK', { status: 200 });
+          return finish('partial refund, access kept');
         }
         const ref = typeof obj.payment_intent === 'string' ? obj.payment_intent : null;
         if (!ref) {
           console.error('Stripe: refund carried no payment_intent, needs review');
-          return new Response('OK', { status: 200 });
+          return finish('refund without a reference');
         }
         const email = await resolvePurchase(env, ref, 'refunded');
         if (!email) {
           console.error('Stripe: refund matched no recorded purchase, needs review');
-          return new Response('OK', { status: 200 });
+          return finish('refund matched nothing');
         }
-        const revoked = await rpc(env, 'revoke_if_unpaid', { p_email: email });
-        console.log(`Stripe: full refund for ${redactEmail(email)}`
-          + `, revoked=${revoked}`);
-        return new Response('OK', { status: 200 });
+        return finish(await describeRevocation(env, email, 'refund'));
       }
 
       case 'charge.dispute.created': {
         const ref = typeof obj.payment_intent === 'string' ? obj.payment_intent : null;
-        if (!ref) return new Response('OK', { status: 200 });
+        if (!ref) return finish('dispute without a reference');
         const email = await resolvePurchase(env, ref, 'disputed');
         if (!email) {
           console.error('Stripe: dispute matched no recorded purchase, needs review');
-          return new Response('OK', { status: 200 });
+          return finish('dispute matched nothing');
         }
-        const revoked = await rpc(env, 'revoke_if_unpaid', { p_email: email });
-        console.log(`Stripe: dispute opened for ${redactEmail(email)}, revoked=${revoked}`);
-        return new Response('OK', { status: 200 });
+        return finish(await describeRevocation(env, email, 'dispute'));
       }
 
       case 'charge.dispute.closed': {
         const ref = typeof obj.payment_intent === 'string' ? obj.payment_intent : null;
-        if (!ref) return new Response('OK', { status: 200 });
+        if (!ref) return finish('dispute close without a reference');
         if (obj.status !== 'won') {
           console.log(`Stripe: dispute closed ${obj.status}, access stays revoked`);
-          return new Response('OK', { status: 200 });
+          return finish(`dispute ${obj.status}`);
         }
         const email = await resolvePurchase(env, ref, 'paid');
-        if (!email) return new Response('OK', { status: 200 });
-        /* Clears revoked_at and leaves user_id null on purpose, so the
-           member re-attaches through claim_membership(). One attach path. */
+        if (!email) return finish('dispute win matched nothing');
+        /* Clears revoked_at and leaves user_id null on purpose, so the member
+           re-attaches through claim_membership(). One attach path. */
         const restored = await rpc(env, 'restore_if_paid', { p_email: email });
         console.log(`Stripe: dispute won for ${redactEmail(email)}, restored=${restored}`);
-        return new Response('OK', { status: 200 });
+        return finish('dispute won, access restored');
       }
 
       case 'checkout.session.expired':
         /* A failed or abandoned payment. No session completed means nothing
            was written, which is already the correct outcome, so there is
-           nothing to undo. Logged only. */
-        console.log('Stripe: checkout session expired, nothing written');
-        return new Response('OK', { status: 200 });
+           nothing to undo. */
+        return finish('session expired, nothing written');
 
       default:
-        console.log(`Stripe: ${event.type} not handled`);
-        return new Response('OK', { status: 200 });
+        return finish('type not handled');
     }
   } catch (e) {
-    /* 500 so Stripe retries. The replay gate already holds this event id, so
-       a retry is a no-op for anything that did commit, and the parts that
-       did not commit get another chance. */
+    /* The row stays 'processing', so the retry Stripe sends is allowed to
+       proceed and finish the work. This is the path the first version of
+       this handler got wrong. */
     console.error(`Stripe: handling ${event.type} failed -`, e.message);
+    await failEvent(env, event.id, e.message);
     return new Response('Internal error', { status: 500 });
   }
 }
@@ -466,5 +618,5 @@ export async function onRequestGet() {
 /* Exported for tests. The handler above is what runs in production. */
 export const __test = {
   verifySignature, constantTimeEqual, notAPurchase, isPlausibleEmail,
-  redactEmail, sessionEmail,
+  redactEmail, sessionEmail, claimEvent, describeRevocation,
 };

@@ -109,22 +109,65 @@ describe('Ko-fi keeps working', () => {
         expect(fn).toMatch(/noteKofi\.hidden = false/);
     });
 
-    test('both buttons quote the same price, so the flag cannot change it', () => {
-        const prices = [...s().matchAll(/Start The Blueprint, (\$\d+)/g)].map(m => m[1]);
-        expect(prices.length).toBeGreaterThanOrEqual(2);
-        expect(new Set(prices).size, `buttons disagree: ${prices.join(', ')}`).toBe(1);
-    });
-
-    test('THE DISPLAYED PRICE IS UNCHANGED AT $49', () => {
+    test('THE LIVE KO-FI OFFER IS STILL $49 EVERYWHERE IT APPEARS', () => {
         /* Pricing is not approved to change. tests/siteNav.test.js locks the
-           headline figure; this locks the buttons alongside it. */
+           headline figure; this locks every price written in the markup
+           alongside it. The on-site button carries no price in the markup at
+           all, so it cannot appear here. */
         const figs = [...s().matchAll(/class="fig"[^>]*>([^<]+)</g)].map(m => m[1].trim());
         expect(figs).toEqual(['$49']);
-        /* The page carries more than two of these: the hero CTA as well as
-           the pair in the price block. Every one of them must say $49. */
-        const ctas = [...s().matchAll(/Start The Blueprint, (\$\d+)/g)].map(m => m[1]);
-        expect(ctas.length).toBeGreaterThanOrEqual(2);
-        expect([...new Set(ctas)], `CTAs disagree: ${ctas.join(', ')}`).toEqual(['$49']);
+        const written = [...s().matchAll(/Start The Blueprint, (\$\d+)/g)].map(m => m[1]);
+        expect(written.length, 'no Ko-fi CTA carries a price').toBeGreaterThanOrEqual(1);
+        expect([...new Set(written)], `markup prices disagree: ${written.join(', ')}`)
+            .toEqual(['$49']);
+    });
+
+    test('THE ON-SITE BUTTON TAKES ITS PRICE FROM ONE SOURCE', () => {
+        /* The Stripe price is $99 in test mode while Ko-fi stays $49. The
+           button must therefore not carry a hardcoded figure, and must not
+           carry the Ko-fi one. */
+        const src = s();
+        expect(src, 'the on-site button hardcodes a price in the markup')
+            .toMatch(/<button class="btn" id="buy-onsite" type="button" hidden><\/button>/);
+        expect(src).toMatch(/var PRICE_LABEL = '\$\d+';/);
+        expect(src).toMatch(/var BUY_TEXT = 'Start The Blueprint, ' \+ PRICE_LABEL;/);
+        /* Both the reveal and the failure reset read BUY_TEXT, so there is
+           no second place a price can be typed. A transient label such as
+           "Opening..." is fine; a price written inline is not. */
+        const sets = [...src.matchAll(/onsite\.textContent = ([^;]+);/g)].map(m => m[1].trim());
+        expect(sets.filter(v => v === 'BUY_TEXT').length,
+            'the button label is not driven from BUY_TEXT in both places')
+            .toBeGreaterThanOrEqual(2);
+        for (const v of sets) {
+            expect(v, `a price is written straight into the button: ${v}`)
+                .not.toMatch(/\$\d/);
+        }
+    });
+
+    test('THE ON-SITE PRICE IS THE STRIPE PRICE, NOT THE KO-FI PRICE', () => {
+        const label = s().match(/var PRICE_LABEL = '(\$\d+)';/);
+        expect(label).not.toBeNull();
+        expect(label[1], 'PRICE_LABEL matches Ko-fi, so the Stripe price is wrong here')
+            .toBe('$99');
+    });
+
+    test('and the four-way amount coupling is written down', () => {
+        /* Page label, Stripe Price, STRIPE_PRICE_CENTS and the headline
+           figure must agree or the webhook refuses the payment. A refusal is
+           the safe failure and still a dead checkout, so the next person
+           needs to know they move together. */
+        const src = s();
+        expect(src).toMatch(/STRIPE_PRICE_CENTS/);
+        expect(src).toMatch(/FOUR THINGS THAT MUST AGREE/);
+    });
+
+    test('tax is not claimed by the button, it is disclosed in the note', () => {
+        /* Stripe Tax computes tax from the buyer's location, which this page
+           cannot know, so a button claiming a total would be guessing. */
+        const copy = visible(s());
+        expect(copy).toMatch(/tax or VAT your\s*country requires is shown before you confirm/);
+        expect(s(), 'the button text claims a tax-inclusive total')
+            .not.toMatch(/BUY_TEXT[^;]*tax/i);
     });
 });
 

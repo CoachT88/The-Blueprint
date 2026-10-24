@@ -289,17 +289,57 @@ describe('the handler is configured to fail closed', () => {
         expect(src()).toMatch(/livemode mismatch/);
     });
 
-    test('A DUPLICATE EVENT IS ANSWERED 200 AND DOES NOTHING', () => {
-        /* A non-2xx makes Stripe retry an event that was already handled. */
-        expect(src()).toMatch(/firstSight/);
-        expect(src()).toMatch(/duplicate event/);
+    test('AN EVENT IS MARKED DONE ONLY AFTER THE WORK FINISHES', () => {
+        /* The bug this guards. The first version inserted the event id and
+           treated that as handled, so a later failure left the event marked
+           seen: Stripe retried, the handler read a duplicate, answered 200,
+           and the purchase was dropped with the money taken. */
+        const whole = src();
+        expect(whole).toMatch(/async function claimEvent/);
+        expect(whole).toMatch(/async function completeEvent/);
+        expect(whole).toMatch(/async function failEvent/);
+        expect(whole, 'the old insert-means-handled gate is back')
+            .not.toMatch(/firstSight/);
+
+        /* completeEvent must be reachable only through finish(), so there is
+           one place an event becomes done. */
+        const handler = whole.slice(whole.indexOf('export async function onRequestPost'));
+        const calls = [...handler.matchAll(/completeEvent\(/g)].length;
+        expect(calls, 'completeEvent is called from more than one place').toBe(1);
+        expect(handler).toMatch(/const finish = async \(reason\) => \{/);
     });
 
-    test('a failed replay gate returns 500 so Stripe retries', () => {
-        /* The safe direction: a repeat delivery against a working gate beats
-           a purchase silently dropped. */
-        expect(src()).toMatch(/replay gate failed/);
-        expect(src()).toMatch(/Internal error/);
+    test('A COMPLETED EVENT IS SKIPPED, AN UNFINISHED ONE IS RETRIED', () => {
+        const whole = src();
+        expect(whole).toMatch(/if \(claim === 'done'\)/);
+        expect(whole).toMatch(/if \(claim === 'retry'\)/);
+        expect(whole).toMatch(/already completed/);
+        /* The retry path is logged at error level, because it means an
+           earlier attempt took the money and did not finish. */
+        expect(whole).toMatch(/console\.error\(`Stripe: RETRYING/);
+    });
+
+    test('A FAILURE LEAVES THE EVENT RETRYABLE AND RETURNS 500', () => {
+        const whole = src();
+        const tail = whole.slice(whole.lastIndexOf('} catch (e) {'));
+        expect(tail).toMatch(/failEvent\(env, event\.id/);
+        expect(tail).toMatch(/Internal error/);
+        /* failEvent must not flip the row to done. */
+        const fn = whole.slice(whole.indexOf('async function failEvent'),
+            whole.indexOf('/* ── Supabase'));
+        expect(fn, 'failEvent marks the event done').not.toMatch(/status: 'done'/);
+    });
+
+    test('and the idempotency the retry relies on is written down', () => {
+        /* A retry proceeding is only safe because every write is idempotent.
+           If that audit is deleted, the next person has no way to know the
+           retry is safe, so the comment is load bearing. */
+        const whole = src();
+        expect(whole).toMatch(/every write this handler\s*\n \* makes is idempotent/);
+        for (const op of ['purchases insert', 'members upsert', 'attachUid PATCH',
+            'revoke_if_unpaid', 'restore_if_paid']) {
+            expect(whole, `the idempotency audit does not cover ${op}`).toContain(op);
+        }
     });
 
     test('USER_ID IS NEVER SENT ON THE MEMBERS UPSERT', () => {
@@ -335,7 +375,7 @@ describe('the handler is configured to fail closed', () => {
     test('A PARTIAL REFUND DOES NOT REVOKE ACCESS', () => {
         /* A goodwill refund of part of the price must not cut someone off,
            and guessing a threshold in a webhook is how that goes wrong. */
-        expect(src()).toMatch(/amount_refunded === obj\.amount/);
+        expect(src()).toMatch(/obj\.amount_refunded !== obj\.amount/);
         expect(src()).toMatch(/PARTIAL refund, access left in place/);
     });
 
@@ -451,25 +491,52 @@ describe('onRequestPost, end to end against a stubbed Supabase', () => {
     };
 
     /** Records every outbound call and answers the ones the handler makes. */
-    function stubFetch({ duplicate = false, purchaseEmail = 'buyer@example.com' } = {}) {
+    /**
+     * @param eventState  what the payment_events row already holds:
+     *                    'absent' (first delivery), 'done' (finished before),
+     *                    or 'processing' (an earlier attempt did not finish)
+     * @param failOn      a substring; the first request whose URL matches it
+     *                    fails once, to model a partial failure
+     */
+    function stubFetch({ eventState = 'absent', purchaseEmail = 'buyer@example.com',
+        revokeVerdict = 'revoked', failOn = null } = {}) {
         const calls = [];
         const real = globalThis.fetch;
+        let failed = false;
         globalThis.fetch = async (url, opts = {}) => {
             const u = String(url);
             const method = opts.method || 'GET';
             calls.push({ url: u, method, body: opts.body });
+            /* 204 and 304 must carry a null body or the Response constructor
+               throws, which looked like a handler bug the first time. */
             const ok = (status, json) => new Response(
-                json === undefined ? '' : JSON.stringify(json),
+                (status === 204 || status === 304) ? null
+                    : (json === undefined ? '' : JSON.stringify(json)),
                 { status, headers: { 'content-type': 'application/json' } });
 
+            if (failOn && !failed && u.includes(failOn) && method === 'POST') {
+                failed = true;
+                return ok(500, { message: 'simulated database failure' });
+            }
+
             if (u.includes('/rest/v1/payment_events')) {
-                return duplicate ? ok(409, { code: '23505' }) : ok(201, [{ id: 'evt' }]);
+                if (method === 'POST') {
+                    return eventState === 'absent'
+                        ? ok(201, [{ id: 'evt' }])
+                        : ok(409, { code: '23505' });
+                }
+                if (method === 'GET') {
+                    return ok(200, [{ status: eventState === 'done' ? 'done' : 'processing',
+                        attempts: 1 }]);
+                }
+                return ok(204);
             }
             if (u.includes('/rest/v1/purchases') && method === 'PATCH') {
                 return ok(200, [{ email: purchaseEmail }]);
             }
             if (u.includes('/rest/v1/purchases')) return ok(201, []);
             if (u.includes('/rest/v1/members')) return ok(201, []);
+            if (u.includes('/rest/v1/rpc/revoke_if_unpaid')) return ok(200, revokeVerdict);
             if (u.includes('/rest/v1/rpc/')) return ok(200, true);
             if (u.includes('/auth/v1/admin/users')) return ok(200, []);
             return ok(200, {});
@@ -596,7 +663,7 @@ describe('onRequestPost, end to end against a stubbed Supabase', () => {
     test('A DUPLICATE EVENT IS 200 AND GRANTS NOTHING A SECOND TIME', async () => {
         const body = event('checkout.session.completed', paidSession());
         const { header } = await sign(body);
-        const f = stubFetch({ duplicate: true });
+        const f = stubFetch({ eventState: 'done' });
         try {
             const res = await post(body, header);
             expect(res.status).toBe(200);
@@ -693,6 +760,120 @@ describe('onRequestPost, end to end against a stubbed Supabase', () => {
             const urls = f.calls.map(c => c.url);
             expect(urls.some(u => u.includes('/members'))).toBe(false);
             expect(urls.some(u => u.includes('/purchases'))).toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('PARTIAL FAILURE THEN RETRY: ACCESS IS GRANTED, NOT LOST', async () => {
+        /* THE BUG THIS EXISTS FOR.
+           The purchase records, the entitlement write fails, the handler
+           returns 500. In the first version the event was already marked
+           seen, so Stripe's retry read a duplicate, answered 200, and the
+           customer was left paid-up with no access and nothing logged.
+           Here: attempt one fails and marks nothing done, attempt two
+           finishes the job. */
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+
+        // Attempt one. The members upsert fails.
+        const first = stubFetch({ failOn: '/rest/v1/members' });
+        let firstCalls;
+        try {
+            const res = await post(body, header);
+            expect(res.status, 'a failed entitlement write did not return 500').toBe(500);
+            firstCalls = first.calls;
+        } finally { first.restore(); }
+
+        const bodies = firstCalls.filter(c => c.url.includes('payment_events'))
+            .map(c => String(c.body || ''));
+        expect(firstCalls.some(c => c.url.includes('/purchases') && c.method === 'POST'),
+            'the purchase was not recorded before the failure').toBe(true);
+        expect(bodies.some(b => b.includes('"status":"done"')),
+            'THE EVENT WAS MARKED DONE DESPITE FAILING, which drops the purchase')
+            .toBe(false);
+        expect(firstCalls.some(c => c.url.includes('payment_events') && c.method === 'PATCH'
+            && String(c.body || '').includes('last_error')),
+            'the failure was not recorded for diagnosis').toBe(true);
+
+        // Attempt two. Stripe retries; the row is still 'processing'.
+        const second = stubFetch({ eventState: 'processing' });
+        try {
+            const res = await post(body, header);
+            expect(res.status, 'the retry did not succeed').toBe(200);
+            const urls = second.calls.map(c => `${c.method} ${c.url}`);
+            expect(urls.some(u => u.includes('POST') && u.includes('/members')),
+                'THE RETRY DID NOT GRANT ACCESS').toBe(true);
+            expect(second.calls.some(c => c.url.includes('payment_events')
+                && String(c.body || '').includes('"status":"done"')),
+                'the retry did not mark the event done').toBe(true);
+        } finally { second.restore(); }
+    });
+
+    test('PARTIAL FAILURE ON THE REFUND PATH ALSO RECOVERS', async () => {
+        /* Same shape, the other direction: the ledger is marked refunded and
+           the revocation call fails. A retry must finish revoking rather
+           than leaving a refunded purchase with live access. */
+        const refund = { id: 'ch_1', payment_intent: 'pi_test_1', amount: 9900, amount_refunded: 9900 };
+        const body = event('charge.refunded', refund);
+        const { header } = await sign(body);
+
+        const first = stubFetch({ failOn: '/rest/v1/rpc/' });
+        try {
+            expect((await post(body, header)).status).toBe(500);
+            expect(first.calls.some(c => c.url.includes('payment_events')
+                && String(c.body || '').includes('"status":"done"')),
+                'the refund event was marked done despite failing').toBe(false);
+        } finally { first.restore(); }
+
+        const second = stubFetch({ eventState: 'processing' });
+        try {
+            expect((await post(body, header)).status).toBe(200);
+            expect(second.calls.some(c => c.url.includes('revoke_if_unpaid')),
+                'the retry did not revoke').toBe(true);
+        } finally { second.restore(); }
+    });
+
+    test('A LEGACY ENTITLEMENT IS NEVER REVOKED BY A REFUND', async () => {
+        /* Rule 2 of revoke_if_unpaid. Ko-fi payment history was never
+           captured, so the ledger cannot speak for a pre-ledger member and
+           does not get to end their access. The outcome is logged at error
+           level so a human looks at it. */
+        const body = event('charge.refunded', {
+            id: 'ch_1', payment_intent: 'pi_test_1', amount: 9900, amount_refunded: 9900,
+        });
+        const { header } = await sign(body);
+        const f = stubFetch({ revokeVerdict: 'kept_legacy' });
+        try {
+            const res = await post(body, header);
+            expect(res.status, 'a legacy outcome was treated as a failure').toBe(200);
+            expect(f.calls.some(c => c.url.includes('payment_events')
+                && String(c.body || '').includes('"status":"done"'))).toBe(true);
+        } finally { f.restore(); }
+    });
+
+    test('another standing purchase keeps access on a refund', async () => {
+        const body = event('charge.refunded', {
+            id: 'ch_1', payment_intent: 'pi_test_1', amount: 9900, amount_refunded: 9900,
+        });
+        const { header } = await sign(body);
+        const f = stubFetch({ revokeVerdict: 'kept_paid' });
+        try {
+            expect((await post(body, header)).status).toBe(200);
+        } finally { f.restore(); }
+    });
+
+    test('AN UNKNOWN REVOCATION VERDICT RETRIES RATHER THAN SHRUGS', async () => {
+        /* If revoke_if_unpaid changes and the handler does not, the event
+           goes back in the retry path instead of being marked done on a
+           verdict nobody understood. */
+        const body = event('charge.refunded', {
+            id: 'ch_1', payment_intent: 'pi_test_1', amount: 9900, amount_refunded: 9900,
+        });
+        const { header } = await sign(body);
+        const f = stubFetch({ revokeVerdict: 'something_new' });
+        try {
+            expect((await post(body, header)).status).toBe(500);
+            expect(f.calls.some(c => c.url.includes('payment_events')
+                && String(c.body || '').includes('"status":"done"'))).toBe(false);
         } finally { f.restore(); }
     });
 
