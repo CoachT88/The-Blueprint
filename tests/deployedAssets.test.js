@@ -163,6 +163,53 @@ describe('deployed assets cover what the browser imports', () => {
         expect(config.assets.directory).toBe('.');
     });
 
+    it('AND KEEPS AN ISOLATED TEST WORKER, SO TEST KEYS NEVER TOUCH PRODUCTION', () => {
+        /* Secrets in Cloudflare are per Worker. Two Worker names is therefore
+           the mechanism that keeps test-mode Stripe credentials and the
+           staging database off https://theblueprint.site, rather than a
+           convention somebody has to remember. */
+        const config = JSON.parse(readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'));
+        expect(config.env, 'no named environments are declared').toBeTruthy();
+        expect(config.env.test, 'no isolated test environment').toBeTruthy();
+        expect(config.env.test.name, 'the test Worker shares production\'s name')
+            .not.toBe(config.name);
+        expect(config.env.test.name).toBe('the-blueprint-test');
+
+        /* It must stay on workers.dev. A custom domain on the test Worker
+           would put test-mode checkout on a public address. */
+        expect(config.env.test.routes, 'the test Worker claims a custom route')
+            .toBeUndefined();
+        expect(config.env.test.route, 'the test Worker claims a custom route')
+            .toBeUndefined();
+
+        /* Repeated rather than inherited, because a named environment that
+           silently lost the binding would serve no pages. */
+        expect(config.env.test.assets?.binding).toBe('ASSETS');
+    });
+
+    it('production declares no Stripe route and no Stripe secrets', () => {
+        /* wrangler.jsonc is committed. Every Stripe value is a Worker secret
+           set with `wrangler secret put`, so none of them may appear here. */
+        const raw = readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8');
+        for (const name of ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
+            'STRIPE_PRICE_ID', 'STRIPE_LIVEMODE', 'sk_test_', 'sk_live_', 'whsec_']) {
+            expect(raw, `wrangler.jsonc mentions ${name}`).not.toContain(name);
+        }
+        const config = JSON.parse(raw);
+        expect(config.vars, 'production declares plaintext vars').toBeUndefined();
+        expect(config.env.test.vars, 'the test env declares plaintext vars').toBeUndefined();
+    });
+
+    it('wrangler.jsonc stays strict JSON, because a test parses it', () => {
+        /* It carries a .jsonc extension and has always been comment-free. I
+           added explanatory comments while setting up the test environment
+           and broke the parse above, so this records the constraint: the
+           explanation belongs in the runbook, not in this file. */
+        const raw = readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8');
+        expect(() => JSON.parse(raw)).not.toThrow();
+        expect(raw, 'a line comment crept back in').not.toMatch(/^\s*\/\//m);
+    });
+
     it('the worker is still excluded, because wrangler bundles it', () => {
         /* The one genuinely server-side file in src/. It must NOT be served,
            and keeping this assertion stops the fix above from being widened
