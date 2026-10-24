@@ -129,3 +129,137 @@ describe('the deployed worker', () => {
     expect(await res.text()).toBe('static asset');
   });
 });
+
+/**
+ * THE STRIPE ROUTES, AND THE GUARD THAT STOPS THIS RECURRING.
+ *
+ * Both Stripe handlers were written as functions/api/ modules, which is the
+ * Cloudflare PAGES convention where a file there becomes a route on its own.
+ * This is a Worker. wrangler.jsonc points main at src/worker.js, and nothing
+ * under functions/ is reachable unless that file routes it.
+ *
+ * So the handlers existed, had 79 passing tests, and answered 404 on the live
+ * domain. The file comment at the top of this suite describes the same class
+ * of failure in its earlier form: the code under test was not the code
+ * answering requests.
+ *
+ * The last test in this block is the durable part. It reads every handler in
+ * functions/api/ and fails if one is not routed, so the next endpoint cannot
+ * be forgotten the same way.
+ */
+describe('the Stripe endpoints are reachable through the deployed worker', () => {
+  const STRIPE_ENV = {
+    ...ENV,
+    STRIPE_WEBHOOK_SECRET: 'whsec_test_secret_value_0123456789',
+    STRIPE_SECRET_KEY: 'sk_test_value',
+    STRIPE_PRICE_ID: 'price_test_value',
+    STRIPE_PRICE_CENTS: '9900',
+    STRIPE_CURRENCY: 'usd',
+    STRIPE_LIVEMODE: 'false',
+  };
+
+  it('POST /api/stripe-webhook REACHES THE HANDLER, not the asset fallback', async () => {
+    /* No signature, so the handler refuses with 401. That refusal is the
+       proof: an unrouted path would fall through to ASSETS and return the
+       stubbed static asset with 200. */
+    const res = await worker.fetch(new Request('https://example.com/api/stripe-webhook', {
+      method: 'POST', body: '{}',
+    }), STRIPE_ENV);
+    expect(res.status).toBe(401);
+    expect(await res.text()).not.toBe('static asset');
+  });
+
+  it('and it refuses before touching the database', async () => {
+    calls.length = 0;
+    await worker.fetch(new Request('https://example.com/api/stripe-webhook', {
+      method: 'POST', body: '{}',
+    }), STRIPE_ENV);
+    expect(calls.filter((c) => c.url.includes('/rest/v1/'))).toHaveLength(0);
+  });
+
+  it('missing Stripe config refuses rather than falling through', async () => {
+    const res = await worker.fetch(new Request('https://example.com/api/stripe-webhook', {
+      method: 'POST', body: '{}',
+    }), { ...STRIPE_ENV, STRIPE_WEBHOOK_SECRET: undefined });
+    expect(res.status).toBe(503);
+  });
+
+  it('GET /api/stripe-webhook answers the dashboard probe and does nothing', async () => {
+    calls.length = 0;
+    const res = await worker.fetch(
+      new Request('https://example.com/api/stripe-webhook'), STRIPE_ENV);
+    expect(res.status).toBe(200);
+    expect(await res.text()).not.toBe('static asset');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('other methods on the webhook are 405, not a static asset', async () => {
+    for (const method of ['PUT', 'DELETE', 'PATCH']) {
+      const res = await worker.fetch(
+        new Request('https://example.com/api/stripe-webhook', { method }), STRIPE_ENV);
+      expect(res.status, method).toBe(405);
+    }
+  });
+
+  it('POST /api/create-checkout-session REACHES THE HANDLER', async () => {
+    const res = await worker.fetch(
+      new Request('https://example.com/api/create-checkout-session', { method: 'POST' }),
+      STRIPE_ENV);
+    /* The stubbed fetch returns no client_secret, so the handler answers 502.
+       Either way it is JSON from the handler and not the asset fallback. */
+    expect([200, 502]).toContain(res.status);
+    expect(res.headers.get('Content-Type')).toMatch(/application\/json/);
+  });
+
+  it('missing checkout config refuses rather than falling through', async () => {
+    const res = await worker.fetch(
+      new Request('https://example.com/api/create-checkout-session', { method: 'POST' }),
+      { ...STRIPE_ENV, STRIPE_SECRET_KEY: undefined });
+    expect(res.status).toBe(503);
+  });
+
+  it('A GET ON THE CHECKOUT SESSION ENDPOINT IS 405', async () => {
+    /* It creates a Stripe object, so it must not be reachable by a link, a
+       prefetch or a crawler. */
+    const res = await worker.fetch(
+      new Request('https://example.com/api/create-checkout-session'), STRIPE_ENV);
+    expect(res.status).toBe(405);
+    expect(await res.text()).not.toBe('static asset');
+  });
+
+  it('the secret key never reaches the response body', async () => {
+    const res = await worker.fetch(
+      new Request('https://example.com/api/create-checkout-session', { method: 'POST' }),
+      STRIPE_ENV);
+    const body = await res.text();
+    expect(body).not.toContain('sk_test_value');
+    expect(body).not.toContain('whsec_');
+  });
+
+  it('EVERY HANDLER IN functions/api IS ROUTED THROUGH THE WORKER', async () => {
+    /* The durable guard. Two fully tested handlers answered 404 in
+       production because nobody added them here, and no test noticed.
+       This reads the directory and fails on the next one. */
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+    const workerSrc = readFileSync(path.join(root, 'src/worker.js'), 'utf8');
+    const files = readdirSync(path.join(root, 'functions/api'))
+      .filter((f) => f.endsWith('.js'));
+    expect(files.length, 'no handlers found to check').toBeGreaterThan(2);
+
+    for (const file of files) {
+      const src = readFileSync(path.join(root, 'functions/api', file), 'utf8');
+      /* A module that exports no request handler is a helper, not a route. */
+      if (!/export\s+(async\s+)?function\s+onRequest/.test(src)) continue;
+
+      const route = '/api/' + file.replace(/\.js$/, '');
+      expect(workerSrc, `${file} exports a handler but src/worker.js has no import for it`)
+        .toContain(`functions/api/${file}`);
+      expect(workerSrc, `${file} exports a handler but nothing routes ${route}`)
+        .toContain(`'${route}'`);
+    }
+  });
+});
