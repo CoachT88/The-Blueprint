@@ -217,7 +217,32 @@ async function failEvent(env, id, message) {
   } catch (e) { /* diagnosis is best effort */ }
 }
 
-/** Insert the purchase. A duplicate provider_ref means already recorded. */
+/** The ledger row for one transaction reference, or null. */
+async function findPurchase(env, ref) {
+  const q = `provider=eq.stripe&provider_ref=eq.${encodeURIComponent(ref)}`
+    + '&select=id,status,email';
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/purchases?${q}`,
+    { headers: sbHeaders(env) });
+  if (!res.ok) throw new Error(`purchases read failed: ${res.status}`);
+  const rows = await res.json().catch(() => []);
+  return Array.isArray(rows) && rows.length ? rows[0] : null;
+}
+
+/**
+ * Record a paid purchase, and say what was already on file.
+ *
+ * OUT OF ORDER DELIVERY IS THE REASON THIS RETURNS A STATUS RATHER THAN A
+ * BOOLEAN. Stripe does not guarantee ordering, so charge.refunded can arrive
+ * before the checkout.session.completed that created the charge. When it
+ * does, the refund handler records the refund against this reference with a
+ * null address, and the completion then arrives for a transaction the ledger
+ * already knows was refunded. Granting access on that completion would hand
+ * the app to somebody who has their money back.
+ *
+ *   'inserted'  first time; a paid purchase now exists
+ *   'paid'      already recorded as paid, which is an ordinary replay
+ *   other       already recorded as refunded or disputed: DO NOT GRANT
+ */
 async function recordPurchase(env, { ref, email, amountCents, currency }) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/purchases`, {
     method: 'POST',
@@ -227,9 +252,53 @@ async function recordPurchase(env, { ref, email, amountCents, currency }) {
       amount_cents: amountCents, currency, status: 'paid',
     }]),
   });
-  if (res.status === 409) return false;
-  if (!res.ok) throw new Error(`purchases insert failed: ${res.status}`);
-  return true;
+  if (res.ok) return 'inserted';
+  if (res.status !== 409) throw new Error(`purchases insert failed: ${res.status}`);
+
+  const existing = await findPurchase(env, ref);
+  if (!existing) throw new Error('purchases conflicted but the row is absent');
+
+  /* An out-of-order refund recorded this reference without an address,
+     because a charge object does not reliably carry one. Fill it in now that
+     the completion has supplied it, so revoke_if_unpaid can see this
+     transaction when it counts what the address has paid for. */
+  if (!existing.email && email) {
+    await fetch(
+      `${env.SUPABASE_URL}/rest/v1/purchases?id=eq.${encodeURIComponent(existing.id)}`, {
+        method: 'PATCH',
+        headers: sbHeaders(env, { Prefer: 'return=minimal' }),
+        body: JSON.stringify({ email, amount_cents: amountCents, currency }),
+      }).catch(() => { /* best effort; the status below is what decides */ });
+  }
+
+  return existing.status;
+}
+
+/**
+ * Record a refund or dispute for a transaction the ledger has never seen.
+ *
+ * This happens when Stripe delivers out of order. The refund is real, so
+ * recording it invents nothing; the address is genuinely unknown at this
+ * point, which is why purchases.email is nullable. The later completion
+ * fills the address in and is refused access by the status recorded here.
+ *
+ * The alternative, acknowledging the refund and moving on, is what the
+ * previous version did, and it ended with a refunded customer holding
+ * access and nothing in the system disagreeing.
+ */
+async function recordUnmatchedResolution(env, { ref, status, email, amountCents, currency }) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/purchases`, {
+    method: 'POST',
+    headers: sbHeaders(env, { Prefer: 'return=minimal' }),
+    body: JSON.stringify([{
+      provider: 'stripe', provider_ref: ref, email: email || null,
+      amount_cents: amountCents ?? null, currency: currency || null,
+      status, resolved_at: new Date().toISOString(),
+    }]),
+  });
+  if (res.ok) return true;
+  if (res.status === 409) return false;   // raced with the completion
+  throw new Error(`unmatched ${status} insert failed: ${res.status}`);
 }
 
 /**
@@ -407,6 +476,11 @@ function notAPurchase(session, env) {
   return null;
 }
 
+/* A charge sometimes carries an address and often does not, which is why an
+   out-of-order refund may record a null one. */
+const chargeEmail = (c) => (c && c.billing_details && c.billing_details.email)
+  || (c && c.receipt_email) || null;
+
 const sessionEmail = (s) =>
   (s.customer_details && s.customer_details.email) || s.customer_email || null;
 
@@ -518,13 +592,34 @@ export async function onRequestPost({ request, env }) {
         const ref = typeof obj.payment_intent === 'string'
           ? obj.payment_intent : obj.id;
 
-        await recordPurchase(env, {
+        const recorded = await recordPurchase(env, {
           ref, email,
           amountCents: Number.isFinite(obj.amount_subtotal)
             ? obj.amount_subtotal : obj.amount_total,
           currency: String(obj.currency || '').toLowerCase(),
         });
+
+        /* OUT OF ORDER DELIVERY. The ledger already knows this transaction
+           was refunded or disputed, because that event arrived first. The
+           money is back with the buyer, so a stale completion must not hand
+           over the app. */
+        if (recorded !== 'inserted' && recorded !== 'paid') {
+          console.error(
+            `Stripe: completion for ${redactEmail(email)} REFUSED, the ledger`
+            + ` already records this transaction as ${recorded}.`
+            + ' An out-of-order refund or dispute arrived first.');
+          return finish(`stale completion, already ${recorded}`);
+        }
+
         await upsertMember(env, email);
+
+        /* REPURCHASE AFTER REFUND. A revoked row keeps revoked_at set, and
+           both attachUid and claim_membership refuse a revoked row, so
+           without this a man who was refunded and bought again would pay and
+           stay locked out. restore_if_paid clears the mark only after
+           counting at least one paid purchase in the ledger, so the decision
+           rests on verified payment state rather than on this event. */
+        const restored = await rpc(env, 'restore_if_paid', { p_email: email });
 
         /* client_reference_id is the uid of a buyer who was signed in when
            the session was created. When we have it we never had to infer
@@ -537,7 +632,7 @@ export async function onRequestPost({ request, env }) {
         if (uid) await attachUid(env, email, uid);
 
         console.log(`Stripe: purchase recorded for ${redactEmail(email)}`
-          + `, attached=${Boolean(uid)}`);
+          + `, attached=${Boolean(uid)}, revocationCleared=${restored}`);
         return finish('access granted');
       }
 
@@ -557,8 +652,19 @@ export async function onRequestPost({ request, env }) {
         }
         const email = await resolvePurchase(env, ref, 'refunded');
         if (!email) {
-          console.error('Stripe: refund matched no recorded purchase, needs review');
-          return finish('refund matched nothing');
+          /* Out of order: the completion has not arrived yet. Record the
+             refund against this reference so the completion, when it
+             lands, is refused rather than granting access to someone whose
+             money has been returned. */
+          const noted = await recordUnmatchedResolution(env, {
+            ref, status: 'refunded', email: chargeEmail(obj),
+            amountCents: obj.amount ?? null,
+            currency: String(obj.currency || '').toLowerCase() || null,
+          });
+          console.error('Stripe: refund arrived before its completion;'
+            + ` recorded against ${ref} so the completion cannot grant access`
+            + ` (newRow=${noted})`);
+          return finish('refund recorded ahead of its completion');
         }
         return finish(await describeRevocation(env, email, 'refund'));
       }
@@ -568,8 +674,15 @@ export async function onRequestPost({ request, env }) {
         if (!ref) return finish('dispute without a reference');
         const email = await resolvePurchase(env, ref, 'disputed');
         if (!email) {
-          console.error('Stripe: dispute matched no recorded purchase, needs review');
-          return finish('dispute matched nothing');
+          const noted = await recordUnmatchedResolution(env, {
+            ref, status: 'disputed', email: chargeEmail(obj),
+            amountCents: obj.amount ?? null,
+            currency: String(obj.currency || '').toLowerCase() || null,
+          });
+          console.error('Stripe: dispute arrived before its completion;'
+            + ` recorded against ${ref} so the completion cannot grant access`
+            + ` (newRow=${noted})`);
+          return finish('dispute recorded ahead of its completion');
         }
         return finish(await describeRevocation(env, email, 'dispute'));
       }
@@ -618,5 +731,6 @@ export async function onRequestGet() {
 /* Exported for tests. The handler above is what runs in production. */
 export const __test = {
   verifySignature, constantTimeEqual, notAPurchase, isPlausibleEmail,
-  redactEmail, sessionEmail, claimEvent, describeRevocation,
+  redactEmail, sessionEmail, chargeEmail, claimEvent, describeRevocation,
+  recordPurchase, recordUnmatchedResolution,
 };

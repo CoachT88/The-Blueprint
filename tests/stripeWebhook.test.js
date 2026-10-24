@@ -499,7 +499,14 @@ describe('onRequestPost, end to end against a stubbed Supabase', () => {
      *                    fails once, to model a partial failure
      */
     function stubFetch({ eventState = 'absent', purchaseEmail = 'buyer@example.com',
-        revokeVerdict = 'revoked', failOn = null } = {}) {
+        revokeVerdict = 'revoked', failOn = null,
+        /* What the ledger already holds for this reference. null means the
+           transaction has never been seen; an object models an event that
+           arrived out of order. */
+        existingPurchase = null,
+        /* What resolvePurchase finds. null models a refund whose completion
+           has not arrived. */
+        resolveFinds = true } = {}) {
         const calls = [];
         const real = globalThis.fetch;
         let failed = false;
@@ -532,9 +539,19 @@ describe('onRequestPost, end to end against a stubbed Supabase', () => {
                 return ok(204);
             }
             if (u.includes('/rest/v1/purchases') && method === 'PATCH') {
-                return ok(200, [{ email: purchaseEmail }]);
+                /* resolvePurchase returns the address it marked, or nothing
+                   when the completion has not arrived yet. */
+                if (u.includes('provider_ref=eq.')) {
+                    return ok(200, resolveFinds ? [{ email: purchaseEmail }] : []);
+                }
+                return ok(204);                       // the email backfill
             }
-            if (u.includes('/rest/v1/purchases')) return ok(201, []);
+            if (u.includes('/rest/v1/purchases') && method === 'GET') {
+                return ok(200, existingPurchase ? [existingPurchase] : []);
+            }
+            if (u.includes('/rest/v1/purchases')) {
+                return existingPurchase ? ok(409, { code: '23505' }) : ok(201, []);
+            }
             if (u.includes('/rest/v1/members')) return ok(201, []);
             if (u.includes('/rest/v1/rpc/revoke_if_unpaid')) return ok(200, revokeVerdict);
             if (u.includes('/rest/v1/rpc/')) return ok(200, true);
@@ -877,6 +894,151 @@ describe('onRequestPost, end to end against a stubbed Supabase', () => {
         } finally { f.restore(); }
     });
 
+    test('REPURCHASE AFTER REFUND RESTORES ACCESS', async () => {
+        /* The bug: revoke_if_unpaid leaves revoked_at set, and both
+           attachUid and claim_membership refuse a revoked row. So without
+           clearing it, a man who was refunded and bought again would pay and
+           stay locked out of the thing he just bought twice.
+           restore_if_paid is used rather than clearing it here, because it
+           counts paid rows in the ledger first: the decision rests on
+           verified payment state, not on this event's arrival. */
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            const res = await post(body, header);
+            expect(res.status).toBe(200);
+            const urls = f.calls.map(c => c.url);
+            expect(urls.some(u => u.includes('restore_if_paid')),
+                'a new purchase did not clear a previous revocation').toBe(true);
+            /* ORDER MATTERS, in four steps, and each boundary is load
+               bearing:
+                 1. the purchase is recorded, so restore_if_paid has a paid
+                    row to count
+                 2. the member row is upserted, so there is a row to unmark
+                 3. restore_if_paid clears revoked_at
+                 4. the attach runs, which filters revoked_at=is.null and
+                    would reject the row if it ran before step 3
+               My first version of this assertion had 3 before 2 and failed,
+               which is the assertion being wrong rather than the code. */
+            const idx = (pred) => f.calls.findIndex(pred);
+            const purchase = idx(c => c.method === 'POST' && c.url.includes('/purchases'));
+            const upsert = idx(c => c.method === 'POST' && c.url.includes('/rest/v1/members'));
+            const restore = idx(c => c.url.includes('restore_if_paid'));
+            const attach = idx(c => c.method === 'PATCH' && c.url.includes('/rest/v1/members'));
+
+            expect(purchase, 'no purchase recorded').toBeGreaterThan(-1);
+            expect(upsert, 'no member upsert').toBeGreaterThan(-1);
+            expect(restore, 'no restore_if_paid').toBeGreaterThan(-1);
+
+            expect(purchase).toBeLessThan(restore);
+            expect(upsert).toBeLessThan(restore);
+            if (attach > -1) {
+                expect(restore, 'the attach ran before the revocation was cleared')
+                    .toBeLessThan(attach);
+            }
+        } finally { f.restore(); }
+    });
+
+    test('THE MEMBER UPSERT CANNOT CLEAR pre_ledger OR revoked_at', async () => {
+        /* The upsert is resolution=merge-duplicates, which updates exactly
+           the columns in the payload. Sending only the address is what keeps
+           a legacy member's protection and a revoked member's mark intact.
+           Adding a field here for convenience would quietly strip both. */
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+        const f = stubFetch();
+        try {
+            await post(body, header);
+            const upsert = f.calls.find(c => c.method === 'POST'
+                && c.url.includes('/rest/v1/members'));
+            expect(upsert, 'no member upsert happened').toBeTruthy();
+            const payload = JSON.parse(upsert.body);
+            expect(Array.isArray(payload)).toBe(true);
+            expect(Object.keys(payload[0]), 'the upsert sends more than the address')
+                .toEqual(['email']);
+        } finally { f.restore(); }
+    });
+
+    test('OUT OF ORDER: AN UNMATCHED REFUND IS RECORDED, NOT WAVED THROUGH', async () => {
+        /* Stripe does not guarantee ordering. The previous version answered
+           200 and forgot, so the completion that followed granted access to
+           somebody whose money had already gone back. */
+        const body = event('charge.refunded', {
+            id: 'ch_1', payment_intent: 'pi_oops', amount: 9900, amount_refunded: 9900,
+            billing_details: { email: 'buyer@example.com' }, currency: 'usd',
+        });
+        const { header } = await sign(body);
+        const f = stubFetch({ resolveFinds: false });
+        try {
+            const res = await post(body, header);
+            expect(res.status).toBe(200);
+            const insert = f.calls.find(c => c.method === 'POST'
+                && c.url.includes('/rest/v1/purchases'));
+            expect(insert, 'the unmatched refund was not recorded').toBeTruthy();
+            const row = JSON.parse(insert.body)[0];
+            expect(row.provider_ref).toBe('pi_oops');
+            expect(row.status).toBe('refunded');
+            expect(row.resolved_at, 'the refund has no resolution time').toBeTruthy();
+            expect(f.calls.some(c => c.url.includes('revoke_if_unpaid')),
+                'it tried to revoke an entitlement it has not identified').toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('OUT OF ORDER: A STALE COMPLETION AFTER A REFUND GRANTS NOTHING', async () => {
+        /* The other half. The ledger already records this reference as
+           refunded, so the completion must be refused however valid its
+           signature and amount are. */
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+        const f = stubFetch({
+            existingPurchase: { id: 7, status: 'refunded', email: null },
+        });
+        try {
+            const res = await post(body, header);
+            expect(res.status, 'a refused completion should still be acknowledged').toBe(200);
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/rest/v1/members')),
+                'A STALE COMPLETION GRANTED ACCESS AFTER A REFUND').toBe(false);
+            expect(f.calls.some(c => c.url.includes('restore_if_paid')),
+                'it cleared a revocation on a refunded transaction').toBe(false);
+            /* The address is backfilled onto the refunded row, so
+               revoke_if_unpaid can count this transaction for that address
+               from now on. */
+            expect(f.calls.some(c => c.method === 'PATCH'
+                && c.url.includes('/rest/v1/purchases?id=eq.7')),
+                'the refunded row was left without an address').toBe(true);
+        } finally { f.restore(); }
+    });
+
+    test('a disputed transaction refuses a stale completion the same way', async () => {
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+        const f = stubFetch({
+            existingPurchase: { id: 9, status: 'disputed', email: 'buyer@example.com' },
+        });
+        try {
+            expect((await post(body, header)).status).toBe(200);
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/rest/v1/members')))
+                .toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('an ordinary replay of a paid completion still grants, idempotently', async () => {
+        /* The conflict path must not become a refusal for the common case of
+           Stripe delivering the same completion twice. */
+        const body = event('checkout.session.completed', paidSession());
+        const { header } = await sign(body);
+        const f = stubFetch({
+            eventState: 'processing',
+            existingPurchase: { id: 3, status: 'paid', email: 'buyer@example.com' },
+        });
+        try {
+            expect((await post(body, header)).status).toBe(200);
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/rest/v1/members')),
+                'a retried paid completion stopped granting access').toBe(true);
+        } finally { f.restore(); }
+    });
+
     test('verifySignature uses the constant-time comparison, not ===', () => {
         /* A mutation swapped it for === and every behavioural test still
            passed, because === is functionally correct and only the timing
@@ -889,5 +1051,94 @@ describe('onRequestPost, end to end against a stubbed Supabase', () => {
             .toMatch(/constantTimeEqual\(candidate, expected\)/);
         expect(fn, 'verifySignature compares signatures with ===')
             .not.toMatch(/candidate === expected|expected === candidate/);
+    });
+});
+
+/**
+ * KO-FI DURING THE TRANSITION.
+ *
+ * Ko-fi stays live while Stripe is tested, so a buyer can arrive after the
+ * ledger migration. Until this was fixed they got an entitlement with no
+ * ledger row and, because pre_ledger defaults false for new rows, no legacy
+ * protection either. A later Stripe refund would then count zero paid
+ * purchases and end access they had paid for.
+ */
+describe('the Ko-fi handler keeps new buyers protected', () => {
+    const src = () => read('functions/api/kofi-webhook.js');
+
+    test('IT WRITES A REAL TRANSACTION TO THE LEDGER', () => {
+        const s = src();
+        expect(s).toMatch(/async function recordKofiPurchase/);
+        expect(s).toMatch(/rest\/v1\/purchases/);
+        expect(s).toMatch(/provider: 'kofi'/);
+        /* The reference is Ko-fi's own, from the payload. */
+        expect(s).toMatch(/body\.kofi_transaction_id/);
+        expect(s).toMatch(/body\.message_id/);
+    });
+
+    test('AND IT INVENTS NOTHING WHEN THE PAYLOAD IS THIN', () => {
+        const s = src();
+        const fn = s.slice(s.indexOf('async function recordKofiPurchase'),
+            s.indexOf('async function markOutsideLedger'));
+        /* No reference means no row, rather than a made-up one that would
+           collide across purchases. */
+        expect(fn).toMatch(/if \(!ref\) return false;/);
+        /* An unparseable amount is left null rather than guessed. */
+        expect(fn).toMatch(/Number\.isFinite\(parsed\) \? Math\.round\(parsed \* 100\) : null/);
+        expect(fn, 'a date is fabricated for the ledger row').not.toMatch(/created_at/);
+    });
+
+    test('THE FALLBACK PROTECTS RATHER THAN REVOKES', () => {
+        const s = src();
+        const fn = s.slice(s.indexOf('async function markOutsideLedger'),
+            s.indexOf('/* Compared in constant time'));
+        expect(fn).toMatch(/pre_ledger: true/);
+        expect(fn).toMatch(/pre_ledger=eq\.false/);
+        /* It must not write anything else, least of all to the entitlement
+           itself. */
+        const payload = fn.match(/JSON\.stringify\(\{([^}]*)\}\)/);
+        expect(payload).not.toBeNull();
+        expect(payload[1].trim()).toBe('pre_ledger: true');
+    });
+
+    test('NEITHER FAILURE CAN MAKE KO-FI RETRY A RECORDED PURCHASE', () => {
+        /* The entitlement is already written by the time these run. A throw
+           here would return 500 and Ko-fi would redeliver a purchase that
+           has in fact been granted. */
+        const s = src();
+        const block = s.slice(s.indexOf('const recorded = await recordKofiPurchase'));
+        const tail = block.slice(0, block.indexOf('\n  }'));
+        expect(tail).toMatch(/catch \(e\)/);
+        expect(tail).toMatch(/catch \(e2\)/);
+        expect(tail, 'a ledger failure rethrows and fails the webhook')
+            .not.toMatch(/throw/);
+    });
+
+    test('THE KO-FI MEMBER UPSERT STILL SENDS ONLY THE ADDRESS', () => {
+        /* resolution=merge-duplicates updates exactly the payload columns.
+           Adding a field here would strip pre_ledger from an existing
+           member, which is the accidental clearing to guard against. */
+        const s = src();
+        const fn = s.slice(s.indexOf('async function upsertMember'));
+        /* Comments stripped first. The STEP 1 comment explains why user_id
+           is deliberately absent, so asserting on the raw text fails on the
+           explanation rather than on the code. Third time this pattern has
+           caught me in this session. */
+        const body = fn.slice(0, fn.indexOf('STEP 2'))
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/\/\/[^\n]*/g, '');
+        expect(body).toMatch(/resolution=merge-duplicates/);
+        expect(body).toMatch(/JSON\.stringify\(\[\{ email \}\]\)/);
+        expect(body, 'the Ko-fi upsert sends pre_ledger and would clear it')
+            .not.toMatch(/pre_ledger/);
+        expect(body, 'the Ko-fi upsert sends user_id').not.toMatch(/user_id/);
+    });
+
+    test('and the ledger write happens after the entitlement, not instead of it', () => {
+        const s = src();
+        const upsertAt = s.indexOf('await upsertMember(email, env.SUPABASE_URL');
+        const ledgerAt = s.indexOf('const recorded = await recordKofiPurchase');
+        expect(upsertAt).toBeGreaterThan(-1);
+        expect(ledgerAt).toBeGreaterThan(upsertAt);
     });
 });

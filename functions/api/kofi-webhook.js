@@ -96,6 +96,84 @@ async function upsertMember(email, supabaseUrl, serviceKey) {
   }
 }
 
+/**
+ * Record the Ko-fi purchase in the shared ledger, public.purchases.
+ *
+ * WHY THIS EXISTS. Ko-fi stays live through the Stripe transition, and until
+ * now this handler wrote only the entitlement. A Ko-fi buyer arriving after
+ * the ledger migration therefore had no ledger row and, because pre_ledger
+ * defaults to false for new rows, no legacy protection either. If that buyer
+ * later bought through Stripe and refunded it, revoke_if_unpaid would count
+ * zero paid purchases and end access they had genuinely paid for.
+ *
+ * NOTHING IS INVENTED HERE. The reference, the amount and the currency all
+ * come from the payload Ko-fi sent. Where the payload carries no usable
+ * reference the caller falls back to marking the entitlement instead, which
+ * records only that the ledger cannot account for it.
+ *
+ * Returns true when a real transaction was recorded.
+ */
+async function recordKofiPurchase(email, body, supabaseUrl, serviceKey) {
+  /* Either identifier is Ko-fi's own and unique per message. A fabricated
+     reference would collide across purchases and is never substituted. */
+  const ref = (typeof body.kofi_transaction_id === 'string' && body.kofi_transaction_id)
+    || (typeof body.message_id === 'string' && body.message_id)
+    || null;
+  if (!ref) return false;
+
+  /* Ko-fi sends the amount as a decimal string. An unparseable amount is
+     left null rather than guessed: the row's job is to prove a purchase
+     happened, and it does that without the figure. */
+  const parsed = Number.parseFloat(body.amount);
+  const cents = Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
+  const currency = typeof body.currency === 'string' && body.currency
+    ? body.currency.toLowerCase() : null;
+
+  const res = await fetch(`${supabaseUrl}/rest/v1/purchases`, {
+    method: 'POST',
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify([{
+      provider: 'kofi', provider_ref: ref, email,
+      amount_cents: cents, currency, status: 'paid',
+    }]),
+  });
+  /* 409 is the unique index on (provider, provider_ref): Ko-fi redelivered a
+     message already recorded, which is the correct outcome. */
+  if (res.status === 409) return true;
+  if (!res.ok) throw new Error(`Supabase purchases insert failed: ${res.status}`);
+  return true;
+}
+
+/**
+ * Mark an entitlement the ledger cannot account for.
+ *
+ * Used only when the payload carried no usable reference. It asserts no
+ * amount, date or transaction, only that this entitlement's payment history
+ * is not in public.purchases, which is exactly what pre_ledger means and
+ * exactly what revoke_if_unpaid refuses to act against.
+ *
+ * Filtered to rows where it is still false, so the write is a no-op for a
+ * member who already has it.
+ */
+async function markOutsideLedger(email, supabaseUrl, serviceKey) {
+  const q = `email=eq.${encodeURIComponent(email)}&pre_ledger=eq.false`;
+  await fetch(`${supabaseUrl}/rest/v1/members?${q}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({ pre_ledger: true }),
+  });
+}
+
 /* Compared in constant time so response latency cannot be used to recover the
    token one character at a time. */
 function tokensMatch(a, b) {
@@ -291,6 +369,32 @@ export async function onRequestPost({ request, env }) {
 
   try {
     await upsertMember(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+
+    /* The ledger entry, so a Ko-fi buyer arriving during the Stripe
+       transition is counted as having paid. Best effort in both directions:
+       the entitlement above is already written, so neither a failed ledger
+       write nor a failed fallback may make Ko-fi retry a recorded purchase.
+       The fallback is the protection flag, which never ends anyone's
+       access. */
+    try {
+      const recorded = await recordKofiPurchase(
+        email, body, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+      if (!recorded) {
+        console.error('Ko-fi: payload carried no transaction reference;'
+          + ' marking the entitlement as outside the ledger instead');
+        await markOutsideLedger(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+      }
+    } catch (e) {
+      console.error('Ko-fi: could not record the purchase in the ledger -', e.message);
+      try {
+        await markOutsideLedger(email, env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+      } catch (e2) {
+        /* Both failed. The entitlement stands and the member keeps access;
+           the ledger is simply missing a row, which revoke_if_unpaid treats
+           as a reason to keep access rather than end it. */
+        console.error('Ko-fi: could not mark the entitlement either -', e2.message);
+      }
+    }
     console.log('Ko-fi: member added -', redactEmail(email));
   } catch (e) {
     console.error('Ko-fi: database write failed -', e.message);
@@ -303,3 +407,6 @@ export async function onRequestPost({ request, env }) {
 export async function onRequestGet() {
   return new Response('OK', { status: 200 });
 }
+
+/* Exported for tests. */
+export const __test = { recordKofiPurchase, markOutsideLedger };

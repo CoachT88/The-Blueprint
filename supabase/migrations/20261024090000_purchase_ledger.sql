@@ -52,7 +52,14 @@ create table if not exists public.purchases (
     id            bigint generated always as identity primary key,
     provider      text        not null,              -- 'kofi' | 'stripe'
     provider_ref  text,                              -- processor transaction id
-    email         text        not null,
+    /* NULLABLE on purpose. A refund or dispute can arrive BEFORE the
+       checkout completion that created the purchase, and a charge object
+       does not reliably carry an address. Recording the refund with a null
+       address is honest: the refund is real, the address is not yet known.
+       The completion that follows fills it in. A null address simply never
+       matches an email lookup, which is the correct behaviour until it is
+       known. */
+    email         text,
     amount_cents  integer,
     currency      text,
     status        text        not null default 'paid'
@@ -72,6 +79,11 @@ create unique index if not exists purchases_provider_ref_uniq
    claim_membership already use. */
 create index if not exists purchases_email_status
     on public.purchases (lower(btrim(email)), status);
+
+/* The reconciliation lookup: has this transaction already been recorded as
+   refunded or disputed by an event that arrived out of order? */
+create index if not exists purchases_ref_lookup
+    on public.purchases (provider, provider_ref);
 
 alter table public.purchases enable row level security;
 revoke all on public.purchases from public, anon, authenticated;
