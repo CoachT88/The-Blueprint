@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { __test as hook, onRequestPost } from '../functions/api/stripe-webhook.js';
+import { onRequestPost as createSession } from '../functions/api/create-checkout-session.js';
 
 /**
  * THE STRIPE WEBHOOK HANDS OUT PAID ACCESS.
@@ -483,6 +484,8 @@ describe('secrets stay out of the repository and off the website', () => {
 describe('onRequestPost, end to end against a stubbed Supabase', () => {
     const ENV_FULL = {
         STRIPE_WEBHOOK_SECRET: SECRET,
+        STRIPE_SECRET_KEY: 'sk_test_value',
+        STRIPE_PRICE_ID: 'price_test_value',
         SUPABASE_URL: 'https://stub.supabase.co',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role-stub',
         STRIPE_PRICE_CENTS: '9900',
@@ -504,6 +507,9 @@ describe('onRequestPost, end to end against a stubbed Supabase', () => {
            transaction has never been seen; an object models an event that
            arrived out of order. */
         existingPurchase = null,
+        /* What Stripe says the session bought. The default is the configured
+           Price, quantity one. */
+        lineItems = [{ price: { id: 'price_test_value' }, quantity: 1 }],
         /* What resolvePurchase finds. null models a refund whose completion
            has not arrived. */
         resolveFinds = true } = {}) {
@@ -553,6 +559,11 @@ describe('onRequestPost, end to end against a stubbed Supabase', () => {
                 return existingPurchase ? ok(409, { code: '23505' }) : ok(201, []);
             }
             if (u.includes('/rest/v1/members')) return ok(201, []);
+            /* Stripe's own API: the line-item read that proves which Price
+               was bought. */
+            if (u.includes('api.stripe.com') && u.includes('/line_items')) {
+                return ok(200, { data: lineItems });
+            }
             if (u.includes('/rest/v1/rpc/revoke_if_unpaid')) return ok(200, revokeVerdict);
             if (u.includes('/rest/v1/rpc/')) return ok(200, true);
             if (u.includes('/auth/v1/admin/users')) return ok(200, []);
@@ -1140,5 +1151,230 @@ describe('the Ko-fi handler keeps new buyers protected', () => {
         const ledgerAt = s.indexOf('const recorded = await recordKofiPurchase');
         expect(upsertAt).toBeGreaterThan(-1);
         expect(ledgerAt).toBeGreaterThan(upsertAt);
+    });
+});
+
+/**
+ * A PRICE CHANGE MUST NOT WIDEN WHAT COUNTS AS A PAID PURCHASE.
+ *
+ * Pricing is managed from the Stripe dashboard. Changing a Price there
+ * changes neither STRIPE_PRICE_CENTS, nor STRIPE_PRICE_ID, nor the figure on
+ * the website. Those are four independent values and every disagreement
+ * between them must refuse access rather than grant it.
+ */
+describe('price changes cannot bypass the paid-purchase check', () => {
+    const ENV = {
+        STRIPE_WEBHOOK_SECRET: SECRET,
+        STRIPE_SECRET_KEY: 'sk_test_value',
+        STRIPE_PRICE_ID: 'price_configured',
+        STRIPE_PRICE_CENTS: '9900',
+        STRIPE_CURRENCY: 'usd',
+        STRIPE_LIVEMODE: 'false',
+        SUPABASE_URL: 'https://stub.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'service-role-stub',
+    };
+
+    const stub = ({ items, failLineItems = false }) => {
+        const calls = [];
+        const real = globalThis.fetch;
+        globalThis.fetch = async (url, opts = {}) => {
+            const u = String(url);
+            calls.push({ url: u, method: opts.method || 'GET' });
+            const ok = (status, json) => new Response(
+                status === 204 ? null : JSON.stringify(json),
+                { status, headers: { 'content-type': 'application/json' } });
+            if (u.includes('api.stripe.com') && u.includes('/line_items')) {
+                return failLineItems ? ok(500, {}) : ok(200, { data: items });
+            }
+            if (u.includes('/rest/v1/payment_events')) {
+                if ((opts.method || 'GET') === 'POST') return ok(201, [{ id: 'e' }]);
+                return ok(204);
+            }
+            if (u.includes('/rest/v1/')) return ok(201, []);
+            return ok(200, {});
+        };
+        return { calls, restore: () => { globalThis.fetch = real; } };
+    };
+
+    const send = async (env = ENV) => {
+        const body = JSON.stringify({
+            id: 'evt_price_' + Math.random().toString(36).slice(2),
+            type: 'checkout.session.completed', livemode: false,
+            data: { object: paidSession({ id: 'cs_price' }) },
+        });
+        const { header } = await sign(body);
+        return {
+            body,
+            res: await onRequestPost({
+                request: new Request('https://theblueprint.site/api/stripe-webhook', {
+                    method: 'POST', headers: { 'Stripe-Signature': header }, body,
+                }),
+                env,
+            }),
+        };
+    };
+
+    test('THE CONFIGURED PRICE GRANTS ACCESS', async () => {
+        const f = stub({ items: [{ price: { id: 'price_configured' }, quantity: 1 }] });
+        try {
+            const { res } = await send();
+            expect(res.status).toBe(200);
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/members')))
+                .toBe(true);
+        } finally { f.restore(); }
+    });
+
+    test('A DIFFERENT PRICE AT THE SAME AMOUNT GRANTS NOTHING', async () => {
+        /* The hole the amount check alone left: any payment to this account
+           at 9900 would have unlocked the app, including a dashboard Payment
+           Link for something else entirely. */
+        const f = stub({ items: [{ price: { id: 'price_something_else' }, quantity: 1 }] });
+        try {
+            const { res } = await send();
+            expect(res.status).toBe(200);
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/members')),
+                'a payment for a different product unlocked the app').toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('A DASHBOARD PRICE CHANGE WITHOUT A SECRET UPDATE GRANTS NOTHING', async () => {
+        /* The new Price has a new id, so the id check refuses first. */
+        const f = stub({ items: [{ price: { id: 'price_new_after_change' }, quantity: 1 }] });
+        try {
+            await send();
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/members')))
+                .toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('and the amount check still refuses if only the id was updated', async () => {
+        /* Secrets updated halfway: STRIPE_PRICE_ID points at the new Price
+           but STRIPE_PRICE_CENTS still holds the old amount. The session
+           charged the new amount, so the amount check refuses. */
+        const f = stub({ items: [{ price: { id: 'price_configured' }, quantity: 1 }] });
+        try {
+            await send({ ...ENV, STRIPE_PRICE_CENTS: '12900' });
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/members')),
+                'a half-updated configuration granted access').toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('MISSING STRIPE_PRICE_ID GRANTS NOTHING', async () => {
+        const f = stub({ items: [{ price: { id: 'price_configured' }, quantity: 1 }] });
+        try {
+            await send({ ...ENV, STRIPE_PRICE_ID: undefined });
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/members')))
+                .toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('a quantity above one grants nothing', async () => {
+        const f = stub({ items: [{ price: { id: 'price_configured' }, quantity: 3 }] });
+        try {
+            await send();
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/members')))
+                .toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('extra line items grant nothing', async () => {
+        const f = stub({ items: [
+            { price: { id: 'price_configured' }, quantity: 1 },
+            { price: { id: 'price_bundled_extra' }, quantity: 1 },
+        ] });
+        try {
+            await send();
+            expect(f.calls.some(c => c.method === 'POST' && c.url.includes('/members')))
+                .toBe(false);
+        } finally { f.restore(); }
+    });
+
+    test('A TRANSIENT STRIPE ERROR RETRIES RATHER THAN REFUSING', async () => {
+        /* A failed line-item read must not permanently deny a real purchase,
+           so it throws and the event stays retryable. */
+        const f = stub({ items: [], failLineItems: true });
+        try {
+            const { res } = await send();
+            expect(res.status).toBe(500);
+            expect(f.calls.some(c => c.url.includes('payment_events')
+                && c.method === 'PATCH'), 'the failure was not recorded').toBe(true);
+        } finally { f.restore(); }
+    });
+
+    test('THE SESSION ENDPOINT REFUSES A MISMATCHED PRICE, DRIVEN', async () => {
+        /* Behavioural, because the textual version of this passed with the
+           refusal branch replaced by `if (false)`. The property that matters:
+           when the Price disagrees, NO session is created, so a customer is
+           never charged an amount the webhook will go on to refuse. */
+        const SESSION_ENV = {
+            STRIPE_SECRET_KEY: 'sk_test_value',
+            STRIPE_PRICE_ID: 'price_configured',
+            STRIPE_PRICE_CENTS: '9900',
+            STRIPE_CURRENCY: 'usd',
+        };
+        const run = async (priceBody, env = SESSION_ENV) => {
+            const calls = [];
+            const real = globalThis.fetch;
+            globalThis.fetch = async (url, opts = {}) => {
+                const u = String(url);
+                calls.push({ url: u, method: opts.method || 'GET' });
+                const ok = (st, j) => new Response(JSON.stringify(j),
+                    { status: st, headers: { 'content-type': 'application/json' } });
+                if (u.includes('/v1/prices/')) return ok(200, priceBody);
+                if (u.includes('/v1/checkout/sessions')) {
+                    return ok(200, { client_secret: 'cs_secret_value' });
+                }
+                return ok(200, {});
+            };
+            try {
+                const res = await createSession({
+                    request: new Request('https://theblueprint.site/api/create-checkout-session',
+                        { method: 'POST' }),
+                    env,
+                });
+                return { res, calls };
+            } finally { globalThis.fetch = real; }
+        };
+        const created = (calls) =>
+            calls.some(c => c.url.includes('/v1/checkout/sessions') && c.method === 'POST');
+
+        const good = await run({ unit_amount: 9900, currency: 'usd', active: true, type: 'one_time' });
+        expect(good.res.status).toBe(200);
+        expect(created(good.calls), 'a correct configuration did not open checkout').toBe(true);
+
+        for (const [why, price] of [
+            ['the amount changed', { unit_amount: 12900, currency: 'usd', active: true, type: 'one_time' }],
+            ['the currency changed', { unit_amount: 9900, currency: 'eur', active: true, type: 'one_time' }],
+            ['the Price was archived', { unit_amount: 9900, currency: 'usd', active: false, type: 'one_time' }],
+            ['it became recurring', { unit_amount: 9900, currency: 'usd', active: true, type: 'recurring' }],
+        ]) {
+            const bad = await run(price);
+            expect(bad.res.status, why).toBe(503);
+            expect(created(bad.calls), `a session was created when ${why}`).toBe(false);
+        }
+
+        const unset = await run({ unit_amount: 9900, currency: 'usd', active: true, type: 'one_time' },
+            { ...SESSION_ENV, STRIPE_PRICE_CENTS: undefined });
+        expect(unset.res.status).toBe(503);
+        expect(created(unset.calls)).toBe(false);
+    });
+
+    test('THE SESSION ENDPOINT REFUSES BEFORE A CUSTOMER PAYS', async () => {
+        /* Catching the mismatch at session creation means the customer never
+           gets charged an amount the webhook will refuse. */
+        const src = read('functions/api/create-checkout-session.js');
+        expect(src).toMatch(/async function priceMatchesConfig/);
+        expect(src).toMatch(/v1\/prices\//);
+        expect(src).toMatch(/REFUSING TO OPEN CHECKOUT/);
+        /* It runs before the session is created. */
+        const i = src.indexOf('priceMatchesConfig(env)');
+        const j = src.indexOf('v1/checkout/sessions');
+        expect(i).toBeGreaterThan(-1);
+        expect(i).toBeLessThan(j);
+        /* And it checks every way a Price can disagree. */
+        for (const why of ['unit_amount !== expected', "price.active === false",
+            "price.type !== 'one_time'", 'STRIPE_PRICE_CENTS is not configured']) {
+            expect(src, `the pre-flight does not check: ${why}`).toContain(why);
+        }
     });
 });

@@ -432,6 +432,57 @@ async function describeRevocation(env, email, cause) {
   throw new Error(`revoke_if_unpaid returned an unknown verdict: ${verdict}`);
 }
 
+/**
+ * CONFIRM THE SESSION ACTUALLY BOUGHT THE CONFIGURED PRICE.
+ *
+ * The amount check alone is a proxy for product identity, and a weak one:
+ * any payment to this account at exactly the configured amount would satisfy
+ * it, including a Payment Link made in the dashboard for something else.
+ *
+ * line_items is not in the webhook payload, so it is fetched. The session id
+ * comes from a signature-verified body, and the answer comes from Stripe
+ * rather than from anything the browser sent.
+ *
+ * This is what stops a Price change silently widening what counts as a paid
+ * purchase. Change the Price in the dashboard and this check fails against
+ * the configured STRIPE_PRICE_ID until the Worker secret is updated too; the
+ * amount check then fails until STRIPE_PRICE_CENTS is updated as well. Both
+ * failures refuse access rather than granting it.
+ */
+async function sessionBoughtOurPrice(env, sessionId) {
+  if (!env.STRIPE_SECRET_KEY) return { ok: false, why: 'STRIPE_SECRET_KEY is not configured' };
+  if (!env.STRIPE_PRICE_ID) return { ok: false, why: 'STRIPE_PRICE_ID is not configured' };
+
+  const res = await fetch(
+    `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}/line_items?limit=10`,
+    {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Stripe-Version': '2025-09-30.clover',
+      },
+    });
+  if (!res.ok) {
+    /* Thrown rather than refused, so the event stays retryable. A transient
+       Stripe error must not permanently deny a real purchase. */
+    throw new Error(`line_items read failed: ${res.status}`);
+  }
+  const body = await res.json().catch(() => null);
+  const items = body && Array.isArray(body.data) ? body.data : null;
+  if (!items) throw new Error('line_items response had no data array');
+
+  if (items.length !== 1) {
+    return { ok: false, why: `session had ${items.length} line items, expected 1` };
+  }
+  const priceId = items[0].price && items[0].price.id;
+  if (priceId !== env.STRIPE_PRICE_ID) {
+    return { ok: false, why: `line item price was ${priceId}, expected ${env.STRIPE_PRICE_ID}` };
+  }
+  if (items[0].quantity !== 1) {
+    return { ok: false, why: `quantity was ${items[0].quantity}, expected 1` };
+  }
+  return { ok: true };
+}
+
 /* ── Product identity ────────────────────────────────────────────────────── */
 
 /**
@@ -583,6 +634,14 @@ export async function onRequestPost({ request, env }) {
           return finish('not this product');
         }
 
+        /* Product identity from Stripe's own record of what was bought,
+           not from the amount alone. */
+        const bought = await sessionBoughtOurPrice(env, obj.id);
+        if (!bought.ok) {
+          console.error('Stripe: verified session did not buy this product -', bought.why);
+          return finish('wrong price or product');
+        }
+
         const email = sessionEmail(obj);
         if (!isPlausibleEmail(email)) {
           console.error('Stripe: paid session carried no usable address');
@@ -732,5 +791,5 @@ export async function onRequestGet() {
 export const __test = {
   verifySignature, constantTimeEqual, notAPurchase, isPlausibleEmail,
   redactEmail, sessionEmail, chargeEmail, claimEvent, describeRevocation,
-  recordPurchase, recordUnmatchedResolution,
+  recordPurchase, recordUnmatchedResolution, sessionBoughtOurPrice,
 };

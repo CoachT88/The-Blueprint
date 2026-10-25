@@ -205,9 +205,12 @@ describe('the Stripe endpoints are reachable through the deployed worker', () =>
     const res = await worker.fetch(
       new Request('https://example.com/api/create-checkout-session', { method: 'POST' }),
       STRIPE_ENV);
-    /* The stubbed fetch returns no client_secret, so the handler answers 502.
-       Either way it is JSON from the handler and not the asset fallback. */
-    expect([200, 502]).toContain(res.status);
+    /* 503, because the price pre-flight cannot read the Price from the
+       stubbed Stripe API and refuses rather than opening checkout on a
+       configuration it could not confirm. 200 or 502 would also be the
+       handler. What matters is that it is JSON from the handler and not the
+       static asset fallback. */
+    expect([200, 502, 503]).toContain(res.status);
     expect(res.headers.get('Content-Type')).toMatch(/application\/json/);
   });
 

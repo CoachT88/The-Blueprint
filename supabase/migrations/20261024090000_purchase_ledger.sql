@@ -131,25 +131,45 @@ grant select, insert, update on public.payment_events to service_role;
 -- 3. members gains two columns.
 -- ---------------------------------------------------------------------------
 alter table public.members
-    add column if not exists revoked_at timestamptz,
-    add column if not exists pre_ledger boolean not null default false;
+    add column if not exists revoked_at timestamptz;
+
+/* THE LEGACY MARK, DONE BY THE COLUMN DEFAULT RATHER THAN BY AN UPDATE.
+ *
+ * Adding a NOT NULL column with DEFAULT true fills every existing row with
+ * true in the same statement, which is exactly the set of entitlements that
+ * predate the ledger. The default is then changed to false, so every row
+ * created from here on is ledger-era.
+ *
+ * WHY NOT AN UPDATE. The first version of this file did:
+ *
+ *     add column ... default false;
+ *     update public.members set pre_ledger = true where pre_ledger = false;
+ *
+ * which is correct exactly once. Running the migration a second time
+ * re-marked every member added in between, so a Stripe-era customer became
+ * permanently immune to refund revocation: revoke_if_unpaid would answer
+ * kept_legacy and a refund would never remove access. Verified by running
+ * this file twice against a local postgres, where the legacy count went
+ * from 3 to 6.
+ *
+ * `add column if not exists` is a no-op on a re-run, so nothing can be
+ * re-marked. `set default` is idempotent. The migration is now safe to run
+ * any number of times. */
+alter table public.members
+    add column if not exists pre_ledger boolean not null default true;
+alter table public.members
+    alter column pre_ledger set default false;
 
 -- ---------------------------------------------------------------------------
--- 4. Mark every entitlement that predates the ledger.
+-- 4. (The legacy mark is applied by the column default in section 3. There is
+--     no UPDATE here on purpose; see the comment there for why one was
+--     removed.)
 --
--- THIS IS NOT A BACKFILL AND IT INVENTS NOTHING. It records one fact that is
--- actually known: this row existed before purchase tracking began, so its
--- payment history is unavailable. No amount, no date, no transaction
--- reference is asserted, because none is known.
---
--- Every row present when this migration runs is marked, including rows with
--- user_id null that nobody has claimed yet. A Ko-fi purchase recorded after
--- this point gets pre_ledger false from the column default, which is correct:
--- from here on the ledger is the record.
---
--- Expect: updated count equals the current members count. Record it.
+-- IT INVENTS NOTHING. It records one fact that is actually known: this row
+-- existed before purchase tracking began, so its payment history is
+-- unavailable. No amount, no date, no transaction reference is asserted,
+-- because none is known.
 -- ---------------------------------------------------------------------------
-update public.members set pre_ledger = true where pre_ledger = false;
 
 -- ---------------------------------------------------------------------------
 -- 5. Revocation.
@@ -352,6 +372,10 @@ select provider, status, count(*) from public.purchases group by 1, 2;
 
 -- Expect: pre_ledger true for every existing row, and total unchanged from
 -- before the migration. Record all three numbers.
+--
+-- RUN THIS AGAIN AFTER ANY RE-RUN. ledger_era must only ever grow, never
+-- shrink: a row that was ledger-era becoming legacy is the re-marking bug
+-- that the column default now prevents.
 select count(*) as total,
        count(*) filter (where pre_ledger)        as marked_legacy,
        count(*) filter (where not pre_ledger)    as ledger_era,

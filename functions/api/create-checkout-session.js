@@ -58,9 +58,69 @@ async function identifyBuyer(request, env) {
   }
 }
 
+/**
+ * CONFIRM THE PRICE STILL CHARGES WHAT THE WORKER EXPECTS.
+ *
+ * Pricing is managed from the Stripe dashboard, and changing a Price there
+ * changes neither this Worker's STRIPE_PRICE_CENTS nor the figure printed on
+ * the website. Those three are independent and must agree.
+ *
+ * Without this check the failure lands on the customer: they pay the new
+ * amount, the webhook compares it to the old STRIPE_PRICE_CENTS, refuses,
+ * and they are left charged with no access. Checking here instead means a
+ * mismatch makes checkout unavailable BEFORE anyone pays, which is the
+ * failure to prefer.
+ *
+ * It also means a Price change cannot quietly widen what counts as a paid
+ * purchase: the amount the webhook enforces and the amount Stripe charges
+ * are reconciled every time a session is created.
+ */
+async function priceMatchesConfig(env) {
+  const expected = Number(env.STRIPE_PRICE_CENTS);
+  if (!Number.isFinite(expected) || expected <= 0) {
+    return { ok: false, why: 'STRIPE_PRICE_CENTS is not configured' };
+  }
+  const res = await fetch(
+    `https://api.stripe.com/v1/prices/${encodeURIComponent(env.STRIPE_PRICE_ID)}`, {
+      headers: {
+        Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+        'Stripe-Version': '2025-09-30.clover',
+      },
+    });
+  if (!res.ok) return { ok: false, why: `could not read the Price: HTTP ${res.status}` };
+  const price = await res.json().catch(() => null);
+  if (!price) return { ok: false, why: 'the Price response was not JSON' };
+
+  if (price.active === false) return { ok: false, why: 'the Price is archived' };
+  if (price.type !== 'one_time') return { ok: false, why: `the Price type is ${price.type}` };
+  if (price.unit_amount !== expected) {
+    return {
+      ok: false,
+      why: `the Price charges ${price.unit_amount} but STRIPE_PRICE_CENTS is ${expected}`,
+    };
+  }
+  const currency = (env.STRIPE_CURRENCY || 'usd').toLowerCase();
+  if (String(price.currency || '').toLowerCase() !== currency) {
+    return { ok: false, why: `the Price is in ${price.currency}, expected ${currency}` };
+  }
+  return { ok: true };
+}
+
 export async function onRequestPost({ request, env }) {
   if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PRICE_ID) {
     console.error('Stripe: checkout session config missing; refusing');
+    return json({ error: 'Checkout is unavailable right now.' }, 503);
+  }
+
+  /* Before anything is created. A mismatch here is a configuration error,
+     so it reads as unavailable rather than as a customer problem, and the
+     log says exactly which value disagrees. */
+  const consistent = await priceMatchesConfig(env);
+  if (!consistent.ok) {
+    console.error('Stripe: REFUSING TO OPEN CHECKOUT, price configuration is'
+      + ` inconsistent - ${consistent.why}.`
+      + ' Reconcile the Stripe Price, STRIPE_PRICE_CENTS and the figure shown'
+      + ' on the website before activating.');
     return json({ error: 'Checkout is unavailable right now.' }, 503);
   }
 
@@ -121,4 +181,4 @@ export async function onRequestPost({ request, env }) {
   }
 }
 
-export const __test = { identifyBuyer, redactEmail };
+export const __test = { identifyBuyer, redactEmail, priceMatchesConfig };
