@@ -12,16 +12,5 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
-  ],
-
-  "env": {
-    "test": {
-      "name": "the-blueprint-test",
-      "workers_dev": true,
-      "assets": {
-        "directory": ".",
-        "binding": "ASSETS"
-      }
-    }
-  }
+  ]
 }

@@ -163,28 +163,16 @@ describe('deployed assets cover what the browser imports', () => {
         expect(config.assets.directory).toBe('.');
     });
 
-    it('AND KEEPS AN ISOLATED TEST WORKER, SO TEST KEYS NEVER TOUCH PRODUCTION', () => {
-        /* Secrets in Cloudflare are per Worker. Two Worker names is therefore
-           the mechanism that keeps test-mode Stripe credentials and the
-           staging database off https://theblueprint.site, rather than a
-           convention somebody has to remember. */
+    it('DECLARES EXACTLY ONE WORKER, AND IT IS PRODUCTION', () => {
+        /* A second Worker was added and then removed on instruction: the
+           integration deploys to the one production Worker with checkout
+           gated off, rather than to a parallel test deployment. So the
+           config must declare no named environments at all, because a
+           stray one is a second deployment nobody is watching. */
         const config = JSON.parse(readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'));
-        expect(config.env, 'no named environments are declared').toBeTruthy();
-        expect(config.env.test, 'no isolated test environment').toBeTruthy();
-        expect(config.env.test.name, 'the test Worker shares production\'s name')
-            .not.toBe(config.name);
-        expect(config.env.test.name).toBe('the-blueprint-test');
-
-        /* It must stay on workers.dev. A custom domain on the test Worker
-           would put test-mode checkout on a public address. */
-        expect(config.env.test.routes, 'the test Worker claims a custom route')
+        expect(config.name).toBe('the-blueprint');
+        expect(config.env, 'a named environment is declared, which is a second Worker')
             .toBeUndefined();
-        expect(config.env.test.route, 'the test Worker claims a custom route')
-            .toBeUndefined();
-
-        /* Repeated rather than inherited, because a named environment that
-           silently lost the binding would serve no pages. */
-        expect(config.env.test.assets?.binding).toBe('ASSETS');
     });
 
     it('production declares no Stripe route and no Stripe secrets', () => {
@@ -197,7 +185,6 @@ describe('deployed assets cover what the browser imports', () => {
         }
         const config = JSON.parse(raw);
         expect(config.vars, 'production declares plaintext vars').toBeUndefined();
-        expect(config.env.test.vars, 'the test env declares plaintext vars').toBeUndefined();
     });
 
     it('wrangler.jsonc stays strict JSON, because a test parses it', () => {
