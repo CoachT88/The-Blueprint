@@ -163,6 +163,40 @@ describe('deployed assets cover what the browser imports', () => {
         expect(config.assets.directory).toBe('.');
     });
 
+    it('DECLARES EXACTLY ONE WORKER, AND IT IS PRODUCTION', () => {
+        /* A second Worker was added and then removed on instruction: the
+           integration deploys to the one production Worker with checkout
+           gated off, rather than to a parallel test deployment. So the
+           config must declare no named environments at all, because a
+           stray one is a second deployment nobody is watching. */
+        const config = JSON.parse(readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8'));
+        expect(config.name).toBe('the-blueprint');
+        expect(config.env, 'a named environment is declared, which is a second Worker')
+            .toBeUndefined();
+    });
+
+    it('production declares no Stripe route and no Stripe secrets', () => {
+        /* wrangler.jsonc is committed. Every Stripe value is a Worker secret
+           set with `wrangler secret put`, so none of them may appear here. */
+        const raw = readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8');
+        for (const name of ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
+            'STRIPE_PRICE_ID', 'STRIPE_LIVEMODE', 'sk_test_', 'sk_live_', 'whsec_']) {
+            expect(raw, `wrangler.jsonc mentions ${name}`).not.toContain(name);
+        }
+        const config = JSON.parse(raw);
+        expect(config.vars, 'production declares plaintext vars').toBeUndefined();
+    });
+
+    it('wrangler.jsonc stays strict JSON, because a test parses it', () => {
+        /* It carries a .jsonc extension and has always been comment-free. I
+           added explanatory comments while setting up the test environment
+           and broke the parse above, so this records the constraint: the
+           explanation belongs in the runbook, not in this file. */
+        const raw = readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8');
+        expect(() => JSON.parse(raw)).not.toThrow();
+        expect(raw, 'a line comment crept back in').not.toMatch(/^\s*\/\//m);
+    });
+
     it('the worker is still excluded, because wrangler bundles it', () => {
         /* The one genuinely server-side file in src/. It must NOT be served,
            and keeping this assertion stops the fix above from being widened
