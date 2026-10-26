@@ -46,14 +46,22 @@ describe('membership denial', () => {
         expect(denied.text).toMatch(/wait|minute/i);
     });
 
-    test('it links to the storefront safely', () => {
-        expect(denied.href).toBe('https://ko-fi.com/s/75a70cb698');
+    test('it links to OUR storefront, not a processor, and does it safely', () => {
+        /* This pointed at the Ko-fi product, which charges $49 against a $99
+           app, so a member denied access from inside the app was offered a
+           different price from a visitor on the home page. There is one
+           route now and it is the home page's own. */
+        expect(denied.href).toBe('https://theblueprint.site/#get');
+        expect(denied.href, 'the in-app route goes to a processor again')
+            .not.toMatch(/ko-?fi\.com|whop\.com|gumroad|paypal/i);
         expect(denied.target).toBe('_blank');
         expect(denied.rel).toMatch(/noopener/);
     });
 
-    test('Whop is no longer named to new buyers', () => {
+    test('no retired processor is named to new buyers', () => {
         expect(denied.text).not.toMatch(/whop/i);
+        expect(denied.text, 'Ko-fi is offered to someone who never bought there')
+            .not.toMatch(/ko-?fi/i);
         expect(app.errors).toEqual([]);
     });
 
