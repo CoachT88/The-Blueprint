@@ -71,6 +71,7 @@ export const RESEARCH_CSS_PAGES = RESEARCH;
 export const PAGES = [
     'index.html',
     'learn/index.html',
+    'daily/index.html',
     'last-longer/index.html',
     'stronger-erections/index.html',
     'better-sexual-performance/index.html',
