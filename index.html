@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Stronger erections, better control, better blood flow, a healthier pelvic floor, and a structured system for length and girth training. One app, on your own phone, nobody watching.">
+<meta name="description" content="Free daily sexual performance tips, practical guides and a private starting-point assessment. Learn what influences erection quality, stamina and pelvic-floor function, then explore The Blueprint training system.">
 <meta name="theme-color" content="#020617">
 
-<meta property="og:title" content="The Blueprint: your sexual performance can be trained">
-<meta property="og:description" content="Blood flow, pelvic floor control, lasting longer, and structured length and girth training. The whole system in one app instead of 37 Reddit tabs.">
+<meta property="og:title" content="The Blueprint: understand your sexual performance">
+<meta property="og:description" content="Question the assumptions, learn what affects performance and get one useful tip to try today. Free guides and a private starting-point assessment.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="The Blueprint">
 
@@ -20,7 +20,7 @@
 <!-- Canonical public website address. -->
 <link rel="canonical" href="https://theblueprint.site/">
 
-<title>The Blueprint: your sexual performance can be trained</title>
+<title>The Blueprint | Sexual Performance Guides, Daily Tips and Training</title>
 
 <!-- ==========================================================================
      TWO THINGS ARRIVE AT "/" THAT MUST NOT DEAD-END HERE, and the ORDER
@@ -689,28 +689,86 @@ body[data-sn-open="true"]{overflow:hidden}
 <!-- ================================================================ HERO -->
 <section class="hero" id="top">
   <div class="wrap">
-    <span class="filetag"><i aria-hidden="true"></i>Men&rsquo;s sexual performance</span>
+    <span class="filetag"><i aria-hidden="true"></i>Understand your sexual performance</span>
 
-    <h1 class="display" style="margin-top:22px">Your sexual performance can be trained.</h1>
+    <h1 class="display" style="margin-top:22px">Experience alone doesn't make you better in bed.</h1>
 
     <p class="lede" style="margin-top:20px">
-      Stronger erections. Better control. Better blood flow. A healthier pelvic floor.
-      Plus a structured system for men who want to explore length and girth training
-      without randomly pulling, pumping, and hoping for the best.
+      You can have years of experience and still wonder why your erections change,
+      why you finish sooner than you want, or why control feels different from one
+      night to the next.
     </p>
 
-    <p class="lede" style="margin-top:16px"><b>The Blueprint puts the entire system in
-      one app.</b></p>
+    <p class="lede" style="margin-top:16px">
+      <b>Start with a better question: what's influencing your performance?</b>
+      Learn the patterns, understand what you can practice, and decide what deserves
+      attention. Useful answers are free to explore right here.
+    </p>
 
     <div class="btn-row">
-      <a class="btn" href="#get">Start The Blueprint, $99</a>
-      <a class="btn ghost" href="#inside">See what you train</a>
+      <a class="btn" href="/assessment/">Find your starting point</a>
+      <a class="btn ghost" href="#daily-note">Read today's free tip</a>
     </div>
-    <p class="purchase-assurance">$99 once &middot; No subscription &middot; Future app updates included</p>
+    <p class="purchase-assurance">Want a structured training system? <a href="#get">Start The Blueprint, $99</a>.
+      $99 once &middot; No subscription &middot; Future app updates included</p>
 
-    <div class="stampmark">Private. No one has to know.</div>
+    <div class="stampmark">Private education. No account needed to read.</div>
   </div>
 </section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ===================================================== DAILY VALUE -->
+<section id="daily-note" class="daily-spotlight">
+  <div class="wrap">
+    <span class="label go">A reason to come back</span>
+    <h2 class="display" style="margin-top:14px">One useful idea for today.</h2>
+    <p class="lede" style="margin-top:15px">One question worth asking. One small action worth trying.
+      A different note is featured daily from our free growing archive.</p>
+    <article class="card hilite" style="margin-top:24px" aria-labelledby="home-daily-title">
+      <span class="label go" id="home-daily-kicker">From the Daily Blueprint</span>
+      <h3 id="home-daily-title" style="font-size:clamp(22px,3vw,30px);margin-top:12px">Sleep is information, not a verdict</h3>
+      <p id="home-daily-summary" style="margin-top:10px">
+        Sleep affects energy, attention and sexual response, but one night cannot diagnose a problem.
+      </p>
+      <p id="home-daily-action" style="margin-top:12px"><b>Try this:</b>
+        For seven mornings, jot down your sleep duration and how rested you feel.
+        Look for patterns, not a perfect score.</p>
+      <div class="btn-row">
+        <a class="btn sm" id="home-daily-link" href="/daily/#sleep-is-data">Read the featured note</a>
+        <a class="btn sm ghost" href="/daily/#archive">Browse all 30 free notes</a>
+      </div>
+    </article>
+    <p class="tiny" style="margin-top:15px;max-width:68ch">The daily feature rotates from a curated archive.
+      New featured does not always mean newly published. For ongoing or sudden symptoms, seek medical advice.</p>
+  </div>
+</section>
+<script>
+(function(){
+  /* First-party content, loaded only from our site. The readable fallback
+     above works offline and without JavaScript; no tracking or sign-in. */
+  if(!window.fetch) return;
+  fetch('/daily/notes.json').then(function(r){
+    if(!r.ok) throw Error('notes unavailable');
+    return r.json();
+  }).then(function(notes){
+    if(!Array.isArray(notes)||notes.length!==30) return;
+    var d=new Date();
+    var date=Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000);
+    var note=notes[date%notes.length];
+    if(!note||!note.id||!note.title||!note.why||!note.action)return;
+    var title=document.getElementById('home-daily-title');
+    var summary=document.getElementById('home-daily-summary');
+    var action=document.getElementById('home-daily-action');
+    var link=document.getElementById('home-daily-link');
+    document.getElementById('home-daily-kicker').textContent="Today's featured note";
+    title.textContent=note.title;
+    summary.textContent=note.why;
+    action.textContent='Try this: '+note.action;
+    link.href='/daily/#'+encodeURIComponent(note.id);
+  }).catch(function(){ /* The static note remains usable. */ });
+})();
+</script>
 
 <div class="wrap"><div class="rule"></div></div>
 
@@ -732,7 +790,11 @@ body[data-sn-open="true"]{overflow:hidden}
       <li>&ldquo;I&rsquo;ve read forums about penis enlargement, but everybody says something different.&rdquo;</li>
     </ul>
 
-    <p style="margin-top:22px"><b>That is exactly who I built this for.</b></p>
+    <p style="margin-top:22px"><b>Recognizing the question is useful.
+      The next step is understanding what might be contributing to it.</b></p>
+    <p style="margin-top:14px">Our <a href="/assessment/">free starting-point assessment</a>
+      helps you choose one concern, two actions to consider, and relevant reading.
+      Your answers stay in your browser.</p>
   </div>
 </section>
 
@@ -779,6 +841,34 @@ body[data-sn-open="true"]{overflow:hidden}
           by itself. Train the whole system.</b></p>
       </div>
     </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="rule"></div></div>
+
+<!-- ========================================================= FREE FIRST -->
+<section id="start-free">
+  <div class="wrap">
+    <span class="label go">Start without buying anything</span>
+    <h2 class="display" style="margin-top:14px">Know what you want to improve.</h2>
+    <p class="lede" style="margin-top:18px">A tip can help you notice something.
+      A guide can help you understand it. Your next action should match your goal.</p>
+    <div class="grid three">
+      <div class="card"><span class="num">01</span><h3>Find your starting point</h3>
+        <p>Answer five private questions. Get two free actions and relevant guides to explore.</p>
+        <p style="margin-top:14px"><a href="/assessment/">Take the free assessment</a></p>
+      </div>
+      <div class="card"><span class="num">02</span><h3>Learn what affects performance</h3>
+        <p>Explore practical guides on erections, arousal awareness, pelvic-floor function, health and habits.</p>
+        <p style="margin-top:14px"><a href="/learn/">Browse the Learning Library</a></p>
+      </div>
+      <div class="card"><span class="num">03</span><h3>Return for one useful action</h3>
+        <p>Read a rotating daily note, apply a small idea and share the one someone else may need.</p>
+        <p style="margin-top:14px"><a href="/daily/">Open The Daily Blueprint</a></p>
+      </div>
+    </div>
+    <p class="tiny" style="margin-top:20px">Persistent erection or ejaculation difficulties
+      can have medical causes. Education helps you ask better questions; it cannot replace evaluation.</p>
   </div>
 </section>
 
