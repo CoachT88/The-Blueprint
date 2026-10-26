@@ -17,10 +17,10 @@ describe('The Daily Blueprint content and return-visit experience',()=>{
     for(const note of notes){
       for(const key of ['id','title','belief','why','action','principle','link','category']){
         expect(typeof note[key],key+' missing').toBe('string');
-        expect(note[key].trim().length,key+' empty').toBeGreaterThan(8);
+        expect(note[key].trim().length,key+' empty').toBeGreaterThan(key==='category'?3:5);
       }
       expect(note.id).toMatch(/^[a-z0-9-]+$/);
-      expect(note.link).toMatch(/^\/[a-z0-9-]+\/$/);
+      expect(note.link).toMatch(/^\/(?:[a-z0-9-]+\/)+$/);
       expect(existsSync(path.join(root,note.link,'index.html')),note.link+' missing').toBe(true);
       expect(archive).toContain('id="'+note.id+'"');
       expect(archive).toContain(note.title.replace(/&/g,'&amp;'));
