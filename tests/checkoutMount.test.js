@@ -231,49 +231,32 @@ describe('the welcome page', () => {
         expect(s()).toMatch(/<link rel="canonical" href="https:\/\/theblueprint\.site\/welcome\/">/);
     });
 
-    test('THE SESSION ID IN THE URL GRANTS NOTHING', () => {
-        /* The webhook is the only thing that grants access. Trusting a query
-           parameter would let anyone unlock the app by typing one. */
+    test('AN UNVERIFIED RETURN PAGE MAKES NO PAYMENT OR ACCESS CLAIM', () => {
         const src = s();
-        expect(src, 'the page reads session_id').not.toMatch(/session_id/);
-        /* Stronger than before: outside the shared navigation block, which
-           carries the drawer script on every page, the welcome page has no
-           script of its own. So there is nothing on it that could read the
-           session id, browser storage, or entitlement state. */
-        const navStart = src.indexOf('<!-- SITE-NAV:START -->');
-        const navEnd = src.indexOf('<!-- SITE-NAV:END -->');
-        const own = src.slice(0, navStart) + src.slice(navEnd);
-        expect(own, 'the welcome page gained a script of its own')
-            .not.toMatch(/<script[\s>]/);
+        const html = visible(src);
+        expect(html).toMatch(/Checking your payment/);
+        expect(html).not.toMatch(/Payment received|Your payment is recorded/);
+        expect(src).not.toMatch(/localStorage\.(getItem|key|length)/);
+        expect(src).not.toMatch(/js\.stripe\.com|api\.stripe\.com/);
     });
 
-    test('it contacts no payment processor', () => {
-        expect(s()).not.toMatch(/js\.stripe\.com|api\.stripe\.com/);
-    });
-
-    test('IT NEVER CLAIMS ACCESS IS ACTIVE', () => {
-        /* It used to read localStorage for a bp_data_* key and, finding one,
-           announce "Everything is unlocked". That key exists for ANY account
-           that has ever signed in on the device, so on a shared or reused
-           browser it told someone they were in when they might not be. A
-           browser-local marker cannot know what the entitlement table says.
-           The page now states only that the payment arrived. */
-        const copy = visible(s());
-        for (const claim of [/unlocked/i, /you are in/i, /everything is/i,
-            /access is active/i, /you now have access/i]) {
-            expect(copy, `the page claims access: ${claim}`).not.toMatch(claim);
-        }
-        expect(s(), 'the page reads browser storage to decide')
-            .not.toMatch(/localStorage\.(getItem|key|length)/);
-        /* What it does say. */
-        expect(copy).toMatch(/Your payment is recorded/);
-        expect(copy).toMatch(/One step left/);
-        expect(copy).toMatch(/Nothing is lost if you close this page/);
-    });
-
-    test('and it names the different-address route without promising a typed claim', () => {
+    test('IT CHECKS SERVER-VERIFIED PAYMENT AND LEDGER BEFORE DISPLAYING SUCCESS', () => {
         const src = s();
-        expect(src).toMatch(/Paid with a different email address/);
-        expect(src).toMatch(/confirmed by email/);
+        expect(src).toContain('/api/checkout-status?session_id=');
+        expect(src).toContain("state==='verified'");
+        expect(src).toContain('Payment verified.');
+        expect(src).toContain('Payment not confirmed.');
+        expect(src).toContain('Payment verification pending.');
+        expect(src).toMatch(/fetch\('\/api\/checkout-status/);
+        expect(src).not.toMatch(/Everything is unlocked|you now have access/i);
     });
+
+    test('IT PROVIDES A SUPPORT PATH FOR INCOMPLETE OR DISPUTED PURCHASES', () => {
+        const src = s();
+        expect(src).toContain('do not pay again');
+        expect(src).toContain('/support/');
+        expect(src).toContain('/#get');
+        expect(src).toContain('no-referrer');
+    });
+
 });
