@@ -239,7 +239,7 @@ elsewhere.
 
 Appears once, after the education, as the same contextual block the guides
 use: the "Build a plan around your goals" heading, the five real features,
-the two calls to action, and `$49 one-time access.` It is skippable and it
+the two calls to action, and `$99 one-time access.` It is skippable and it
 is never the first thing on a result.
 
 ## Accessibility

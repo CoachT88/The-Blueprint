@@ -458,7 +458,14 @@ async function sessionBoughtOurPrice(env, sessionId) {
     {
       headers: {
         Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-        'Stripe-Version': '2025-09-30.clover',
+        /* Omitted unless STRIPE_API_VERSION is set, so the account's own
+           default applies. Pinning a version the account cannot serve would
+           fail every call, and the fields this code reads (mode,
+           payment_status, amount_subtotal, amount_total, currency,
+           payment_intent, client_reference_id, customer_details.email) have
+           been stable across versions for years. Set the variable only to
+           match a webhook endpoint deliberately pinned in the dashboard. */
+        ...(env.STRIPE_API_VERSION ? { 'Stripe-Version': env.STRIPE_API_VERSION } : {}),
       },
     });
   if (!res.ok) {

@@ -84,7 +84,14 @@ async function priceMatchesConfig(env) {
     `https://api.stripe.com/v1/prices/${encodeURIComponent(env.STRIPE_PRICE_ID)}`, {
       headers: {
         Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-        'Stripe-Version': '2025-09-30.clover',
+        /* Omitted unless STRIPE_API_VERSION is set, so the account's own
+           default applies. Pinning a version the account cannot serve would
+           fail every call, and the fields this code reads (mode,
+           payment_status, amount_subtotal, amount_total, currency,
+           payment_intent, client_reference_id, customer_details.email) have
+           been stable across versions for years. Set the variable only to
+           match a webhook endpoint deliberately pinned in the dashboard. */
+        ...(env.STRIPE_API_VERSION ? { 'Stripe-Version': env.STRIPE_API_VERSION } : {}),
       },
     });
   if (!res.ok) return { ok: false, why: `could not read the Price: HTTP ${res.status}` };
@@ -158,7 +165,7 @@ export async function onRequestPost({ request, env }) {
         'Content-Type': 'application/x-www-form-urlencoded',
         /* Pin the API version so a Stripe-side default change cannot alter
            the payload shape the webhook parses. */
-        'Stripe-Version': '2025-09-30.clover',
+        ...(env.STRIPE_API_VERSION ? { 'Stripe-Version': env.STRIPE_API_VERSION } : {}),
       },
       body: form.toString(),
     });

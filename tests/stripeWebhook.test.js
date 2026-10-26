@@ -436,10 +436,24 @@ describe('the session endpoint keeps the secret key and identity server-side', (
             .not.toMatch(/return json\(data/);
     });
 
-    test('the Stripe API version is pinned', () => {
-        /* So a Stripe-side default change cannot alter the payload shape the
-           webhook parses. */
-        expect(src()).toMatch(/'Stripe-Version':\s*'[\d-]+\.\w+'/);
+    test('THE API VERSION IS CONFIGURABLE, NEVER A HARDCODED PIN', () => {
+        /* It was pinned to a literal version. If the account cannot serve
+           that version every call fails, so the pin is now optional: the
+           header is sent only when STRIPE_API_VERSION is set, and otherwise
+           the account default applies.
+           The fields this code reads have been stable across versions for
+           years, which is why omitting it is safe. */
+        const s = src();
+        expect(s).toMatch(/env\.STRIPE_API_VERSION \? \{ 'Stripe-Version': env\.STRIPE_API_VERSION \} : \{\}/);
+        expect(s, 'a literal version is still hardcoded')
+            .not.toMatch(/'Stripe-Version':\s*'[\d]/);
+    });
+
+    test('and the webhook reads it the same way', () => {
+        const s = read('functions/api/stripe-webhook.js');
+        expect(s).toMatch(/env\.STRIPE_API_VERSION/);
+        expect(s, 'a literal version is still hardcoded')
+            .not.toMatch(/'Stripe-Version':\s*'[\d]/);
     });
 });
 

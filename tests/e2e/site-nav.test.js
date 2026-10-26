@@ -250,7 +250,7 @@ describe('the destinations load, and the page says where you are', () => {
 });
 
 describe('purchase and sign-in still work', () => {
-    test('the CTA reaches the $49 offer, which still says $49', async () => {
+    test('the CTA reaches the $99 offer, which still says $99', async () => {
         const page = await open(390);
         await page.click('.sn-in .sn-buy');
         await page.waitForTimeout(350);
@@ -262,7 +262,7 @@ describe('purchase and sign-in still work', () => {
         });
         expect(m.hash).toBe('#get');
         expect(m.offerExists).toBe(true);
-        expect(m.price.trim()).toBe('$49');
+        expect(m.price.trim()).toBe('$99');
         await page.close();
     }, 60_000);
 

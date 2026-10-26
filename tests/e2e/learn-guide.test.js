@@ -161,7 +161,7 @@ describe('the route to the guide and out of it', () => {
         await page.close();
     }, 60_000);
 
-    test('Explore The Blueprint reaches the offer page, which still says $49 once', async () => {
+    test('Explore The Blueprint reaches the offer page, which still says $99 once', async () => {
         const page = await open(390, GUIDE);
         await page.click('.actions .cta:not(.secondary)');
         await page.waitForLoadState('domcontentloaded');
@@ -171,7 +171,7 @@ describe('the route to the guide and out of it', () => {
             body: document.body.textContent.replace(/\s+/g, ' '),
         }));
         expect(m.path).toBe('/whats-inside/');
-        expect(m.body).toMatch(/\$49/);
+        expect(m.body).toMatch(/\$99/);
         await page.close();
     }, 60_000);
 
@@ -337,7 +337,7 @@ describe('every guide, driven', () => {
             expect(m.limits, 'no limits block on screen').toBe(true);
             expect(m.refs, 'too few references').toBeGreaterThanOrEqual(4);
             expect(m.related, 'no related guides').toBeGreaterThanOrEqual(2);
-            expect(m.price.trim()).toBe('$49 one-time access.');
+            expect(m.price.trim()).toBe('$99 one-time access.');
             expect(m.planLinks, 'the free plan links out').toBe(0);
             expect(m.bodyPx).toBeGreaterThanOrEqual(17);
             expect(m.bodyPx).toBeLessThanOrEqual(18);

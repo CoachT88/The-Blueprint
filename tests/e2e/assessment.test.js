@@ -219,7 +219,7 @@ describe('every result profile is reachable through the UI', () => {
                 .toBe(2);
             expect(t, 'no urgent signs list').toMatch(/See a doctor promptly if any of these apply/i);
             expect(t, 'no cannot-diagnose line').toMatch(/Five questions cannot diagnose/);
-            expect(t, 'no price').toContain('$49 one-time access.');
+            expect(t, 'no price').toContain('$99 one-time access.');
             await page.close();
         }, 60_000);
     }
