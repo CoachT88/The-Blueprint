@@ -221,6 +221,11 @@ header.bar{
   font-size:13px;font-weight:900;font-style:italic;letter-spacing:.06em;text-transform:uppercase;
   text-decoration:none;cursor:pointer;transition:transform .12s ease,filter .12s ease;
 }
+/* The purchase buttons use a CSS display value, which otherwise overrides
+   the browser's default [hidden] styling. A disabled Stripe button with no
+   text must never appear on the public page. When the checkout opt-in is
+   enabled, the same rule also hides Ko-fi after the script sets .hidden. */
+.btn[hidden]{display:none!important}
 .btn:hover{filter:brightness(1.08)}
 .btn:active{transform:translateY(1px)}
 .btn.ghost{
