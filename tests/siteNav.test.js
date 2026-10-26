@@ -23,7 +23,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
 const PAGES = [
-    'index.html', 'learn/index.html', 'last-longer/index.html',
+    'index.html', 'learn/index.html', 'daily/index.html', 'last-longer/index.html',
     'stronger-erections/index.html',
     'better-sexual-performance/index.html',
     'how-it-works/index.html', 'whats-inside/index.html', 'faq/index.html',
@@ -41,6 +41,7 @@ const PAGES = [
 
 /** Every destination the header offers, and where it must resolve. */
 const DESTINATIONS = [
+    ['/daily/', 'daily/index.html'],
     ['/last-longer/', 'last-longer/index.html'],
     ['/stronger-erections/', 'stronger-erections/index.html'],
     ['/better-sexual-performance/', 'better-sexual-performance/index.html'],
