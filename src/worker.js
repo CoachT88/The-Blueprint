@@ -26,6 +26,8 @@ import {
   onRequestPost as checkoutSessionPost,
 } from '../functions/api/create-checkout-session.js';
 
+import { onRequestGet as checkoutStatusGet } from '../functions/api/checkout-status.js';
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -72,6 +74,11 @@ export default {
       /* POST only. It creates a Stripe object, so it must not be reachable
          by a link, a prefetch, or a crawler. */
       if (request.method === 'POST') return checkoutSessionPost({ request, env });
+      return new Response('Method Not Allowed', { status: 405 });
+    }
+
+    if (url.pathname === '/api/checkout-status') {
+      if (request.method === 'GET') return checkoutStatusGet({ request, env });
       return new Response('Method Not Allowed', { status: 405 });
     }
 
