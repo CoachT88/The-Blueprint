@@ -87,10 +87,11 @@ describe('checkout return status never grants unpaid access', () => {
   test('Stripe paid and the paid purchase ledger agree', async () => {
     const urls = stub();
     const response = await onRequestGet({ request: request(), env: ENV });
-    expect((await response.json()).state).toBe('verified');
+    const body = await response.text();
+    expect(JSON.parse(body).state).toBe('verified');
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(urls.some(url => url.includes('/rest/v1/purchases?'))).toBe(true);
-    expect(await response.clone().text()).not.toContain('service-key');
+    expect(body).not.toContain('service-key');
   });
 
   test('refunded or disputed purchases are never verified', async () => {
