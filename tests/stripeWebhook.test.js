@@ -436,24 +436,118 @@ describe('the session endpoint keeps the secret key and identity server-side', (
             .not.toMatch(/return json\(data/);
     });
 
-    test('THE API VERSION IS CONFIGURABLE, NEVER A HARDCODED PIN', () => {
-        /* It was pinned to a literal version. If the account cannot serve
-           that version every call fails, so the pin is now optional: the
-           header is sent only when STRIPE_API_VERSION is set, and otherwise
-           the account default applies.
-           The fields this code reads have been stable across versions for
-           years, which is why omitting it is safe. */
-        const s = src();
-        expect(s).toMatch(/env\.STRIPE_API_VERSION \? \{ 'Stripe-Version': env\.STRIPE_API_VERSION \} : \{\}/);
-        expect(s, 'a literal version is still hardcoded')
-            .not.toMatch(/'Stripe-Version':\s*'[\d]/);
+    /* THE API VERSION IS CONFIGURABLE, NEVER A HARDCODED PIN.
+     *
+     * It was pinned to a literal version. If the account cannot serve that
+     * version, every call fails and checkout is dead, so the pin is now
+     * optional: the header is sent only when STRIPE_API_VERSION is set, and
+     * otherwise the account's own default applies. The fields these handlers
+     * read have been stable across versions for years, which is why omitting
+     * it is safe.
+     *
+     * Asserted on the headers Stripe actually receives, not on the source
+     * text. A regex over the file passed happily while a second, hardcoded
+     * header sat in another call site, which is the whole failure mode here.
+     */
+    const headersOf = (calls, match) => {
+        const call = calls.find(c => c.url.includes(match));
+        expect(call, `no request to ${match}`).toBeTruthy();
+        return new Headers(call.headers || {});
+    };
+
+    const runSession = async (env) => {
+        const calls = [];
+        const real = globalThis.fetch;
+        globalThis.fetch = async (url, opts = {}) => {
+            calls.push({ url: String(url), method: opts.method || 'GET', headers: opts.headers });
+            const ok = (j) => new Response(JSON.stringify(j),
+                { status: 200, headers: { 'content-type': 'application/json' } });
+            if (String(url).includes('/v1/prices/')) {
+                return ok({ unit_amount: 9900, currency: 'usd', active: true, type: 'one_time' });
+            }
+            return ok({ client_secret: 'cs_secret_value' });
+        };
+        try {
+            await createSession({
+                request: new Request('https://theblueprint.site/api/create-checkout-session',
+                    { method: 'POST' }),
+                env,
+            });
+            return calls;
+        } finally { globalThis.fetch = real; }
+    };
+
+    const SESSION_ENV = {
+        STRIPE_SECRET_KEY: 'sk_test_value',
+        STRIPE_PRICE_ID: 'price_configured',
+        STRIPE_PRICE_CENTS: '9900',
+        STRIPE_CURRENCY: 'usd',
+    };
+
+    test('NO VERSION IS SENT WHEN NONE IS CONFIGURED', async () => {
+        const calls = await runSession(SESSION_ENV);
+        for (const match of ['/v1/prices/', '/v1/checkout/sessions']) {
+            expect(headersOf(calls, match).get('Stripe-Version'),
+                `${match} pinned a version the account may not serve`).toBeNull();
+        }
     });
 
-    test('and the webhook reads it the same way', () => {
-        const s = read('functions/api/stripe-webhook.js');
-        expect(s).toMatch(/env\.STRIPE_API_VERSION/);
-        expect(s, 'a literal version is still hardcoded')
-            .not.toMatch(/'Stripe-Version':\s*'[\d]/);
+    test('and the configured version is the one sent, verbatim', async () => {
+        const calls = await runSession({ ...SESSION_ENV, STRIPE_API_VERSION: '2099-01-01.test' });
+        for (const match of ['/v1/prices/', '/v1/checkout/sessions']) {
+            expect(headersOf(calls, match).get('Stripe-Version')).toBe('2099-01-01.test');
+        }
+    });
+
+    const runWebhook = async (env) => {
+        const calls = [];
+        const real = globalThis.fetch;
+        globalThis.fetch = async (url, opts = {}) => {
+            const u = String(url);
+            calls.push({ url: u, method: opts.method || 'GET', headers: opts.headers });
+            const ok = (status, j) => new Response(status === 204 ? null : JSON.stringify(j),
+                { status, headers: { 'content-type': 'application/json' } });
+            if (u.includes('/line_items')) {
+                return ok(200, { data: [{ price: { id: 'price_configured' }, quantity: 1 }] });
+            }
+            if (u.includes('/rest/v1/payment_events')) {
+                return (opts.method || 'GET') === 'POST' ? ok(201, [{ id: 'e' }]) : ok(204);
+            }
+            if (u.includes('/rest/v1/')) return ok(201, []);
+            return ok(200, {});
+        };
+        const body = JSON.stringify({
+            id: 'evt_ver_' + Math.random().toString(36).slice(2),
+            type: 'checkout.session.completed', livemode: false,
+            data: { object: paidSession({ id: 'cs_ver' }) },
+        });
+        const { header } = await sign(body);
+        try {
+            await onRequestPost({
+                request: new Request('https://theblueprint.site/api/stripe-webhook', {
+                    method: 'POST', headers: { 'Stripe-Signature': header }, body,
+                }),
+                env,
+            });
+            return calls;
+        } finally { globalThis.fetch = real; }
+    };
+
+    const WEBHOOK_ENV = {
+        ...SESSION_ENV,
+        STRIPE_WEBHOOK_SECRET: SECRET,
+        STRIPE_LIVEMODE: 'false',
+        SUPABASE_URL: 'https://stub.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'service-role-stub',
+    };
+
+    test('and the webhook reads it the same way', async () => {
+        const unset = await runWebhook(WEBHOOK_ENV);
+        expect(headersOf(unset, '/line_items').get('Stripe-Version'),
+            'the webhook pinned a version the account may not serve').toBeNull();
+
+        const set = await runWebhook({ ...WEBHOOK_ENV, STRIPE_API_VERSION: '2099-01-01.test' });
+        expect(headersOf(set, '/line_items').get('Stripe-Version')).toBe('2099-01-01.test');
     });
 });
 
