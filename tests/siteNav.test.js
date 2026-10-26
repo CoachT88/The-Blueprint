@@ -41,6 +41,7 @@ const PAGES = [
 
 /** Every destination the header offers, and where it must resolve. */
 const DESTINATIONS = [
+    ['/daily/', 'daily/index.html'],
     ['/last-longer/', 'last-longer/index.html'],
     ['/stronger-erections/', 'stronger-erections/index.html'],
     ['/better-sexual-performance/', 'better-sexual-performance/index.html'],
