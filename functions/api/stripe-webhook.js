@@ -5,8 +5,11 @@
 // dispute. Modelled on functions/api/kofi-webhook.js, which is already
 // correct, so the two handlers behave the same way wherever they can.
 //
-// Required secrets (Cloudflare Pages -> Settings -> Variables and Secrets,
-// every one of them marked Encrypt):
+// Required secrets. Cloudflare -> Workers & Pages -> the-blueprint ->
+// Settings -> Variables and Secrets, every one of them marked Encrypt.
+// THE WORKER, NOT A PAGES PROJECT: wrangler.jsonc sets main to
+// src/worker.js, and that is what serves the site and routes to this file.
+// README-DEPLOY.md has the full table.
 //   SUPABASE_URL                - project URL
 //   SUPABASE_SERVICE_ROLE_KEY   - Supabase -> Project Settings -> API
 //   STRIPE_WEBHOOK_SECRET       - Stripe -> Developers -> Webhooks -> the

@@ -45,6 +45,18 @@ src/worker.js
 # separate decision about repository visibility, not an asset question.
 docs
 
+# The deployment runbook, served by accident for as long as it has existed.
+# It is the complete map of the Worker's variables: which exist, which are
+# secrets, where each one comes from in the Stripe and Supabase dashboards,
+# the Ko-fi product code, and what each endpoint does when one is missing.
+# Nothing on the site links to it, and it was reachable at
+# https://theblueprint.site/README-DEPLOY.md.
+#
+# Same vector as docs/ above, missed because the exclusions are named
+# individually and this is the only markdown file at the repository root.
+# tests/deployedAssets.test.js now names it so it cannot be missed again.
+README-DEPLOY.md
+
 # Tests and tooling, not site content. img/ is deliberately absent from this
 # list: the screenshots and the link-preview card have to be fetchable.
 tests

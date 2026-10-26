@@ -3,14 +3,27 @@
 // Exists so the secret key never reaches a browser. The page calls this, gets
 // back a client secret, and mounts Stripe's embedded Checkout with it.
 //
-// Required secrets (Cloudflare Pages -> Variables and Secrets, Encrypt):
-//   STRIPE_SECRET_KEY   - sk_test_... or sk_live_...
+// Required secrets. Cloudflare -> Workers & Pages -> the-blueprint ->
+// Settings -> Variables and Secrets, Encrypt. THE WORKER, NOT A PAGES
+// PROJECT. README-DEPLOY.md has the full table.
+//   STRIPE_SECRET_KEY   - sk_test_... or sk_live_...; a restricted key needs
+//                         Checkout Sessions write and Prices read here, and
+//                         Checkout Sessions read for the webhook
 //   STRIPE_PRICE_ID     - the Price object for the $99 one-time product
+//   STRIPE_PRICE_CENTS  - 9900. Checked against the live Price below, so a
+//                         dashboard change closes checkout rather than
+//                         charging an amount the webhook will refuse
 //   SUPABASE_URL        - to verify a signed-in buyer's token
-//   SUPABASE_ANON_KEY   - the public key, used only for the token check
+//   SUPABASE_ANON_KEY   - the public key, used only for the token check.
+//                         MISSING IT FAILS QUIETLY: checkout still works but
+//                         no client_reference_id is set, so the purchase
+//                         binds by email instead of to the account
 //
 // Optional:
-//   STRIPE_RETURN_URL   - defaults to https://theblueprint.site/welcome/
+//   STRIPE_CURRENCY     - defaults to usd
+//   STRIPE_API_VERSION  - sent only if set; see priceMatchesConfig below
+//   STRIPE_RETURN_URL   - defaults to
+//                         https://theblueprint.site/welcome/?session_id={CHECKOUT_SESSION_ID}
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,

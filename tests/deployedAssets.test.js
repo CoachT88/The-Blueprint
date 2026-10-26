@@ -115,6 +115,7 @@ describe('deployed assets cover what the browser imports', () => {
             'docs/assessment-logic.md',
             'docs/learning-centre-content-standard.md',
             'docs/stripe-launch-rollback.md',
+            'README-DEPLOY.md',
             'supabase/members-rls-hardening.sql',
             'functions/api/kofi-webhook.js',
             'tests/deployedAssets.test.js',
