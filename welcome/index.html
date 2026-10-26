@@ -497,42 +497,26 @@ body[data-sn-open="true"]{overflow:hidden}
 
   <h1>Payment received.</h1>
 
-  <!-- Three states, one at a time. The page starts in "checking" because
-       the entitlement is written by a server-to-server webhook that may
-       land before or after the browser gets here. -->
+  <!-- THIS PAGE NEVER CLAIMS ACCESS IS ACTIVE.
+       It used to look for a bp_data_* key in localStorage and, finding one,
+       announce "Everything is unlocked". That key exists for ANY account
+       that has ever signed in on the device, so on a shared or reused
+       browser it announced access to someone who may not have it. A
+       browser-local marker cannot know what the entitlement table says.
+       So the page states what it does know, which is that the payment
+       arrived, and sends him to the app. The app is the only thing that
+       reads the entitlement and the only thing entitled to say he is in. -->
 
-  <section id="w-checking" class="reading">
-    <p class="lead">Setting up your access now. This usually takes a few seconds.</p>
-    <p class="muted" aria-live="polite" id="w-checking-note">Checking&hellip;</p>
-  </section>
+  <section class="reading">
+    <p class="lead">Your payment is recorded against the email address you
+      paid with. One step left.</p>
 
-  <section id="w-ready" class="reading" hidden>
-    <p class="lead">You are in. Everything is unlocked.</p>
+    <h2>Finish setting up</h2>
+    <p>Open the app and sign in with that same address. If you have not set a
+      password yet, create one there and the app unlocks on sign-in.</p>
     <p><a class="cta" href="/app/">Open The Blueprint</a></p>
-    <p class="muted">Start with the first session. It explains itself as you go.</p>
-  </section>
-
-  <section id="w-signin" class="reading" hidden>
-    <h2>One step left</h2>
-    <p>Your purchase is saved against the email address you paid with. Create
-      your password with that same address and the app unlocks.</p>
-    <p><a class="cta" href="/app/">Create your password</a></p>
-    <p class="muted">Already have an account? Sign in with the address you paid
-      with and it unlocks on sign-in.</p>
-  </section>
-
-  <section id="w-slow" class="reading" hidden>
-    <h2>Your purchase is recorded</h2>
-    <!-- Deliberately not an error. The webhook is authoritative and has
-         almost certainly already run; the browser just cannot see it until
-         he signs in. Saying "something went wrong" here would be false and
-         would frighten someone who has just paid. -->
-    <p>Activation is taking longer than usual to show here. Nothing is lost.
-      Your payment is saved against the email address you used.</p>
-    <p><a class="cta" href="/app/">Sign in to finish</a></p>
-    <p class="muted">If the app still does not unlock, <a href="/support/">contact
-      support</a> with the email address you paid with and it will be sorted by
-      hand.</p>
+    <p class="muted">Nothing is lost if you close this page. Your purchase is
+      saved on our side, not in this browser, so you can finish on any device.</p>
   </section>
 
   <section class="reading">
@@ -552,68 +536,9 @@ body[data-sn-open="true"]{overflow:hidden}
   &copy; The Blueprint
 </div></footer>
 
-<script>
-/* Activation polling.
- *
- * The entitlement is written by functions/api/stripe-webhook.js, server to
- * server. It does not care whether this browser ever came back, which is
- * what makes an interrupted checkout safe: the tab can close, the phone can
- * die, the network can drop, and the row still exists.
- *
- * So this page is reassurance rather than mechanism. It asks
- * claim_membership() whether the signed-in account is attached yet, and if
- * nobody is signed in it says so instead of spinning forever.
- *
- * No Stripe script is loaded here. The session id in the URL is not read,
- * sent anywhere, or used to decide anything: the webhook is the only thing
- * that grants access, and trusting a query parameter would let anyone unlock
- * the app by typing one.
- */
-(function () {
-    'use strict';
-    var show = function (id) {
-        ['w-checking', 'w-ready', 'w-signin', 'w-slow'].forEach(function (s) {
-            var el = document.getElementById(s);
-            if (el) el.hidden = (s !== id);
-        });
-    };
-
-    var DEADLINE_MS = 20000;
-    var started = Date.now();
-    var tries = 0;
-
-    function note(text) {
-        var el = document.getElementById('w-checking-note');
-        if (el) el.textContent = text;
-    }
-
-    function poll() {
-        tries += 1;
-        /* The app page owns the Supabase client. This page has none, so it
-           asks the one place that can answer without credentials: it looks
-           for the sign-in marker the app leaves behind. Anything stronger
-           would mean shipping a second Supabase client and a second copy of
-           the auth logic to a page that exists for twenty seconds. */
-        var signedIn = false;
-        try {
-            for (var i = 0; i < localStorage.length; i++) {
-                var k = localStorage.key(i);
-                if (k && k.indexOf('bp_data_') === 0) { signedIn = true; break; }
-            }
-        } catch (e) { /* private window, blocked storage */ }
-
-        if (signedIn) { show('w-ready'); return; }
-
-        if (Date.now() - started > DEADLINE_MS) { show('w-slow'); return; }
-        if (tries > 2) { show('w-signin'); return; }
-
-        note('Checking' + new Array((tries % 3) + 2).join('.'));
-        setTimeout(poll, 2000);
-    }
-
-    show('w-checking');
-    setTimeout(poll, 1200);
-})();
-</script>
+<!-- No script. There is nothing for this page to decide: it does not read
+     the Stripe session id, it does not read browser storage, and it does not
+     evaluate entitlement. Removing the logic removed the only way it could
+     be wrong. -->
 </body>
 </html>

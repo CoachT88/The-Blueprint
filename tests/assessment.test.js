@@ -394,10 +394,10 @@ describe('the page behaves like the rest of the site', () => {
         }
     });
 
-    test('the price is $49 one-time, stated once, and the offer is last', () => {
+    test('the price is $99 one-time, stated once, and the offer is last', () => {
         const show = ownScript.match(/function show\(id\) \{([\s\S]*?)\n  \}/)[1];
-        expect((ownScript.match(/\$49/g) || []).length).toBe(1);
-        expect(show).toContain('$49 one-time access.');
+        expect((ownScript.match(/\$99/g) || []).length).toBe(1);
+        expect(show).toContain('$99 one-time access.');
         expect(show).toContain('Build a plan around your goals');
         expect(show).toMatch(/Everything suggested above is free and needs none of it/);
         /* Education first: the offer is appended after the actions, the

@@ -127,7 +127,7 @@ behavioural signal.
 - The app is an educational training tool. Every guide says, on the page,
   that it does not diagnose or treat, and that some causes require medical
   care. The footer of another page does not count.
-- The price is `$49 one-time access.`, stated once. `class="fig"` belongs to
+- The price is `$99 one-time access.`, stated once. `class="fig"` belongs to
   the home page's price figure and is not used anywhere else. No monthly or
   subscription language.
 

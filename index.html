@@ -223,8 +223,8 @@ header.bar{
 }
 /* The purchase buttons use a CSS display value, which otherwise overrides
    the browser's default [hidden] styling. A disabled Stripe button with no
-   text must never appear on the public page. When the checkout opt-in is
-   enabled, the same rule also hides Ko-fi after the script sets .hidden. */
+   text must never appear on the public page. The button is revealed by the
+   script once it has a label, which is the only state in which it works. */
 .btn[hidden]{display:none!important}
 .btn:hover{filter:brightness(1.08)}
 .btn:active{transform:translateY(1px)}
@@ -703,10 +703,10 @@ body[data-sn-open="true"]{overflow:hidden}
       one app.</b></p>
 
     <div class="btn-row">
-      <a class="btn" href="#get">Start The Blueprint, $49</a>
+      <a class="btn" href="#get">Start The Blueprint, $99</a>
       <a class="btn ghost" href="#inside">See what you train</a>
     </div>
-    <p class="purchase-assurance">$49 once &middot; No subscription &middot; Future app updates included</p>
+    <p class="purchase-assurance">$99 once &middot; No subscription &middot; Future app updates included</p>
 
     <div class="stampmark">Private. No one has to know.</div>
   </div>
@@ -1073,7 +1073,7 @@ body[data-sn-open="true"]{overflow:hidden}
 
     <div class="price">
       <div class="label">One-time payment</div>
-      <div class="fig" style="margin-top:8px">$49</div>
+      <div class="fig" style="margin-top:8px">$99</div>
       <p class="small" style="margin-top:10px">No subscription or recurring charges.
         Future app updates included at no extra cost.</p>
 
@@ -1086,22 +1086,33 @@ body[data-sn-open="true"]{overflow:hidden}
         <li><span>&rarr;</span> The coach, as many questions as you want</li>
       </ul>
 
+      <!-- Ko-fi is gone from the purchase path. It had become the worst of
+           both: the label said $99 and the link charged $49 for the old
+           product. Stripe is the only way to buy, and support@ is the only
+           fallback, because a fallback that charges the wrong amount is
+           worse than no fallback. -->
       <div class="btn-row" style="justify-content:center">
-        <a class="btn" id="buy-kofi" href="https://ko-fi.com/s/75a70cb698">Start The Blueprint, $49</a>
         <button class="btn" id="buy-onsite" type="button" hidden></button>
       </div>
-      <p class="tiny" style="margin-top:16px" id="buy-note-kofi">
-        You pay through Ko-fi, then sign in here with the same email address you paid with.
-      </p>
       <p class="tiny" style="margin-top:16px" id="buy-note-onsite" hidden>
         Pay here with Apple&nbsp;Pay, Google&nbsp;Pay or a card. Your card statement
         shows a neutral name, not the product.
       </p>
+      <noscript>
+        <p class="tiny" style="margin-top:16px">
+          Checkout needs JavaScript. If you would rather not enable it, email
+          <a href="mailto:Therealcoachtee@gmail.com?subject=The%20Blueprint">Therealcoachtee@gmail.com</a>
+          and a real person will set you up.
+        </p>
+      </noscript>
       <div id="checkout-mount" hidden style="margin-top:18px;min-height:320px"></div>
       <p class="tiny" id="checkout-error" hidden role="alert" style="margin-top:12px">
-        Checkout could not start. <strong id="checkout-diagnostic"></strong>
-        The Ko-fi link above still works, or email
-        <a href="mailto:Therealcoachtee@gmail.com?subject=The%20Blueprint">Therealcoachtee@gmail.com</a>.
+        Checkout could not start, and you have not been charged.
+        <strong id="checkout-diagnostic"></strong>
+        Try again, or email
+        <a href="mailto:Therealcoachtee@gmail.com?subject=The%20Blueprint%20checkout">Therealcoachtee@gmail.com</a>
+        and a real person will take your order by hand. Include the message
+        above if there is one.
       </p>
     </div>
 
@@ -1148,13 +1159,12 @@ body[data-sn-open="true"]{overflow:hidden}
 <script>
 /* ON-SITE CHECKOUT, OFF BY DEFAULT.
  *
- * Ko-fi stays the live purchase path until Stripe has been tested end to
- * end. This code changes nothing for a visitor unless the flag below is on,
- * which is what makes it safe to ship ahead of the switch.
+ * STRIPE IS THE ONLY PURCHASE PATH. Ko-fi has been removed from the page
+ * entirely, so there is no second button and no second price.
  *
- * Turn it on for one browser with ?checkout=1, or for everyone by setting
- * ON to true. Both buttons say the same price, so flipping the flag cannot
- * change what anyone is charged.
+ * ON is true. ?checkout=1 survives as a way to exercise the form while ON is
+ * false, and it grants nothing on its own because every verification runs
+ * server side.
  *
  * ---------------------------------------------------------------------------
  * STRIPE.JS IS LOADED ON CLICK, NEVER ON PAGE LOAD.
@@ -1174,16 +1184,26 @@ body[data-sn-open="true"]{overflow:hidden}
 (function () {
     'use strict';
 
-    var ON = false;                       // flip to true at the live switch
-    var PUBLISHABLE = 'pk_live_51UTwF5LaaDxdn1vbQDbZmMTnkzmIg4mt3jb1NqJIRLjQJEaw0OZ98k5r7hKoNeh2YZchHzczPYFTyD7ihOsmIPoO00BJBhuRbt';       // Public Stripe key. ON stays false; only ?checkout=1 opts in.                 // pk_live_... or pk_test_..., set at the switch
+    /* LIVE. Stripe is the only purchase path on this page.
+       Rollback is NOT setting this to false any more: the price copy now
+       says $99 everywhere and the Ko-fi product charges $49, so a flag flip
+       alone would leave the page advertising a price nothing honours. The
+       rollback is a revert of the whole merge, which restores the $49 copy
+       and the Ko-fi button together. See docs/stripe-launch-rollback.md. */
+    var ON = true;
+    /* The live publishable key. Public by design: it identifies the account
+       to Stripe.js and can do nothing on its own. The secret key lives only
+       in the Worker. Clearing this leaves checkout unavailable rather than
+       silently dead, which is the !enabled branch below. */
+    var PUBLISHABLE = 'pk_live_51UTwF5LaaDxdn1vbQDbZmMTnkzmIg4mt3jb1NqJIRLjQJEaw0OZ98k5r7hKoNeh2YZchHzczPYFTyD7ihOsmIPoO00BJBhuRbt';
     var SRC = 'https://js.stripe.com/basil/stripe.js';
 
-    /* THE PRICE THE ON-SITE BUTTON SHOWS.
+    /* THE PRICE THE BUTTON SHOWS. There is one price on this page now.
      *
-     * Separate from the Ko-fi button above on purpose. Ko-fi is the live
-     * offer at $49 and nothing here may change it. This is the Stripe price,
-     * which is $99 in test mode, and the two are different numbers until the
-     * live switch moves them together.
+     * The blanket $49 to $99 sweep rewrote this comment into a claim that
+     * Ko-fi was "the live offer at $99", which was never true of a product
+     * that charges $49. Ko-fi is gone; the sentence is replaced rather than
+     * patched.
      *
      * IT IS ONE OF FOUR THINGS THAT MUST AGREE, or the webhook refuses the
      * payment because the amount does not match:
@@ -1206,17 +1226,28 @@ body[data-sn-open="true"]{overflow:hidden}
     var params = new URLSearchParams(location.search);
     var enabled = (ON || params.get('checkout') === '1') && PUBLISHABLE;
 
-    var kofi = document.getElementById('buy-kofi');
     var onsite = document.getElementById('buy-onsite');
-    var noteKofi = document.getElementById('buy-note-kofi');
     var noteOnsite = document.getElementById('buy-note-onsite');
     var mount = document.getElementById('checkout-mount');
     var errEl = document.getElementById('checkout-error');
 
-    if (!enabled || !onsite) return;      // nothing changes, Ko-fi stands
+    if (!onsite) return;
 
-    kofi.hidden = true;
-    noteKofi.hidden = true;
+    /* NO SILENT DEAD END. Ko-fi used to be the fallback, so a disabled flag
+       simply left it in place. It is gone, so a disabled or misconfigured
+       checkout would leave the price block with no way to buy at all. Show
+       the support route instead. */
+    if (!enabled) {
+        if (errEl) {
+            var d0 = document.getElementById('checkout-diagnostic');
+            if (d0) d0.textContent = PUBLISHABLE
+                ? 'Checkout is switched off right now.'
+                : 'Checkout is not configured right now.';
+            errEl.hidden = false;
+        }
+        return;
+    }
+
     onsite.textContent = BUY_TEXT;
     onsite.hidden = false;
     noteOnsite.hidden = false;
@@ -1234,12 +1265,17 @@ body[data-sn-open="true"]{overflow:hidden}
                 : message === 'no client secret' ? 'Checkout server returned an incomplete session.'
                 : 'Stripe payment form could not initialize.';
         }
-        /* Always leave a way to pay. A broken checkout must not become a
-           dead end for someone who wants to buy. */
+        /* Always leave a way to pay, and never a way to pay the wrong
+           amount. The old fallback revealed the Ko-fi button, which now
+           charges $49 against a $99 page, so the fallback is support and the
+           button becomes retryable instead. */
         if (errEl) errEl.hidden = false;
-        if (kofi) kofi.hidden = false;
-        if (noteKofi) noteKofi.hidden = false;
-        if (onsite) { onsite.disabled = false; onsite.textContent = BUY_TEXT; }
+        if (onsite) {
+            onsite.disabled = false;
+            onsite.textContent = 'Try again, ' + PRICE_LABEL;
+            onsite.hidden = false;
+        }
+        if (mount) mount.hidden = true;
     }
 
     var loading = null;

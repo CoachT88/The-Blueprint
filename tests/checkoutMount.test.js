@@ -82,149 +82,118 @@ describe('Stripe is contacted on click, never on page load', () => {
     });
 });
 
-describe('Ko-fi keeps working', () => {
+describe('Stripe is the only purchase path', () => {
     const s = () => read('index.html');
 
     test('hidden purchase buttons never render as empty blue buttons', () => {
-        const html = s();
-        /* .btn uses display:inline-flex, which overrides the user-agent
-           [hidden] default unless the page explicitly restores it. */
-        expect(html).toMatch(/\.btn\s*\{\s*display:inline-flex/);
-        expect(html).toMatch(/\.btn\[hidden\]\s*\{\s*display:none!important\s*\}/);
-        expect(html).toMatch(/id="buy-onsite"[^>]*\bhidden\b/);
-        expect(html).toContain('kofi.hidden = true;');
+        /* The button carries no label in the markup, so it must stay hidden
+           until the script gives it one. */
+        expect(s()).toMatch(/\.btn\[hidden\]\{display:none!important\}/);
+        expect(s()).toMatch(/<button class="btn" id="buy-onsite" type="button" hidden><\/button>/);
     });
 
-    test('THE FLAG IS OFF, SO THE LIVE PAGE IS UNCHANGED', () => {
-        expect(s()).toMatch(/var ON = false;/);
+    test('THE CHECKOUT IS LIVE', () => {
+        expect(s()).toMatch(/var ON = true;/);
     });
 
-    test('live publishable key is public, but Ko-fi remains the default path', () => {
-        /* The public key is not a server credential. Only an explicit
-           ?checkout=1 query opts into the Stripe UI while ON stays false. */
+    test('and the publishable key is present', () => {
+        /* A publishable key is public by design. `enabled` also requires it,
+           so an empty one would gate checkout even with ON true. */
         expect(s()).toMatch(/var PUBLISHABLE = 'pk_live_[A-Za-z0-9]+'/);
-        expect(s()).toMatch(/var ON = false;/);
-        expect(s()).toContain("params.get('checkout') === '1'");
-        expect(s()).toMatch(/var enabled = \(ON \|\| params\.get\('checkout'\) === '1'\) && PUBLISHABLE;/);
-        expect(s()).not.toMatch(/sk_live_[A-Za-z0-9]{10}/);
-        expect(s()).not.toMatch(/rk_live_[A-Za-z0-9]{10}/);
-        expect(s()).not.toMatch(/whsec_[A-Za-z0-9]{10}/);
     });
 
-    test('the Ko-fi link and its product code are still on the page', () => {
-        expect(s()).toContain('https://ko-fi.com/s/75a70cb698');
+    test('NO KO-FI PURCHASE PATH REMAINS ANYWHERE', () => {
+        /* The reason this is absolute: after the price sweep the Ko-fi
+           button read $99 and the Ko-fi product charges $49. A surviving
+           link would sell the old price from a page advertising the new one. */
+        for (const f of ['index.html', 'how-it-works/index.html', 'whats-inside/index.html',
+            'faq/index.html', 'support/index.html', 'app/index.html']) {
+            expect(read(f), `${f} still links a Ko-fi product`)
+                .not.toMatch(/ko-fi\.com\/s\//);
+        }
+        expect(s(), 'the Ko-fi button is still in the markup')
+            .not.toMatch(/id="buy-kofi"/);
+    });
+
+    test('THE IN-APP PURCHASE LINK POINTS AT THIS SITE', () => {
+        /* app/index.html shows a buy link to a signed-in non-member. It used
+           to point at the Ko-fi product. */
+        const app = read('app/index.html');
+        expect(app).toMatch(/const BUY_URL='https:\/\/theblueprint\.site\/#get'/);
+        expect(app, 'KOFI_URL survives in the app').not.toMatch(/KOFI_URL/);
+    });
+
+    test('A FAILED CHECKOUT GIVES A SUPPORT PATH, NOT A WRONG PRICE', () => {
+        const fn = s().slice(s().indexOf('function fail(e)'), s().indexOf('var loading'));
+        expect(fn, 'the failure path reveals Ko-fi again').not.toMatch(/kofi/i);
+        expect(fn).toMatch(/errEl\.hidden = false/);
+        /* The button becomes retryable rather than vanishing. */
+        expect(fn).toMatch(/Try again/);
+        const copy = visible(s());
+        expect(copy).toMatch(/you have not been charged/);
+        expect(copy).toMatch(/Therealcoachtee@gmail\.com/);
     });
 
     test('failed checkout displays an actionable, sanitized diagnostic', () => {
-        const html = s();
-        expect(html).toContain('id="checkout-error" hidden role="alert"');
-        expect(html).toContain('id="checkout-diagnostic"');
-        expect(html).toContain('function fail(e)');
-        expect(html).toContain('Checkout server returned HTTP ');
-        expect(html).toContain('Stripe payment script could not load.');
-        expect(html).toContain('fail(e);');
-        /* Don't render upstream Stripe/API error bodies in a buyer's page. */
-        expect(html).not.toMatch(/detail\.textContent\s*=\s*(?:message|e\.message)/);
-        expect(html).toMatch(/var ON = false;/);
-    });
-
-    test('A FAILED CHECKOUT RESTORES THE KO-FI PATH', () => {
-        /* A broken checkout must not be a dead end for someone who wants to
-           buy. */
         const fn = s().slice(s().indexOf('function fail(e)'), s().indexOf('var loading'));
-        expect(fn).toMatch(/kofi\.hidden = false/);
-        expect(fn).toMatch(/noteKofi\.hidden = false/);
+        for (const m of ['Checkout server returned HTTP', 'Stripe payment script could not load',
+            'did not initialize', 'incomplete session']) {
+            expect(fn, `no diagnostic for: ${m}`).toContain(m);
+        }
+        expect(fn, 'a raw error body could reach the page').not.toMatch(/JSON\.stringify/);
     });
 
-    test('THE LIVE KO-FI OFFER IS STILL $49 EVERYWHERE IT APPEARS', () => {
-        /* Pricing is not approved to change. tests/siteNav.test.js locks the
-           headline figure; this locks every price written in the markup
-           alongside it. The on-site button carries no price in the markup at
-           all, so it cannot appear here. */
-        const figs = [...s().matchAll(/class="fig"[^>]*>([^<]+)</g)].map(m => m[1].trim());
-        expect(figs).toEqual(['$49']);
-        const written = [...s().matchAll(/Start The Blueprint, (\$\d+)/g)].map(m => m[1]);
-        expect(written.length, 'no Ko-fi CTA carries a price').toBeGreaterThanOrEqual(1);
-        expect([...new Set(written)], `markup prices disagree: ${written.join(', ')}`)
-            .toEqual(['$49']);
-    });
-
-    test('THE ON-SITE BUTTON TAKES ITS PRICE FROM ONE SOURCE', () => {
-        /* The Stripe price is $99 in test mode while Ko-fi stays $49. The
-           button must therefore not carry a hardcoded figure, and must not
-           carry the Ko-fi one. */
+    test('A DISABLED OR UNCONFIGURED CHECKOUT IS NOT A SILENT DEAD END', () => {
+        /* Ko-fi was the fallback, so a disabled flag used to leave a working
+           button. With Ko-fi gone, nothing would be shown at all. */
         const src = s();
-        expect(src, 'the on-site button hardcodes a price in the markup')
-            .toMatch(/<button class="btn" id="buy-onsite" type="button" hidden><\/button>/);
-        expect(src).toMatch(/var PRICE_LABEL = '\$\d+';/);
+        expect(src).toMatch(/if \(!enabled\) \{/);
+        expect(src).toMatch(/Checkout is switched off right now/);
+        expect(src).toMatch(/Checkout is not configured right now/);
+    });
+
+    test('and a visitor without JavaScript is given a route', () => {
+        expect(s()).toMatch(/<noscript>/);
+        expect(visible(s())).toMatch(/Checkout needs JavaScript/);
+    });
+
+    test('THE PRICE IS $99 EVERYWHERE IT APPEARS', () => {
+        const figs = [...s().matchAll(/class="fig"[^>]*>([^<]+)</g)].map(m => m[1].trim());
+        expect(figs).toEqual(['$99']);
+        /* Asserted on what a visitor reads. The source still says $49 in a
+           comment explaining what the retired Ko-fi product charges, and
+           that sentence is the reason the link had to go. */
+        const copy = visible(s());
+        expect(copy, 'an old price is shown to a visitor').not.toMatch(/\$49/);
+        const ctas = [...copy.matchAll(/Start The Blueprint, (\$\d+)/g)].map(m => m[1]);
+        for (const c of ctas) expect(c).toBe('$99');
+    });
+
+    test('THE BUTTON TAKES ITS PRICE FROM ONE SOURCE', () => {
+        const src = s();
+        expect(src).toMatch(/var PRICE_LABEL = '\$99';/);
         expect(src).toMatch(/var BUY_TEXT = 'Start The Blueprint, ' \+ PRICE_LABEL;/);
-        /* Both the reveal and the failure reset read BUY_TEXT, so there is
-           no second place a price can be typed. A transient label such as
-           "Opening..." is fine; a price written inline is not. */
         const sets = [...src.matchAll(/onsite\.textContent = ([^;]+);/g)].map(m => m[1].trim());
-        expect(sets.filter(v => v === 'BUY_TEXT').length,
-            'the button label is not driven from BUY_TEXT in both places')
-            .toBeGreaterThanOrEqual(2);
+        expect(sets.length).toBeGreaterThanOrEqual(2);
         for (const v of sets) {
             expect(v, `a price is written straight into the button: ${v}`)
                 .not.toMatch(/\$\d/);
         }
     });
 
-    test('THE ON-SITE PRICE IS THE STRIPE PRICE, NOT THE KO-FI PRICE', () => {
-        const label = s().match(/var PRICE_LABEL = '(\$\d+)';/);
-        expect(label).not.toBeNull();
-        expect(label[1], 'PRICE_LABEL matches Ko-fi, so the Stripe price is wrong here')
-            .toBe('$99');
-    });
-
     test('and the four-way amount coupling is written down', () => {
-        /* Page label, Stripe Price, STRIPE_PRICE_CENTS and the headline
-           figure must agree or the webhook refuses the payment. A refusal is
-           the safe failure and still a dead checkout, so the next person
-           needs to know they move together. */
+        expect(s()).toMatch(/STRIPE_PRICE_CENTS/);
+        expect(s()).toMatch(/FOUR THINGS THAT MUST AGREE/);
+    });
+
+    test('NO STALE CLAIM THAT KO-FI IS THE LIVE PATH', () => {
+        /* The price sweep turned one comment into "Ko-fi is the live offer at
+           $99", which was never true of a product charging $49. A file that
+           lies about its own state is how the next person gets it wrong. */
         const src = s();
-        expect(src).toMatch(/STRIPE_PRICE_CENTS/);
-        expect(src).toMatch(/FOUR THINGS THAT MUST AGREE/);
-    });
-
-    test('THE PAGE PROMISES TAX HANDLING ONLY IF THE CODE DOES IT', () => {
-        /* The Price carries tax_behavior=exclusive, which means tax would be
-           added on top of $99. But the session endpoint does not set
-           automatic_tax, so no tax is calculated or collected, and a note
-           saying tax "is shown before you confirm" was a promise the system
-           does not keep.
-           Asserted as a coupling rather than as fixed copy, so the two
-           cannot drift apart: enable automatic_tax and the note must gain
-           the sentence; leave it off and the note must not claim it. */
-        const copy = visible(s());
-        const endpoint = read('functions/api/create-checkout-session.js');
-        const taxOn = /automatic_tax/.test(endpoint);
-        const claimsTax = /\btax\b|\bVAT\b/i.test(copy);
-
-        if (taxOn) {
-            expect(claimsTax,
-                'automatic_tax is enabled but the page tells nobody tax is added')
-                .toBe(true);
-        } else {
-            expect(claimsTax,
-                'the page promises tax handling while automatic_tax is off')
-                .toBe(false);
-        }
-
-        /* Either way the button itself must not claim a total it cannot
-           compute, since tax depends on the buyer's location. */
-        expect(s(), 'the button text claims a tax-inclusive total')
-            .not.toMatch(/BUY_TEXT[^;]*tax/i);
-    });
-
-    test('and the webhook compares the PRE-TAX amount', () => {
-        /* tax_behavior=exclusive puts tax on top of the price, so
-           amount_total exceeds it and comparing the total would refuse every
-           taxed purchase the moment automatic_tax is switched on. */
-        const hook = read('functions/api/stripe-webhook.js');
-        expect(hook).toMatch(/session\.amount_subtotal/);
-        expect(hook).toMatch(/amount_subtotal[\s\S]{0,80}amount_total/);
+        expect(src).not.toMatch(/Ko-fi stands/);
+        expect(src).not.toMatch(/Ko-fi is the live/);
+        expect(src).not.toMatch(/Ko-fi stays the live purchase path/);
     });
 });
 
@@ -266,29 +235,40 @@ describe('the welcome page', () => {
         /* The webhook is the only thing that grants access. Trusting a query
            parameter would let anyone unlock the app by typing one. */
         const src = s();
-        expect(src, 'the page reads session_id').not.toMatch(/get\(['"]session_id/);
-        expect(src, 'the page uses the session id to decide something')
-            .not.toMatch(/session_id/);
-        /* Matched loosely because the sentence wraps across comment lines. */
-        expect(src).toMatch(/is not read[\s\S]{0,60}used to decide anything/);
+        expect(src, 'the page reads session_id').not.toMatch(/session_id/);
+        /* Stronger than before: outside the shared navigation block, which
+           carries the drawer script on every page, the welcome page has no
+           script of its own. So there is nothing on it that could read the
+           session id, browser storage, or entitlement state. */
+        const navStart = src.indexOf('<!-- SITE-NAV:START -->');
+        const navEnd = src.indexOf('<!-- SITE-NAV:END -->');
+        const own = src.slice(0, navStart) + src.slice(navEnd);
+        expect(own, 'the welcome page gained a script of its own')
+            .not.toMatch(/<script[\s>]/);
     });
 
     test('it contacts no payment processor', () => {
         expect(s()).not.toMatch(/js\.stripe\.com|api\.stripe\.com/);
     });
 
-    test('a slow activation is not presented as an error', () => {
-        /* The webhook is authoritative and has almost certainly already
-           run. Saying something went wrong would be false and would
-           frighten someone who has just paid. */
+    test('IT NEVER CLAIMS ACCESS IS ACTIVE', () => {
+        /* It used to read localStorage for a bp_data_* key and, finding one,
+           announce "Everything is unlocked". That key exists for ANY account
+           that has ever signed in on the device, so on a shared or reused
+           browser it told someone they were in when they might not be. A
+           browser-local marker cannot know what the entitlement table says.
+           The page now states only that the payment arrived. */
         const copy = visible(s());
-        expect(copy).toMatch(/Your purchase is recorded/);
-        expect(copy).toMatch(/Nothing is lost/);
-        /* Asserted on the visible copy. The source comment explains the rule
-           using the exact words the copy must avoid, so checking the source
-           failed on the explanation rather than on the page. */
-        expect(copy, 'the slow path claims a failure')
-            .not.toMatch(/went wrong|something failed|error occurred/i);
+        for (const claim of [/unlocked/i, /you are in/i, /everything is/i,
+            /access is active/i, /you now have access/i]) {
+            expect(copy, `the page claims access: ${claim}`).not.toMatch(claim);
+        }
+        expect(s(), 'the page reads browser storage to decide')
+            .not.toMatch(/localStorage\.(getItem|key|length)/);
+        /* What it does say. */
+        expect(copy).toMatch(/Your payment is recorded/);
+        expect(copy).toMatch(/One step left/);
+        expect(copy).toMatch(/Nothing is lost if you close this page/);
     });
 
     test('and it names the different-address route without promising a typed claim', () => {

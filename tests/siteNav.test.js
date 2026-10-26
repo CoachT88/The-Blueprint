@@ -110,11 +110,11 @@ describe('every destination the header offers actually exists', () => {
 });
 
 describe('what this change must not break', () => {
-    test('THE PRICE IS STILL $49, STATED ONCE AS THE PRICE', () => {
+    test('THE PRICE IS STILL $99, STATED ONCE AS THE PRICE', () => {
         const html = read('index.html');
         const figs = [...html.matchAll(/class="fig"[^>]*>([^<]+)</g)].map(m => m[1].trim());
-        expect(figs).toEqual(['$49']);
-        expect(html).toMatch(/\$49 once/);
+        expect(figs).toEqual(['$99']);
+        expect(html).toMatch(/\$99 once/);
         expect(html).toMatch(/No subscription/);
         expect(html).toMatch(/Future app updates included/);
     });

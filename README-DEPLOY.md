@@ -23,10 +23,46 @@ name the missing variable.
 | `KOFI_ACCEPTED_TYPES` | Optional | `/api/kofi-webhook` | Comma-separated Ko-fi event types that grant access. Defaults to `Shop Order` |
 | `KOFI_PRODUCT_CODE` | Optional | `/api/kofi-webhook` | The shop item that IS The Blueprint. Defaults to `75a70cb698`, the code in the checkout link. A verified order whose product cannot be matched is refused, so this is the value to change if the shop item is ever recreated. `KOFI_SHOP_ITEM_CODE` is still read as an alias |
 
-`SUPABASE_ANON_KEY` is no longer used. Coach Tee used to ask Supabase over
+Coach Tee no longer uses `SUPABASE_ANON_KEY`. It used to ask Supabase over
 HTTP who a token belonged to, which meant a wrong anon key and an invalid
 token produced the same 401 and were answered the same way. Tokens are
-verified locally now, so that ambiguity is gone and the anon key with it.
+verified locally now, so that ambiguity is gone.
+
+**The anon key is needed again, for checkout.** See the Stripe table below:
+without it a signed-in buyer's purchase is not bound to their account.
+
+## Variables Stripe checkout needs
+
+Same place, same Worker. These are what the launch added.
+
+| Name | Kind | Used by | Notes |
+|---|---|---|---|
+| `STRIPE_SECRET_KEY` | **Secret** | both Stripe endpoints | A restricted key is enough and is what to use. It needs **Checkout Sessions: write** to create a session, **Checkout Sessions: read** because the webhook fetches `line_items` to prove the buyer bought our Price, and **Prices: read** for the pre-flight. Nothing else — not Customers, Charges or Refunds write |
+| `STRIPE_WEBHOOK_SECRET` | **Secret** | `/api/stripe-webhook` | Stripe → Webhooks → the endpoint → signing secret, one `whsec_` value. Without it the webhook returns **503** and refuses every request rather than accepting forgeries. During a secret roll Stripe sends several `v1=` signatures in one header and the handler accepts any that verifies, so the window is survivable, but the variable itself still has to be updated |
+| `STRIPE_PRICE_ID` | Secret | both | The Price object for the $99 one-time product. The webhook grants access **only** for this Price |
+| `STRIPE_PRICE_CENTS` | Secret | both | `9900`. Checked against the live Price before a session opens, so a dashboard price change closes checkout instead of charging an amount the webhook will refuse |
+| `STRIPE_CURRENCY` | Optional | both | Defaults to `usd` |
+| `STRIPE_LIVEMODE` | Secret | `/api/stripe-webhook` | `true` on production. A test-mode event arriving at a live endpoint, or the reverse, is rejected with 401 and nothing is written |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | `/api/stripe-webhook` | Already above for coach-tee and ko-fi. The webhook writes `purchases`, `members` and `payment_events` with it |
+| `SUPABASE_URL` | **Required here** | both Stripe endpoints | Optional for coach-tee, required for these. The session endpoint verifies the buyer's token against it; the webhook writes through it |
+| `SUPABASE_ANON_KEY` | **Required here** | `/api/create-checkout-session` | Public, and already in the page source. Used only to ask Supabase to verify a buyer's access token. **A missing anon key does not fail loudly:** checkout still works, but `identifyBuyer` returns nulls, no `client_reference_id` is set, and the purchase binds by email instead of to the account. Set it |
+| `STRIPE_API_VERSION` | Optional | both | Sent as `Stripe-Version` **only if set**. Set it only to match a webhook endpoint deliberately pinned in the dashboard; leave it unset to use the account default. Pinning a version the account cannot serve fails every call |
+| `STRIPE_RETURN_URL` | Optional | `/api/create-checkout-session` | Defaults to `https://theblueprint.site/welcome/?session_id={CHECKOUT_SESSION_ID}` |
+
+The browser never sees any of these. The publishable `pk_live_` key in
+`index.html` is public by design and can do nothing on its own.
+
+**The buyer's identity never comes from the request body.**
+`client_reference_id` decides which account an entitlement attaches to, so a
+caller who could name it could attach someone else's purchase to their own
+account. It is read from a Supabase-verified access token or not at all.
+
+**Nothing about anyone's health goes to Stripe.** The only metadata sent is
+`metadata[product]=blueprint`: no assessment answers, no measurements, no
+session history, no photographs.
+
+Rollback for the Stripe launch is `docs/stripe-launch-rollback.md`. It is a
+revert of the launch merge, not a flag flip.
 
 ## What each Coach Tee failure means
 
