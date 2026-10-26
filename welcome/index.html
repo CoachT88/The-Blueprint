@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Payment received | The Blueprint</title>
-<meta name="description" content="Your purchase is recorded. Set a password and start training.">
+<title>Finish setup | The Blueprint</title>
+<meta name="description" content="Check your payment status and sign in to your account.">
 <!-- Not for a search engine. This page only means something to someone who
      just paid, and its URL carries a Stripe session id. -->
 <meta name="robots" content="noindex, nofollow">
@@ -495,7 +495,7 @@ body[data-sn-open="true"]{overflow:hidden}
 <main class="wrap">
   <p class="crumb"><a href="/">The Blueprint</a> / Welcome</p>
 
-  <h1>Payment received.</h1>
+  <h1>Finish your checkout.</h1>
 
   <!-- THIS PAGE NEVER CLAIMS ACCESS IS ACTIVE.
        It used to look for a bp_data_* key in localStorage and, finding one,
@@ -508,24 +508,17 @@ body[data-sn-open="true"]{overflow:hidden}
        reads the entitlement and the only thing entitled to say he is in. -->
 
   <section class="reading">
-    <p class="lead">Your payment is recorded against the email address you
-      paid with. One step left.</p>
+    <p class="lead">Your payment is not confirmed on this page. Check your payment status with Stripe before expecting new access.</p>
 
     <h2>Finish setting up</h2>
-    <p>Open the app and sign in with that same address. If you have not set a
-      password yet, create one there and the app unlocks on sign-in.</p>
+    <p>If you already have access, sign in with your account. If you attempted a new purchase, verify that Stripe confirms your payment before expecting the app to unlock.</p>
     <p><a class="cta" href="/app/">Open The Blueprint</a></p>
-    <p class="muted">Nothing is lost if you close this page. Your purchase is
-      saved on our side, not in this browser, so you can finish on any device.</p>
+    <p class="muted">A return to this page does not prove a payment succeeded. If you were declined or interrupted, retry checkout or contact support.</p>
   </section>
 
   <section class="reading">
-    <h2>Paid with a different email address?</h2>
-    <p>That happens, especially with a wallet. Access is tied to the address on
-      the payment, so <a href="/support/">send support</a> both addresses and it
-      will be moved across. For your protection the move is confirmed by email
-      to the paying address, so nobody else can claim your purchase by typing
-      it.</p>
+    <h2>Questions about your payment?</h2>
+    <p>If Stripe confirms your payment but access is missing, <a href="/support/">contact support</a> with the email address used at checkout. Never send card numbers or passwords.</p>
   </section>
 </main>
 
