@@ -115,6 +115,19 @@ describe('Ko-fi keeps working', () => {
         expect(s()).toContain('https://ko-fi.com/s/75a70cb698');
     });
 
+    test('failed checkout displays an actionable, sanitized diagnostic', () => {
+        const html = s();
+        expect(html).toContain('id="checkout-error" hidden role="alert"');
+        expect(html).toContain('id="checkout-diagnostic"');
+        expect(html).toContain('function fail(e)');
+        expect(html).toContain('Checkout server returned HTTP ');
+        expect(html).toContain('Stripe payment script could not load.');
+        expect(html).toContain('fail(e);');
+        /* Don't render upstream Stripe/API error bodies in a buyer's page. */
+        expect(html).not.toMatch(/detail\.textContent\s*=\s*(?:message|e\.message)/);
+        expect(html).toMatch(/var ON = false;/);
+    });
+
     test('A FAILED CHECKOUT RESTORES THE KO-FI PATH', () => {
         /* A broken checkout must not be a dead end for someone who wants to
            buy. */
