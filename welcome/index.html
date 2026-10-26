@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Finish setup | The Blueprint</title>
-<meta name="description" content="Check your payment status and sign in to your account.">
-<!-- Not for a search engine. This page only means something to someone who
-     just paid, and its URL carries a Stripe session id. -->
+<meta name="description" content="Check your Stripe payment and Blueprint membership status.">
+<!-- Noindex: checkout status URLs carry unguessable Stripe session IDs. -->
 <meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
 <link rel="canonical" href="https://theblueprint.site/welcome/">
 <style>
 /* GUIDE-CSS:START */
@@ -493,34 +493,82 @@ body[data-sn-open="true"]{overflow:hidden}
 <!-- SITE-NAV:END -->
 
 <main class="wrap">
-  <p class="crumb"><a href="/">The Blueprint</a> / Welcome</p>
+  <p class="crumb"><a href="/">The Blueprint</a> / Checkout status</p>
+  <h1 id="payment-heading">Checking your payment...</h1>
 
-  <h1>Finish your checkout.</h1>
-
-  <!-- THIS PAGE NEVER CLAIMS ACCESS IS ACTIVE.
-       It used to look for a bp_data_* key in localStorage and, finding one,
-       announce "Everything is unlocked". That key exists for ANY account
-       that has ever signed in on the device, so on a shared or reused
-       browser it announced access to someone who may not have it. A
-       browser-local marker cannot know what the entitlement table says.
-       So the page states what it does know, which is that the payment
-       arrived, and sends him to the app. The app is the only thing that
-       reads the entitlement and the only thing entitled to say he is in. -->
-
-  <section class="reading">
-    <p class="lead">Your payment is not confirmed on this page. Check your payment status with Stripe before expecting new access.</p>
-
-    <h2>Finish setting up</h2>
-    <p>If you already have access, sign in with your account. If you attempted a new purchase, verify that Stripe confirms your payment before expecting the app to unlock.</p>
-    <p><a class="cta" href="/app/">Open The Blueprint</a></p>
-    <p class="muted">A return to this page does not prove a payment succeeded. If you were declined or interrupted, retry checkout or contact support.</p>
+  <section class="reading" aria-live="polite">
+    <p class="lead" id="payment-message" role="status">A return from Stripe is not proof that payment succeeded. We are verifying your session with Stripe and our purchase records.</p>
+    <p><a class="cta" id="payment-next" href="/#get">Return to checkout</a></p>
+    <p id="payment-help">If you already owned The Blueprint, your existing membership remains available. <a href="/app/">Sign in to your account</a>.</p>
   </section>
 
   <section class="reading">
-    <h2>Questions about your payment?</h2>
-    <p>If Stripe confirms your payment but access is missing, <a href="/support/">contact support</a> with the email address used at checkout. Never send card numbers or passwords.</p>
+    <h2>Need help?</h2>
+    <p>If your bank shows a payment but the status is still pending, do not pay again. <a href="/support/">Contact support</a> with the email address you used at checkout. Never send your card details or password.</p>
   </section>
 </main>
+
+<script>
+/* An untrusted return URL cannot declare success. This endpoint reads
+   Stripe's live session AND the server-side purchase ledger. Neither
+   browser storage nor a query string can grant access to the app. */
+(function(){
+  var heading=document.getElementById('payment-heading');
+  var message=document.getElementById('payment-message');
+  var next=document.getElementById('payment-next');
+  var id=new URLSearchParams(location.search).get('session_id')||'';
+
+  function show(title,body,text,href){
+    heading.textContent=title;
+    message.textContent=body;
+    next.textContent=text;
+    next.href=href;
+  }
+
+  if(!/^cs_(live|test)_[A-Za-z0-9]+$/.test(id)){
+    show('Payment not verified.',
+      'No valid checkout session was supplied. Nothing on this page grants access.',
+      'Return to checkout','/#get');
+    return;
+  }
+
+  fetch('/api/checkout-status?session_id='+encodeURIComponent(id),{
+    cache:'no-store',
+    credentials:'same-origin'
+  }).then(function(r){
+    return r.json().then(function(body){
+      if(!r.ok && r.status!==400 && r.status!==404) return 'unavailable';
+      return body && body.state || 'unavailable';
+    });
+  }).then(function(state){
+    if(state==='verified'){
+      show('Payment verified.',
+        'Stripe confirms your payment and our purchase record is present. Sign in to The Blueprint with the email you paid with. The app will verify your membership.',
+        'Open The Blueprint','/app/');
+    }else if(state==='not_paid'){
+      show('Payment not confirmed.',
+        'Stripe has not confirmed payment for this checkout. A declined or incomplete attempt does not create new access. You can retry the purchase.',
+        'Return to checkout','/#get');
+    }else if(state==='processing'){
+      show('Payment verification pending.',
+        'Your payment or membership record is still processing. If you were charged, do not pay again. Refresh this page to check the status.',
+        'Contact support','/support/');
+    }else if(state==='review'){
+      show('Payment needs review.',
+        'We cannot confirm an active purchase from these records. Do not pay again if your bank shows a charge; please contact support.',
+        'Contact support','/support/');
+    }else{
+      show('Payment not verified.',
+        'We could not verify a completed payment right now. This page does not grant membership access. If you were charged, contact support before retrying.',
+        'Contact support','/support/');
+    }
+  }).catch(function(){
+    show('Payment verification unavailable.',
+      'We cannot check your payment right now. If you were charged, do not pay again. Contact support so we can investigate.',
+      'Contact support','/support/');
+  });
+})();
+</script>
 
 <footer><div class="wrap">
   Educational information for adults 18 and older. Persistent sexual health
@@ -529,9 +577,5 @@ body[data-sn-open="true"]{overflow:hidden}
   &copy; The Blueprint
 </div></footer>
 
-<!-- No script. There is nothing for this page to decide: it does not read
-     the Stripe session id, it does not read browser storage, and it does not
-     evaluate entitlement. Removing the logic removed the only way it could
-     be wrong. -->
 </body>
 </html>
