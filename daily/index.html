@@ -374,7 +374,7 @@ body[data-sn-open="true"]{overflow:hidden}
   var featureSummary=document.getElementById('daily-feature-summary');
   var link=document.getElementById('daily-feature-link');
   if(title&&featureTitle) featureTitle.textContent=title.textContent;
-  if(why&&featureSummary) featureSummary.textContent=why.textContent.replace(/^What to understand:\\s*/,'');
+  if(why&&featureSummary) featureSummary.textContent=why.textContent.replace('What to understand:','').trim();
   if(link) link.href='#'+chosen.id;
   function jump(){
     var id=decodeURIComponent(location.hash.slice(1));
