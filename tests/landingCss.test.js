@@ -96,13 +96,13 @@ describe('landing page claims', () => {
 
     test('the price is stated once and is the price', () => {
         const figs = [...html.matchAll(/class="fig"[^>]*>([^<]*)</g)].map(m => m[1].trim());
-        expect(figs).toEqual(['$49']);
+        expect(figs).toEqual(['$99']);
     });
 
     test('the hero makes the one-time price and update inclusion clear', () => {
         const hero = html.match(/<section class="hero" id="top">([\s\S]*?)<\/section>/)?.[1];
         expect(hero).toBeDefined();
-        expect(hero).toContain('$49 once &middot; No subscription &middot; Future app updates included');
+        expect(hero).toContain('$99 once &middot; No subscription &middot; Future app updates included');
         expect(hero).toContain('href="#get"');
     });
 
