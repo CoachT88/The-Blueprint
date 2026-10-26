@@ -177,16 +177,17 @@ describe('deployed assets cover what the browser imports', () => {
             .toBeUndefined();
     });
 
-    it('production declares no Stripe route and no Stripe secrets', () => {
-        /* wrangler.jsonc is committed. Every Stripe value is a Worker secret
-           set with `wrangler secret put`, so none of them may appear here. */
+    it('production pins only its safe public price, never Stripe secrets', () => {
+        /* Checkout needs a stable plain-text expected amount across Wrangler
+           deployments. Every API credential and price ID remains a secret. */
         const raw = readFileSync(path.join(ROOT, 'wrangler.jsonc'), 'utf8');
         for (const name of ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
             'STRIPE_PRICE_ID', 'STRIPE_LIVEMODE', 'sk_test_', 'sk_live_', 'whsec_']) {
             expect(raw, `wrangler.jsonc mentions ${name}`).not.toContain(name);
         }
         const config = JSON.parse(raw);
-        expect(config.vars, 'production declares plaintext vars').toBeUndefined();
+        expect(config.vars).toEqual({ STRIPE_PRICE_CENTS: '9900' });
+        expect(config.keep_vars).toBe(true);
     });
 
     it('wrangler.jsonc stays strict JSON, because a test parses it', () => {
