@@ -89,12 +89,16 @@ describe('Ko-fi keeps working', () => {
         expect(s()).toMatch(/var ON = false;/);
     });
 
-    test('NO PUBLISHABLE KEY IS COMMITTED, WHICH ALSO KEEPS IT OFF', () => {
-        /* enabled requires PUBLISHABLE to be truthy, so an empty key is a
-           second independent reason nothing changes. */
-        expect(s()).toMatch(/var PUBLISHABLE = '';/);
-        expect(s()).not.toMatch(/pk_live_[A-Za-z0-9]/);
-        expect(s()).not.toMatch(/pk_test_[A-Za-z0-9]{10}/);
+    test('live publishable key is public, but Ko-fi remains the default path', () => {
+        /* The public key is not a server credential. Only an explicit
+           ?checkout=1 query opts into the Stripe UI while ON stays false. */
+        expect(s()).toMatch(/var PUBLISHABLE = 'pk_live_[A-Za-z0-9]+'/);
+        expect(s()).toMatch(/var ON = false;/);
+        expect(s()).toContain("params.get('checkout') === '1'");
+        expect(s()).toMatch(/var enabled = \(ON \|\| params\.get\('checkout'\) === '1'\) && PUBLISHABLE;/);
+        expect(s()).not.toMatch(/sk_live_[A-Za-z0-9]{10}/);
+        expect(s()).not.toMatch(/rk_live_[A-Za-z0-9]{10}/);
+        expect(s()).not.toMatch(/whsec_[A-Za-z0-9]{10}/);
     });
 
     test('the Ko-fi link and its product code are still on the page', () => {
