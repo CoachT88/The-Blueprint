@@ -136,21 +136,21 @@ describe('Ko-fi keeps working', () => {
         expect(fn).toMatch(/noteKofi\.hidden = false/);
     });
 
-    test('THE LIVE KO-FI OFFER IS STILL $49 EVERYWHERE IT APPEARS', () => {
-        /* Pricing is not approved to change. tests/siteNav.test.js locks the
+    test('THE LIVE KO-FI OFFER IS STILL $99 EVERYWHERE IT APPEARS', () => {
+        /* Pricing must match Stripe at activation. tests/siteNav.test.js locks the
            headline figure; this locks every price written in the markup
            alongside it. The on-site button carries no price in the markup at
            all, so it cannot appear here. */
         const figs = [...s().matchAll(/class="fig"[^>]*>([^<]+)</g)].map(m => m[1].trim());
-        expect(figs).toEqual(['$49']);
+        expect(figs).toEqual(['$99']);
         const written = [...s().matchAll(/Start The Blueprint, (\$\d+)/g)].map(m => m[1]);
         expect(written.length, 'no Ko-fi CTA carries a price').toBeGreaterThanOrEqual(1);
         expect([...new Set(written)], `markup prices disagree: ${written.join(', ')}`)
-            .toEqual(['$49']);
+            .toEqual(['$99']);
     });
 
     test('THE ON-SITE BUTTON TAKES ITS PRICE FROM ONE SOURCE', () => {
-        /* The Stripe price is $99 in test mode while Ko-fi stays $49. The
+        /* The Stripe checkout uses the same $99 public price. The
            button must therefore not carry a hardcoded figure, and must not
            carry the Ko-fi one. */
         const src = s();
