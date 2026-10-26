@@ -131,7 +131,7 @@ describe('Ko-fi keeps working', () => {
     test('A FAILED CHECKOUT RESTORES THE KO-FI PATH', () => {
         /* A broken checkout must not be a dead end for someone who wants to
            buy. */
-        const fn = s().slice(s().indexOf('function fail()'), s().indexOf('var loading'));
+        const fn = s().slice(s().indexOf('function fail(e)'), s().indexOf('var loading'));
         expect(fn).toMatch(/kofi\.hidden = false/);
         expect(fn).toMatch(/noteKofi\.hidden = false/);
     });
