@@ -1098,8 +1098,9 @@ body[data-sn-open="true"]{overflow:hidden}
         shows a neutral name, not the product.
       </p>
       <div id="checkout-mount" hidden style="margin-top:18px;min-height:320px"></div>
-      <p class="tiny" id="checkout-error" hidden style="margin-top:12px">
-        Checkout could not start. The Ko-fi link above still works, or email
+      <p class="tiny" id="checkout-error" hidden role="alert" style="margin-top:12px">
+        Checkout could not start. <strong id="checkout-diagnostic"></strong>
+        The Ko-fi link above still works, or email
         <a href="mailto:Therealcoachtee@gmail.com?subject=The%20Blueprint">Therealcoachtee@gmail.com</a>.
       </p>
     </div>
@@ -1220,7 +1221,19 @@ body[data-sn-open="true"]{overflow:hidden}
     onsite.hidden = false;
     noteOnsite.hidden = false;
 
-    function fail() {
+    function fail(e) {
+        /* Show a safe diagnostic for the controlled live-checkout check.
+           Never display a Stripe response body, key, token or customer data. */
+        var detail = document.getElementById('checkout-diagnostic');
+        var message = e && typeof e.message === 'string' ? e.message : '';
+        var code = /^session ([0-9]{3})$/.exec(message);
+        if (detail) {
+            detail.textContent = code ? 'Checkout server returned HTTP ' + code[1] + '.'
+                : message === 'stripe.js blocked' ? 'Stripe payment script could not load.'
+                : message === 'no Stripe' ? 'Stripe payment script did not initialize.'
+                : message === 'no client secret' ? 'Checkout server returned an incomplete session.'
+                : 'Stripe payment form could not initialize.';
+        }
         /* Always leave a way to pay. A broken checkout must not become a
            dead end for someone who wants to buy. */
         if (errEl) errEl.hidden = false;
@@ -1287,7 +1300,7 @@ body[data-sn-open="true"]{overflow:hidden}
         }).catch(function (e) {
             opened = false;
             console.error('checkout failed:', e && e.message);
-            fail();
+            fail(e);
         });
     });
 })();
