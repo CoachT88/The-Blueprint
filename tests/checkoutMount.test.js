@@ -85,6 +85,16 @@ describe('Stripe is contacted on click, never on page load', () => {
 describe('Ko-fi keeps working', () => {
     const s = () => read('index.html');
 
+    test('hidden purchase buttons never render as empty blue buttons', () => {
+        const html = s();
+        /* .btn uses display:inline-flex, which overrides the user-agent
+           [hidden] default unless the page explicitly restores it. */
+        expect(html).toMatch(/\.btn\s*\{\s*display:inline-flex/);
+        expect(html).toMatch(/\.btn\[hidden\]\s*\{\s*display:none!important\s*\}/);
+        expect(html).toMatch(/id="buy-onsite"[^>]*\bhidden\b/);
+        expect(html).toContain('kofi.hidden = true;');
+    });
+
     test('THE FLAG IS OFF, SO THE LIVE PAGE IS UNCHANGED', () => {
         expect(s()).toMatch(/var ON = false;/);
     });
