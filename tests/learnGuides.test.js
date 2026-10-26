@@ -509,9 +509,9 @@ for (const g of GUIDES) {
     });
 
     describe(`${g.name}: the price and the actions`, () => {
-        test('THE PRICE IS $49 ONE-TIME, STATED ONCE', () => {
-            expect(text).toContain('$49 one-time access.');
-            expect((text.match(/\$49/g) || []).length, 'the price is repeated').toBe(1);
+        test('THE PRICE IS $99 ONE-TIME, STATED ONCE', () => {
+            expect(text).toContain('$99 one-time access.');
+            expect((text.match(/\$99/g) || []).length, 'the price is repeated').toBe(1);
             expect(src).not.toContain('class="fig"');
             expect(src, 'no subscription language').not.toMatch(/\/mo\b|per month|monthly/i);
         });
@@ -748,7 +748,7 @@ describe('the standard itself is written down', () => {
         expect(doc).toContain('BRITISH_SPELLINGS');
         expect(doc).toContain('CONTRAST_CONSTRUCTIONS');
         expect(doc).toContain('tools/sync-site-nav.mjs');
-        expect(doc).toContain('$49 one-time access.');
+        expect(doc).toContain('$99 one-time access.');
         expect(doc).toMatch(/No em dashes/);
     });
 
