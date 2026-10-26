@@ -1188,10 +1188,14 @@ body[data-sn-open="true"]{overflow:hidden}
        Rollback is NOT setting this to false any more: the price copy now
        says $99 everywhere and the Ko-fi product charges $49, so a flag flip
        alone would leave the page advertising a price nothing honours. The
-       rollback is a revert of this whole commit, which restores the $49 copy
-       and the Ko-fi button together. See the PR body. */
+       rollback is a revert of the whole merge, which restores the $49 copy
+       and the Ko-fi button together. See docs/stripe-launch-rollback.md. */
     var ON = true;
-    var PUBLISHABLE = 'pk_live_51UTwF5LaaDxdn1vbQDbZmMTnkzmIg4mt3jb1NqJIRLjQJEaw0OZ98k5r7hKoNeh2YZchHzczPYFTyD7ihOsmIPoO00BJBhuRbt';       // Public Stripe key. ON stays false; only ?checkout=1 opts in.                 // pk_live_... or pk_test_..., set at the switch
+    /* The live publishable key. Public by design: it identifies the account
+       to Stripe.js and can do nothing on its own. The secret key lives only
+       in the Worker. Clearing this leaves checkout unavailable rather than
+       silently dead, which is the !enabled branch below. */
+    var PUBLISHABLE = 'pk_live_51UTwF5LaaDxdn1vbQDbZmMTnkzmIg4mt3jb1NqJIRLjQJEaw0OZ98k5r7hKoNeh2YZchHzczPYFTyD7ihOsmIPoO00BJBhuRbt';
     var SRC = 'https://js.stripe.com/basil/stripe.js';
 
     /* THE PRICE THE BUTTON SHOWS. There is one price on this page now.
