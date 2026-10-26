@@ -151,7 +151,7 @@ export async function onRequestPost({ request, env }) {
   /* Form-encoded, because that is what the Stripe API takes and it avoids
      pulling the SDK into a Worker. */
   const form = new URLSearchParams();
-  form.set('ui_mode', 'embedded');
+  form.set('ui_mode', 'embedded_page');
   form.set('mode', 'payment');
   form.set('line_items[0][price]', env.STRIPE_PRICE_ID);
   form.set('line_items[0][quantity]', '1');
