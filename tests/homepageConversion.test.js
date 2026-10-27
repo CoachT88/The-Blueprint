@@ -17,7 +17,7 @@ describe('Homepage: clear value, fewer decisions, truthful offer',()=>{
     expect(hero).toContain('length or girth');
     expect(hero).toContain('track your own progress');
     expect(hero).toContain('Find my starting point — free');
-    expect(hero).toContain('See the $99 app');
+    expect(hero).toContain('<a class="btn ghost" href="/whats-inside/">Show me the system</a>');
     expect(hero).toContain('$99 once &middot; No subscription &middot; Future app updates included');
     expect((hero.match(/class="btn(?: ghost)?"/g)||[])).toHaveLength(2);
     expect(hero).toContain('href="/assessment/"');
