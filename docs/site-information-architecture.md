@@ -7,14 +7,17 @@ asked to make too many decisions before he knew what any of them meant.
 
 ## The problem, measured
 
-| Where | Decisions presented | Before |
-|---|---|---|
-| Desktop header | top-level destinations | **5** plus two dropdowns holding 11 more |
-| Mobile drawer | links, all expanded at once | **14**, in five always-open groups |
-| Home page | full-width sections | **11** |
-| Learn hub | links on the landing view | **26** |
-| End of every guide | competing calls to action | **2** |
-| The app | competing entrances | **2** (`/how-it-works/`, `/whats-inside/`) |
+| Where | Decisions presented | Before | After |
+|---|---|---|---|
+| Desktop header | top-level destinations | **5** plus two dropdowns | **4** |
+| Mobile drawer | choices visible on arrival | **14**, in five always-open groups | **4** |
+| Home page | full-width sections | **11** | **6** |
+| Home page | phone scroll | 33,660px | **27,190px** |
+| Learn hub | links on the landing view | **26** | **11** |
+| Learn hub | phone scroll | 9,408px | **7,056px** |
+| End of every guide | competing calls to action | **2** | **1** |
+| The app | competing entrances | **2** (`/how-it-works/`, `/whats-inside/`) | **1** |
+| Footer | different link sets across the site | **3** | **1** |
 
 Nothing on that list was wrong in isolation. Together they meant a man who
 arrived from a social post had to read and rank about forty choices before
@@ -148,6 +151,32 @@ grouped by goal. Nothing was deleted and no URL moved.
 Every guide ended with `Explore The Blueprint` *and* `See How The Blueprint
 Works`, side by side, equally weighted. A reader who has just been given a
 free seven-day plan does not need two sales doors. One remains.
+
+### The footer: three orders to one
+
+A guide ended with Learn / Safety / Support. A product page ended with
+Home / How It Works / What's Inside / FAQ / Safety / Support. The home page
+had a fifth order of its own. Somebody who learned where Support lived had
+to find it again on the next page. One order now, on all 31 pages, each
+keeping its own legal sentence. Every link in it is a 44px target, because
+it is navigation rather than prose and on several pages it is the only way
+out.
+
+## What holds this in place
+
+The rules above are not comments. Four test files fail if they are broken:
+
+| File | What it holds |
+|---|---|
+| `tests/siteNav.test.js` | the four destinations, the drawer's four choices, the fold behaviour, byte-identical headers on all 31 pages, one footer order, and that `/how-it-works/` is still reachable after leaving the bar |
+| `tests/pageTemplate.test.js` | never two primary buttons adjacent, never more than two per page, one h1, no href to a route that does not exist, no anchor without an id, and the sitemap equals the public site |
+| `tests/learnGuides.test.js` | the guide template's stage order, and the single next step |
+| `tests/marketingScreenshots.test.js` | every marketing image exists, is the size the markup claims, and nothing unreferenced sits in `img/` |
+
+`tests/e2e/site-nav.test.js` drives the real drawer in a browser: four
+visible choices, every destination one tap behind the right fold, and a
+full keyboard cycle that never leaves the dialog and never lands on
+anything hidden.
 
 ## Rules for anyone editing these pages
 
