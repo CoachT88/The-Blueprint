@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(process.cwd());
@@ -48,6 +48,52 @@ describe('Phase 3: current app demonstration screenshots',()=>{
     }
     expect(inside).toContain('fictional demo information');
   });
+
+  test('EVERY MARKETING IMAGE EXISTS, AND IS THE SIZE THE MARKUP CLAIMS',()=>{
+    /* The failure this exists for is a screenshot swap. The owner's own
+       device captures are a different shape from the generated ones, so
+       dropping them in without changing the width and height attributes
+       would either squash the picture or reserve the wrong space and shift
+       the page as it loads. This walks what the pages actually reference
+       rather than a list, so a fifth screenshot is covered the day it
+       lands, and a missing file fails here instead of in a browser. */
+    const pages=['index.html','whats-inside/index.html'];
+    let checked=0;
+    for(const page of pages){
+      const src=read(page);
+      for(const m of src.matchAll(/<img src="(\/?img\/[^"]+)"[^>]*?width="(\d+)"[^>]*?height="(\d+)"/g)){
+        const rel=m[1].replace(/^\//,'');
+        expect(statSync(path.join(root,rel)).size,`${page} -> ${rel}`).toBeGreaterThan(5000);
+        const d=jpegSize(rel);
+        expect([d.width,d.height],`${page} declares ${rel} as ${m[2]}x${m[3]}`)
+          .toEqual([Number(m[2]),Number(m[3])]);
+        checked++;
+      }
+    }
+    expect(checked,'the walk found no marketing images at all').toBeGreaterThanOrEqual(6);
+  });
+
+  test('and no screenshot sits in img/ that nothing references',()=>{
+    /* The other half of a swap: the old files left behind, so nobody can
+       tell from the directory which set is live. og-card.jpg is the link
+       preview image and is referenced from every page's meta tags. */
+    const html=readdirSync(root).filter(n=>!n.startsWith('.'))
+      .flatMap(n=>{
+        const abs=path.join(root,n);
+        if(n==='index.html') return [abs];
+        try{ if(!statSync(abs).isDirectory()) return []; }catch{ return []; }
+        if(['node_modules','app','tests','tools','src','supabase','functions'].includes(n)) return [];
+        return readdirSync(abs,{recursive:true}).filter(f=>String(f).endsWith('.html'))
+          .map(f=>path.join(abs,String(f)));
+      });
+    const referenced=new Set();
+    for(const f of html){
+      for(const m of readFileSync(f,'utf8').matchAll(/\/?img\/([A-Za-z0-9._-]+)/g)) referenced.add(m[1]);
+    }
+    const orphans=readdirSync(path.join(root,'img')).filter(f=>!referenced.has(f));
+    expect(orphans,'unreferenced screenshots left in img/').toEqual([]);
+  });
+
   test('screens are sourced from the real application in a reproducible capture',()=>{
     const capture=read('tools/capture-marketing-screenshots.mjs');
     expect(capture).toContain("from '../tests/e2e/harness.js'");
