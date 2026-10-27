@@ -26,6 +26,21 @@ describe('public size enhancement resource', () => {
     expect(page).toContain('cannot establish success rates');
   });
 
+  test('leads with attributed community stories and keeps measurement context', () => {
+    const body = page.slice(page.indexOf('<main class="wrap">'));
+    const firstHeading = body.match(/<h1>([^<]+)<\/h1>/)?.[1];
+    expect(firstHeading).toMatch(/Men are reporting changes in length and girth/);
+    expect(body.indexOf('r/gettingbigger')).toBeLessThan(body.indexOf('Optional clinical background'));
+    expect(body).toContain('r/AJelqForYou');
+    expect(body).toContain('thunders.place/progress-reports/seep-progress.html');
+    expect(body).toContain('reddit.com/r/PenisPumpResults/comments/1q533js/');
+    expect(body).toContain('One man interviewed by GQ said');
+    expect((body.match(/class="report-card"/g) || []).length).toBeGreaterThanOrEqual(5);
+    expect(body).toContain('not an independently verified result');
+    expect(body).toContain('after nine days off');
+    expect(body).toContain('returning to 4.0 after one week');
+  });
+
   test('offers useful free action and readable clinical cautions', () => {
     expect(page).toContain('Try this free seven-day starting-point check');
     expect(page).toContain('An erection lasting more than four hours is a medical emergency.');
