@@ -363,10 +363,6 @@ body[data-sn-open="true"]{overflow:hidden}
   display:block;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding:8px 16px 20px;
 }
-.sn-group{
-  font-size:10px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;
-  color:var(--sn-muted);padding:13px 12px 4px;
-}
 .sn-drawer-scroll a{
   display:flex;align-items:center;min-height:44px;padding:9px 12px;border-radius:10px;
   color:var(--sn-text);text-decoration:none;font-size:14px;font-weight:650;line-height:1.35;
@@ -376,6 +372,40 @@ body[data-sn-open="true"]{overflow:hidden}
   color:var(--sn-ink);background:rgba(59,130,246,.16);
   box-shadow:inset 3px 0 0 var(--sn-blue);
 }
+
+/* ---- the drawer is four choices, not fourteen -------------------------- */
+/* It used to print every destination at once, in five always-open groups:
+   fourteen links, with Support below the fold on a 390px phone. A man
+   looking for one of them had to read all of them. Now the one thing a
+   first-time visitor should do is a link, and the other three are folds he
+   opens only if he wants them. */
+.sn-lead{
+  flex-direction:column;align-items:flex-start!important;gap:2px;
+  margin:4px 0 10px;padding:13px 14px!important;min-height:0!important;
+  border:1px solid var(--sn-edge);border-radius:13px;
+  background:rgba(59,130,246,.11);
+  color:var(--sn-ink)!important;font-size:15.5px!important;font-weight:800!important;
+}
+.sn-lead span{
+  color:var(--sn-muted);font-size:12.5px;font-weight:550;letter-spacing:0;
+  text-transform:none;line-height:1.4;
+}
+.sn-fold{border-top:1px solid var(--sn-edge)}
+.sn-fold summary{
+  display:flex;align-items:center;gap:10px;
+  min-height:56px;padding:9px 12px;cursor:pointer;list-style:none;
+  color:var(--sn-ink);font-size:15.5px;font-weight:800;
+}
+.sn-fold summary::-webkit-details-marker{display:none}
+.sn-sum-note{
+  flex:1 1 auto;color:var(--sn-muted);font-size:12.5px;font-weight:550;
+  text-align:right;line-height:1.3;
+}
+.sn-chev{flex:none;color:var(--sn-muted);transition:transform 140ms cubic-bezier(.2,.8,.2,1)}
+.sn-fold[open] .sn-chev{transform:rotate(180deg)}
+.sn-fold summary:hover{background:rgba(255,255,255,.05);border-radius:10px}
+.sn-fold-body{padding:0 0 10px 10px;border-left:2px solid var(--sn-edge);margin-left:12px}
+.sn-fold-body a{font-size:14.5px}
 .sn-drawer-actions{
   flex:none;display:grid;grid-template-columns:1fr 1.2fr;gap:9px;
   border-top:1px solid var(--sn-edge);
@@ -423,19 +453,18 @@ body[data-sn-open="true"]{overflow:hidden}
       <div class="sn-learn sn-drop" data-open="false">
         <button type="button" class="sn-learn-btn sn-drop-btn" id="sn-learn-btn" aria-expanded="false" aria-controls="sn-learn-menu">Learn<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         <div class="sn-learn-menu sn-drop-menu" id="sn-learn-menu">
-          <a href="/learn/">All Free Guides</a>
-          <a href="/daily/">Daily Blueprint</a>
           <span class="sn-drop-label">Explore your goal</span>
           <a href="/last-longer/">Last Longer</a>
           <a href="/stronger-erections/">Stronger Erections</a>
           <a href="/better-sexual-performance/">Better Sexual Performance</a>
           <a href="/size-enhancement/">Size Enhancement</a>
-          <span class="sn-drop-label">Evidence</span>
+          <span class="sn-drop-label">Everything else, free</span>
+          <a href="/learn/">All Free Guides</a>
+          <a href="/daily/">Daily Blueprint</a>
           <a href="/research-lab/">Research Lab</a>
         </div>
       </div>
-      <a href="/how-it-works/">How It Works</a>
-      <a href="/whats-inside/">What&rsquo;s Inside</a>
+      <a href="/whats-inside/">The App</a>
       <div class="sn-help sn-drop" data-open="false">
         <button type="button" class="sn-drop-btn" id="sn-help-btn" aria-expanded="false" aria-controls="sn-help-menu">Help<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         <div class="sn-drop-menu" id="sn-help-menu">
@@ -455,28 +484,32 @@ body[data-sn-open="true"]{overflow:hidden}
 <div class="sn-scrim" id="sn-scrim" hidden></div>
 <div class="sn-drawer" id="sn-drawer" role="dialog" aria-modal="true" aria-label="Site menu" hidden>
   <div class="sn-drawer-top">
-    <span class="sn-drawer-title">Explore The Blueprint</span>
+    <span class="sn-drawer-title">Where do you want to start?</span>
     <button type="button" class="sn-toggle" id="sn-close" aria-label="Close menu"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
   <nav class="sn-drawer-scroll" aria-label="Mobile site navigation">
-    <div class="sn-group">Start here</div>
-    <a href="/assessment/">Free Assessment</a>
-    <a href="/daily/">Daily Blueprint</a>
-    <div class="sn-group">Explore your goal</div>
-    <a href="/last-longer/">Last Longer</a>
-    <a href="/stronger-erections/">Stronger Erections</a>
-    <a href="/better-sexual-performance/">Better Sexual Performance</a>
-    <a href="/size-enhancement/">Size Enhancement</a>
-    <div class="sn-group">Free resources</div>
-    <a href="/learn/">All Free Guides</a>
-    <a href="/research-lab/">Research Lab</a>
-    <div class="sn-group">The app</div>
-    <a href="/how-it-works/">How It Works</a>
-    <a href="/whats-inside/">What&rsquo;s Inside</a>
-    <div class="sn-group">Help and safety</div>
-    <a href="/faq/">FAQ</a>
-    <a href="/safety/">Safety</a>
-    <a href="/support/">Support</a>
+    <a class="sn-lead" href="/assessment/">Free Assessment<span>Five private questions. About two minutes.</span></a>
+    <details class="sn-fold" name="sn-fold">
+      <summary>Learn<span class="sn-sum-note">Free guides, by goal</span><svg class="sn-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <div class="sn-fold-body">
+        <a href="/last-longer/">Last Longer</a>
+        <a href="/stronger-erections/">Stronger Erections</a>
+        <a href="/better-sexual-performance/">Better Sexual Performance</a>
+        <a href="/size-enhancement/">Size Enhancement</a>
+        <a href="/learn/">All Free Guides</a>
+        <a href="/daily/">Daily Blueprint</a>
+        <a href="/research-lab/">Research Lab</a>
+      </div>
+    </details>
+    <a class="sn-lead" href="/whats-inside/">The App<span>What you get, and what it costs.</span></a>
+    <details class="sn-fold" name="sn-fold">
+      <summary>Help<span class="sn-sum-note">Questions, safety, access</span><svg class="sn-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <div class="sn-fold-body">
+        <a href="/faq/">FAQ</a>
+        <a href="/safety/">Safety</a>
+        <a href="/support/">Support</a>
+      </div>
+    </details>
   </nav>
   <div class="sn-drawer-actions">
     <a class="sn-signin" href="/app/">Sign in</a>
@@ -546,13 +579,31 @@ body[data-sn-open="true"]{overflow:hidden}
     closeDrops();
     shut();
   });
+  /* THE FOLDS CHANGE WHAT IS FOCUSABLE, so the trap is recomputed on every
+     Tab rather than cached. Links inside a closed <details> have no layout
+     box, and sending focus to one strands the keyboard outside the drawer
+     with no way back. */
+  function focusables(){
+    return [].slice.call(drawer.querySelectorAll('a,button,summary')).filter(function(el){
+      return !el.disabled&&(el.offsetWidth||el.offsetHeight||el.getClientRects().length);
+    });
+  }
   drawer.addEventListener('keydown',function(e){
     if(e.key!=='Tab'||body.getAttribute('data-sn-open')!=='true')return;
-    var els=[].slice.call(drawer.querySelectorAll('a,button')).filter(function(el){return !el.disabled;});
+    var els=focusables();
     if(!els.length)return;
     var first=els[0],last=els[els.length-1];
     if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  });
+  /* Exclusive folds without relying on the name attribute, which older
+     browsers ignore. Without this the drawer can be scrolled open to the
+     same fourteen-item list it was built to replace. */
+  drawer.querySelectorAll('.sn-fold').forEach(function(d){
+    d.addEventListener('toggle',function(){
+      if(!d.open)return;
+      drawer.querySelectorAll('.sn-fold[open]').forEach(function(o){if(o!==d)o.open=false;});
+    });
   });
   var desktop=window.matchMedia('(min-width:1000px)');
   function onSize(){if(desktop.matches)shut();}
@@ -560,7 +611,12 @@ body[data-sn-open="true"]{overflow:hidden}
   var here=location.pathname.replace(/index\.html$/,'');
   document.querySelectorAll('.sn-links a,.sn-drawer a').forEach(function(a){
     var href=a.getAttribute('href')||'';
-    if(href.charAt(0)==='/'&&href!=='/'&&href===here)a.setAttribute('aria-current','page');
+    if(href.charAt(0)!=='/'||href==='/'||href!==here)return;
+    a.setAttribute('aria-current','page');
+    /* Open the fold the current page lives in, so a man who tapped through
+       to it can see where he is. */
+    var fold=a.closest('.sn-fold');
+    if(fold)fold.open=true;
   });
 })();
 </script>
@@ -763,6 +819,6 @@ body[data-sn-open="true"]{overflow:hidden}
 
 <p class="note reading"><strong>Medical note:</strong> This article provides general educational information for adults. It does not diagnose diabetes or any other condition. Persistent erection difficulties, and symptoms such as excessive thirst or frequent urination, should be evaluated by a qualified healthcare professional.</p>
 </main>
-<footer><div class="wrap">Educational information for adults 18 and older. Persistent sexual health symptoms deserve medical evaluation.<p><a href="/learn/">Learn</a><a href="/safety/">Safety</a><a href="/support/">Support</a></p>&copy; The Blueprint</div></footer>
+<footer><div class="wrap">Educational information for adults 18 and older. Persistent sexual health symptoms deserve medical evaluation.<p><a href="/learn/">Learn</a><a href="/whats-inside/">The App</a><a href="/how-it-works/">How It Works</a><a href="/faq/">FAQ</a><a href="/safety/">Safety</a><a href="/support/">Support</a></p>&copy; The Blueprint</div></footer>
 </body>
 </html>
