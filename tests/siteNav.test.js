@@ -31,6 +31,7 @@ const PAGES = [
     'assessment/index.html',
     'research-lab/index.html',
     'research-lab/manual-techniques/index.html',
+    'size-enhancement/index.html',
     'performance-anxiety-erections/index.html',
     'blood-sugar-erections/index.html',
     'hydration-erections/index.html',
