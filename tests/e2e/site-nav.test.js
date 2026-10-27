@@ -16,7 +16,7 @@ import { startServer, launchOptions } from './harness.js';
 
 const WIDTHS = [['320', 320], ['375', 375], ['390', 390], ['430', 430],
                 ['tablet', 768], ['desktop', 1280]];
-const BREAK = 860;   // where the links replace the drawer
+const BREAK = 1000;   // where the links replace the drawer
 
 /* sRGB contrast with every translucent layer composited to the canvas. */
 const PROBE = `(() => {
@@ -106,15 +106,15 @@ describe('one header, at every width', () => {
                document order, so the three Learn items sit between Learn
                and How It Works and the flat list reads as mis-ordered. */
             top: [...document.querySelector('.sn-links').children].map(c =>
-                (c.classList.contains('sn-learn')
-                    ? c.querySelector('.sn-learn-btn') : c).textContent.trim()),
+                (c.classList.contains('sn-drop')
+                    ? c.querySelector('.sn-drop-btn') : c).textContent.trim()),
             learn: [...document.querySelectorAll('#sn-learn-menu a')]
                 .map(a => a.textContent.trim()),
         }));
         expect(m.links).toBe('flex');
         expect(m.toggle).toBe('none');
-        expect(m.top).toEqual(['Learn', 'How It Works', 'What’s Inside', 'FAQ', 'Support']);
-        expect(m.learn).toEqual(['Last Longer', 'Stronger Erections', 'Better Sexual Performance']);
+        expect(m.top).toEqual(['Free Assessment', 'Learn', 'How It Works', 'What’s Inside', 'Help']);
+        expect(m.learn).toEqual(['All Free Guides', 'Daily Blueprint', 'Last Longer', 'Stronger Erections', 'Better Sexual Performance', 'Size Enhancement', 'Research Lab']);
         await page.close();
     }, 60_000);
 });
