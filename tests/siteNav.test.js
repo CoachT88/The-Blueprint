@@ -52,6 +52,10 @@ const PAGES = [
 
 /** Every destination the header offers, and where it must resolve. */
 const DESTINATIONS = [
+    ['/assessment/', 'assessment/index.html'],
+    ['/learn/', 'learn/index.html'],
+    ['/size-enhancement/', 'size-enhancement/index.html'],
+    ['/research-lab/', 'research-lab/index.html'],
     ['/daily/', 'daily/index.html'],
     ['/last-longer/', 'last-longer/index.html'],
     ['/stronger-erections/', 'stronger-erections/index.html'],
@@ -197,5 +201,55 @@ describe('the header markup is accessible before any script runs', () => {
 
     test('and it gives keyboard focus something to show', () => {
         expect(navCss).toMatch(/:focus-visible\{[^}]*outline:2px solid/s);
+    });
+});
+
+describe('the visitor-first menu layout', () => {
+    const drawer = navHtml.match(/<nav class="sn-drawer-scroll"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
+    const desktop = navHtml.match(/<nav class="sn-links"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
+    test('the mobile menu is grouped and each destination appears once', () => {
+        expect(drawer).toBeTruthy();
+        for (const title of ['Start here', 'Explore your goal', 'Free resources', 'The app', 'Help and safety']) {
+            expect(drawer).toContain('>'+title+'</div>');
+        }
+        const urls = [...drawer.matchAll(/<a href="([^"]+)"/g)].map(m=>m[1]);
+        expect(new Set(urls).size).toBe(urls.length);
+        for (const [href] of DESTINATIONS) {
+            if (href==='/app/') continue;
+            expect(urls, 'mobile menu missing '+href).toContain(href);
+        }
+        expect(urls.indexOf('/assessment/')).toBeLessThan(urls.indexOf('/last-longer/'));
+        expect(urls.indexOf('/learn/')).toBeLessThan(urls.indexOf('/how-it-works/'));
+    });
+    test('desktop entry points include free learning, the app and help', () => {
+        expect(desktop).toContain('href="/assessment/"');
+        expect(desktop).toContain('href="/daily/"');
+        expect(desktop).toContain('href="/size-enhancement/"');
+        expect(desktop).toContain('href="/research-lab/"');
+        expect(navHtml).toContain('id="sn-help-btn" aria-expanded="false" aria-controls="sn-help-menu"');
+        const daily = [...desktop.matchAll(/href="\/daily\/"/g)];
+        expect(daily).toHaveLength(1);
+    });
+    test('scrolling links and fixed actions stay separate on mobile', () => {
+        expect(navHtml).toContain('class="sn-drawer-actions"');
+        expect(navHtml).toMatch(/<div class="sn-drawer-actions">\s*<a class="sn-signin" href="\/app\/">Sign in<\/a>\s*<a class="sn-buy" href="\/#get">Get the app<\/a>/);
+        expect(navCss).toMatch(/\.sn-drawer-scroll\{[^}]*overflow-y:auto/s);
+        expect(navCss).toMatch(/\.sn-drawer-actions\{[^}]*flex:none/s);
+        expect(navHtml).toContain('drawer.inert=true');
+        expect(navHtml).toContain("drawer.inert=false");
+        expect(navHtml).toContain("aria-hidden");
+        expect(navCss).toContain('.sn-drawer[hidden]{display:none}');
+    });
+    test('free resources are findable from the learning hub', () => {
+        const learn = read('learn/index.html');
+        for (const href of ['/assessment/', '/daily/', '/last-longer/',
+           '/stronger-erections/', '/better-sexual-performance/',
+           '/size-enhancement/', '/research-lab/']) {
+           expect(learn, 'learning hub missing '+href).toContain('href="'+href+'"');
+        }
+        for (const p of ['last-longer/index.html','stronger-erections/index.html',
+           'better-sexual-performance/index.html']) {
+           expect(read(p)).toContain('href="/size-enhancement/"');
+        }
     });
 });
