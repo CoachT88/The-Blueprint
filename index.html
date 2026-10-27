@@ -314,7 +314,7 @@ figure.shot{margin:0}
   overflow:hidden;
 }
 /* Real app captures are generated at one mobile viewport with fictional demo data.\n   Reserve the same aspect ratio while loading to avoid layout shifts. */
-.phone img{border-radius:16px;width:100%;display:block}
+.phone img{border-radius:16px;width:100%;display:block;aspect-ratio:390/815;object-fit:contain;background:#080e1b}
 figure.shot figcaption{margin-top:12px;font-size:14px;color:var(--muted);line-height:1.45}
 figure.shot figcaption b{color:var(--bone)}
 
@@ -1068,42 +1068,41 @@ body[data-sn-open="true"]{overflow:hidden}
 <!-- ========================================================== SCREENSHOTS -->
 <section id="look">
   <div class="wrap">
-    <span class="label">A look inside the app</span>
-    <h2 class="display" style="margin-top:14px">See how your training comes together.</h2>
-    <p class="lede" style="margin-top:14px;max-width:66ch">No guesswork about what's inside. These are actual screens from The Blueprint, captured with fictional demonstration data. Your plan and progress will reflect your own activity.</p>
-
+    <span class="label">Inside The Blueprint</span>
+    <h2 class="display" style="margin-top:14px">A plan to follow. Not another list of exercises.</h2>
+    <p class="lede" style="margin-top:14px;max-width:66ch">What happens after you open the app? You see what today is for, choose the work that fits your goal, and get guided instruction when it's time to begin.</p>
     <div class="shots">
       <figure class="shot">
         <div class="phone">
-          <img src="img/shot-home.jpg" width="390" height="844" loading="lazy" decoding="async"
-               alt="Actual Blueprint app dashboard showing today's recommended training and navigation. Fictional demo account.">
+          <img src="img/app-today-2026.jpg" width="780" height="1630" loading="lazy" decoding="async"
+               alt="Current Blueprint Today dashboard with Girth Day recommendation, Start Girth Session button, weekly schedule and navigation.">
         </div>
-        <figcaption><b>1. Know what to do today.</b> Open your dashboard and see the next recommended action, without having to build your own plan.</figcaption>
+        <figcaption><b>1. Know what to do today.</b> Open your dashboard to a recommended session and a clear next step.</figcaption>
       </figure>
       <figure class="shot">
         <div class="phone">
-          <img src="img/shot-mission.jpg" width="390" height="844" loading="lazy" decoding="async"
-               alt="Actual Blueprint session selection screen with training options. Fictional demo account.">
+          <img src="img/app-sessions-2026.jpg" width="780" height="1442" loading="lazy" decoding="async"
+               alt="Current Blueprint Choose a Different Session screen offering length, girth, stamina and blood flow, and recovery.">
         </div>
-        <figcaption><b>2. Choose a session.</b> Explore the length, girth, stamina and recovery options available inside the app.</figcaption>
+        <figcaption><b>2. Train toward your goal.</b> Explore length, girth, stamina, blood flow, and recovery sessions from one place.</figcaption>
       </figure>
       <figure class="shot">
         <div class="phone">
-          <img src="img/shot-recovery.jpg" width="390" height="844" loading="lazy" decoding="async"
-               alt="Actual Blueprint recovery exercise picker with a daily recommendation. Fictional demo account.">
+          <img src="img/app-recovery-2026.jpg" width="780" height="1524" loading="lazy" decoding="async"
+               alt="Current Blueprint Recovery picker with Coach Tee recommendations, Today's Practice, and selectable pelvic floor exercises.">
         </div>
-        <figcaption><b>3. Give recovery its own space.</b> Review exercises and daily suggestions without treating every day as a training day.</figcaption>
+        <figcaption><b>3. Make room for recovery.</b> See today's suggested work and choose from the recovery library.</figcaption>
       </figure>
       <figure class="shot">
         <div class="phone">
-          <img src="img/shot-progress.jpg" width="390" height="844" loading="lazy" decoding="async"
-               alt="Actual Blueprint progress page displaying a demo account's personal training summary and tracking tools.">
+          <img src="img/app-guided-practice-2026.jpg" width="780" height="1596" loading="lazy" decoding="async"
+               alt="Current Blueprint guided diaphragmatic breathing practice with a two-minute timer, instructions and Start Practice button.">
         </div>
-        <figcaption><b>4. See what you've recorded.</b> Keep session history and personal progress together, so changes are easier to review over time.</figcaption>
+        <figcaption><b>4. Follow the instruction.</b> Practice with a focused timer, simple cues and a clearly marked starting action.</figcaption>
       </figure>
     </div>
-    <p class="small" style="margin-top:18px">Screens captured from the current app with fictional sample information. Features and recommendations vary with account setup and training history.</p>
-    <p style="margin-top:14px"><a href="/whats-inside/">Explore everything included in The Blueprint</a></p>
+    <p class="small" style="margin-top:18px">Screens from the current app. Your recommendations, settings and progress will vary with your account and training history.</p>
+    <p style="margin-top:14px"><a href="/whats-inside/">See all the training tools included</a></p>
   </div>
 </section>
 
