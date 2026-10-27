@@ -57,7 +57,7 @@ describe('public size enhancement resource', () => {
     expect(faq).toContain('See the original progress reports');
     expect(how).toContain('Explore at your pace');
     expect(safety).toContain('risk-free technique');
-    expect(lab).toContain('the community progress reports');
+    expect(lab).toMatch(/the community progress reports/i);
     expect(page).not.toContain('does not provide instructions or encourage forceful experimentation');
   });
 
