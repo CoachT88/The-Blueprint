@@ -23,30 +23,35 @@ function jpegSize(rel) {
   throw new Error('No image dimensions found in '+rel);
 }
 
-describe('Phase 3: current app demonstration screenshots',()=>{
-  const names=['shot-home','shot-mission','shot-recovery','shot-progress'];
-  test('all four real JPG captures exist and are readable mobile images',()=>{
-    for(const name of names){
-      const rel='img/'+name+'.jpg';
+describe('Current owner-provided Blueprint app screenshots',()=>{
+  const imageDimensions=[
+    ['app-today-2026.jpg',780,1630],
+    ['app-sessions-2026.jpg',780,1442],
+    ['app-recovery-2026.jpg',780,1524],
+    ['app-guided-practice-2026.jpg',780,1596]
+  ];
+  test('all four real current device screenshots exist at the expected dimensions',()=>{
+    for(const [name,width,height] of imageDimensions){
+      const rel='img/'+name;
       expect(statSync(path.join(root,rel)).size,name).toBeGreaterThan(20000);
       const d=jpegSize(rel);
-      expect(d.width,name).toBeGreaterThanOrEqual(380);
-      expect(d.height,name).toBeGreaterThanOrEqual(820);
+      expect(d,name).toEqual({width,height});
     }
   });
-  test('the product story shows four distinct screens without fabricated results',()=>{
+  test('the product story shows four authentic current screens and accurate captions',()=>{
     const home=read('index.html');
     const inside=read('whats-inside/index.html');
-    for(const name of names){
-      expect(home).toContain('src="img/'+name+'.jpg"');
+    for(const [name] of imageDimensions){
+      expect(home).toContain('src="img/'+name+'"');
     }
     expect((home.match(/<figure class="shot">/g)||[])).toHaveLength(4);
-    expect(home).toContain('fictional demonstration data');
+    expect(home).toContain('current Blueprint app supplied by Coach Tee');
+    expect(home).not.toContain('fictional demonstration data');
     expect(home).not.toContain('dry tissue tears');
-    for(const name of ['shot-home','shot-progress']){
-      expect(inside).toContain('src="/img/'+name+'.jpg"');
-    }
-    expect(inside).toContain('fictional demo information');
+    expect(home).not.toContain('img/shot-home.jpg');
+    expect(inside).toContain('src="/img/app-today-2026.jpg"');
+    expect(inside).toContain('src="/img/app-guided-practice-2026.jpg"');
+    expect(inside).not.toContain('img/shot-progress.jpg');
   });
 
   test('EVERY MARKETING IMAGE EXISTS, AND IS THE SIZE THE MARKUP CLAIMS',()=>{
@@ -106,13 +111,9 @@ describe('Phase 3: current app demonstration screenshots',()=>{
     expect(orphans,'unreferenced screenshots left in img/').toEqual([]);
   });
 
-  test('screens are sourced from the real application in a reproducible capture',()=>{
-    const capture=read('tools/capture-marketing-screenshots.mjs');
-    expect(capture).toContain("from '../tests/e2e/harness.js'");
-    expect(capture).toContain("goToStep(0)");
-    expect(capture).toContain("goToStep(3)");
-    expect(capture).toContain("goToRecoveryPicker()");
-    expect(capture).toContain("openProgressChart()");
-    expect(capture).toContain("demo@example.invalid");
+  test('outdated automatic screenshot capture is not part of the publishing workflow',()=>{
+    expect(()=>read('tools/capture-marketing-screenshots.mjs')).toThrow();
+    expect(()=>read('.github/workflows/refresh-marketing-shots.yml')).toThrow();
+    expect(read('docs/app-screenshot-handoff.md')).toContain('IMG_7829.jpeg');
   });
 });
