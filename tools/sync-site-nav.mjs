@@ -68,12 +68,12 @@ export const NOINDEX = [
    no action plan, and the guide content rules in tests/learnGuides.test.js
    would be nonsense applied to it. It does need the same design system,
    which is what this list is for. */
-export const STYLED = [...GUIDES, 'assessment/index.html', ...RESEARCH, ...NOINDEX];
+export const STYLED = [...GUIDES, 'assessment/index.html', ...RESEARCH, 'size-enhancement/index.html', ...NOINDEX];
 
 /* The Research Lab. Takes the design system like the assessment, and
    additionally takes tools/research.css for the evidence labels and method
    cards, which exist nowhere else on the site. */
-export const RESEARCH_CSS_PAGES = RESEARCH;
+export const RESEARCH_CSS_PAGES = [...RESEARCH, 'size-enhancement/index.html'];
 
 /* Every public page. A new learning-centre guide is added here, and
    tests/siteNav.test.js reads the same list, so a page that is never synced
@@ -92,6 +92,7 @@ export const PAGES = [
     'safety/index.html',
     'assessment/index.html',
     ...RESEARCH,
+    'size-enhancement/index.html',
     ...GUIDES,
 ];
 
@@ -173,7 +174,7 @@ let drifted = 0;
 for (const rel of [...PAGES, ...NOINDEX]) {
     const p = path.join(ROOT, rel);
     const before = readFileSync(p, 'utf8');
-    const after = render(before, STYLED.includes(rel), RESEARCH.includes(rel));
+    const after = render(before, STYLED.includes(rel), RESEARCH_CSS_PAGES.includes(rel));
     if (before === after) continue;
     drifted++;
     if (check) console.log('DRIFT', rel);

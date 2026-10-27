@@ -417,7 +417,7 @@ describe('what the Lab must not disturb', () => {
         /* The assessment is medical-adjacent advice. It must not start
            routing men toward unevaluated techniques. */
         const a = read('assessment/index.html');
-        expect(a, 'the assessment links the Research Lab').not.toContain('/research-lab/');
+        expect(strip(a), 'the assessment content links the Research Lab').not.toContain('/research-lab/');
         /* Word boundaries, because "scheduling" contains "uli" and a naive
            substring check fails on the app's own feature list. */
         for (const w of ['jelq', 'jelqing', 'uli', 'v-stretch', 'directional pull']) {

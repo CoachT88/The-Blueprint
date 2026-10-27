@@ -29,7 +29,7 @@ import { openApp } from './harness.js';
  * sells to them, which is a worse bug than the one being fixed.
  */
 
-const SALES = 'The Blueprint: your sexual performance can be trained';
+const SALES = 'The Blueprint | Sexual Performance Guides, Daily Tips and Training';
 const APP = 'THE BLUEPRINT | Session Pilot';
 
 /** Land at `entry`, let any client-side forward settle, report where we are. */

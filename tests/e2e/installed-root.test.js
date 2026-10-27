@@ -21,7 +21,7 @@ import { startServer, VIEWPORT, launchOptions } from './harness.js';
  * standalone. That is on the manual device checklist.
  */
 
-const ROOT_MARKER = /sexual performance can be trained/i;
+const ROOT_MARKER = /The Blueprint \| Sexual Performance Guides, Daily Tips and Training/i;
 
 /** Open a fresh browser, optionally pretending to be an installed launch. */
 async function openRoot(srv, { media = false, iosFlag = false, path = '/' } = {}) {
