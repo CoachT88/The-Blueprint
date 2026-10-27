@@ -305,16 +305,15 @@ header.bar{
 .spec p{font-size:15px;line-height:1.5;margin:0}
 
 /* ---- screenshots ------------------------------------------------------- */
-.shots{display:grid;gap:18px;margin-top:30px}
-@media (min-width:760px){.shots{grid-template-columns:repeat(3,1fr)}}
+.shots{display:grid;gap:18px;margin-top:30px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:640px){.shots{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:1060px){.shots{grid-template-columns:repeat(4,minmax(0,1fr))}}
 figure.shot{margin:0}
 .phone{
   border:1px solid var(--edge);border-radius:22px;padding:7px;background:var(--slab-2);
   overflow:hidden;
 }
-/* The captures are all cropped to one ratio, so the three phones in the row
-   are the same height. width and height are on the tags as well, so the page
-   does not jump when they load. */
+/* Real app captures are generated at one mobile viewport with fictional demo data.\n   Reserve the same aspect ratio while loading to avoid layout shifts. */
 .phone img{border-radius:16px;width:100%;display:block}
 figure.shot figcaption{margin-top:12px;font-size:14px;color:var(--muted);line-height:1.45}
 figure.shot figcaption b{color:var(--bone)}
@@ -1069,40 +1068,42 @@ body[data-sn-open="true"]{overflow:hidden}
 <!-- ========================================================== SCREENSHOTS -->
 <section id="look">
   <div class="wrap">
-    <span class="label">Screenshots</span>
-    <h2 class="display" style="margin-top:14px">What it looks like on your phone.</h2>
+    <span class="label">A look inside the app</span>
+    <h2 class="display" style="margin-top:14px">See how your training comes together.</h2>
+    <p class="lede" style="margin-top:14px;max-width:66ch">No guesswork about what's inside. These are actual screens from The Blueprint, captured with fictional demonstration data. Your plan and progress will reflect your own activity.</p>
 
     <div class="shots">
       <figure class="shot">
         <div class="phone">
-          <img src="img/shot-home.jpg" width="780" height="1481" loading="lazy"
-               alt="The Blueprint home screen: a level and streak, a pelvic floor check,
-                    the week laid out by training type, last measurements, a coaching note
-                    about posture and blood flow, and the day's hydration.">
+          <img src="img/shot-home.jpg" width="390" height="844" loading="lazy" decoding="async"
+               alt="Actual Blueprint app dashboard showing today's recommended training and navigation. Fictional demo account.">
         </div>
-        <figcaption><b>Your day, the moment you open it.</b> What today is for, your last
-          numbers, your water, and one thing the coach wants you to know.</figcaption>
+        <figcaption><b>1. Know what to do today.</b> Open your dashboard and see the next recommended action, without having to build your own plan.</figcaption>
       </figure>
       <figure class="shot">
         <div class="phone">
-          <img src="img/shot-mission.jpg" width="780" height="1481" loading="lazy"
-               alt="The session picker: a difficulty level, a warning that hydration is
-                    too low to train, a choice between length and girth work, and separate
-                    entries for stamina and blood flow work and for recovery.">
+          <img src="img/shot-mission.jpg" width="390" height="844" loading="lazy" decoding="async"
+               alt="Actual Blueprint session selection screen with training options. Fictional demo account.">
         </div>
-        <figcaption><b>Picking today&rsquo;s work.</b> Length or girth, at your level. And it
-          tells you to drink before you train, because dry tissue tears.</figcaption>
+        <figcaption><b>2. Choose a session.</b> Explore the length, girth, stamina and recovery options available inside the app.</figcaption>
       </figure>
       <figure class="shot">
         <div class="phone">
-          <img src="img/shot-recovery.jpg" width="780" height="1481" loading="lazy"
-               alt="The recovery screen: eight exercises with the ones suited to tonight
-                    already selected, each explaining what it trains and why it matters.">
+          <img src="img/shot-recovery.jpg" width="390" height="844" loading="lazy" decoding="async"
+               alt="Actual Blueprint recovery exercise picker with a daily recommendation. Fictional demo account.">
         </div>
-        <figcaption><b>Recovery, picked for tonight.</b> The work that fits this time of day
-          is already chosen, and each one tells you what it is for.</figcaption>
+        <figcaption><b>3. Give recovery its own space.</b> Review exercises and daily suggestions without treating every day as a training day.</figcaption>
+      </figure>
+      <figure class="shot">
+        <div class="phone">
+          <img src="img/shot-progress.jpg" width="390" height="844" loading="lazy" decoding="async"
+               alt="Actual Blueprint progress page displaying a demo account's personal training summary and tracking tools.">
+        </div>
+        <figcaption><b>4. See what you've recorded.</b> Keep session history and personal progress together, so changes are easier to review over time.</figcaption>
       </figure>
     </div>
+    <p class="small" style="margin-top:18px">Screens captured from the current app with fictional sample information. Features and recommendations vary with account setup and training history.</p>
+    <p style="margin-top:14px"><a href="/whats-inside/">Explore everything included in The Blueprint</a></p>
   </div>
 </section>
 
