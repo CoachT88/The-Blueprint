@@ -346,10 +346,23 @@ p b,li b{color:var(--bone);font-weight:700}
 .ticks li span{color:var(--blue-lit);flex:none;font-weight:800}
 
 /* ---- screenshots ------------------------------------------------------- */
-.shots{display:grid;gap:18px;margin-top:30px;grid-template-columns:minmax(0,1fr)}
-@media (min-width:640px){.shots{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* On phones the app preview is one horizontally browsable region, not
+   four near-full-screen images stacked in the sales-page reading flow. */
+.shots{
+  display:flex;gap:14px;margin-top:18px;overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;overscroll-behavior-inline:contain;
+  scrollbar-width:thin;scroll-padding-inline:0;touch-action:pan-x pan-y;
+  padding-bottom:16px;max-width:100%;
+}
+figure.shot{margin:0;min-width:0;flex:0 0 min(88%,340px);scroll-snap-align:start;scroll-snap-stop:always}
+.shots:focus-visible{outline:2px solid var(--blue-lit);outline-offset:3px;border-radius:8px}
+.shots-hint{font-size:13px;color:var(--muted);margin-top:12px}
+@media (min-width:640px){
+  .shots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;gap:18px;padding-bottom:0}
+  figure.shot{flex:none}
+  .shots-hint{display:none}
+}
 @media (min-width:1060px){.shots{grid-template-columns:repeat(4,minmax(0,1fr))}}
-figure.shot{margin:0}
 .phone{
   border:1px solid var(--edge);border-radius:22px;padding:7px;background:var(--slab-2);
   overflow:hidden;
@@ -1074,7 +1087,8 @@ body[data-sn-open="true"]{overflow:hidden}
     <h2 class="display" style="margin-top:14px">See how your training comes together.</h2>
     <p class="lede" style="margin-top:14px;max-width:66ch">No guesswork about what's inside. These are actual screens from The Blueprint, captured with fictional demonstration data. Your plan and progress will reflect your own activity.</p>
 
-    <div class="shots">
+    <p class="shots-hint" id="shots-hint">Four screens. Swipe sideways to explore, or focus the gallery and use the arrow keys.</p>
+    <div class="shots" tabindex="0" role="region" aria-label="Four Blueprint app screenshots" aria-describedby="shots-hint">
       <figure class="shot">
         <div class="phone">
           <img src="img/shot-home.jpg" width="390" height="844" loading="lazy" decoding="async"
