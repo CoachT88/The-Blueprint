@@ -403,11 +403,10 @@ figure.shot figcaption b{color:var(--bone)}
 }
 
 /* ---- field reports ------------------------------------------------------ */
-/* Two across rather than three. There are four quotes, and four in a
-   three-up grid leaves one stranded alone on the second row looking like an
-   afterthought. Two-up is a clean 2x2. */
+/* Three relevant product/method experiences, with a responsive grid. */
 .quotes{display:grid;gap:14px;margin-top:28px;grid-template-columns:1fr}
-@media (min-width:720px){.quotes{grid-template-columns:1fr 1fr}}
+@media (min-width:720px){.quotes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:1060px){.quotes{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .quote{
   margin:0;background:var(--slab);border:1px solid var(--edge);
   border-left:3px solid var(--blue);border-radius:4px 16px 16px 4px;padding:22px 24px;
@@ -1130,10 +1129,9 @@ body[data-sn-open="true"]{overflow:hidden}
 <section id="proof">
   <div class="wrap">
     <span class="label go">Before you decide</span>
-    <h2 class="display" style="margin-top:14px">From guys who bought it.</h2>
-    <p class="small" style="margin-top:14px;max-width:64ch">Used with permission, in their
-      own words. First name and last initial only, because no man should have to put his
-      full name on a page about this to help another guy out.</p>
+    <h2 class="display" style="margin-top:14px">What men have shared with Coach Tee.</h2>
+    <p class="small" style="margin-top:14px;max-width:64ch">Shared with permission, in their own words. Some men were combining
+      manuals with other methods. These experiences are personal, not results everyone can expect.</p>
 
     <div class="quotes">
       <figure class="quote">
@@ -1141,13 +1139,6 @@ body[data-sn-open="true"]{overflow:hidden}
           and convenient it is. In 2 months with occasional pumping, I have nearly
           gained 1cm in length.&rdquo;</blockquote>
         <figcaption><b>Rick M.</b></figcaption>
-      </figure>
-
-      <figure class="quote">
-        <blockquote>&ldquo;My erections have been insanely good since I started doing
-          the pelvic floor exercises 2 months ago. I&rsquo;ll be purchasing your Lazy
-          GymRat app soon. Love your products man, thanks!&rdquo;</blockquote>
-        <figcaption><b>Harry M.</b></figcaption>
       </figure>
 
       <figure class="quote">
@@ -1164,10 +1155,8 @@ body[data-sn-open="true"]{overflow:hidden}
       </figure>
     </div>
 
-    <!-- Three of the four quote a number. The FTC's position on that is not
-         subtle: a testimonial that states a result implies it is the result
-         a buyer can expect, unless the page says otherwise, in plain sight,
-         near the claim rather than in the footer. -->
+    <!-- These first-person reports include specific size claims. Advertising rules are
+         concerned with implied typicality, so put qualification near the stories. -->
     <p class="tiny" style="margin-top:20px;max-width:64ch">These are individual
       results. They are not an average and they are not a promise. Bodies are different,
       some of these men were doing other things at the same time, and no honest version
