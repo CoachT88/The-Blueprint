@@ -241,7 +241,7 @@ describe('the topic page shows the whole argument', () => {
 describe('navigation', () => {
     test('THE LEARNING CENTER REACHES THE LAB, AND THE LAB REACHES THE TOPIC', async () => {
         const page = await open('/learn/index.html');
-        await page.click('a[href="/research-lab/"]');
+        await page.click('main a[href="/research-lab/"]');
         await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(180);
         expect(await page.evaluate(() => location.pathname)).toBe('/research-lab/');
