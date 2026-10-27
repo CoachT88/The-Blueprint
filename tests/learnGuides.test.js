@@ -516,14 +516,18 @@ for (const g of GUIDES) {
             expect(src, 'no subscription language').not.toMatch(/\/mo\b|per month|monthly/i);
         });
 
-        test('both calls to action keep their destinations, which exist', () => {
+        test('ONE NEXT STEP, NOT TWO', () => {
+            /* Every guide used to end with "Explore The Blueprint" and "See
+               How The Blueprint Works" side by side and equally weighted. A
+               man who has just been handed a free seven-day plan does not
+               need two sales doors, and the two went to pages that were
+               themselves two entrances to one subject. One remains. */
             const actions = src.match(/<div class="actions">([\s\S]*?)<\/div>/)[1];
             const hrefs = [...actions.matchAll(/href="([^"]+)"/g)].map(m => m[1]);
-            expect(hrefs).toEqual(['/whats-inside/', '/how-it-works/']);
-            for (const h of hrefs) {
-                expect(existsSync(path.join(ROOT, h.replace(/^\//, ''), 'index.html')),
-                    `${h} does not resolve`).toBe(true);
-            }
+            expect(hrefs).toEqual(['/whats-inside/']);
+            expect(existsSync(path.join(ROOT, 'whats-inside/index.html'))).toBe(true);
+            expect(actions, 'a second button came back')
+                .not.toMatch(/class="cta secondary"/);
         });
 
         test('the sale comes with the contextual heading, after the education', () => {
