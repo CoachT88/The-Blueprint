@@ -43,7 +43,7 @@ describe('Homepage: clear value, fewer decisions, truthful offer',()=>{
     expect(how).toContain('<details class="more">');
     expect(how).toContain('Length training');
     expect(how).toContain('Pelvic floor control');
-    expect(how).toContain('progress and responses vary');
+    expect(how).toMatch(/Progress and responses vary/i);
   });
   test('proof is related to this offer, not a different app',()=>{
     const proof=section('proof');
