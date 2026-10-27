@@ -133,12 +133,23 @@
     shut();
   });
   /* THE FOLDS CHANGE WHAT IS FOCUSABLE, so the trap is recomputed on every
-     Tab rather than cached. Links inside a closed <details> have no layout
-     box, and sending focus to one strands the keyboard outside the drawer
-     with no way back. */
+     Tab rather than cached, and it has to agree with the browser about what
+     is on screen.
+
+     checkVisibility(), not offsetWidth. A link inside a CLOSED <details>
+     still reports offsetWidth 294 and one client rect in Chromium, because
+     the box is kept so the disclosure can be animated and found by in-page
+     search. The browser will not focus it, but a trap that counts it picks
+     the wrong first and last element and the wrap sends Tab somewhere the
+     reader cannot see. The box check stays as a fallback for engines
+     without checkVisibility. */
+  function visible(el){
+    if(typeof el.checkVisibility==='function')return el.checkVisibility();
+    return !!(el.offsetWidth||el.offsetHeight||el.getClientRects().length);
+  }
   function focusables(){
     return [].slice.call(drawer.querySelectorAll('a,button,summary')).filter(function(el){
-      return !el.disabled&&(el.offsetWidth||el.offsetHeight||el.getClientRects().length);
+      return !el.disabled&&visible(el);
     });
   }
   drawer.addEventListener('keydown',function(e){

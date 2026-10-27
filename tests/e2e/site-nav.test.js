@@ -113,8 +113,11 @@ describe('one header, at every width', () => {
         }));
         expect(m.links).toBe('flex');
         expect(m.toggle).toBe('none');
-        expect(m.top).toEqual(['Free Assessment', 'Learn', 'How It Works', 'What’s Inside', 'Help']);
-        expect(m.learn).toEqual(['All Free Guides', 'Daily Blueprint', 'Last Longer', 'Stronger Erections', 'Better Sexual Performance', 'Size Enhancement', 'Research Lab']);
+        /* FOUR, and it was five. How It Works and What's Inside were two
+           entrances to one subject sitting beside each other in the bar.
+           The App is the entrance; the deeper read is linked from it. */
+        expect(m.top).toEqual(['Free Assessment', 'Learn', 'The App', 'Help']);
+        expect(m.learn).toEqual(['Last Longer', 'Stronger Erections', 'Better Sexual Performance', 'Size Enhancement', 'All Free Guides', 'Daily Blueprint', 'Research Lab']);
         await page.close();
     }, 60_000);
 });
@@ -163,15 +166,93 @@ describe('the slide-out menu works', () => {
         await page.close();
     }, 60_000);
 
-    test('it lists every learning category and supporting page', async () => {
+    test('FOUR CHOICES ARE VISIBLE, AND THE REST ARE ONE TAP AWAY', async () => {
+        /* The drawer printed fourteen links in five always-open groups, and
+           on a 390px phone Support was below the fold. A man looking for one
+           of them had to read all of them. Driven in a real browser because
+           the point is what is on screen, not what is in the markup. */
         const page = await open(390);
-        const items = await page.evaluate(() =>
-            [...document.querySelectorAll('.sn-drawer a')].map(a => a.textContent.trim()));
-        for (const label of ['Last Longer', 'Stronger Erections', 'Better Sexual Performance',
-                             'How It Works', 'What’s Inside', 'FAQ', 'Support', 'Safety',
-                             'Sign in', 'Get the app']) {
-            expect(items, `menu is missing ${label}`).toContain(label);
+        await page.click('#sn-toggle');
+        await page.waitForTimeout(300);
+        /* checkVisibility, not offsetWidth. A link inside a closed <details>
+           still reports a 294px box in Chromium, because the box is kept so
+           the disclosure can animate and in-page search can find it. */
+        const shown = () => page.evaluate(() =>
+            [...document.querySelectorAll('.sn-drawer-scroll a,.sn-drawer-scroll summary')]
+                .filter(el => el.checkVisibility())
+                .map(el => el.textContent.trim().split('\n')[0]));
+
+        const top = await shown();
+        expect(top).toHaveLength(4);
+        expect(top[0]).toMatch(/^Free Assessment/);
+        expect(top[1]).toMatch(/^Learn/);
+        expect(top[2]).toMatch(/^The App/);
+        expect(top[3]).toMatch(/^Help/);
+
+        /* Every destination is still there, behind the right fold. */
+        await page.evaluate(() => document.querySelectorAll('.sn-fold summary')[0].click());
+        await page.waitForTimeout(250);
+        const learn = await shown();
+        for (const label of ['Last Longer', 'Stronger Erections',
+                             'Better Sexual Performance', 'Size Enhancement',
+                             'All Free Guides', 'Daily Blueprint', 'Research Lab']) {
+            expect(learn, `Learn is missing ${label}`).toContain(label);
         }
+
+        await page.evaluate(() => document.querySelectorAll('.sn-fold summary')[1].click());
+        await page.waitForTimeout(250);
+        const help = await shown();
+        for (const label of ['FAQ', 'Safety', 'Support']) {
+            expect(help, `Help is missing ${label}`).toContain(label);
+        }
+        /* Opening one closes the other, or the drawer is the long list again. */
+        expect(help).not.toContain('Last Longer');
+
+        const actions = await page.evaluate(() =>
+            [...document.querySelectorAll('.sn-drawer-actions a')].map(a => a.textContent.trim()));
+        expect(actions).toEqual(['Sign in', 'Get the app']);
+        await page.close();
+    }, 60_000);
+
+    test('TAB VISITS THE SEVEN VISIBLE CONTROLS, WRAPS, AND LEAVES NOTHING OUT', async () => {
+        /* Three ways this can break, and all three are here:
+             focus escapes the modal dialog;
+             focus lands on a link inside a closed fold, which the reader
+             cannot see and cannot get back from;
+             the wrap skips a control, so part of the menu is unreachable
+             by keyboard.
+           Driven for a full cycle and a bit, so the wrap is observed rather
+           than assumed. */
+        const page = await open(390);
+        await page.click('#sn-toggle');
+        await page.waitForTimeout(300);
+        const stops = [];
+        for (let i = 0; i < 9; i++) {
+            await page.keyboard.press('Tab');
+            stops.push(await page.evaluate(() => {
+                const a = document.activeElement;
+                return {
+                    /* The lead links and the fold summaries carry a note
+                       in a child span, so the first text node is the name. */
+                    label: (a.getAttribute('aria-label')
+                        || (a.firstChild && a.firstChild.nodeType === 3 ? a.firstChild.textContent : a.textContent)
+                        || '').trim(),
+                    inside: document.getElementById('sn-drawer').contains(a),
+                    visible: a.checkVisibility(),
+                };
+            }));
+        }
+        expect(stops.filter(s => !s.inside), 'focus left the dialog').toEqual([]);
+        expect(stops.filter(s => !s.visible), 'focus landed on something hidden').toEqual([]);
+        expect(stops.slice(0, 7).map(s => s.label)).toEqual([
+            'Free Assessment', 'Learn', 'The App', 'Help',
+            'Sign in', 'Get the app', 'Close menu',
+        ]);
+        expect(stops[7].label, 'the trap did not wrap').toBe('Free Assessment');
+
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(250);
+        expect(await page.evaluate(() => document.activeElement.id)).toBe('sn-toggle');
         await page.close();
     }, 60_000);
 

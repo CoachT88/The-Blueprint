@@ -99,6 +99,26 @@ describe('every public page follows the same template rules', () => {
         }
     });
 
+
+    test('THE SITEMAP IS EXACTLY THE PUBLIC SITE', () => {
+        /* Both directions. A page missing from the sitemap is a page search
+           engines have to find by luck; a URL in the sitemap with no page
+           behind it is a 404 handed to a crawler on purpose.
+
+           /welcome/ is the only exclusion, and it is deliberate: it is the
+           page a man lands on straight after paying, and it means nothing
+           to anybody who has not. /app/ is excluded in robots.txt. */
+        const locs = new Set([...read('sitemap.xml')
+            .matchAll(/<loc>https:\/\/theblueprint\.site([^<]*)<\/loc>/g)].map(m => m[1]));
+        const routes = new Set(PAGES.map(p => p === 'index.html' ? '/' : '/' + path.dirname(p) + '/'));
+        routes.delete('/welcome/');
+        expect([...locs].filter(l => !routes.has(l)), 'in the sitemap, no page behind it')
+            .toEqual([]);
+        expect([...routes].filter(r => !locs.has(r)), 'a public page the sitemap omits')
+            .toEqual([]);
+        expect(read('robots.txt')).toContain('Disallow: /app/');
+    });
+
     test('exactly one h1 per page', () => {
         for (const p of PAGES) {
             const n = (read(p).match(/<h1[\s>]/gi) || []).length;
