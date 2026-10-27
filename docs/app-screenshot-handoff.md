@@ -1,81 +1,46 @@
-# Swapping in the owner's current app screenshots
+# Product screenshots: current app (October 2026)
 
-**Status: blocked, and the only thing in the October 2026 site overhaul
-that is.** The four files are not in this repository, not in any branch,
-and not anywhere in the environment this work was done in. PR #158 says
-where they are: *"The archive containing the four exact prepared files is
-available in the ChatGPT conversation."* That is not a place a repository
-can reach.
+**Status: completed in PR #161.** The site now uses four device screenshots
+supplied by Coach Tee, not screenshots generated from an older development
+build. Do not quietly regenerate these with headless Playwright or AI:
+marketing must reflect what a paying customer actually sees.
 
-Nothing is broken while they are missing. The pages reference the four
-screenshots that are committed today and they all resolve. What is true is
-that those four were generated from the app by
-`tools/capture-marketing-screenshots.mjs`, and the owner has said they do
-not match what the app looks like on their device.
+## Source and destination
 
-**No substitute was produced.** Re-running the generator would produce the
-same mismatch, and drawing a picture of an app screen is a fabricated
-product claim. The swap waits for the real files.
+| Original device file | Committed website asset | Dimensions | View |
+|---|---|---|---|
+| `IMG_7829.jpeg` | `img/app-today-2026.jpg` | 780 × 1630 | HQ / Today / Girth Day |
+| `IMG_7830.jpeg` | `img/app-sessions-2026.jpg` | 780 × 1442 | Choose a Different Session |
+| `IMG_7831.jpeg` | `img/app-recovery-2026.jpg` | 780 × 1524 | Recovery / Coach Tee recommendations |
+| `IMG_7832.jpeg` | `img/app-guided-practice-2026.jpg` | 780 × 1596 | Guided Practice / Diaphragmatic Breathing |
 
-## What to send
+The owner provided all four files in the project conversation. The screenshots
+were resized and compressed, without adding invented claims, measurements,
+interface elements, or progress examples.
 
-Four images, as captured on the device:
+The homepage `#look` gallery uses all four, displayed as an accessible
+sideways-scrolling gallery on small screens and a grid on desktop.
+`/whats-inside/` uses the Today and Guided Practice screens to illustrate
+what a new purchaser can expect.
 
-| Owner's file | Screen |
-|---|---|
-| `IMG_7829.jpeg` | HQ / Today / Girth Day |
-| `IMG_7830.jpeg` | Choose a Different Session |
-| `IMG_7831.jpeg` | Recovery / Coach Tee recommendations |
-| `IMG_7832.jpeg` | Guided Practice / Diaphragmatic Breathing |
+The former `img/shot-*.jpg` captures and automated capture workflow were
+removed to prevent a stale UI from accidentally replacing the updated
+screenshots. `img/og-card.jpg` remains the link-preview image.
 
-Attach them to the pull request, drop them in the repository, or send them
-any way that reaches a file. The originals are better than anything
-pre-cropped: cropping and optimizing is the easy half.
+## How to update these in the future
 
-## What happens then
+1. Confirm the actual current customer-facing app version on a mobile device.
+2. Capture authentic screens with a demonstration account that contains no
+   real customer information. Use realistic but clearly presented sample state.
+3. Optimize the originals carefully for the web while preserving content.
+4. Update the images in `img/` and their references in `index.html` and
+   `whats-inside/index.html`. Match HTML `width`/`height` attributes
+   to the actual JPEG pixel dimensions.
+5. Update captions, alt text, tests and this document. The
+   `tests/marketingScreenshots.test.js` suite checks referenced image files,
+   image dimensions, orphaned assets, and whether the retired screenshot
+   generator has returned.
+6. Verify the mobile swipe gallery, desktop grid, page scroll and image
+   loading at 320px, 390px, 768px and desktop before merging.
 
-Four edits, in one commit.
-
-1. **Commit the files** as `img/app-today-2026.jpg`,
-   `img/app-sessions-2026.jpg`, `img/app-recovery-2026.jpg` and
-   `img/app-guided-practice-2026.jpg`. PR #158 prepared those names and the
-   dimensions it optimized to (780 wide; 1630, 1442, 1524 and 1596 tall).
-   Any consistent size works as long as step 2 matches it.
-
-2. **Update the markup in two places.** The home page `#look` gallery uses
-   all four; `/whats-inside/` uses Today and Guided Practice. Each `<img>`
-   carries `width` and `height`, and those two numbers must equal the real
-   pixel dimensions of the file.
-
-   This is not cosmetic. The owner's captures are a different aspect ratio
-   from the generated ones, so a swap that leaves `width="390"
-   height="844"` in place reserves the wrong space and the page jumps as
-   each image loads. `tests/marketingScreenshots.test.js` reads the JPEG
-   headers and fails if a declared size disagrees with the file, which is
-   the one check that catches this before a visitor does.
-
-3. **Rewrite the four captions** to describe the screens that are actually
-   shown. The current captions describe the current images; Girth Day and
-   Diaphragmatic Breathing are different screens and deserve their own
-   words. PR #158 drafted a set.
-
-4. **Delete the four `img/shot-*.jpg` files.** The same test fails on any
-   image in `img/` that nothing references, so the old set cannot be left
-   behind for somebody to wonder about later. `og-card.jpg` stays; it is
-   the link preview card and every page's meta tags point at it.
-
-Then `npx vitest run tests/marketingScreenshots.test.js`, and the full
-suite before merging.
-
-## What not to do
-
-- **Do not regenerate them.** `tools/capture-marketing-screenshots.mjs`
-  drives the real app with fictional data and is honest as far as it goes,
-  but it is what produced the mismatch the owner is asking to fix. PR #158
-  proposes retiring it along with its workflow; that decision belongs with
-  whoever merges #158.
-- **Do not ship a reference to a file that is not committed.** A broken
-  `<img>` on the page selling the product is worse than an older picture of
-  it.
-- **Do not alter what the screens show.** Crop and compress; do not edit
-  numbers, badges, or state into or out of a product screenshot.
+Never publish images that show obsolete or invented app features.
