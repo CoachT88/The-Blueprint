@@ -228,7 +228,9 @@ describe('the topic page covers every method as required', () => {
                 `${name} alias does not name the mechanics: ${alias[1]}`).toBe(true);
         }
         const t = prose(src);
-        expect(t).toMatch(/sometimes described as massage, which sounds gentler and is mechanically inaccurate/);
+        expect(t).toMatch(/Some call these activities massage exercises/);
+        expect(t).toMatch(/Directional pulls apply traction/);
+        expect(t).toMatch(/wet jelqing use compression and pressure/);
     });
 
     test('REPORTED EXPERIENCE IS ALWAYS LABELLED ANECDOTAL', () => {
