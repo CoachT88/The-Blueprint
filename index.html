@@ -345,6 +345,13 @@ p b,li b{color:var(--bone);font-weight:700}
 .ticks li{display:flex;gap:10px;padding:5px 0;color:var(--muted)}
 .ticks li span{color:var(--blue-lit);flex:none;font-weight:800}
 
+/* Three-step preview: easy to scan without presenting a separate funnel. */
+.plan-steps{display:grid;grid-template-columns:1fr;gap:14px;margin-top:26px}
+.plan-step{padding:22px}
+.plan-step .num{color:var(--blue-lit);font-size:11px;font-weight:850;letter-spacing:.12em;display:block;margin-bottom:12px}
+.plan-step h3{font-size:19px}
+.plan-step p{max-width:35ch}
+@media (min-width:760px){.plan-steps{grid-template-columns:repeat(3,minmax(0,1fr))}}
 /* ---- screenshots ------------------------------------------------------- */
 /* On phones the app preview is one horizontally browsable region, not
    four near-full-screen images stacked in the sales-page reading flow. */
@@ -883,25 +890,25 @@ body[data-sn-open="true"]{overflow:hidden}
     <h1 class="display" style="margin-top:22px">Experience alone doesn't make you better in bed.</h1>
 
     <p class="lede" style="margin-top:20px">
-      You can have years of experience and still wonder why your erections change,
-      why you finish sooner than you want, or why control feels different from one
-      night to the next.
+      You can have years of experience and still struggle with erection consistency,
+      finishing sooner than you want, or knowing where to start with length and girth.
+      More experience isn't automatically a plan.
     </p>
 
     <p class="lede" style="margin-top:16px">
-      <b>Start with a better question: what's influencing your performance?</b>
-      Learn the patterns, understand what you can practice, and decide what deserves
-      attention. Useful answers are free to explore right here.
+      <b>The Blueprint gives you a place to start and a way to practice.</b>
+      Choose your goal, follow guided sessions for sexual performance and optional
+      length or girth training, make room for recovery, and track your own progress.
     </p>
 
     <div class="btn-row">
-      <a class="btn" href="/assessment/">Find your starting point</a>
-      <a class="btn ghost" href="/whats-inside/">Look inside the app</a>
+      <a class="btn" href="/assessment/">Find my starting point — free</a>
+      <a class="btn ghost" href="/whats-inside/">See the $99 app</a>
     </div>
-    <p class="purchase-assurance">Want a structured training system? <a href="#get">Start The Blueprint, $99</a>.
-      $99 once &middot; No subscription &middot; Future app updates included</p>
+    <p class="purchase-assurance">Five private assessment questions &middot; About two minutes &middot;
+      No account required. The app is an optional $99 one-time purchase, not a subscription.</p>
 
-    <div class="stampmark">Private education. No account needed to read.</div>
+    <div class="stampmark">A clear goal. A practice to follow. Progress you can review.</div>
   </div>
 </section>
 
@@ -917,21 +924,10 @@ body[data-sn-open="true"]{overflow:hidden}
      just read. -->
 <section id="why">
   <div class="wrap">
-    <span class="label stamp">If you have ever thought</span>
-    <h2 class="display" style="margin-top:14px">One of these is why you are here.</h2>
-
-    <ul class="thoughts">
-      <li>&ldquo;My erections should be harder.&rdquo;</li>
-      <li>&ldquo;I finish way too fast.&rdquo;</li>
-      <li>&ldquo;I want to last longer without constantly stopping.&rdquo;</li>
-      <li>&ldquo;I want to improve my size, but I don&rsquo;t know what actually makes sense.&rdquo;</li>
-      <li>&ldquo;My pelvic floor always feels tight.&rdquo;</li>
-      <li>&ldquo;I&rsquo;ve read forums about penis enlargement, but everybody says something different.&rdquo;</li>
-    </ul>
-
-    <p style="margin-top:26px"><b>Pick the one that sounds most like you.</b>
-      Each goal has free guides written around it. No account, no payment,
-      nothing to join.</p>
+    <span class="label stamp">Choose your goal</span>
+    <h2 class="display" style="margin-top:14px">What would you like to improve first?</h2>
+    <p class="lede" style="margin-top:16px">Lasting longer? More reliable erections? Better overall performance? Exploring length or girth? Start with the one that matters most to you.</p>
+    <p class="small" style="margin-top:12px">Every goal has free information to explore before you decide whether you want the app.</p>
 
     <div class="grid four">
       <a class="card goal" href="/last-longer/">
@@ -952,10 +948,9 @@ body[data-sn-open="true"]{overflow:hidden}
       </a>
     </div>
 
-    <p class="small" style="margin-top:22px">Not sure which one?
+    <p class="small" style="margin-top:22px">Not sure where to begin?
       <a href="/assessment/">Take the free assessment</a>: five private questions,
-      about two minutes, answers stay in your browser. Or read
-      <a href="/daily/">today's note</a>, one idea and one thing to try.</p>
+      about two minutes. Or check <a href="/daily/">today's free tip</a>.</p>
     <p class="tiny" style="margin-top:14px;max-width:70ch">Persistent erection or ejaculation
       difficulties can have medical causes. Education helps you ask better questions;
       it cannot replace evaluation.</p>
@@ -973,47 +968,35 @@ body[data-sn-open="true"]{overflow:hidden}
      version a man who is actually interested will open. -->
 <section id="how">
   <div class="wrap">
-    <span class="label go">The mistake</span>
-    <h2 class="display" style="margin-top:14px">Most guys start with the wrong thing.</h2>
+    <span class="label go">The shift</span>
+    <h2 class="display" style="margin-top:14px">Stop collecting tips. Start following a plan.</h2>
+    <p class="lede" style="margin-top:16px">A random exercise can give you something to do. A system helps you understand <b>what to focus on today, when to recover, and what to pay attention to over time.</b> That's what The Blueprint is built to organize.</p>
 
-    <div class="grid two">
-      <div>
-        <p style="margin-top:20px">
-          A guy wants a bigger penis, so the first thing he does is search for stretches,
-          pumps, jelqs, extenders, or whatever technique somebody online swears changed
-          his life.
-        </p>
-        <p style="margin-top:14px">
-          There is a bigger picture. <b>Your erection depends on blood getting into the
-          penis and staying there.</b> Your ejaculation control is driven by arousal,
-          breathing, nervous system activity, and what your pelvic floor is doing.
-        </p>
-        <p style="margin-top:14px">
-          And if you decide to experiment with penis training, poor erection quality,
-          too much tension, bad recovery, and aggressive technique all work against you.
-        </p>
-        <p style="margin-top:14px">
-          So The Blueprint starts by helping you build a better functioning system.
-          <b>Then you train from there.</b>
-        </p>
-      </div>
-      <div class="card hilite">
-        <span class="label">Why one app instead of six</span>
-        <h3 style="margin-top:10px;font-size:20px">Everything here feeds everything else</h3>
-        <p style="margin-top:12px">Blood flow affects erection quality.</p>
-        <p style="margin-top:8px">Erection quality affects how full your penis gets.</p>
-        <p style="margin-top:8px">Pelvic floor tension affects control.</p>
-        <p style="margin-top:8px">Breathing affects arousal.</p>
-        <p style="margin-top:8px">Recovery affects performance.</p>
-        <p style="margin-top:8px">Training volume affects how the tissue responds.</p>
-        <p style="margin-top:8px">Your habits affect all of it.</p>
-        <p style="margin-top:14px"><b>Stop treating every sexual problem like it exists
-          by itself. Train the whole system.</b></p>
-      </div>
+    <div class="plan-steps" aria-label="Your Blueprint in three steps">
+      <article class="card plan-step">
+        <span class="num">01 · FIND YOUR FOCUS</span>
+        <h3>Start where you are.</h3>
+        <p>Pick a goal instead of guessing which routine belongs in your day.</p>
+      </article>
+      <article class="card plan-step">
+        <span class="num">02 · FOLLOW THE SESSION</span>
+        <h3>Know your next move.</h3>
+        <p>Use guided practice, daily recommendations and recovery options you can actually follow.</p>
+      </article>
+      <article class="card plan-step">
+        <span class="num">03 · TRACK THE PATTERN</span>
+        <h3>See what changes.</h3>
+        <p>Record your sessions, erection quality and measurements. Review what you're noticing instead of relying on memory.</p>
+      </article>
     </div>
 
-    <h3 style="margin-top:46px;font-size:21px">Six things you train, in one place</h3>
-    <ul class="trains">
+    <p class="small" style="margin-top:16px">Training length or girth? Those sessions are optional. Progress and responses vary, so the app includes recovery guidance and warning signs alongside the exercises.</p>
+
+    <details class="more">
+      <summary>Explore the six training areas and what's involved</summary>
+      <div class="more-body">
+        <p>Blood flow, pelvic floor work, stamina, optional length and girth routines, and tracking all have a place. Explore the detail when you're ready.</p>
+        <ul class="trains">
       <li><b>Blood flow.</b> The daily habits that hold erection quality up.</li>
       <li><b>Pelvic floor control.</b> Both halves: when to contract, and how to release.</li>
       <li><b>Lasting longer.</b> Structured edging, so control is something you practice.</li>
@@ -1021,10 +1004,7 @@ body[data-sn-open="true"]{overflow:hidden}
       <li><b>Girth training.</b> A different stimulus, with pressure and frequency managed.</li>
       <li><b>Tracking.</b> Erection quality, sessions, measurements, over months.</li>
     </ul>
-
-    <details class="more">
-      <summary>What each of those actually involves</summary>
-      <div class="more-body">
+        <h4>What each area involves</h4>
         <h4>Better blood flow</h4>
         <p>Daily guidance on the habits that actually support erection quality. Hydration,
           movement, sleep, warm-ups, and the foods and supplements that help. You start
@@ -1059,22 +1039,13 @@ body[data-sn-open="true"]{overflow:hidden}
           improved before your measurements did. <b>Data beats guessing.</b></p>
       </div>
     </details>
-
-    <div class="card" style="margin-top:30px">
-      <span class="label">The trade nobody warns you about</span>
-      <h3 style="margin-top:10px;font-size:20px">Size without function is a bad trade</h3>
-      <p style="margin-top:12px">
-        A bigger penis with weak erections is not an upgrade. Neither is gaining size while
-        losing sensitivity, or chasing girth while getting dependent on pills just to stay
-        hard, or lasting two minutes with more penis than you know how to control.
-      </p>
-      <p style="margin-top:12px">
-        That is why The Blueprint does not separate size from performance. The goal is to
-        become a better functioning man sexually: <b>harder erections, better awareness,
-        more control, better pelvic floor function, better blood flow habits</b>, and if
-        size training is one of your goals, a smarter way to approach it.
-      </p>
-    </div>
+    <details class="more" style="margin-top:12px">
+      <summary>Why sexual function matters alongside size</summary>
+      <div class="more-body">
+        <p>Erection firmness, sensation, arousal awareness and recovery still matter when your goal is length or girth. Training one area shouldn't mean ignoring the others.</p>
+        <p>The Blueprint brings those goals together. It doesn't promise a particular measurement or replace medical care.</p>
+      </div>
+    </details>
   </div>
 </section>
 
