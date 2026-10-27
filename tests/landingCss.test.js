@@ -103,7 +103,8 @@ describe('landing page claims', () => {
         const hero = html.match(/<section class="hero" id="top">([\s\S]*?)<\/section>/)?.[1];
         expect(hero).toBeDefined();
         expect(hero).toContain('$99 once &middot; No subscription &middot; Future app updates included');
-        expect(hero).toContain('href="#get"');
+        expect(hero).toContain('href="/whats-inside/"');
+        expect(hero).not.toContain('href="#get"');
     });
 
     test('the offer reinforces payment terms without repeating updates in the feature list', () => {

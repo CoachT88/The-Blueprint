@@ -55,7 +55,8 @@ describe('The Daily Blueprint content and return-visit experience',()=>{
     const hero=home.slice(home.indexOf('<section class="hero"'),home.indexOf('</section>',home.indexOf('<section class="hero"')));
     expect(hero).toContain('Experience alone');
     expect(hero.indexOf('href="/assessment/"')).toBeGreaterThan(0);
-    expect(hero.indexOf('href="/assessment/"')).toBeLessThan(hero.indexOf('href="#get"'));
+    expect(hero.indexOf('href="/assessment/"')).toBeLessThan(hero.indexOf('href="/whats-inside/"'));
+    expect(hero).not.toContain('href="#get"');
     const price=home.indexOf('<section id="get">');
     expect(price).toBeGreaterThan(0);
     for(const free of ['/assessment/','/daily/','/last-longer/','/stronger-erections/',
