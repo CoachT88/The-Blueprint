@@ -34,17 +34,37 @@ describe('public size enhancement resource', () => {
     expect(body).toContain('r/AJelqForYou');
     expect(body).toContain('thunders.place/progress-reports/seep-progress.html');
     expect(body).toContain('reddit.com/r/PenisPumpResults/comments/1q533js/');
-    expect(body).toContain('One man interviewed by GQ said');
-    expect((body.match(/class="report-card"/g) || []).length).toBeGreaterThanOrEqual(5);
-    expect(body).toContain('not an independently verified result');
+    expect(body).toContain('Some men report a quarter-inch increase');
+    expect((body.match(/class="report-card"/g) || []).length).toBeGreaterThanOrEqual(8);
+    expect(body).toContain('These are experiences, not guaranteed results.');
     expect(body).toContain('after nine days off');
     expect(body).toContain('returning to 4.0 after one week');
+  });
+
+  test('public pages align community curiosity with the actual optional app offer', () => {
+    const home = read('index.html');
+    const offer = read('whats-inside/index.html');
+    const faq = read('faq/index.html');
+    const how = read('how-it-works/index.html');
+    const safety = read('safety/index.html');
+    const lab = read('research-lab/manual-techniques/index.html');
+    expect(home).toContain("I've seen changes in my own length and girth too");
+    expect(page).toContain("I've experienced changes in my own length and girth through training.");
+    expect(page).toContain('Three months of manuals');
+    expect(page).toContain('first year mainly to manual jelqing');
+    expect(page).toContain('optional guided routines inside The Blueprint');
+    expect(offer).toContain('optional guided sessions inside The Blueprint');
+    expect(faq).toContain('See the original progress reports');
+    expect(how).toContain('Explore at your pace');
+    expect(safety).toContain('risk-free technique');
+    expect(lab).toContain('the community progress reports');
+    expect(page).not.toContain('does not provide instructions or encourage forceful experimentation');
   });
 
   test('offers useful free action and readable clinical cautions', () => {
     expect(page).toContain('Try this free seven-day starting-point check');
     expect(page).toContain('An erection lasting more than four hours is a medical emergency.');
-    expect(page).toContain('No specific gain is guaranteed.');
+    expect(page).toContain('the app does not promise a particular number of inches');
     expect(page).toContain('No clinician has reviewed this page.');
     expect(page).toContain('href="/research-lab/manual-techniques/"');
     expect(page).toContain('href="/whats-inside/"');
