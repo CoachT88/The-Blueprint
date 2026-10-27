@@ -72,7 +72,7 @@ describe('Phase 1: the ten missing guides are now fully published',()=>{
      expect(src).toContain('href="/how-it-works/"');
    });
    test(slug+': sources, privacy and shared design are enforced',()=>{
-     const refs=src.slice(src.indexOf('<h2>8. Where this information comes from'),src.indexOf('</section>',src.indexOf('<h2>8. Where this information comes from'));
+     const refs=src.slice(src.indexOf('<h2>8. Where this information comes from'),src.indexOf('</section>',src.indexOf('<h2>8. Where this information comes from')));
      const links=[...refs.matchAll(/<a href="(https:\/\/[^"]+)"([^>]*)>/g)];
      expect(links.length).toBeGreaterThanOrEqual(4);
      for(const [,url,attrs] of links){
