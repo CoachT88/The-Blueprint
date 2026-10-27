@@ -9,25 +9,35 @@
  */
 import { mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { openApp, signIn, sessionEntry } from '../tests/e2e/harness.js';
+import { openApp, signIn } from '../tests/e2e/harness.js';
 
 const out = join(process.cwd(), 'img');
 mkdirSync(out, { recursive: true });
 const app = await openApp({ clock: new Date('2026-10-21T13:00:00-07:00') });
 const { page, errors } = app;
+// Stable, synthetic history to demonstrate the real progress graphs without
+// asserting that an enlargement occurred. The dates are before the fixed
+// in-browser clock, and the measurements remain essentially unchanged.
+const base = Date.parse('2026-10-21T12:00:00Z');
+const date = (daysAgo) => new Date(base - daysAgo*86400000).toISOString();
 const demo = {
   primaryGoal: 'all',
   difficulty: 'intermediate',
   allTimeSessionCount: 7,
   totalXp: 490,
   progressCheckins: [],
-  measurements: [],
+  measurements: [
+    {date:date(28),bpel:6.10,mseg:4.70},
+    {date:date(21),bpel:6.08,mseg:4.70},
+    {date:date(14),bpel:6.12,mseg:4.69},
+    {date:date(7),bpel:6.10,mseg:4.70}
+  ],
   sessionLog: [
-    sessionEntry(12, {type:'length',eq:7,xp:45}),
-    sessionEntry(9, {type:'recovery',eq:8,xp:15}),
-    sessionEntry(6, {type:'girth',eq:8,xp:45}),
-    sessionEntry(3, {type:'stamina',eq:8,xp:45}),
-    sessionEntry(1, {type:'length',eq:9,xp:45})
+    {date:date(12),routineType:'length',eq:7,xpEarned:45},
+    {date:date(9),routineType:'recovery',eq:8,xpEarned:15},
+    {date:date(6),routineType:'girth',eq:8,xpEarned:45},
+    {date:date(3),routineType:'stamina',eq:8,xpEarned:45},
+    {date:date(1),routineType:'length',eq:9,xpEarned:45}
   ]
 };
 
