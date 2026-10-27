@@ -2,59 +2,57 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
-const root = path.resolve(process.cwd());
-const read = rel => readFileSync(path.join(root, rel),'utf8');
+const root=path.resolve(process.cwd());
+const read=relative=>readFileSync(path.join(root,relative),'utf8');
 
-function jpegSize(rel) {
-  const bytes = readFileSync(path.join(root,rel));
-  expect(bytes[0]).toBe(0xff);
-  expect(bytes[1]).toBe(0xd8);
+// Four screenshots furnished by the app owner, not generated from an outdated
+// local app build. Missing images intentionally fail the release gate.
+const assets=[
+  ['app-today-2026.jpg',1630],
+  ['app-sessions-2026.jpg',1442],
+  ['app-recovery-2026.jpg',1524],
+  ['app-guided-practice-2026.jpg',1596]
+];
+
+function dimensions(bytes){
   for(let i=2;i<bytes.length-9;){
     if(bytes[i]!==0xff){i++;continue;}
     const marker=bytes[i+1];
-    if([0xc0,0xc1,0xc2,0xc3].includes(marker)){
+    if([0xc0,0xc1,0xc2,0xc3].includes(marker))
       return {height:bytes.readUInt16BE(i+5),width:bytes.readUInt16BE(i+7)};
-    }
-    if(marker===0xda) break;
+    if(marker===0xda)break;
     const len=bytes.readUInt16BE(i+2);
     if(len<2)break;
     i+=2+len;
   }
-  throw new Error('No image dimensions found in '+rel);
+  throw new Error('Expected a readable JPEG file');
 }
 
-describe('Phase 3: current app demonstration screenshots',()=>{
-  const names=['shot-home','shot-mission','shot-recovery','shot-progress'];
-  test('all four real JPG captures exist and are readable mobile images',()=>{
-    for(const name of names){
-      const rel='img/'+name+'.jpg';
+describe('current app screenshots supplied by the product owner',()=>{
+  test('all four current screenshots are committed and valid',()=>{
+    for(const [name,height] of assets){
+      const rel='img/'+name;
       expect(statSync(path.join(root,rel)).size,name).toBeGreaterThan(20000);
-      const d=jpegSize(rel);
-      expect(d.width,name).toBeGreaterThanOrEqual(380);
-      expect(d.height,name).toBeGreaterThanOrEqual(820);
+      const buffer=readFileSync(path.join(root,rel));
+      expect(buffer[0],name).toBe(0xff);
+      expect(buffer[1],name).toBe(0xd8);
+      expect(dimensions(buffer),name).toEqual({width:780,height});
     }
   });
-  test('the product story shows four distinct screens without fabricated results',()=>{
+  test('the homepage gallery uses exactly the four current screenshots',()=>{
     const home=read('index.html');
-    const inside=read('whats-inside/index.html');
-    for(const name of names){
-      expect(home).toContain('src="img/'+name+'.jpg"');
-    }
     expect((home.match(/<figure class="shot">/g)||[])).toHaveLength(4);
-    expect(home).toContain('fictional demonstration data');
+    for(const [name] of assets) expect(home).toContain('src="img/'+name+'"');
+    expect(home).toContain('What happens after you open the app?');
+    expect(home).not.toContain('src="img/shot-home.jpg"');
+    expect(home).not.toContain('fictional demonstration data');
     expect(home).not.toContain('dry tissue tears');
-    for(const name of ['shot-home','shot-progress']){
-      expect(inside).toContain('src="/img/'+name+'.jpg"');
-    }
-    expect(inside).toContain('fictional demo information');
   });
-  test('screens are sourced from the real application in a reproducible capture',()=>{
-    const capture=read('tools/capture-marketing-screenshots.mjs');
-    expect(capture).toContain("from '../tests/e2e/harness.js'");
-    expect(capture).toContain("goToStep(0)");
-    expect(capture).toContain("goToStep(3)");
-    expect(capture).toContain("goToRecoveryPicker()");
-    expect(capture).toContain("openProgressChart()");
-    expect(capture).toContain("demo@example.invalid");
+  test('Whats Inside uses current Today and Guided Practice screens',()=>{
+    const page=read('whats-inside/index.html');
+    expect(page).toContain('src="/img/app-today-2026.jpg"');
+    expect(page).toContain('src="/img/app-guided-practice-2026.jpg"');
+    expect(page).not.toContain('src="/img/shot-progress.jpg"');
+    expect(page).toContain('See all four current app screens');
   });
 });
