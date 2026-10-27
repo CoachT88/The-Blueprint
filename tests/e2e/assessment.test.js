@@ -498,7 +498,7 @@ describe('it joins the rest of the site', () => {
     test('and the Learning Center offers it', async () => {
         const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
         await page.goto(`${srv.origin}/learn/index.html`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-        await page.click('a[href="/assessment/"]');
+        await page.click('main a[href="/assessment/"]');
         await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(200);
         expect(await page.evaluate(() => location.pathname)).toBe('/assessment/');
