@@ -356,34 +356,39 @@ footer a{margin-right:16px}
 }
 .sn-brand span:not(.sn-mark){overflow:hidden;text-overflow:ellipsis}
 
-/* ---- desktop links ----------------------------------------------------- */
+/* ---- desktop links ---------------------------------------------------- */
 .sn .sn-links{
-  /* .sn .sn-links, not .sn-links: these pages style the bare `nav` element
-     for their own old header, and `nav{min-height:76px;flex-wrap:wrap}` was
-     still reaching this one and laying it out on two rows. The dead rules
-     are gone, and the extra class keeps a future one from doing it again. */
-  display:none;align-items:center;gap:4px;flex:1 1 auto;min-width:0;
-  margin-left:14px;min-height:0;flex-wrap:nowrap;justify-content:flex-start;
+  display:none;align-items:center;gap:3px;flex:1 1 auto;min-width:0;
+  margin-left:12px;min-height:0;flex-wrap:nowrap;justify-content:flex-start;
 }
-.sn-links a,.sn-learn-btn{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:0 10px;min-height:44px;border:0;background:none;
-  color:var(--sn-text);font:inherit;font-size:13.5px;font-weight:650;
+.sn-links a,.sn-drop-btn{
+  display:inline-flex;align-items:center;gap:5px;padding:0 10px;
+  min-height:44px;border:0;background:none;color:var(--sn-text);
+  font:inherit;font-size:13.5px;font-weight:650;
   text-decoration:none;white-space:nowrap;border-radius:9px;cursor:pointer;
 }
-.sn-links a:hover,.sn-learn-btn:hover{color:var(--sn-ink);background:rgba(255,255,255,.05)}
+.sn-links a:hover,.sn-drop-btn:hover{color:var(--sn-ink);background:rgba(255,255,255,.06)}
 .sn-links a[aria-current="page"]{color:var(--sn-ink)}
-.sn-learn{position:relative}
-.sn-learn-btn svg{transition:transform 140ms cubic-bezier(.2,.8,.2,1)}
-.sn-learn[data-open="true"] .sn-learn-btn svg{transform:rotate(180deg)}
-.sn-learn-menu{
-  position:absolute;top:calc(100% + 6px);left:0;min-width:230px;
+.sn .sn-start{color:var(--sn-ink)}
+.sn-drop{position:relative}
+.sn-drop-btn svg{transition:transform 140ms cubic-bezier(.2,.8,.2,1)}
+.sn-drop[data-open="true"] .sn-drop-btn svg{transform:rotate(180deg)}
+.sn-drop-menu{
+  position:absolute;top:calc(100% + 6px);left:0;min-width:250px;
+  max-height:min(72dvh,580px);overflow-y:auto;overscroll-behavior:contain;
   background:var(--sn-panel);border:1px solid var(--sn-edge);border-radius:14px;
-  box-shadow:0 18px 44px -12px rgba(0,0,0,.7);padding:6px;display:none;
+  box-shadow:0 18px 44px -12px rgba(0,0,0,.7);padding:8px;display:none;
 }
-.sn-learn[data-open="true"] .sn-learn-menu{display:block}
-.sn-learn-menu a{display:flex;width:100%;padding:0 12px;min-height:44px;border-radius:9px;
-  font-size:13.5px}
+.sn-help .sn-drop-menu{left:auto;right:0;min-width:190px}
+.sn-drop[data-open="true"] .sn-drop-menu{display:block}
+.sn-drop-menu a{
+  display:flex;width:100%;padding:0 12px;min-height:41px;border-radius:9px;
+  font-size:13.5px;white-space:normal;
+}
+.sn-drop-label{
+  display:block;color:var(--sn-muted);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;font-weight:850;padding:12px 12px 5px;
+}
 
 /* ---- right-hand actions ------------------------------------------------ */
 .sn-act{display:flex;align-items:center;gap:8px;flex:none;flex-wrap:nowrap}
@@ -394,9 +399,6 @@ footer a{margin-right:16px}
   white-space:nowrap;
 }
 .sn-signin:hover{color:var(--sn-ink);border-color:#35425e}
-/* The purchase CTA. Present at every width, because it is the one action
-   the site exists for. #2563eb against white is 5.17:1; #3b82f6 would be
-   3.68:1 and fail AA for this size. */
 .sn-buy{
   display:inline-flex;align-items:center;padding:0 14px;min-height:44px;
   border-radius:10px;background:var(--sn-blue-press);color:#fff;text-decoration:none;
@@ -411,7 +413,7 @@ footer a{margin-right:16px}
 }
 .sn-toggle:hover{background:rgba(255,255,255,.05)}
 
-/* ---- slide-out drawer -------------------------------------------------- */
+/* ---- mobile drawer ------------------------------------------------------ */
 .sn-scrim{
   position:fixed;inset:0;z-index:60;background:rgba(2,6,23,.72);
   backdrop-filter:blur(2px);opacity:0;visibility:hidden;
@@ -419,40 +421,58 @@ footer a{margin-right:16px}
 }
 .sn-drawer{
   position:fixed;top:0;right:0;bottom:0;z-index:61;
-  width:min(86vw,340px);
+  width:min(90vw,368px);height:100dvh;max-height:100dvh;
   background:var(--sn-panel);border-left:1px solid var(--sn-edge);
-  padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
-  overflow-y:auto;transform:translateX(100%);
+  display:flex;flex-direction:column;gap:0;overflow:hidden;
+  transform:translateX(100%);
   transition:transform 220ms cubic-bezier(.2,.8,.2,1);
-  display:flex;flex-direction:column;gap:4px;
 }
+.sn-scrim[hidden],.sn-drawer[hidden]{display:none}
 body[data-sn-open="true"] .sn-scrim{opacity:1;visibility:visible}
 body[data-sn-open="true"] .sn-drawer{transform:translateX(0)}
 body[data-sn-open="true"]{overflow:hidden}
-.sn-drawer-top{display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:10px}
-.sn-drawer-title{font-size:11px;font-weight:800;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--sn-muted)}
-.sn-group{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--sn-muted);padding:16px 12px 6px}
-.sn-drawer a{
-  display:flex;align-items:center;min-height:48px;padding:0 12px;border-radius:11px;
-  color:var(--sn-text);text-decoration:none;font-size:15px;font-weight:650;
+.sn-drawer-top{
+  display:flex;align-items:center;justify-content:space-between;flex:none;
+  border-bottom:1px solid var(--sn-edge);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 12px 20px;
 }
-.sn-drawer a:hover{background:rgba(255,255,255,.05);color:var(--sn-ink)}
-.sn-drawer a[aria-current="page"]{color:var(--sn-ink);background:rgba(59,130,246,.12)}
-.sn-drawer .sn-buy{margin-top:14px;justify-content:center;min-height:50px;font-size:13px}
-.sn-drawer .sn-signin{display:flex;justify-content:center;min-height:48px;margin-top:8px}
-.sn-sep{height:1px;background:var(--sn-edge);margin:14px 4px 0}
+.sn-drawer-title{
+  font-size:11px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--sn-muted);
+}
+.sn-drawer-scroll{
+  display:block;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding:8px 16px 20px;
+}
+.sn-group{
+  font-size:10px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--sn-muted);padding:13px 12px 4px;
+}
+.sn-drawer-scroll a{
+  display:flex;align-items:center;min-height:44px;padding:9px 12px;border-radius:10px;
+  color:var(--sn-text);text-decoration:none;font-size:14px;font-weight:650;line-height:1.35;
+}
+.sn-drawer-scroll a:hover{background:rgba(255,255,255,.06);color:var(--sn-ink)}
+.sn-drawer-scroll a[aria-current="page"]{
+  color:var(--sn-ink);background:rgba(59,130,246,.16);
+  box-shadow:inset 3px 0 0 var(--sn-blue);
+}
+.sn-drawer-actions{
+  flex:none;display:grid;grid-template-columns:1fr 1.2fr;gap:9px;
+  border-top:1px solid var(--sn-edge);
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  background:var(--sn-panel);
+}
+.sn-drawer-actions .sn-signin,.sn-drawer-actions .sn-buy{
+  display:flex;justify-content:center;min-height:48px;padding:0 8px;
+  margin:0;font-size:11px;box-shadow:none;
+}
 
-/* Keyboard focus. The site had none: a keyboard user could not see where
-   they were anywhere in this header. */
+/* Accessible focus and responsive navigation ---------------------------- */
 .sn :focus-visible,.sn-drawer :focus-visible{
   outline:2px solid var(--sn-blue);outline-offset:2px;border-radius:10px;
 }
-
-/* ---- 860px is where the five links and both actions stop fitting ------- */
-@media (min-width:860px){
+@media (min-width:1000px){
   .sn .sn-links{display:flex}
   .sn-signin{display:inline-flex}
   .sn-toggle{display:none}
@@ -464,8 +484,12 @@ body[data-sn-open="true"]{overflow:hidden}
   .sn-brand .sn-mark{width:22px;height:22px;font-size:10px}
   .sn-buy{padding:0 11px;font-size:11px;letter-spacing:.04em}
 }
+@media (max-width:340px){
+  .sn-brand{font-size:11.5px}
+  .sn-drawer-actions{grid-template-columns:1fr}
+}
 @media (prefers-reduced-motion:reduce){
-  .sn-scrim,.sn-drawer,.sn-learn-btn svg{transition:none}
+  .sn-scrim,.sn-drawer,.sn-drop-btn svg{transition:none}
 }
 /* SITE-NAV:END */
 
@@ -487,20 +511,31 @@ body[data-sn-open="true"]{overflow:hidden}
   <div class="sn-in">
     <a class="sn-brand" href="/"><span class="sn-mark" aria-hidden="true">B</span><span>The&nbsp;Blueprint</span></a>
     <nav class="sn-links" aria-label="Main">
-      <div class="sn-learn" data-open="false">
-        <button type="button" class="sn-learn-btn" id="sn-learn-btn" aria-expanded="false" aria-controls="sn-learn-menu">Learn<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-        <div class="sn-learn-menu" id="sn-learn-menu">
+      <a class="sn-start" href="/assessment/">Free Assessment</a>
+      <div class="sn-learn sn-drop" data-open="false">
+        <button type="button" class="sn-learn-btn sn-drop-btn" id="sn-learn-btn" aria-expanded="false" aria-controls="sn-learn-menu">Learn<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="sn-learn-menu sn-drop-menu" id="sn-learn-menu">
+          <a href="/learn/">All Free Guides</a>
+          <a href="/daily/">Daily Blueprint</a>
+          <span class="sn-drop-label">Explore your goal</span>
           <a href="/last-longer/">Last Longer</a>
           <a href="/stronger-erections/">Stronger Erections</a>
-          <a href="/daily/">Daily Notes</a>
-          <a href="/daily/">Daily Notes</a>
-  <a href="/better-sexual-performance/">Better Sexual Performance</a>
+          <a href="/better-sexual-performance/">Better Sexual Performance</a>
+          <a href="/size-enhancement/">Size Enhancement</a>
+          <span class="sn-drop-label">Evidence</span>
+          <a href="/research-lab/">Research Lab</a>
         </div>
       </div>
       <a href="/how-it-works/">How It Works</a>
       <a href="/whats-inside/">What&rsquo;s Inside</a>
-      <a href="/faq/">FAQ</a>
-      <a href="/support/">Support</a>
+      <div class="sn-help sn-drop" data-open="false">
+        <button type="button" class="sn-drop-btn" id="sn-help-btn" aria-expanded="false" aria-controls="sn-help-menu">Help<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="sn-drop-menu" id="sn-help-menu">
+          <a href="/faq/">FAQ</a>
+          <a href="/safety/">Safety</a>
+          <a href="/support/">Support</a>
+        </div>
+      </div>
     </nav>
     <div class="sn-act">
       <a class="sn-signin" href="/app/">Sign in</a>
@@ -512,83 +547,112 @@ body[data-sn-open="true"]{overflow:hidden}
 <div class="sn-scrim" id="sn-scrim" hidden></div>
 <div class="sn-drawer" id="sn-drawer" role="dialog" aria-modal="true" aria-label="Site menu" hidden>
   <div class="sn-drawer-top">
-    <span class="sn-drawer-title">Menu</span>
+    <span class="sn-drawer-title">Explore The Blueprint</span>
     <button type="button" class="sn-toggle" id="sn-close" aria-label="Close menu"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
-  <div class="sn-group">Learn</div>
-  <a href="/last-longer/">Last Longer</a>
-  <a href="/stronger-erections/">Stronger Erections</a>
-  <a href="/better-sexual-performance/">Better Sexual Performance</a>
-  <div class="sn-group">The app</div>
-  <a href="/how-it-works/">How It Works</a>
-  <a href="/whats-inside/">What&rsquo;s Inside</a>
-  <a href="/faq/">FAQ</a>
-  <a href="/support/">Support</a>
-  <a href="/safety/">Safety</a>
-  <div class="sn-sep"></div>
-  <a class="sn-signin" href="/app/">Sign in</a>
-  <a class="sn-buy" href="/#get">Get the app</a>
+  <nav class="sn-drawer-scroll" aria-label="Mobile site navigation">
+    <div class="sn-group">Start here</div>
+    <a href="/assessment/">Free Assessment</a>
+    <a href="/daily/">Daily Blueprint</a>
+    <div class="sn-group">Explore your goal</div>
+    <a href="/last-longer/">Last Longer</a>
+    <a href="/stronger-erections/">Stronger Erections</a>
+    <a href="/better-sexual-performance/">Better Sexual Performance</a>
+    <a href="/size-enhancement/">Size Enhancement</a>
+    <div class="sn-group">Free resources</div>
+    <a href="/learn/">All Free Guides</a>
+    <a href="/research-lab/">Research Lab</a>
+    <div class="sn-group">The app</div>
+    <a href="/how-it-works/">How It Works</a>
+    <a href="/whats-inside/">What&rsquo;s Inside</a>
+    <div class="sn-group">Help and safety</div>
+    <a href="/faq/">FAQ</a>
+    <a href="/safety/">Safety</a>
+    <a href="/support/">Support</a>
+  </nav>
+  <div class="sn-drawer-actions">
+    <a class="sn-signin" href="/app/">Sign in</a>
+    <a class="sn-buy" href="/#get">Get the app</a>
+  </div>
 </div>
 <script>
-/* The drawer. Every destination above is a real anchor, so with JavaScript
-   off the markup is still a complete, crawlable list of links; only the
-   open and close behaviour needs this. */
+/* One navigation source for all public pages. The drawer stays inert while
+   closed so off-screen links cannot receive keyboard focus. */
 (function(){
   var body=document.body,tog=document.getElementById('sn-toggle'),
       close=document.getElementById('sn-close'),scrim=document.getElementById('sn-scrim'),
-      drawer=document.getElementById('sn-drawer'),learn=document.querySelector('.sn-learn'),
-      learnBtn=document.getElementById('sn-learn-btn');
-  if(!tog||!drawer) return;
-  /* hidden is removed once the script runs, so a no-JS visitor never sees a
-     drawer they cannot close. */
-  drawer.hidden=false; if(scrim) scrim.hidden=false;
-  var last=null;
+      drawer=document.getElementById('sn-drawer');
+  if(!tog||!drawer)return;
+  drawer.hidden=false;
+  if(scrim)scrim.hidden=false;
+  drawer.inert=true;
+  drawer.setAttribute('aria-hidden','true');
+  var previous=null;
+  function setDrop(drop,open){
+    if(!drop)return;
+    drop.setAttribute('data-open',open?'true':'false');
+    var btn=drop.querySelector('.sn-drop-btn');
+    if(btn)btn.setAttribute('aria-expanded',open?'true':'false');
+  }
+  function closeDrops(except){
+    document.querySelectorAll('.sn-drop').forEach(function(d){
+      if(d!==except)setDrop(d,false);
+    });
+  }
   function open(){
-    last=document.activeElement;
+    closeDrops();
+    previous=document.activeElement;
+    drawer.inert=false;
+    drawer.removeAttribute('aria-hidden');
     body.setAttribute('data-sn-open','true');
     tog.setAttribute('aria-expanded','true');
-    var f=drawer.querySelector('a,button'); if(f) f.focus();
+    if(close)close.focus();
   }
   function shut(){
+    if(body.getAttribute('data-sn-open')!=='true')return;
     body.removeAttribute('data-sn-open');
     tog.setAttribute('aria-expanded','false');
-    if(last&&last.focus) last.focus();
+    drawer.inert=true;
+    drawer.setAttribute('aria-hidden','true');
+    if(previous&&previous.isConnected&&previous.focus)previous.focus();
   }
   tog.addEventListener('click',open);
-  if(close) close.addEventListener('click',shut);
-  if(scrim) scrim.addEventListener('click',shut);
-  drawer.addEventListener('click',function(e){ if(e.target.closest('a')) shut(); });
-  function setLearn(v){
-    if(!learn) return;
-    learn.setAttribute('data-open',v?'true':'false');
-    if(learnBtn) learnBtn.setAttribute('aria-expanded',v?'true':'false');
-  }
-  if(learnBtn) learnBtn.addEventListener('click',function(e){
-    e.stopPropagation(); setLearn(learn.getAttribute('data-open')!=='true');
+  if(close)close.addEventListener('click',shut);
+  if(scrim)scrim.addEventListener('click',shut);
+  drawer.addEventListener('click',function(e){if(e.target.closest('a'))shut();});
+  document.querySelectorAll('.sn-drop').forEach(function(drop){
+    var btn=drop.querySelector('.sn-drop-btn');
+    if(!btn)return;
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      var next=drop.getAttribute('data-open')!=='true';
+      closeDrops(drop);
+      setDrop(drop,next);
+    });
   });
   document.addEventListener('click',function(e){
-    if(learn&&!learn.contains(e.target)) setLearn(false);
+    if(!e.target.closest('.sn-drop'))closeDrops();
   });
   document.addEventListener('keydown',function(e){
-    if(e.key!=='Escape') return;
-    setLearn(false);
-    if(body.getAttribute('data-sn-open')==='true') shut();
+    if(e.key!=='Escape')return;
+    closeDrops();
+    shut();
   });
-  /* Keep focus inside the drawer while it is modal. */
   drawer.addEventListener('keydown',function(e){
-    if(e.key!=='Tab'||body.getAttribute('data-sn-open')!=='true') return;
-    var f=drawer.querySelectorAll('a,button');
-    if(!f.length) return;
-    var first=f[0],lastEl=f[f.length-1];
-    if(e.shiftKey&&document.activeElement===first){e.preventDefault();lastEl.focus();}
-    else if(!e.shiftKey&&document.activeElement===lastEl){e.preventDefault();first.focus();}
+    if(e.key!=='Tab'||body.getAttribute('data-sn-open')!=='true')return;
+    var els=[].slice.call(drawer.querySelectorAll('a,button')).filter(function(el){return !el.disabled;});
+    if(!els.length)return;
+    var first=els[0],last=els[els.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
   });
-  /* Mark the current page, from the URL, so no page carries a hand-set flag
-     that goes stale when it is copied to the next one. */
+  var desktop=window.matchMedia('(min-width:1000px)');
+  function onSize(){if(desktop.matches)shut();}
+  if(desktop.addEventListener)desktop.addEventListener('change',onSize);
   var here=location.pathname.replace(/index\.html$/,'');
   document.querySelectorAll('.sn-links a,.sn-drawer a').forEach(function(a){
-    var h=a.getAttribute('href')||'';
-    if(h.charAt(0)==='/'&&h!=='/'&&h===here) a.setAttribute('aria-current','page');
+    var href=a.getAttribute('href')||'';
+    if(href.charAt(0)==='/'&&href!=='/'&&href===here)a.setAttribute('aria-current','page');
   });
 })();
 </script>
