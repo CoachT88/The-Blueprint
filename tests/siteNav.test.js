@@ -37,6 +37,16 @@ const PAGES = [
     'pelvic-floor-premature-ejaculation/index.html',
     'hip-mobility-sexual-performance/index.html',
     'improve-sexual-stamina/index.html',
+    'cardio-erections/index.html',
+    'weaker-morning-erections/index.html',
+    'anxiety-or-physical-ed/index.html',
+    'finish-quickly-penetration/index.html',
+    'ejaculation-warning-signs/index.html',
+    'arousal-awareness-practice/index.html',
+    'last-longer-alone-than-sex/index.html',
+    'breathing-manage-arousal/index.html',
+    'sleep-erections-libido/index.html',
+    'stay-composed-during-arousal/index.html',
 ];
 
 /** Every destination the header offers, and where it must resolve. */

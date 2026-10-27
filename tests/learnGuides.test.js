@@ -638,7 +638,7 @@ for (const g of GUIDES) {
 
 /* ───────────────────────────────────────────────────────── across guides ── */
 
-describe('the guides are one set, not six pages', () => {
+describe('the guides are one connected educational set', () => {
     test('EVERY GUIDE USES THE SAME STYLESHEET SOURCE', () => {
         const want = read('tools/guide.css').trim();
         for (const g of GUIDES) {
@@ -685,14 +685,14 @@ describe('the guides are one set, not six pages', () => {
             const s = read(hub);
             expect(s, 'the blanket pending claim is now false')
                 .not.toContain('Detailed educational guides are being prepared for these topics.');
-            expect(s).toContain('Guides for the remaining topics are being prepared.');
+            expect(s, 'a finished hub still says some guides are pending')
+                .not.toContain('Guides for the remaining topics are being prepared.');
+            expect(s).toContain('Every question listed above now has a free guide');
             const list = s.match(/<ul class="guide-list">([\s\S]*?)<\/ul>/)[1];
             const items = [...list.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m => m[1]);
-            /* Published first, then pending. A visitor should see what
-               exists before what does not. */
+            /* Every listed question now has a published guide. */
             const linked = items.map(i => i.includes('href='));
-            expect(linked.slice().sort((a, b) => Number(b) - Number(a)),
-                `${hub} interleaves published and pending`).toEqual(linked);
+            expect(linked.every(Boolean), `${hub} still has an unlinked question`).toBe(true);
             /* Every link in a hub list is a guide that exists. */
             for (const h of [...list.matchAll(/href="([^"]+)"/g)].map(m => m[1])) {
                 expect(existsSync(path.join(ROOT, h.replace(/^\//, ''), 'index.html')),
