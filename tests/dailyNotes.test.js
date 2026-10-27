@@ -46,13 +46,25 @@ describe('The Daily Blueprint content and return-visit experience',()=>{
   });
 
   test('the homepage offers free action before paid features',()=>{
+    /* Asserted on the ORDER OF THE FREE PATHS, not on the ids of the
+       sections that used to hold them. The home page had three parallel
+       free funnels: a full-width daily note, the assessment in the hero,
+       and a "start without buying anything" grid. They are one funnel now,
+       and the guarantee that survives all of that is the one that matters:
+       every free route appears before the price, and the price is last. */
     const hero=home.slice(home.indexOf('<section class="hero"'),home.indexOf('</section>',home.indexOf('<section class="hero"')));
     expect(hero).toContain('Experience alone');
     expect(hero.indexOf('href="/assessment/"')).toBeGreaterThan(0);
     expect(hero.indexOf('href="/assessment/"')).toBeLessThan(hero.indexOf('href="#get"'));
-    expect(home.indexOf('id="daily-note"')).toBeLessThan(home.indexOf('id="inside"'));
-    expect(home.indexOf('id="start-free"')).toBeLessThan(home.indexOf('id="inside"'));
-    expect(home).toContain("fetch('/daily/notes.json')");
+    const price=home.indexOf('<section id="get">');
+    expect(price).toBeGreaterThan(0);
+    for(const free of ['/assessment/','/daily/','/last-longer/','/stronger-erections/',
+                       '/better-sexual-performance/','/size-enhancement/']){
+      const at=home.indexOf('href="'+free+'"',home.indexOf('SITE-NAV:END -->'));
+      expect(at,free+' is not offered in the page body').toBeGreaterThan(0);
+      expect(at,free+' is offered only after the price').toBeLessThan(price);
+    }
+    expect(home.slice(price+1),'the price section is not last').not.toContain('<section');
     expect(home).toContain('id="get"');
     expect(home).toContain('var ON = true;');
     expect(home).toContain('var PRICE_LABEL = \'$99\';');
