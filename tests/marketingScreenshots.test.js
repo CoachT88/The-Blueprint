@@ -73,6 +73,18 @@ describe('Phase 3: current app demonstration screenshots',()=>{
     expect(checked,'the walk found no marketing images at all').toBeGreaterThanOrEqual(6);
   });
 
+  test('mobile gallery reduces vertical scrolling without hiding any product screens',()=>{
+    const home=read('index.html');
+    expect(home).toContain('class="shots" tabindex="0" role="region"');
+    expect(home).toContain('aria-label="Four Blueprint app screenshots"');
+    expect(home).toContain('Four screens. Swipe sideways to explore');
+    expect(home).toContain('scroll-snap-type:x mandatory');
+    expect(home).toContain('overflow-x:auto');
+    expect(home).toContain('flex:0 0 min(88%,340px)');
+    expect(home).toContain('grid-template-columns:repeat(4,minmax(0,1fr))');
+    expect((home.match(/<figure class="shot">/g)||[])).toHaveLength(4);
+  });
+
   test('and no screenshot sits in img/ that nothing references',()=>{
     /* The other half of a swap: the old files left behind, so nobody can
        tell from the directory which set is live. og-card.jpg is the link
