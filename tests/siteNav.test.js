@@ -60,13 +60,20 @@ const DESTINATIONS = [
     ['/last-longer/', 'last-longer/index.html'],
     ['/stronger-erections/', 'stronger-erections/index.html'],
     ['/better-sexual-performance/', 'better-sexual-performance/index.html'],
-    ['/how-it-works/', 'how-it-works/index.html'],
     ['/whats-inside/', 'whats-inside/index.html'],
     ['/faq/', 'faq/index.html'],
     ['/support/', 'support/index.html'],
     ['/safety/', 'safety/index.html'],
     ['/app/', 'app/index.html'],
 ];
+
+/* /how-it-works/ is deliberately NOT in that list any more. It and
+   /whats-inside/ were two entrances to one subject, sitting side by side in
+   the bar, in the drawer, and at the end of all sixteen guides. The App is
+   now one entrance. The page keeps its URL, its search equity and its
+   content; it is reached from The App page and from every footer, and
+   'the second app entrance stays reachable' below is what holds that. */
+const DEEPER = ['/how-it-works/', 'how-it-works/index.html'];
 
 const navCss = read('tools/site-nav.css').trim();
 const navHtml = read('tools/site-nav.html').trim();
@@ -207,28 +214,113 @@ describe('the header markup is accessible before any script runs', () => {
 describe('the visitor-first menu layout', () => {
     const drawer = navHtml.match(/<nav class="sn-drawer-scroll"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
     const desktop = navHtml.match(/<nav class="sn-links"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
-    test('the mobile menu is grouped and each destination appears once', () => {
+
+    /** Labels in document order, with anything behind a disclosure removed. */
+    const choices = (markup, collapse, pattern) => {
+        const visible = markup.replace(collapse, '');
+        return [...visible.matchAll(pattern)].map(m => m[1] ?? m[2]).filter(Boolean);
+    };
+
+    /** What the drawer shows before anything is opened. */
+    const drawerTopLevel = () => choices(
+        drawer,
+        /<div class="sn-fold-body">[\s\S]*?<\/div>/g,
+        /<a class="sn-lead" href="([^"]+)"|<summary>([A-Za-z ]+?)</g,
+    );
+
+    test('FOUR CHOICES ON ARRIVAL, NOT FOURTEEN', () => {
+        /* The drawer used to print every destination at once in five
+           always-open groups. On a 390px phone that was fourteen links with
+           Support below the fold, so the man looking for one of them had to
+           read all of them. Collapsed, it is the same four destinations the
+           desktop bar offers. */
         expect(drawer).toBeTruthy();
-        for (const title of ['Start here', 'Explore your goal', 'Free resources', 'The app', 'Help and safety']) {
-            expect(drawer).toContain('>'+title+'</div>');
-        }
-        const urls = [...drawer.matchAll(/<a href="([^"]+)"/g)].map(m=>m[1]);
-        expect(new Set(urls).size).toBe(urls.length);
-        for (const [href] of DESTINATIONS) {
-            if (href==='/app/') continue;
-            expect(urls, 'mobile menu missing '+href).toContain(href);
-        }
-        expect(urls.indexOf('/assessment/')).toBeLessThan(urls.indexOf('/last-longer/'));
-        expect(urls.indexOf('/learn/')).toBeLessThan(urls.indexOf('/how-it-works/'));
+        expect(drawerTopLevel()).toEqual(['/assessment/', 'Learn', '/whats-inside/', 'Help']);
     });
-    test('desktop entry points include free learning, the app and help', () => {
-        expect(desktop).toContain('href="/assessment/"');
-        expect(desktop).toContain('href="/daily/"');
-        expect(desktop).toContain('href="/size-enhancement/"');
-        expect(desktop).toContain('href="/research-lab/"');
+
+    test('and the lists behind the folds are intact and unduplicated', () => {
+        const urls = [...drawer.matchAll(/<a[^>]* href="([^"]+)"/g)].map(m => m[1]);
+        expect(new Set(urls).size, 'a destination appears twice').toBe(urls.length);
+        for (const [href] of DESTINATIONS) {
+            if (href === '/app/') continue;
+            expect(urls, 'mobile menu missing ' + href).toContain(href);
+        }
+        const learn = drawer.match(/<summary>Learn[\s\S]*?<div class="sn-fold-body">([\s\S]*?)<\/div>/)[1];
+        for (const goal of ['/last-longer/', '/stronger-erections/',
+            '/better-sexual-performance/', '/size-enhancement/']) {
+            expect(learn, 'Learn does not offer ' + goal).toContain(goal);
+        }
+        expect(learn.indexOf('/last-longer/'), 'the goal hubs come after the index')
+            .toBeLessThan(learn.indexOf('/learn/'));
+        const help = drawer.match(/<summary>Help[\s\S]*?<div class="sn-fold-body">([\s\S]*?)<\/div>/)[1];
+        expect([...help.matchAll(/href="([^"]+)"/g)].map(m => m[1]))
+            .toEqual(['/faq/', '/safety/', '/support/']);
+    });
+
+    test('a fold cannot leave a hidden link in the keyboard trap', () => {
+        /* Links inside a closed <details> have no layout box. Sending Tab to
+           one strands the keyboard outside a modal drawer with no way back,
+           so the trap is recomputed on each Tab from what is visible. */
+        expect(navHtml).toMatch(/function focusables\(\)/);
+        expect(navHtml).toMatch(/getClientRects\(\)\.length/);
+        expect(navHtml).toMatch(/var els=focusables\(\);/);
+    });
+
+    test('opening one fold closes the others', () => {
+        /* Otherwise the drawer scrolls back to being the long list. */
+        expect(navHtml).toMatch(/\.sn-fold\[open\]/);
+        expect(navHtml).toMatch(/if\(o!==d\)o\.open=false/);
+    });
+
+    test('THE DESKTOP BAR OFFERS THE SAME FOUR DESTINATIONS', () => {
+        const top = choices(
+            desktop,
+            /<div class="[^"]*sn-drop-menu[^"]*"[^>]*>[\s\S]*?<\/div>/g,
+            /<a [^>]*href="([^"]+)"|class="[^"]*sn-drop-btn"[^>]*>([A-Za-z ]+?)</g,
+        );
+        expect(top).toEqual(['/assessment/', 'Learn', '/whats-inside/', 'Help']);
+    });
+
+    test('and the Learn menu still reaches every free resource', () => {
+        const learn = navHtml.match(/<div class="sn-learn-menu[^"]*" id="sn-learn-menu">([\s\S]*?)<\/div>/)[1];
+        for (const href of ['/last-longer/', '/stronger-erections/',
+            '/better-sexual-performance/', '/size-enhancement/', '/learn/',
+            '/daily/', '/research-lab/']) {
+            expect(learn, 'Learn menu missing ' + href).toContain('href="' + href + '"');
+        }
         expect(navHtml).toContain('id="sn-help-btn" aria-expanded="false" aria-controls="sn-help-menu"');
-        const daily = [...desktop.matchAll(/href="\/daily\/"/g)];
-        expect(daily).toHaveLength(1);
+    });
+
+    test('ONE FOOTER ORDER, EVERY PAGE', () => {
+        /* There were three. A guide ended with Learn / Safety / Support, a
+           product page with Home / How It Works / What's Inside / FAQ /
+           Safety / Support, and the home page with a fifth order of its
+           own. Somebody who learned where Support lived had to find it
+           again on the next page. */
+        const ORDER = ['/learn/', '/whats-inside/', '/how-it-works/',
+            '/faq/', '/safety/', '/support/'];
+        for (const p of [...PAGES, 'welcome/index.html']) {
+            const footer = read(p).match(/<footer[\s\S]*<\/footer>/);
+            expect(footer, `${p} has no footer`).not.toBeNull();
+            const hrefs = [...footer[0].matchAll(/<a href="(\/[^"]*)"/g)].map(m => m[1]);
+            expect(hrefs, `${p} footer order`).toEqual(ORDER);
+        }
+    });
+
+    test('THE SECOND APP ENTRANCE STAYS REACHABLE', () => {
+        /* Dropping /how-it-works/ from the header must not orphan it. It
+           keeps its URL and its search equity, so it has to keep its
+           inbound links too. */
+        expect(existsSync(path.join(ROOT, DEEPER[1])), 'the page was deleted').toBe(true);
+        expect(read('sitemap.xml'), 'dropped from the sitemap').toContain(DEEPER[0]);
+        expect(read('whats-inside/index.html'), 'The App does not link the deeper read')
+            .toContain('href="' + DEEPER[0] + '"');
+        for (const p of PAGES) {
+            const footer = read(p).match(/<footer[\s\S]*<\/footer>/);
+            expect(footer, `${p} has no footer`).not.toBeNull();
+            expect(footer[0], `${p} footer drops ${DEEPER[0]}`)
+                .toContain('href="' + DEEPER[0] + '"');
+        }
     });
     test('scrolling links and fixed actions stay separate on mobile', () => {
         expect(navHtml).toContain('class="sn-drawer-actions"');

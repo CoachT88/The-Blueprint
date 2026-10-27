@@ -151,10 +151,6 @@ body[data-sn-open="true"]{overflow:hidden}
   display:block;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding:8px 16px 20px;
 }
-.sn-group{
-  font-size:10px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;
-  color:var(--sn-muted);padding:13px 12px 4px;
-}
 .sn-drawer-scroll a{
   display:flex;align-items:center;min-height:44px;padding:9px 12px;border-radius:10px;
   color:var(--sn-text);text-decoration:none;font-size:14px;font-weight:650;line-height:1.35;
@@ -164,6 +160,40 @@ body[data-sn-open="true"]{overflow:hidden}
   color:var(--sn-ink);background:rgba(59,130,246,.16);
   box-shadow:inset 3px 0 0 var(--sn-blue);
 }
+
+/* ---- the drawer is four choices, not fourteen -------------------------- */
+/* It used to print every destination at once, in five always-open groups:
+   fourteen links, with Support below the fold on a 390px phone. A man
+   looking for one of them had to read all of them. Now the one thing a
+   first-time visitor should do is a link, and the other three are folds he
+   opens only if he wants them. */
+.sn-lead{
+  flex-direction:column;align-items:flex-start!important;gap:2px;
+  margin:4px 0 10px;padding:13px 14px!important;min-height:0!important;
+  border:1px solid var(--sn-edge);border-radius:13px;
+  background:rgba(59,130,246,.11);
+  color:var(--sn-ink)!important;font-size:15.5px!important;font-weight:800!important;
+}
+.sn-lead span{
+  color:var(--sn-muted);font-size:12.5px;font-weight:550;letter-spacing:0;
+  text-transform:none;line-height:1.4;
+}
+.sn-fold{border-top:1px solid var(--sn-edge)}
+.sn-fold summary{
+  display:flex;align-items:center;gap:10px;
+  min-height:56px;padding:9px 12px;cursor:pointer;list-style:none;
+  color:var(--sn-ink);font-size:15.5px;font-weight:800;
+}
+.sn-fold summary::-webkit-details-marker{display:none}
+.sn-sum-note{
+  flex:1 1 auto;color:var(--sn-muted);font-size:12.5px;font-weight:550;
+  text-align:right;line-height:1.3;
+}
+.sn-chev{flex:none;color:var(--sn-muted);transition:transform 140ms cubic-bezier(.2,.8,.2,1)}
+.sn-fold[open] .sn-chev{transform:rotate(180deg)}
+.sn-fold summary:hover{background:rgba(255,255,255,.05);border-radius:10px}
+.sn-fold-body{padding:0 0 10px 10px;border-left:2px solid var(--sn-edge);margin-left:12px}
+.sn-fold-body a{font-size:14.5px}
 .sn-drawer-actions{
   flex:none;display:grid;grid-template-columns:1fr 1.2fr;gap:9px;
   border-top:1px solid var(--sn-edge);

@@ -47,10 +47,17 @@ const CREDIBLE_DOMAINS = [
     'www.urologyhealth.org', 'medlineplus.gov', 'www.cdc.gov',
 ];
 
+/* What the Lab itself says, with the chrome removed. The header and the
+   footer are the same on all 31 public pages and are site navigation, not
+   this page's argument: "no sales offer" has always meant the Lab does not
+   pitch in its own words, never that the site header must drop its buy
+   button on these two pages. The footer joins the header here because it
+   now carries the same six links everywhere. */
 const strip = (src) => src
     .replace(/\/\* GUIDE-CSS:START \*\/[\s\S]*?\/\* GUIDE-CSS:END \*\//, ' ')
     .replace(/\/\* RESEARCH-CSS:START \*\/[\s\S]*?\/\* RESEARCH-CSS:END \*\//, ' ')
-    .replace(/<!-- SITE-NAV:START -->[\s\S]*?<!-- SITE-NAV:END -->/, ' ');
+    .replace(/<!-- SITE-NAV:START -->[\s\S]*?<!-- SITE-NAV:END -->/, ' ')
+    .replace(/<footer[\s\S]*?<\/footer>/, ' ');
 
 const prose = (src) => strip(src)
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')

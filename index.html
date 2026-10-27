@@ -189,12 +189,11 @@ p b,li b{color:var(--bone);font-weight:700}
    app's own separators do. */
 .rule{height:1px;background:linear-gradient(90deg,transparent,var(--edge) 18%,var(--edge) 82%,transparent)}
 
-/* ---- header ------------------------------------------------------------ */
-header.bar{
-  position:sticky;top:0;z-index:50;background:rgba(2,6,23,.88);
-  backdrop-filter:blur(12px);border-bottom:1px solid var(--edge);
-}
-.bar-in{display:flex;align-items:center;justify-content:space-between;gap:14px;height:60px}
+/* ---- the brand lockup, in the footer ----------------------------------- */
+/* The page's own sticky header is gone: every public page carries the one
+   shared header from tools/site-nav.*, further down this stylesheet. Its
+   rules (header.bar, .bar-in, .bar-cta) went with it. What survives is the
+   lockup, because the footer still signs the page with it. */
 .brand{
   display:flex;align-items:center;gap:10px;font-size:15px;font-weight:900;font-style:italic;
   letter-spacing:-.02em;text-transform:uppercase;color:var(--bone);text-decoration:none;white-space:nowrap;
@@ -205,11 +204,6 @@ header.bar{
   background:linear-gradient(150deg,var(--blue),#1d4ed8);
   display:grid;place-items:center;font-size:12px;color:#fff;font-weight:900;font-style:italic;
 }
-/* Held one button until Sign in joined it, so it had never needed laying out.
-   Two inline-flex buttons in a plain div wrap on a narrow phone, and the bar
-   is a fixed 60px, so the first line is simply clipped off the top. */
-.bar-cta{display:flex;align-items:center;gap:10px;flex:none;flex-wrap:nowrap}
-
 /* ---- buttons ----------------------------------------------------------- */
 /* Rounded and blue, like every primary in the app. The glow is the same
    trick the LAUNCH button uses: a colored shadow rather than a border. */
@@ -270,7 +264,12 @@ header.bar{
 
 /* ---- cards ------------------------------------------------------------- */
 .grid{display:grid;gap:14px;margin-top:30px}
-@media (min-width:720px){.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:repeat(3,1fr)}}
+@media (min-width:720px){
+  .grid.two{grid-template-columns:1fr 1fr}
+  .grid.three{grid-template-columns:repeat(3,1fr)}
+  .grid.four{grid-template-columns:1fr 1fr}
+}
+@media (min-width:1000px){.grid.four{grid-template-columns:repeat(4,1fr)}}
 
 .card{
   background:var(--slab);border:1px solid var(--edge);border-radius:16px;padding:22px;
@@ -293,16 +292,58 @@ header.bar{
   padding:clamp(22px,4vw,34px);
 }
 
-/* ---- what is inside the file (feature list) ---------------------------- */
-.spec{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--edge)}
-.spec:last-child{border-bottom:none}
-.spec .k{
-  font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--blue-lit);
-  flex:none;width:52px;padding-top:3px;
+/* ---- the goal chooser -------------------------------------------------- */
+/* Four cards, because there are four goal hubs and a man should be able to
+   point at his. The whole card is the link: a 44px text link inside a card
+   he has already decided to tap is a target he can miss. */
+.goal{display:block;text-decoration:none;color:inherit;transition:border-color 140ms}
+.goal h3{
+  display:flex;align-items:baseline;gap:8px;justify-content:space-between;
+  font-size:17.5px;color:var(--bone);margin-bottom:6px;
 }
-.spec .t{flex:1}
-.spec h3{font-size:17px;margin-bottom:3px}
-.spec p{font-size:15px;line-height:1.5;margin:0}
+.goal h3::after{content:"\2192";color:var(--blue-lit);font-weight:800;flex:none}
+.goal p{color:var(--muted);font-size:14.5px;line-height:1.5}
+.goal:hover{border-color:rgba(59,130,246,.45)}
+
+/* ---- the six, in one line each ----------------------------------------- */
+/* They were six full paragraphs in the middle of the page, before a visitor
+   had any reason to care about the sixth. The paragraphs are intact in the
+   disclosure below; this is what he reads if he is still deciding. */
+.trains{display:grid;gap:0;margin-top:18px;max-width:72ch;list-style:none;padding:0}
+.trains li{
+  padding:13px 0;border-bottom:1px solid var(--edge);
+  font-size:15.5px;line-height:1.5;color:var(--muted);
+}
+.trains li:last-child{border-bottom:none}
+.trains b{color:var(--bone)}
+
+/* ---- progressive disclosure -------------------------------------------- */
+.more{
+  margin-top:24px;background:var(--slab);border:1px solid var(--edge);
+  border-radius:16px;padding:0 clamp(18px,3vw,24px);
+}
+.more summary{
+  display:flex;align-items:center;gap:10px;justify-content:space-between;
+  min-height:56px;cursor:pointer;list-style:none;
+  font-size:15.5px;font-weight:750;color:var(--bone);
+}
+.more summary::-webkit-details-marker{display:none}
+.more summary::after{
+  content:"+";color:var(--blue-lit);font-size:20px;font-weight:800;flex:none;
+}
+.more[open] summary::after{content:"\2212"}
+.more summary:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:10px}
+.more-body{padding-bottom:22px;max-width:72ch}
+.more-body h4{
+  margin:20px 0 6px;font-size:16px;color:var(--bone);letter-spacing:-.01em;
+}
+.more-body h4:first-child{margin-top:4px}
+.more-body p{font-size:15.5px;line-height:1.6}
+
+/* ---- the principle list in the size answer ----------------------------- */
+.ticks{margin-top:12px;list-style:none;padding:0}
+.ticks li{display:flex;gap:10px;padding:5px 0;color:var(--muted)}
+.ticks li span{color:var(--blue-lit);flex:none;font-weight:800}
 
 /* ---- screenshots ------------------------------------------------------- */
 .shots{display:grid;gap:18px;margin-top:30px;grid-template-columns:minmax(0,1fr)}
@@ -362,33 +403,22 @@ figure.shot figcaption b{color:var(--bone)}
 
 /* ---- footer ------------------------------------------------------------ */
 footer{border-top:1px solid var(--edge);padding:34px 0 46px}
+/* The footer row is navigation, not prose: every link is a 44px target. */
+.footnav a{display:inline-flex;align-items:center;min-height:44px}
 footer p{font-size:13.5px;color:var(--dim);max-width:70ch}
 
 /* ---- narrow phones ----------------------------------------------------- */
 @media (max-width:560px){
-  /* Sign in shrinks rather than disappears. It used to be display:none here,
-     which is fine for a second buy button and wrong for this one: a man who
-     already paid opens an old bookmark, lands on a page selling him the thing
-     he owns, and on a phone the only way back into his account would not be
-     on the screen at all.
-
-     Three things share a 360px bar now instead of two, so the wordmark and
-     both buttons all give up a little: 370px of content in a 360px viewport
-     is a page that scrolls sideways, which is worse than any of them being
-     a point smaller. */
-  .bar-cta .btn.ghost{
-    border:0;background:transparent;padding:6px 2px;
-    font-size:11.5px;letter-spacing:.04em;color:var(--dim);width:auto;
-  }
-  .bar-in{gap:8px}
-  .bar-cta{gap:6px}
   .brand{font-size:11.5px;letter-spacing:.06em;gap:7px;min-width:0}
   .brand .mark{width:21px;height:21px;font-size:10px}
-  .bar-cta .btn.sm{padding:0 11px;font-size:10.5px;letter-spacing:.08em}
+  /* Full-width buttons, so each one is a thumb target rather than a word.
+     The shared header's own buttons are laid out in its stylesheet and are
+     deliberately not caught by this. */
   .btn{width:100%}
   .btn-row .btn{width:100%}
-  /* The bar is the one place a full-width button would be wrong. */
-  .bar-cta .btn{width:auto}
+  /* The goal cards stack here, and a stacked card wants less air than a
+     card sitting beside three others. */
+  .goal{padding:18px}
 }
 
 /* SITE-NAV:START */
@@ -545,10 +575,6 @@ body[data-sn-open="true"]{overflow:hidden}
   display:block;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding:8px 16px 20px;
 }
-.sn-group{
-  font-size:10px;font-weight:850;letter-spacing:.13em;text-transform:uppercase;
-  color:var(--sn-muted);padding:13px 12px 4px;
-}
 .sn-drawer-scroll a{
   display:flex;align-items:center;min-height:44px;padding:9px 12px;border-radius:10px;
   color:var(--sn-text);text-decoration:none;font-size:14px;font-weight:650;line-height:1.35;
@@ -558,6 +584,40 @@ body[data-sn-open="true"]{overflow:hidden}
   color:var(--sn-ink);background:rgba(59,130,246,.16);
   box-shadow:inset 3px 0 0 var(--sn-blue);
 }
+
+/* ---- the drawer is four choices, not fourteen -------------------------- */
+/* It used to print every destination at once, in five always-open groups:
+   fourteen links, with Support below the fold on a 390px phone. A man
+   looking for one of them had to read all of them. Now the one thing a
+   first-time visitor should do is a link, and the other three are folds he
+   opens only if he wants them. */
+.sn-lead{
+  flex-direction:column;align-items:flex-start!important;gap:2px;
+  margin:4px 0 10px;padding:13px 14px!important;min-height:0!important;
+  border:1px solid var(--sn-edge);border-radius:13px;
+  background:rgba(59,130,246,.11);
+  color:var(--sn-ink)!important;font-size:15.5px!important;font-weight:800!important;
+}
+.sn-lead span{
+  color:var(--sn-muted);font-size:12.5px;font-weight:550;letter-spacing:0;
+  text-transform:none;line-height:1.4;
+}
+.sn-fold{border-top:1px solid var(--sn-edge)}
+.sn-fold summary{
+  display:flex;align-items:center;gap:10px;
+  min-height:56px;padding:9px 12px;cursor:pointer;list-style:none;
+  color:var(--sn-ink);font-size:15.5px;font-weight:800;
+}
+.sn-fold summary::-webkit-details-marker{display:none}
+.sn-sum-note{
+  flex:1 1 auto;color:var(--sn-muted);font-size:12.5px;font-weight:550;
+  text-align:right;line-height:1.3;
+}
+.sn-chev{flex:none;color:var(--sn-muted);transition:transform 140ms cubic-bezier(.2,.8,.2,1)}
+.sn-fold[open] .sn-chev{transform:rotate(180deg)}
+.sn-fold summary:hover{background:rgba(255,255,255,.05);border-radius:10px}
+.sn-fold-body{padding:0 0 10px 10px;border-left:2px solid var(--sn-edge);margin-left:12px}
+.sn-fold-body a{font-size:14.5px}
 .sn-drawer-actions{
   flex:none;display:grid;grid-template-columns:1fr 1.2fr;gap:9px;
   border-top:1px solid var(--sn-edge);
@@ -605,19 +665,18 @@ body[data-sn-open="true"]{overflow:hidden}
       <div class="sn-learn sn-drop" data-open="false">
         <button type="button" class="sn-learn-btn sn-drop-btn" id="sn-learn-btn" aria-expanded="false" aria-controls="sn-learn-menu">Learn<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         <div class="sn-learn-menu sn-drop-menu" id="sn-learn-menu">
-          <a href="/learn/">All Free Guides</a>
-          <a href="/daily/">Daily Blueprint</a>
           <span class="sn-drop-label">Explore your goal</span>
           <a href="/last-longer/">Last Longer</a>
           <a href="/stronger-erections/">Stronger Erections</a>
           <a href="/better-sexual-performance/">Better Sexual Performance</a>
           <a href="/size-enhancement/">Size Enhancement</a>
-          <span class="sn-drop-label">Evidence</span>
+          <span class="sn-drop-label">Everything else, free</span>
+          <a href="/learn/">All Free Guides</a>
+          <a href="/daily/">Daily Blueprint</a>
           <a href="/research-lab/">Research Lab</a>
         </div>
       </div>
-      <a href="/how-it-works/">How It Works</a>
-      <a href="/whats-inside/">What&rsquo;s Inside</a>
+      <a href="/whats-inside/">The App</a>
       <div class="sn-help sn-drop" data-open="false">
         <button type="button" class="sn-drop-btn" id="sn-help-btn" aria-expanded="false" aria-controls="sn-help-menu">Help<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         <div class="sn-drop-menu" id="sn-help-menu">
@@ -637,28 +696,32 @@ body[data-sn-open="true"]{overflow:hidden}
 <div class="sn-scrim" id="sn-scrim" hidden></div>
 <div class="sn-drawer" id="sn-drawer" role="dialog" aria-modal="true" aria-label="Site menu" hidden>
   <div class="sn-drawer-top">
-    <span class="sn-drawer-title">Explore The Blueprint</span>
+    <span class="sn-drawer-title">Where do you want to start?</span>
     <button type="button" class="sn-toggle" id="sn-close" aria-label="Close menu"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
   <nav class="sn-drawer-scroll" aria-label="Mobile site navigation">
-    <div class="sn-group">Start here</div>
-    <a href="/assessment/">Free Assessment</a>
-    <a href="/daily/">Daily Blueprint</a>
-    <div class="sn-group">Explore your goal</div>
-    <a href="/last-longer/">Last Longer</a>
-    <a href="/stronger-erections/">Stronger Erections</a>
-    <a href="/better-sexual-performance/">Better Sexual Performance</a>
-    <a href="/size-enhancement/">Size Enhancement</a>
-    <div class="sn-group">Free resources</div>
-    <a href="/learn/">All Free Guides</a>
-    <a href="/research-lab/">Research Lab</a>
-    <div class="sn-group">The app</div>
-    <a href="/how-it-works/">How It Works</a>
-    <a href="/whats-inside/">What&rsquo;s Inside</a>
-    <div class="sn-group">Help and safety</div>
-    <a href="/faq/">FAQ</a>
-    <a href="/safety/">Safety</a>
-    <a href="/support/">Support</a>
+    <a class="sn-lead" href="/assessment/">Free Assessment<span>Five private questions. About two minutes.</span></a>
+    <details class="sn-fold" name="sn-fold">
+      <summary>Learn<span class="sn-sum-note">Free guides, by goal</span><svg class="sn-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <div class="sn-fold-body">
+        <a href="/last-longer/">Last Longer</a>
+        <a href="/stronger-erections/">Stronger Erections</a>
+        <a href="/better-sexual-performance/">Better Sexual Performance</a>
+        <a href="/size-enhancement/">Size Enhancement</a>
+        <a href="/learn/">All Free Guides</a>
+        <a href="/daily/">Daily Blueprint</a>
+        <a href="/research-lab/">Research Lab</a>
+      </div>
+    </details>
+    <a class="sn-lead" href="/whats-inside/">The App<span>What you get, and what it costs.</span></a>
+    <details class="sn-fold" name="sn-fold">
+      <summary>Help<span class="sn-sum-note">Questions, safety, access</span><svg class="sn-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+      <div class="sn-fold-body">
+        <a href="/faq/">FAQ</a>
+        <a href="/safety/">Safety</a>
+        <a href="/support/">Support</a>
+      </div>
+    </details>
   </nav>
   <div class="sn-drawer-actions">
     <a class="sn-signin" href="/app/">Sign in</a>
@@ -728,13 +791,42 @@ body[data-sn-open="true"]{overflow:hidden}
     closeDrops();
     shut();
   });
+  /* THE FOLDS CHANGE WHAT IS FOCUSABLE, so the trap is recomputed on every
+     Tab rather than cached, and it has to agree with the browser about what
+     is on screen.
+
+     checkVisibility(), not offsetWidth. A link inside a CLOSED <details>
+     still reports offsetWidth 294 and one client rect in Chromium, because
+     the box is kept so the disclosure can be animated and found by in-page
+     search. The browser will not focus it, but a trap that counts it picks
+     the wrong first and last element and the wrap sends Tab somewhere the
+     reader cannot see. The box check stays as a fallback for engines
+     without checkVisibility. */
+  function visible(el){
+    if(typeof el.checkVisibility==='function')return el.checkVisibility();
+    return !!(el.offsetWidth||el.offsetHeight||el.getClientRects().length);
+  }
+  function focusables(){
+    return [].slice.call(drawer.querySelectorAll('a,button,summary')).filter(function(el){
+      return !el.disabled&&visible(el);
+    });
+  }
   drawer.addEventListener('keydown',function(e){
     if(e.key!=='Tab'||body.getAttribute('data-sn-open')!=='true')return;
-    var els=[].slice.call(drawer.querySelectorAll('a,button')).filter(function(el){return !el.disabled;});
+    var els=focusables();
     if(!els.length)return;
     var first=els[0],last=els[els.length-1];
     if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  });
+  /* Exclusive folds without relying on the name attribute, which older
+     browsers ignore. Without this the drawer can be scrolled open to the
+     same fourteen-item list it was built to replace. */
+  drawer.querySelectorAll('.sn-fold').forEach(function(d){
+    d.addEventListener('toggle',function(){
+      if(!d.open)return;
+      drawer.querySelectorAll('.sn-fold[open]').forEach(function(o){if(o!==d)o.open=false;});
+    });
   });
   var desktop=window.matchMedia('(min-width:1000px)');
   function onSize(){if(desktop.matches)shut();}
@@ -742,7 +834,12 @@ body[data-sn-open="true"]{overflow:hidden}
   var here=location.pathname.replace(/index\.html$/,'');
   document.querySelectorAll('.sn-links a,.sn-drawer a').forEach(function(a){
     var href=a.getAttribute('href')||'';
-    if(href.charAt(0)==='/'&&href!=='/'&&href===here)a.setAttribute('aria-current','page');
+    if(href.charAt(0)!=='/'||href==='/'||href!==here)return;
+    a.setAttribute('aria-current','page');
+    /* Open the fold the current page lives in, so a man who tapped through
+       to it can see where he is. */
+    var fold=a.closest('.sn-fold');
+    if(fold)fold.open=true;
   });
 })();
 </script>
@@ -752,6 +849,20 @@ body[data-sn-open="true"]{overflow:hidden}
 
 
 <!-- ================================================================ HERO -->
+<!-- SIX SECTIONS, AND THERE WERE ELEVEN.
+     hero, daily-note, why, answer, start-free, inside, honest, function,
+     look, private, proof, get. Each was defensible on its own. Together
+     they asked a man arriving from a social post to read eleven arguments
+     and pick between three different free funnels before he could tell
+     whether the page was for him.
+
+     The journey is now: who this is for, what you recognize, how it works,
+     what it looks like, why you should believe it, what it costs. Nothing
+     was deleted. The size-enhancement answer, the privacy block and the
+     testimonial qualifier are all still here, in section 5, where they
+     belong together. The long feature copy is behind a disclosure in
+     section 3. The Daily Blueprint has a page of its own and is linked
+     from section 2 rather than given a full-width section here. -->
 <section class="hero" id="top">
   <div class="wrap">
     <span class="filetag"><i aria-hidden="true"></i>Understand your sexual performance</span>
@@ -772,7 +883,7 @@ body[data-sn-open="true"]{overflow:hidden}
 
     <div class="btn-row">
       <a class="btn" href="/assessment/">Find your starting point</a>
-      <a class="btn ghost" href="#daily-note">Read today's free tip</a>
+      <a class="btn ghost" href="/whats-inside/">Look inside the app</a>
     </div>
     <p class="purchase-assurance">Want a structured training system? <a href="#get">Start The Blueprint, $99</a>.
       $99 once &middot; No subscription &middot; Future app updates included</p>
@@ -783,64 +894,14 @@ body[data-sn-open="true"]{overflow:hidden}
 
 <div class="wrap"><div class="rule"></div></div>
 
-<!-- ===================================================== DAILY VALUE -->
-<section id="daily-note" class="daily-spotlight">
-  <div class="wrap">
-    <span class="label go">A reason to come back</span>
-    <h2 class="display" style="margin-top:14px">One useful idea for today.</h2>
-    <p class="lede" style="margin-top:15px">One question worth asking. One small action worth trying.
-      A different note is featured daily from our free growing archive.</p>
-    <article class="card hilite" style="margin-top:24px" aria-labelledby="home-daily-title">
-      <span class="label go" id="home-daily-kicker">From the Daily Blueprint</span>
-      <h3 id="home-daily-title" style="font-size:clamp(22px,3vw,30px);margin-top:12px">Sleep is information, not a verdict</h3>
-      <p id="home-daily-summary" style="margin-top:10px">
-        Sleep affects energy, attention and sexual response, but one night cannot diagnose a problem.
-      </p>
-      <p id="home-daily-action" style="margin-top:12px"><b>Try this:</b>
-        For seven mornings, jot down your sleep duration and how rested you feel.
-        Look for patterns, not a perfect score.</p>
-      <div class="btn-row">
-        <a class="btn sm" id="home-daily-link" href="/daily/#sleep-is-data">Read the featured note</a>
-        <a class="btn sm ghost" href="/daily/#archive">Browse all 30 free notes</a>
-      </div>
-    </article>
-    <p class="tiny" style="margin-top:15px;max-width:68ch">The daily feature rotates from a curated archive.
-      New featured does not always mean newly published. For ongoing or sudden symptoms, seek medical advice.</p>
-  </div>
-</section>
-<script>
-(function(){
-  /* First-party content, loaded only from our site. The readable fallback
-     above works offline and without JavaScript; no tracking or sign-in. */
-  if(!window.fetch) return;
-  fetch('/daily/notes.json').then(function(r){
-    if(!r.ok) throw Error('notes unavailable');
-    return r.json();
-  }).then(function(notes){
-    if(!Array.isArray(notes)||notes.length!==30) return;
-    var d=new Date();
-    var date=Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000);
-    var note=notes[date%notes.length];
-    if(!note||!note.id||!note.title||!note.why||!note.action)return;
-    var title=document.getElementById('home-daily-title');
-    var summary=document.getElementById('home-daily-summary');
-    var action=document.getElementById('home-daily-action');
-    var link=document.getElementById('home-daily-link');
-    document.getElementById('home-daily-kicker').textContent="Today's featured note";
-    title.textContent=note.title;
-    summary.textContent=note.why;
-    action.textContent='Try this: '+note.action;
-    link.href='/daily/#'+encodeURIComponent(note.id);
-  }).catch(function(){ /* The static note remains usable. */ });
-})();
-</script>
-
-<div class="wrap"><div class="rule"></div></div>
-
-<!-- ============================================================= THE PAIN -->
-<!-- Six thoughts, not four cards. A man scanning this page is looking for his
-     own sentence, and he finds it faster in his own words than in a heading
-     written about him. -->
+<!-- ======================================================= 2. RECOGNITION -->
+<!-- The six thoughts stay in his own words, because a man scanning this page
+     is looking for his own sentence and finds it faster that way than in a
+     heading written about him. What follows is new: the sentence used to
+     end in a paragraph, and the page then offered him the assessment here,
+     a second free-paths grid two sections later, and a daily note above.
+     Three doors to the same place. One now, and it resolves the list he
+     just read. -->
 <section id="why">
   <div class="wrap">
     <span class="label stamp">If you have ever thought</span>
@@ -855,18 +916,49 @@ body[data-sn-open="true"]{overflow:hidden}
       <li>&ldquo;I&rsquo;ve read forums about penis enlargement, but everybody says something different.&rdquo;</li>
     </ul>
 
-    <p style="margin-top:22px"><b>Recognizing the question is useful.
-      The next step is understanding what might be contributing to it.</b></p>
-    <p style="margin-top:14px">Our <a href="/assessment/">free starting-point assessment</a>
-      helps you choose one concern, two actions to consider, and relevant reading.
-      Your answers stay in your browser.</p>
+    <p style="margin-top:26px"><b>Pick the one that sounds most like you.</b>
+      Each goal has free guides written around it. No account, no payment,
+      nothing to join.</p>
+
+    <div class="grid four">
+      <a class="card goal" href="/last-longer/">
+        <h3>Last Longer</h3>
+        <p>Ejaculation timing, arousal awareness, and what actually contributes to it.</p>
+      </a>
+      <a class="card goal" href="/stronger-erections/">
+        <h3>Stronger Erections</h3>
+        <p>Consistency, circulation, sleep, and the medical factors worth ruling out.</p>
+      </a>
+      <a class="card goal" href="/better-sexual-performance/">
+        <h3>Better Performance</h3>
+        <p>Conditioning, breathing, recovery, and the habits underneath all of it.</p>
+      </a>
+      <a class="card goal" href="/size-enhancement/">
+        <h3>Size Enhancement</h3>
+        <p>What men in enhancement communities report, and what their own logs show.</p>
+      </a>
+    </div>
+
+    <p class="small" style="margin-top:22px">Not sure which one?
+      <a href="/assessment/">Take the free assessment</a>: five private questions,
+      about two minutes, answers stay in your browser. Or read
+      <a href="/daily/">today's note</a>, one idea and one thing to try.</p>
+    <p class="tiny" style="margin-top:14px;max-width:70ch">Persistent erection or ejaculation
+      difficulties can have medical causes. Education helps you ask better questions;
+      it cannot replace evaluation.</p>
   </div>
 </section>
 
 <div class="wrap"><div class="rule"></div></div>
 
-<!-- =========================================================== THE ANSWER -->
-<section id="answer">
+<!-- ======================================================== 3. MECHANISM -->
+<!-- Three sections became one: the argument (answer), the six things you
+     train (inside), and the warning about trading function for size
+     (function). The six used to be six full paragraphs in the middle of the
+     page, before a visitor had any reason to care. They are one line each
+     now, with the original copy intact behind the disclosure, which is the
+     version a man who is actually interested will open. -->
+<section id="how">
   <div class="wrap">
     <span class="label go">The mistake</span>
     <h2 class="display" style="margin-top:14px">Most guys start with the wrong thing.</h2>
@@ -906,166 +998,76 @@ body[data-sn-open="true"]{overflow:hidden}
           by itself. Train the whole system.</b></p>
       </div>
     </div>
-  </div>
-</section>
 
-<div class="wrap"><div class="rule"></div></div>
+    <h3 style="margin-top:46px;font-size:21px">Six things you train, in one place</h3>
+    <ul class="trains">
+      <li><b>Blood flow.</b> The daily habits that hold erection quality up.</li>
+      <li><b>Pelvic floor control.</b> Both halves: when to contract, and how to release.</li>
+      <li><b>Lasting longer.</b> Structured edging, so control is something you practice.</li>
+      <li><b>Length training.</b> Warm-up, tension, progression, recovery, measurement.</li>
+      <li><b>Girth training.</b> A different stimulus, with pressure and frequency managed.</li>
+      <li><b>Tracking.</b> Erection quality, sessions, measurements, over months.</li>
+    </ul>
 
-<!-- ========================================================= FREE FIRST -->
-<section id="start-free">
-  <div class="wrap">
-    <span class="label go">Start without buying anything</span>
-    <h2 class="display" style="margin-top:14px">Know what you want to improve.</h2>
-    <p class="lede" style="margin-top:18px">A tip can help you notice something.
-      A guide can help you understand it. Your next action should match your goal.</p>
-    <div class="grid three">
-      <div class="card"><span class="num">01</span><h3>Find your starting point</h3>
-        <p>Answer five private questions. Get two free actions and relevant guides to explore.</p>
-        <p style="margin-top:14px"><a href="/assessment/">Take the free assessment</a></p>
-      </div>
-      <div class="card"><span class="num">02</span><h3>Learn what affects performance</h3>
-        <p>Explore practical guides on erections, arousal awareness, pelvic-floor function, health and habits.</p>
-        <p style="margin-top:14px"><a href="/learn/">Browse the Learning Library</a></p>
-      </div>
-      <div class="card"><span class="num">03</span><h3>Return for one useful action</h3>
-        <p>Read a rotating daily note, apply a small idea and share the one someone else may need.</p>
-        <p style="margin-top:14px"><a href="/daily/">Open The Daily Blueprint</a></p>
-      </div>
-    </div>
-    <p class="tiny" style="margin-top:20px">Persistent erection or ejaculation difficulties
-      can have medical causes. Education helps you ask better questions; it cannot replace evaluation.</p>
-  </div>
-</section>
-
-<div class="wrap"><div class="rule"></div></div>
-
-<!-- ========================================================= WHAT YOU TRAIN -->
-<section id="inside">
-  <div class="wrap">
-    <span class="label">What you get</span>
-    <h2 class="display" style="margin-top:14px">What you train inside The Blueprint.</h2>
-
-    <div class="grid two" style="margin-top:28px">
-      <div class="card">
-        <span class="num">01</span>
-        <h3>Better blood flow</h3>
+    <details class="more">
+      <summary>What each of those actually involves</summary>
+      <div class="more-body">
+        <h4>Better blood flow</h4>
         <p>Daily guidance on the habits that actually support erection quality. Hydration,
           movement, sleep, warm-ups, and the foods and supplements that help. You start
           paying attention to what changes how hard and full you feel, instead of assuming
           your body should perform the same every day.</p>
-      </div>
-      <div class="card">
-        <span class="num">02</span>
-        <h3>Pelvic floor control</h3>
+        <h4>Pelvic floor control</h4>
         <p>A strong pelvic floor is not the same thing as a constantly clenched one. A lot
           of men spend years tightening and never learn how to release. You get both sides:
           when to contract, when to relax, how to do reverse kegels, and how to breathe
           with the pelvic floor instead of fighting it.</p>
-      </div>
-      <div class="card">
-        <span class="num">03</span>
-        <h3>Train yourself to last longer</h3>
+        <h4>Train yourself to last longer</h4>
         <p>Premature ejaculation is not solved by telling yourself not to finish. You need
           something to practice. You get structured edging sessions where you learn to
           recognize your arousal before you cross the line, then slow it down, change
-          rhythm, breathe through it, and release pelvic tension.</p>
-        <p style="margin-top:10px"><b>Stop letting ejaculation happen to you. Learn to
-          control when it happens.</b></p>
-      </div>
-      <div class="card">
-        <span class="num">04</span>
-        <h3>Length training</h3>
+          rhythm, breathe through it, and release pelvic tension.
+          <b>Stop letting ejaculation happen to you. Learn to control when it happens.</b></p>
+        <h4>Length training</h4>
         <p>A structured approach instead of forums full of random routines. Proper warm-up,
           safe erection levels for training, directional stretching, progression, recovery,
-          consistent measuring, and the warning signs that tell you to back off.</p>
-        <p style="margin-top:10px">No pulling as hard as possible. No pain equals progress.
+          consistent measuring, and the warning signs that tell you to back off.
+          No pulling as hard as possible. No pain equals progress.
           <b>Tension is training. Pain is a warning.</b></p>
-      </div>
-      <div class="card">
-        <span class="num">05</span>
-        <h3>Girth training</h3>
+        <h4>Girth training</h4>
         <p>Thickness work uses a completely different stimulus than length work. You get
           controlled expansion work, plus how to manage pressure, erection level,
           frequency, recovery, and progression. More force is not automatically more
           growth. Sometimes it is just more risk.</p>
-      </div>
-      <div class="card">
-        <span class="num">06</span>
-        <h3>Track what your body is actually doing</h3>
+        <h4>Track what your body is actually doing</h4>
         <p>Erection quality, morning erections, length, girth, sessions, edging progress,
           hydration, pelvic floor work. Over time you see the patterns. Maybe your EQ drops
           when you sleep badly. Maybe you are training too often. Maybe your control
           improved before your measurements did. <b>Data beats guessing.</b></p>
       </div>
+    </details>
+
+    <div class="card" style="margin-top:30px">
+      <span class="label">The trade nobody warns you about</span>
+      <h3 style="margin-top:10px;font-size:20px">Size without function is a bad trade</h3>
+      <p style="margin-top:12px">
+        A bigger penis with weak erections is not an upgrade. Neither is gaining size while
+        losing sensitivity, or chasing girth while getting dependent on pills just to stay
+        hard, or lasting two minutes with more penis than you know how to control.
+      </p>
+      <p style="margin-top:12px">
+        That is why The Blueprint does not separate size from performance. The goal is to
+        become a better functioning man sexually: <b>harder erections, better awareness,
+        more control, better pelvic floor function, better blood flow habits</b>, and if
+        size training is one of your goals, a smarter way to approach it.
+      </p>
     </div>
   </div>
 </section>
 
 <div class="wrap"><div class="rule"></div></div>
 
-<!-- ============================================================== HONESTY -->
-<!-- This section is the most valuable one on the page and the most legally
-     load-bearing. It refuses to promise a number, in the author's own words,
-     on the exact question every buyer arrives with. Do not soften it into a
-     claim, and do not delete it to save space. -->
-<section id="honest">
-  <div class="wrap">
-    <div class="card hilite">
-      <span class="label stamp">Straight answer</span>
-      <h2 class="display" style="margin-top:12px;font-size:clamp(24px,3.6vw,34px)">
-        &ldquo;But can you actually make your penis bigger?&rdquo;</h2>
-
-      <div class="grid two" style="margin-top:18px">
-        <div>
-          <p>That question is one of the biggest reasons I built this.</p>
-          <p style="margin-top:12px">Across communities like Thunder's Place and r/gettingbigger, men share progress logs about manual stretching, jelqing, pumping and traction. Some report modest changes. Others claim an inch or more after months or years of training. I've seen changes in my own length and girth too, which is why those stories matter to me.</p>
-          <p style="margin-top:12px">Ever wondered what these guys actually did, how long they trained or how they tracked their measurements? <b>Explore their original progress reports.</b> They're personal experiences, not a promise of what anyone else will gain.</p>
-        </div>
-        <div>
-          <p>What I can give you is the structured approach I wish I had when I started.</p>
-          <ul style="margin-top:12px">
-            <li style="display:flex;gap:10px;padding:5px 0;color:var(--muted)"><span style="color:var(--blue-lit);flex:none;font-weight:800">&rarr;</span> Train gradually</li>
-            <li style="display:flex;gap:10px;padding:5px 0;color:var(--muted)"><span style="color:var(--blue-lit);flex:none;font-weight:800">&rarr;</span> Measure consistently</li>
-            <li style="display:flex;gap:10px;padding:5px 0;color:var(--muted)"><span style="color:var(--blue-lit);flex:none;font-weight:800">&rarr;</span> Protect erection quality</li>
-            <li style="display:flex;gap:10px;padding:5px 0;color:var(--muted)"><span style="color:var(--blue-lit);flex:none;font-weight:800">&rarr;</span> Watch your recovery</li>
-            <li style="display:flex;gap:10px;padding:5px 0;color:var(--muted)"><span style="color:var(--blue-lit);flex:none;font-weight:800">&rarr;</span> Pay attention to blood flow</li>
-            <li style="display:flex;gap:10px;padding:5px 0;color:var(--muted)"><span style="color:var(--blue-lit);flex:none;font-weight:800">&rarr;</span> Never train through numbness or pain</li>
-            <li style="display:flex;gap:10px;padding:5px 0;color:var(--muted)"><span style="color:var(--blue-lit);flex:none;font-weight:800">&rarr;</span> Give your body time to show you how it responds</li>
-          </ul>
-          <p style="margin-top:14px"><b>If you're curious to explore, you deserve an organized way to train, measure and monitor your progress.</b></p>
-          <p style="margin-top:14px"><a href="/size-enhancement/">Explore firsthand length and girth progress stories, measurement logs, and the methods men are discussing.</a></p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="wrap"><div class="rule"></div></div>
-
-<!-- ======================================================= SIZE VS FUNCTION -->
-<section id="function">
-  <div class="wrap">
-    <span class="label">The trade nobody warns you about</span>
-    <h2 class="display" style="margin-top:14px">Size without function is a bad trade.</h2>
-
-    <p class="lede" style="margin-top:18px">
-      A bigger penis with weak erections is not an upgrade. Neither is gaining size while
-      losing sensitivity, or chasing girth while getting dependent on pills just to stay
-      hard, or lasting two minutes with more penis than you know how to control.
-    </p>
-
-    <p style="margin-top:16px">
-      That is why The Blueprint does not separate size from performance. The goal is to
-      become a better functioning man sexually: <b>harder erections, better awareness,
-      more control, better pelvic floor function, better blood flow habits</b>, and if
-      size training is one of your goals, a smarter way to approach it.
-    </p>
-  </div>
-</section>
-
-<div class="wrap"><div class="rule"></div></div>
-
-<!-- ========================================================== SCREENSHOTS -->
+<!-- ========================================== 4. THE APP, DEMONSTRATED -->
 <section id="look">
   <div class="wrap">
     <span class="label">A look inside the app</span>
@@ -1109,34 +1111,7 @@ body[data-sn-open="true"]{overflow:hidden}
 
 <div class="wrap"><div class="rule"></div></div>
 
-<!-- ============================================================ DISCRETION -->
-<section id="private">
-  <div class="wrap">
-    <div class="card hilite">
-      <span class="label">Privacy</span>
-      <h2 class="display" style="margin-top:12px;font-size:clamp(24px,3.6vw,34px)">
-        Nobody has to know you bought this.</h2>
-      <div class="grid two" style="margin-top:18px">
-        <div>
-          <p>It is an app on your phone. It does not post anything anywhere. There is no
-            community to join and no group chat where men introduce themselves.</p>
-          <p style="margin-top:12px">No appointment. No waiting room. No conversation with
-            anybody who knows your name.</p>
-        </div>
-        <div>
-          <p>You do the work in your own bathroom, on your own schedule, and the only person
-            who ever sees your numbers is you.</p>
-          <p style="margin-top:12px">The one thing it asks for is an honest log. That is the
-            only place where lying to it costs you anything real.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="wrap"><div class="rule"></div></div>
-
-<!-- ========================================================= TESTIMONIALS -->
+<!-- ============================================= 5. PROOF AND OBJECTIONS -->
 <!-- REAL CUSTOMER QUOTES ONLY. The rules, which exist because breaking them
      is an FTC problem as well as a lie:
        1. Never write a quote. Only paste one a buyer actually sent.
@@ -1160,10 +1135,16 @@ body[data-sn-open="true"]{overflow:hidden}
        - "the tissue pliable" and a couple of capitals were fixed. Nothing
          was reworded.
 
-     No dates or star ratings appear because none were given. -->
+     No dates or star ratings appear because none were given.
+
+     THE TWO CARDS BELOW THE QUOTES WERE FULL SECTIONS OF THEIR OWN. The
+     size answer is the most legally load-bearing thing on this page: it
+     refuses to promise a number, in the author's own words, on the exact
+     question every buyer arrives with. It is carried over unchanged. Do not
+     soften it into a claim, and do not delete it to save space. -->
 <section id="proof">
   <div class="wrap">
-    <span class="label go">Reviews</span>
+    <span class="label go">Before you decide</span>
     <h2 class="display" style="margin-top:14px">From guys who bought it.</h2>
     <p class="small" style="margin-top:14px;max-width:64ch">Used with permission, in their
       own words. First name and last initial only, because no man should have to put his
@@ -1206,12 +1187,59 @@ body[data-sn-open="true"]{overflow:hidden}
       results. They are not an average and they are not a promise. Bodies are different,
       some of these men were doing other things at the same time, and no honest version
       of this page can tell you what yours will be.</p>
+
+    <div class="card hilite" style="margin-top:34px">
+      <span class="label stamp">Straight answer</span>
+      <h3 style="margin-top:12px;font-size:clamp(21px,3.2vw,27px)">
+        &ldquo;But can you actually make your penis bigger?&rdquo;</h3>
+
+      <div class="grid two" style="margin-top:18px">
+        <div>
+          <p>That question is one of the biggest reasons I built this.</p>
+          <p style="margin-top:12px">Across communities like Thunder's Place and r/gettingbigger, men share progress logs about manual stretching, jelqing, pumping and traction. Some report modest changes. Others claim an inch or more after months or years of training. I've seen changes in my own length and girth too, which is why those stories matter to me.</p>
+          <p style="margin-top:12px">Ever wondered what these guys actually did, how long they trained or how they tracked their measurements? <b>Explore their original progress reports.</b> They're personal experiences, not a promise of what anyone else will gain.</p>
+        </div>
+        <div>
+          <p>What I can give you is the structured approach I wish I had when I started.</p>
+          <ul class="ticks">
+            <li><span>&rarr;</span> Train gradually</li>
+            <li><span>&rarr;</span> Measure consistently</li>
+            <li><span>&rarr;</span> Protect erection quality</li>
+            <li><span>&rarr;</span> Watch your recovery</li>
+            <li><span>&rarr;</span> Pay attention to blood flow</li>
+            <li><span>&rarr;</span> Never train through numbness or pain</li>
+            <li><span>&rarr;</span> Give your body time to show you how it responds</li>
+          </ul>
+          <p style="margin-top:14px"><b>If you're curious to explore, you deserve an organized way to train, measure and monitor your progress.</b></p>
+          <p style="margin-top:14px"><a href="/size-enhancement/">Explore firsthand length and girth progress stories, measurement logs, and the methods men are discussing.</a></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <span class="label">Privacy</span>
+      <h3 style="margin-top:10px;font-size:20px">Nobody has to know you bought this</h3>
+      <div class="grid two" style="margin-top:12px">
+        <div>
+          <p>It is an app on your phone. It does not post anything anywhere. There is no
+            community to join and no group chat where men introduce themselves.</p>
+          <p style="margin-top:12px">No appointment. No waiting room. No conversation with
+            anybody who knows your name.</p>
+        </div>
+        <div>
+          <p>You do the work in your own bathroom, on your own schedule, and the only person
+            who ever sees your numbers is you.</p>
+          <p style="margin-top:12px">The one thing it asks for is an honest log. That is the
+            only place where lying to it costs you anything real.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
 <div class="wrap"><div class="rule"></div></div>
 
-<!-- =============================================================== PRICE -->
+<!-- ========================================================= 6. THE OFFER -->
 <section id="get">
   <div class="wrap">
     <span class="label go">Price</span>
@@ -1247,8 +1275,8 @@ body[data-sn-open="true"]{overflow:hidden}
         <button class="btn" id="buy-onsite" type="button" hidden></button>
       </div>
       <p class="tiny" style="margin-top:16px" id="buy-note-onsite" hidden>
-        Pay here with Apple&nbsp;Pay, Google&nbsp;Pay or a card. Your card statement
-        shows a neutral name, not the product.
+        Pay here with Apple&nbsp;Pay, Google&nbsp;Pay or a card. Card charges generally
+        appear as COACH TEE on statements; banks may format the name differently.
       </p>
       <noscript>
         <p class="tiny" style="margin-top:16px">
@@ -1296,12 +1324,16 @@ body[data-sn-open="true"]{overflow:hidden}
       medication for erectile function, ask your doctor first. Do not train if you are
       under 18.
     </p>
-    <nav aria-label="Website pages" style="display:flex;flex-wrap:wrap;gap:14px;margin:22px 0 18px;font-size:14px">
+    <!-- The same six links, in the same order, on every page of the site.
+         There were three different footers before this; a man who learned
+         where Support was on one page had to look for it again on the next. -->
+    <nav aria-label="Website pages" style="display:flex;flex-wrap:wrap;gap:4px 20px;margin:14px 0 10px;font-size:14px" class="footnav">
+      <a href="/learn/">Learn</a>
+      <a href="/whats-inside/">The App</a>
       <a href="/how-it-works/">How It Works</a>
-      <a href="/whats-inside/">What's Inside</a>
       <a href="/faq/">FAQ</a>
-      <a href="/support/">Support</a>
       <a href="/safety/">Safety</a>
+      <a href="/support/">Support</a>
     </nav>
     <p style="margin-top:12px">&copy; The Blueprint. Built by Coach Tee.</p>
   </div>
