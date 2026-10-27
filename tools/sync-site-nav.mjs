@@ -174,7 +174,7 @@ let drifted = 0;
 for (const rel of [...PAGES, ...NOINDEX]) {
     const p = path.join(ROOT, rel);
     const before = readFileSync(p, 'utf8');
-    const after = render(before, STYLED.includes(rel), RESEARCH.includes(rel));
+    const after = render(before, STYLED.includes(rel), RESEARCH_CSS_PAGES.includes(rel));
     if (before === after) continue;
     drifted++;
     if (check) console.log('DRIFT', rel);
