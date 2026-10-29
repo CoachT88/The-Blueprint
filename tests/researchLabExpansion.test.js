@@ -115,7 +115,7 @@ describe('Research Lab expansion: medically cautious, inspectable and navigable'
     expect(t).toContain('January 2026 personal account');
     expect(t).toContain('September 2026 thread');
     expect(t).toContain('October 2024 lecithin self-experiment');
-    expect(t).toContain('without independent verification');
+    expect(t).toContain('single-person, uncontrolled experiment');
     expect(t).toContain('cannot isolate arginine');
     expect(t).toContain('cannot identify ginseng');
     expect(t).not.toMatch(/\bguaranteed (?:erections|stamina|growth|volume)\b/i);
