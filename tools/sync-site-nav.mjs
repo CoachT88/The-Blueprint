@@ -50,6 +50,9 @@ export const GUIDES = [
 export const RESEARCH = [
     'research-lab/index.html',
     'research-lab/manual-techniques/index.html',
+    'research-lab/nitric-oxide-foods/index.html',
+    'research-lab/supplements/index.html',
+    'research-lab/community-reports/index.html',
 ];
 
 /* Pages that take the shared header and the design system but must NOT be
