@@ -92,6 +92,44 @@ describe('Research Lab expansion: medically cautious, inspectable and navigable'
     expect(src).toContain('current >= items.length');
   });
 
+  test('nutrition and supplement pages include traceable sexual-performance firsthand accounts, including no benefit', () => {
+    const food = article(read(PAGES.food));
+    const supplements = article(read(PAGES.supplements));
+    expect(food).toContain('What men report about erections');
+    expect(food).toContain('Beet powder and powdered blends');
+    expect(food).toContain('Little or no noticeable improvement');
+    expect(food).toContain('https://www.reddit.com/r/Supplements/comments/1lx9nos/');
+    expect(food).toContain('https://www.reddit.com/r/erectiledysfunction/comments/1kxflok/');
+    expect(supplements).toContain('What men report: pure L-citrulline vs citrulline malate');
+    expect(supplements).toContain('Malate felt better to one user');
+    expect(supplements).toContain('Some men favor pure L-citrulline');
+    expect(supplements).toContain('Some men notice no sexual difference');
+    expect(supplements).toContain('https://www.reddit.com/r/Biohackers/comments/1vbgvgu/');
+    expect(supplements).toContain('https://www.reddit.com/r/Supplements/comments/1mvcaqg/');
+    expect(supplements).toContain('no reliable head-to-head clinical evidence');
+  });
+
+  test('all featured ingredients show what men report and what the account cannot establish', () => {
+    const t = article(read(PAGES.supplements));
+    expect((t.match(/<h3>What men report/g) || []).length).toBeGreaterThanOrEqual(4);
+    expect(t).toContain('January 2026 personal account');
+    expect(t).toContain('September 2026 thread');
+    expect(t).toContain('October 2024 lecithin self-experiment');
+    expect(t).toContain('without independent verification');
+    expect(t).toContain('cannot isolate arginine');
+    expect(t).toContain('cannot identify ginseng');
+    expect(t).not.toMatch(/\bguaranteed (?:erections|stamina|growth|volume)\b/i);
+  });
+
+  test('other community investigations link to original accounts with appropriate limitations', () => {
+    const t = article(read(PAGES.reports));
+    expect((t.match(/What men report:/g) || []).length).toBeGreaterThanOrEqual(3);
+    expect(t).toContain('https://thebiohacker.com/forums/threads/pump-users-did-pumping-increase-your-erect-glans-size-permanently.3246767/');
+    expect(t).toContain('https://www.reddit.com/r/MaleSexualHealth/comments/1fydoe2/');
+    expect(t).toContain('people who noticed no effect');
+    expect(t).toContain('cannot establish');
+  });
+
   test('source links on each article are HTTPS and independent of our service', () => {
     for (const path of Object.values(PAGES)) {
       const t = article(read(path));
