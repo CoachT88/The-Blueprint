@@ -117,7 +117,7 @@ describe('Research Lab expansion: medically cautious, inspectable and navigable'
     expect(t).toContain('October 2024 lecithin self-experiment');
     expect(t).toContain('single-person, uncontrolled experiment');
     expect(t).toContain('cannot isolate arginine');
-    expect(t).toContain('cannot identify ginseng');
+    expect(t).toContain('None of these combinations can identify ginseng');
     expect(t).not.toMatch(/\bguaranteed (?:erections|stamina|growth|volume)\b/i);
   });
 
@@ -127,7 +127,7 @@ describe('Research Lab expansion: medically cautious, inspectable and navigable'
     expect(t).toContain('https://thebiohacker.com/forums/threads/pump-users-did-pumping-increase-your-erect-glans-size-permanently.3246767/');
     expect(t).toContain('https://www.reddit.com/r/MaleSexualHealth/comments/1fydoe2/');
     expect(t).toContain('people who noticed no effect');
-    expect(t).toContain('cannot establish');
+    expect(t).toContain('do not establish');
   });
 
   test('source links on each article are HTTPS and independent of our service', () => {
