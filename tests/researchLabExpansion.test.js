@@ -55,6 +55,43 @@ describe('Research Lab expansion: medically cautious, inspectable and navigable'
     expect(t).not.toMatch(/\b(?:take|use|swallow)\s+\d+(?:\.\d+)?\s*(?:mg|g|capsules)/i);
   });
 
+  test('beetroot powder is named as an alternative, with nitrate variability and source attribution', () => {
+    const t = article(read(PAGES.food));
+    expect(t).toContain('Beet powder: a convenient alternative');
+    expect(t).toContain('nitrate amount per serving');
+    expect(t).toContain('nitrate content across products');
+    expect(t).toContain('https://pmc.ncbi.nlm.nih.gov/articles/PMC8512783/');
+    expect(t).toContain('https://www.sciencedirect.com/science/article/pii/S2772502225005207');
+  });
+
+  test('pure L-citrulline vs malate explains the compound ratio and limits conclusions to tested outcomes', () => {
+    const t = article(read(PAGES.supplements));
+    for (const term of ['Pure L-citrulline:', 'Citrulline malate:', '2:1', 'some of the powder weight is malate',
+      'not erection quality or sexual stamina', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC12143003/']) {
+      expect(t).toContain(term);
+    }
+    expect(t).toContain('2026 systematic review');
+    expect(t).not.toContain('citrulline malate is more effective for erections');
+  });
+
+  test('interactive claim checker is accessible and has no personal data collection', () => {
+    const src = read(PAGES.reports);
+    const main = article(src);
+    for (const s of ['id="claim-lab"', 'id="claim-stage" hidden',
+      'role="status" aria-live="polite"', 'id="claim-choices"',
+      'id="claim-feedback"', 'id="claim-next"', 'id="claim-finished" hidden',
+      'id="original-reports"', 'id="claim-share"']) {
+      expect(main).toContain(s);
+    }
+    expect(src).toContain('document.getElementById');
+    expect(src).toContain('navigator.share');
+    expect(src).not.toContain('localStorage');
+    expect(src).not.toContain('sessionStorage');
+    expect(src).not.toContain('fetch(');
+    expect(src).toContain('https://theblueprint.site/research-lab/community-reports/#claim-lab');
+    expect(src).toContain('current >= items.length');
+  });
+
   test('source links on each article are HTTPS and independent of our service', () => {
     for (const path of Object.values(PAGES)) {
       const t = article(read(path));
