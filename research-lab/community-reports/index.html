@@ -290,6 +290,25 @@ footer a{margin-right:16px}
 }
 /* RESEARCH-CSS:END */
 
+
+/* Interactive evidence check: local-only responses, no external libraries. */
+.claim-lab{background:#101c31;border:1px solid #304361;border-radius:18px;padding:clamp(18px,4vw,30px);margin:24px 0}
+.claim-lab h2{margin-bottom:12px}
+.claim-lab h3{font-size:1.22rem;line-height:1.4;margin:16px 0}
+.claim-lab .small{color:var(--muted);font-size:14px}
+.claim-progress{font-size:13px;letter-spacing:.06em;text-transform:uppercase;font-weight:800;color:var(--blue)}
+#claim-choices{display:grid;gap:12px;margin:20px 0}
+.claim-choice,.claim-next{font:inherit;text-align:left;min-height:50px;padding:13px 16px;border-radius:12px;cursor:pointer}
+.claim-choice{width:100%;background:#182b45;border:1px solid #48617e;color:var(--text);font-weight:650}
+.claim-choice:hover,.claim-choice:focus-visible{border-color:#93c5fd;background:#233958}
+.claim-choice:focus-visible,.claim-next:focus-visible{outline:3px solid #93c5fd;outline-offset:3px}
+.claim-choice:disabled{cursor:default;opacity:.78}
+.claim-choice[aria-pressed="true"]{border-color:#93c5fd;background:#254567;opacity:1}
+.claim-next{background:#2563eb;color:white;border:1px solid #60a5fa;font-weight:750;margin-top:12px}
+.claim-feedback{border-left:3px solid #60a5fa;padding:12px 15px;background:#152b44;color:var(--text);margin:12px 0}
+.claim-feedback strong{color:#e5f2ff}
+@media(max-width:540px){.claim-lab{padding:18px}.claim-choice,.claim-next{width:100%}}
+
 /* SITE-NAV:START */
 /* ──────────────────────────────────────────────────────────────────────────
    THE SHARED SITE HEADER. One source, every public page.
@@ -720,6 +739,32 @@ body[data-sn-open="true"]{overflow:hidden}
 <h1>Hundreds of thousands of members. What are men actually reporting?</h1>
 <div class="reading"><p class="lead">Online enhancement communities contain years of conversations, measurements, experiments, positive reports and accounts of harm. That scale deserves investigation. It does not turn a personal report into proof.</p><p>A <a href="https://www.gq.com/story/jelqing-larger-penis-technique-1" target="_blank" rel="noopener noreferrer">February 2026 GQ investigation</a> reported about <strong>165,000 members</strong> in r/gettingbigger, <strong>200,000</strong> at Matters of Size, and <strong>82,000</strong> in r/AJelqForYou. Those were reported community-size figures at publication time, not counts of people reporting verified gains. Members can belong to multiple groups.</p></div>
 <div class="lab-hero reading"><p><strong>Our approach:</strong> Take the questions seriously, examine the actual evidence, and distinguish temporary changes from lasting outcomes. Reports may be sincere without being controlled measurements or reliable proof of effectiveness.</p></div>
+<section class="reading" id="claim-lab" aria-labelledby="claim-lab-title">
+<div class="claim-lab">
+<p class="eyebrow">Interactive Research Lab</p>
+<h2 id="claim-lab-title">Can you spot the missing evidence?</h2>
+<p>Three real-world claim scenarios. Pick what you would question before accepting the conclusion. Each answer reveals the reasoning, even when your first guess misses something.</p>
+<p class="small">No account, health answers or scores. This activity does not save or send your choices.</p>
+<div id="claim-stage" hidden>
+<p class="claim-progress" id="claim-progress">Question 1 of 3</p>
+<h3 id="claim-question">What would you check first?</h3>
+<div id="claim-choices" role="group" aria-labelledby="claim-question">
+<button class="claim-choice" type="button" data-answer="0"></button>
+<button class="claim-choice" type="button" data-answer="1"></button>
+</div>
+<div class="claim-feedback" id="claim-feedback" role="status" aria-live="polite" hidden></div>
+<button class="claim-next" id="claim-next" type="button" hidden>Next question</button>
+</div>
+<div id="claim-finished" hidden>
+<h3>Now you know what to look for.</h3>
+<p>When a claim catches your attention, ask what was actually measured, what could explain it, and whether the outcome held up on follow-up.</p>
+<p><a href="#original-reports">Explore original community discussions</a> or <a href="/research-lab/">browse another investigation</a>.</p>
+<button class="claim-next" id="claim-share" type="button">Share this three-question test</button>
+<p class="small" role="status" id="claim-share-status" aria-live="polite"></p>
+</div>
+<noscript><p>The interactive questions need JavaScript, but you can read the full evidence review below without it.</p></noscript>
+</div>
+</section>
 <section class="reading"><h2>1. A bigger glans or temporary fullness?</h2><span class="ev ev-community">Community-reported, unverified</span><p>Some forum discussions describe a fuller glans after pumping or other enhancement practices. The first question is whether the change was temporary blood engorgement or swelling, versus a lasting change measured after recovery.</p><p><a href="https://www.mayoclinic.org/healthy-lifestyle/sexual-health/in-depth/penis/art-20045363" target="_blank" rel="noopener noreferrer">Mayo Clinic</a> states that vacuum pumps can produce temporary enlargement in appearance but are not proven to produce permanent enlargement; excessive use can injure tissue and compromise erections. Photographs without consistent lighting, timing and measurement cannot settle the question.</p><p><strong>What to look for:</strong> Are the baseline and follow-up conditions comparable? Is there a follow-up after the initial swelling resolved? Are adverse effects reported?</p></section>
 <section class="reading"><h2>2. Lower-hanging testicles or normal changes in scrotal position?</h2><span class="ev ev-community">Community-reported, unverified</span><p>Men sometimes discuss a looser or lower-hanging scrotum after particular routines or lifestyle changes. Yet scrotal position naturally changes. The cremaster and dartos muscles respond to temperature and other conditions, as described by <a href="https://my.clevelandclinic.org/health/body/scrotum" target="_blank" rel="noopener noreferrer">Cleveland Clinic</a>.</p><p>Community stories do not establish that stretching or other interventions produce safe, permanent changes. Pain, swelling, a new lump or a sudden change in testicular position warrants medical attention. These pages do not teach scrotal stretching.</p></section>
 <section class="reading"><h2>3. Bigger ejaculate volume versus a stronger ejaculation</h2><span class="ev ev-community">Community-reported, unverified</span><p>Men discuss zinc, lecithin, pygeum, hydration, abstinence and other routines to produce a larger ejaculate or more forceful expulsion. Volume and force are different outcomes, and neither tells you the sperm quality or whether fertility has improved.</p><p>One measurable factor is the interval since the previous ejaculation. A <a href="https://pubmed.ncbi.nlm.nih.gov/38828413/" target="_blank" rel="noopener noreferrer">meta-analysis of abstinence studies</a> found greater semen volume with longer abstinence intervals, alongside tradeoffs in other semen parameters. That complicates a supplement story when the interval was not controlled.</p><p>We have not established that popular community stacks reliably increase volume or force. Painful ejaculation, blood in semen or abrupt changes deserve medical evaluation.</p></section>
@@ -729,7 +774,7 @@ body[data-sn-open="true"]{overflow:hidden}
 <div class="ledger-row"><strong>Follow-up</strong><div class="ledger-real">Was a later check-in posted? Did the claimed effect persist, reverse or cause unwanted symptoms?</div></div>
 <div class="ledger-row"><strong>Evidence</strong><div class="ledger-real">Does human research test this exact intervention and outcome, or only a related mechanism?</div></div>
 </div><p>The same questions apply to success stories, no-change reports and injuries. We will not assign a success rate from forum membership or selective testimonials.</p></section>
-<section class="reading"><h2>5. Inspect some original conversations</h2><p>The links below lead to independent community discussions, not verified case studies. They can contain explicit language and descriptions of potentially harmful practices. We link them to show what people really asked and answered, not to recommend reproducing any method.</p>
+<section class="reading" id="original-reports"><h2>5. Inspect some original conversations</h2><p>The links below lead to independent community discussions, not verified case studies. They can contain explicit language and descriptions of potentially harmful practices. We link them to show what people really asked and answered, not to recommend reproducing any method.</p>
 <ul>
 <li><a href="https://thebiohacker.com/forums/threads/pump-users-did-pumping-increase-your-erect-glans-size-permanently.3246767/" target="_blank" rel="noopener noreferrer">Glans size after pumping: a forum discussion</a>. Members disagree about permanence and describe using multiple methods, which makes individual causes difficult to isolate.</li>
 <li><a href="https://www.reddit.com/r/foreskin_restoration/comments/1wswmt4/men_with_low_hangers_how_has_the_restoration/" target="_blank" rel="noopener noreferrer">Scrotal appearance: an original member question</a>. The discussion includes different preferences and outcomes rather than a single claimed result.</li>
@@ -740,5 +785,104 @@ body[data-sn-open="true"]{overflow:hidden}
 <div class="stamp reading"><span><strong>Last reviewed:</strong> 29 October 2026</span><span><strong>Reviewed by:</strong> The Blueprint editorial team. No clinician has reviewed this page.</span></div><p class="note reading"><strong>Medical note:</strong> General educational material for adults 18 and older, not a diagnosis or treatment plan. Persistent sexual symptoms, pain, bruising, numbness, new deformity or any sudden change in function should be evaluated promptly by a qualified healthcare professional. An erection lasting more than four hours is a medical emergency.</p>
 </main>
 <footer><div class="wrap">Educational information for adults 18 and older. Persistent sexual health symptoms deserve medical evaluation.<p><a href="/learn/">Learn</a><a href="/whats-inside/">The App</a><a href="/how-it-works/">How It Works</a><a href="/faq/">FAQ</a><a href="/safety/">Safety</a><a href="/support/">Support</a></p>&copy; The Blueprint</div></footer>
+
+<script>
+/* All choices stay in this browser tab. No storage, requests, accounts or scores. */
+(() => {
+  const items = [
+    {
+      question: 'A large enhancement forum lists 165,000 members. What does that number establish?',
+      options: ['165,000 members have verified physical gains.', 'A large community exists, but it does not tell us how many claims were verified.'],
+      correct: 1,
+      explanation: 'Member counts indicate audience size and interest. They do not measure outcomes. Some people belong to multiple communities, and posts are not independent clinical measurements.'
+    },
+    {
+      question: 'A member shares a fuller-glans photograph immediately after pumping. What is the key missing evidence?',
+      options: ['A later comparison after short-term fullness or swelling resolves, using consistent measurements.', 'The number of likes the photograph receives.'],
+      correct: 0,
+      explanation: 'A photograph taken immediately afterward cannot establish a lasting change. Comparable follow-up measurements and an account of adverse symptoms matter.'
+    },
+    {
+      question: 'Someone reports more ejaculate volume after using supplements and waiting longer between ejaculations. What should be controlled?',
+      options: ['Which ingredient has the most enthusiastic comments.', 'The abstinence interval and other changes, with repeatable measurements.'],
+      correct: 1,
+      explanation: 'Time since the last ejaculation is associated with semen volume. Without controlling that and other factors, the supplement cannot reliably be credited with the change.'
+    }
+  ];
+  const stage = document.getElementById('claim-stage');
+  const choices = [...document.querySelectorAll('#claim-choices .claim-choice')];
+  const question = document.getElementById('claim-question');
+  const feedback = document.getElementById('claim-feedback');
+  const progress = document.getElementById('claim-progress');
+  const next = document.getElementById('claim-next');
+  const finished = document.getElementById('claim-finished');
+  let current = 0;
+  let answered = false;
+
+  function showQuestion() {
+    const item = items[current];
+    answered = false;
+    progress.textContent = 'Question ' + (current + 1) + ' of ' + items.length;
+    question.textContent = item.question;
+    choices.forEach((btn, i) => {
+      btn.textContent = item.options[i];
+      btn.disabled = false;
+      btn.removeAttribute('aria-pressed');
+    });
+    feedback.hidden = true;
+    feedback.textContent = '';
+    next.hidden = true;
+    next.textContent = current === items.length - 1 ? 'See what you learned' : 'Next question';
+  }
+
+  choices.forEach((btn, i) => btn.addEventListener('click', () => {
+    if (answered) return;
+    answered = true;
+    const item = items[current];
+    btn.setAttribute('aria-pressed', 'true');
+    choices.forEach(c => { c.disabled = true; });
+    const label = i === item.correct ? 'Good call.' : 'Here is the missing piece.';
+    feedback.textContent = label + ' ' + item.explanation;
+    feedback.hidden = false;
+    next.hidden = false;
+    next.focus();
+  }));
+
+  next.addEventListener('click', () => {
+    current += 1;
+    if (current >= items.length) {
+      stage.hidden = true;
+      finished.hidden = false;
+      document.getElementById('claim-share').focus();
+      return;
+    }
+    showQuestion();
+    question.setAttribute('tabindex', '-1');
+    question.focus();
+  });
+
+  document.getElementById('claim-share').addEventListener('click', async () => {
+    const status = document.getElementById('claim-share-status');
+    const url = 'https://theblueprint.site/research-lab/community-reports/#claim-lab';
+    try {
+      if (navigator.share) {
+        await navigator.share({title: 'Reports vs. Research: test the claim', url});
+        status.textContent = 'Shared from your device.';
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        status.textContent = 'Link copied.';
+      } else {
+        status.textContent = 'Share this link: ' + url;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      status.textContent = 'Share this link: ' + url;
+    }
+  });
+
+  stage.hidden = false;
+  showQuestion();
+})();
+</script>
 </body>
 </html>
