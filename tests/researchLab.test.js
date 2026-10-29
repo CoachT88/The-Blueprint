@@ -30,7 +30,12 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
 const LANDING = 'research-lab/index.html';
 const TOPIC = 'research-lab/manual-techniques/index.html';
-const PAGES = [LANDING, TOPIC];
+const NEW_PAGES = [
+    ['research-lab/nitric-oxide-foods/index.html', '/research-lab/nitric-oxide-foods/', 'Nitric Oxide Foods | The Research Lab | The Blueprint'],
+    ['research-lab/supplements/index.html', '/research-lab/supplements/', 'Sexual Performance Supplements | The Research Lab | The Blueprint'],
+    ['research-lab/community-reports/index.html', '/research-lab/community-reports/', 'Reports vs. Research | The Research Lab | The Blueprint'],
+];
+const PAGES = [LANDING, TOPIC, ...NEW_PAGES.map(p => p[0])];
 
 const LABELS = [
     ['ev-clinical', 'Supported by clinical evidence'],
@@ -96,6 +101,7 @@ describe('the Lab exists and is wired in', () => {
         for (const [p, slug, title] of [
             [LANDING, '/research-lab/', 'The Research Lab | The Blueprint'],
             [TOPIC, '/research-lab/manual-techniques/', 'Manual Techniques | The Research Lab | The Blueprint'],
+            ...NEW_PAGES,
         ]) {
             const src = read(p);
             expect(src).toContain(`<link rel="canonical" href="https://theblueprint.site${slug}">`);
@@ -116,7 +122,8 @@ describe('the Lab exists and is wired in', () => {
         const sync = read('tools/sync-site-nav.mjs');
         const pages = sync.match(/export const PAGES = \[([\s\S]*?)\];/)[1];
         for (const [p, slug] of [[LANDING, '/research-lab/'],
-                                 [TOPIC, '/research-lab/manual-techniques/']]) {
+                                 [TOPIC, '/research-lab/manual-techniques/'],
+                                 ...NEW_PAGES.map(([p, slug]) => [p, slug])]) {
             expect(xml, `sitemap missing ${slug}`).toContain(`<loc>https://theblueprint.site${slug}</loc>`);
             expect(sync.match(/export const RESEARCH = \[([\s\S]*?)\];/)[1]).toContain(`'${p}'`);
             expect(pages.includes(`'${p}'`) || pages.includes('...RESEARCH'),
@@ -129,6 +136,10 @@ describe('the Lab exists and is wired in', () => {
     test('the Learning Center offers the Lab, and the Lab links back', () => {
         expect(read('learn/index.html')).toContain('href="/research-lab/"');
         expect(read(LANDING)).toContain('href="/research-lab/manual-techniques/"');
+        for (const [p, slug] of NEW_PAGES) {
+            expect(read(LANDING)).toContain(`href="${slug}"`);
+            expect(read(p)).toContain('href="/research-lab/"');
+        }
         expect(read(LANDING)).toContain('href="/learn/"');
         expect(read(TOPIC)).toContain('href="/research-lab/"');
     });
