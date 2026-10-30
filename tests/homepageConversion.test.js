@@ -45,6 +45,26 @@ describe('Homepage: clear value, fewer decisions, truthful offer',()=>{
     expect(how).toContain('Pelvic floor control');
     expect(how).toMatch(/Progress and responses vary/i);
   });
+  test('THE SCEPTICAL READER IS OFFERED THE RESEARCH LAB, NOT A NEW SECTION',()=>{
+    /* The Lab is the strongest reason to trust this brand and the home page
+       did not mention it existed: zero /research-lab/ and zero /learn/ in
+       the body, against two /assessment/. The entry point belongs exactly
+       here, under the testimonial qualifier, because that paragraph invites
+       the question "so what can you show me" and the Lab is the answer.
+       Anywhere else on this page it is a feature; here it is a reply. */
+    const proof=section('proof');
+    expect(proof).toContain('href="/research-lab/"');
+    const qualifier=proof.indexOf('These are individual');
+    const lab=proof.indexOf('href="/research-lab/"');
+    expect(qualifier,'the qualifier is gone').toBeGreaterThan(0);
+    expect(lab,'the Lab link does not follow the qualifier').toBeGreaterThan(qualifier);
+    /* One entry point, and no new full-width section to read past. */
+    const body=home.replace(/<!-- SITE-NAV:START -->[\s\S]*?<!-- SITE-NAV:END -->/,' ')
+                   .replace(/<footer[\s\S]*<\/footer>/,' ');
+    expect((body.match(/href="\/research-lab\//g)||[])).toHaveLength(1);
+    expect((body.match(/<section/g)||[])).toHaveLength(6);
+  });
+
   test('proof is related to this offer, not a different app',()=>{
     const proof=section('proof');
     expect(proof).toContain('What men have shared with Coach Tee.');
