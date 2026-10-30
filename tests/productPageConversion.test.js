@@ -25,6 +25,51 @@ function cssRuleInMediaQuery(source, query, selector) {
   return body.slice(valueStart, body.indexOf('}', valueStart));
 }
 
+const home = readFileSync('index.html', 'utf8');
+
+describe('The hero promises a system and this page delivers one', () => {
+  test('THE SECONDARY CTA LABEL AND ITS DESTINATION AGREE', () => {
+    /* The hero's second button used to read "See the $99 app" and now reads
+       "Show me the system". A curiosity label is only honest if the page it
+       opens answers the curiosity, and this page used to open with a price
+       headline.
+
+       The label is pinned deliberately, not parsed. A first attempt pulled
+       the longest word out of whatever the button said and looked for it on
+       this page; renaming the button to "Show me the blueprint" passed,
+       because the word blueprint is everywhere. A rename SHOULD fail here.
+       Changing the promise is exactly the moment somebody has to come back
+       and check that the destination still keeps it. */
+    const cta = home.match(/<a class="btn ghost" href="\/whats-inside\/">([^<]+)<\/a>/);
+    expect(cta, 'the hero has no secondary CTA to /whats-inside/').not.toBeNull();
+    expect(cta[1], 'the hero promise changed: re-check that this page answers it')
+      .toBe('Show me the system');
+
+    const h1 = main.match(/<h1>([^<]+)<\/h1>/)[1];
+    const lead = main.match(/<p class="lead">([\s\S]*?)<\/p>/)[1];
+    expect(h1.toLowerCase(), 'the h1 does not answer "show me the system"')
+      .toContain('system');
+    /* And it says what the system IS, in the first screen, rather than
+       using the word and moving on. */
+    expect(lead.toLowerCase()).toContain('the system is');
+    for (const part of ['goal', 'session', 'recovery', 'record']) {
+      expect(lead.toLowerCase(), `the lead never names the ${part}`).toContain(part);
+    }
+  });
+
+  test('and the one-time price is still unmissable above the fold', () => {
+    /* Leading with the system must not bury what it costs. Three places
+       carry it before a reader scrolls: the lead, the early button, and the
+       page title. */
+    const lead = main.match(/<p class="lead">([\s\S]*?)<\/p>/)[1];
+    expect(lead).toContain('$99');
+    expect(lead).toContain('no subscription');
+    const quick = main.match(/<div class="product-quick-action">([\s\S]*?)<\/div>/)[1];
+    expect(quick).toContain('$99');
+    expect(page).toMatch(/<title>[^<]*\$99|<title>[^<]*What It Costs|<title>[^<]*and What It Costs/i);
+  });
+});
+
 describe('The App product page: purchase-ready path without a mobile gallery detour', () => {
   test('one early and one final purchase action share the established checkout route', () => {
     const top = main.indexOf('class="product-quick-action"');
@@ -34,7 +79,10 @@ describe('The App product page: purchase-ready path without a mobile gallery det
     expect(top).toBeLessThan(gallery);
     expect(gallery).toBeLessThan(offer);
     expect(main.split('<a class="cta" href="/#get">Get The Blueprint, $99</a>')).toHaveLength(3);
-    expect(main).toContain('One payment, no subscription.');
+    /* The lead now reads "One payment, no subscription, $99 once", so the
+       terms are asserted as terms rather than as one frozen sentence. */
+    expect(main).toContain('One payment, no subscription');
+    expect(main).toContain('$99 once');
     expect(main).toContain('Future app updates are included at no extra cost');
   });
 
