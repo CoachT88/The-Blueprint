@@ -58,4 +58,36 @@ describe('Reports vs. Research claim test, real browser', () => {
       await page.close();
     }, 65_000);
   }
+
+  /* THE DEEP LINK THE CHECKER ITSELF OFFERS.
+     Every Research Lab section is a link target, and the finished screen
+     sends the reader to #original-reports. The browser scrolls a target to
+     y=0, which is underneath a 61px sticky header, so before
+     tools/research.css gained scroll-margin-top the reader arrived at a
+     heading he could not see. Measured against the header rather than
+     against a number, so changing the header height cannot quietly
+     reintroduce it. */
+  for (const [page_, anchors] of [
+    ['/research-lab/community-reports/', ['#claim-lab', '#original-reports']],
+    ['/size-enhancement/', ['#reports', '#length', '#girth', '#manual', '#practice', '#safety']],
+  ]) {
+    test(`${page_}: every anchor target lands below the sticky header`, async () => {
+      const page = await browser.newPage({ viewport: {width: 390, height: 850} });
+      for (const hash of anchors) {
+        await page.goto(srv.origin + page_ + hash, {waitUntil:'domcontentloaded', timeout:60_000});
+        await page.waitForTimeout(600);
+        const seen = await page.evaluate((hash) => {
+          const target = document.getElementById(hash.slice(1));
+          const header = document.querySelector('.sn').getBoundingClientRect().bottom;
+          const heading = target.matches('h1,h2,h3') ? target : target.querySelector('h1,h2,h3');
+          const box = (heading || target).getBoundingClientRect();
+          return {header: Math.round(header), top: Math.round(box.top),
+                  label: ((heading || target).textContent || '').trim().slice(0, 40)};
+        }, hash);
+        expect(seen.top, `${page_}${hash} "${seen.label}" is under the header`)
+          .toBeGreaterThanOrEqual(seen.header);
+      }
+      await page.close();
+    }, 65_000);
+  }
 });

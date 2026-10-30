@@ -237,6 +237,37 @@ footer a{margin-right:16px}
 .ev-community{color:#e3b778;border-color:#5a4526}
 .ev-none{color:#c0c8d4;border-color:#36414f}
 
+/* ---- anchors clear the sticky header ----------------------------------- */
+/* Every Lab section is a link target: the three-question checker offers
+   #original-reports when it finishes, and /size-enhancement/ carries six
+   more. Without this the browser scrolls the target to y=0, which is under
+   a 61px sticky header, so the reader arrives at a heading he cannot see.
+   The home page has had section[id]{scroll-margin-top:72px} since the IA
+   work; this is the same rule for the pages that carry this stylesheet.
+   76px is the header plus a little air. */
+[id]{scroll-margin-top:76px}
+
+/* ---- the second reference list ----------------------------------------- */
+/* TWO TIERS, BECAUSE THEY ARE NOT THE SAME KIND OF THING.
+   .refs holds clinical and research sources, each with a "Supports ..."
+   statement. This list holds community threads, each with an "Offered as
+   ..." statement, because a forum post is not offered as evidence for
+   anything: it is offered as a record of what somebody said. Mixing them
+   into one list would let a reader skim past the distinction the whole Lab
+   is built on. Amber, matching the "Community-reported, unverified" label,
+   so the category is recognizable before the text is read. */
+.community-refs{list-style:none;padding-left:0;margin:0}
+.community-refs li{
+  border-left:3px solid #5a4526;border-radius:0 12px 12px 0;
+  background:var(--panel);padding:15px 18px;margin:0 0 10px;
+}
+.community-refs a{font-weight:700}
+.community-refs .venue{
+  display:block;color:#e3b778;font-size:.72rem;font-weight:800;
+  letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;
+}
+.community-refs span:not(.venue){display:block;color:var(--muted);font-size:.95rem;margin-top:4px}
+
 /* The key that explains what each label means. */
 .ev-key{list-style:none;padding:0;margin:0}
 .ev-key li{border-top:1px solid var(--line);padding:18px 0}
@@ -287,6 +318,13 @@ footer a{margin-right:16px}
   .ev{border:1px solid #000;color:#000;background:#fff}
   .method,.ledger,.stamp,.lab-hero{background:#fff;color:#000;border-color:#999}
   .method p,.method li,.ledger-real,.stamp,.lab-hero p{color:#000}
+  /* guide.css already prints each .refs URL after its link. Community
+     threads get the same treatment, or a printed article cites a source
+     the reader cannot reach. */
+  .community-refs li{background:#fff;color:#000;border-color:#999}
+  .community-refs a{color:#000}
+  .community-refs a::after{content:" (" attr(href) ")";font-weight:400;font-size:10pt;word-break:break-all}
+  .community-refs .venue,.community-refs span:not(.venue){color:#000}
 }
 /* RESEARCH-CSS:END */
 
@@ -774,11 +812,11 @@ body[data-sn-open="true"]{overflow:hidden}
 <div class="ledger-row"><strong>Follow-up</strong><div class="ledger-real">Was a later check-in posted? Did the claimed effect persist, reverse or cause unwanted symptoms?</div></div>
 <div class="ledger-row"><strong>Evidence</strong><div class="ledger-real">Does human research test this exact intervention and outcome, or only a related mechanism?</div></div>
 </div><p>The same questions apply to success stories, no-change reports and injuries. We will not assign a success rate from forum membership or selective testimonials.</p></section>
-<section class="reading" id="original-reports"><h2>5. Inspect some original conversations</h2><p>The links below lead to independent community discussions, not verified case studies. They can contain explicit language and descriptions of potentially harmful practices. We link them to show what people really asked and answered, not to recommend reproducing any method.</p>
-<ul>
-<li><a href="https://thebiohacker.com/forums/threads/pump-users-did-pumping-increase-your-erect-glans-size-permanently.3246767/" target="_blank" rel="noopener noreferrer">Glans size after pumping: a forum discussion</a>. Members disagree about permanence and describe using multiple methods, which makes individual causes difficult to isolate.</li>
-<li><a href="https://www.reddit.com/r/foreskin_restoration/comments/1g2e801" target="_blank" rel="noopener noreferrer">Scrotal appearance: restoration reports</a>. Several members describe changes in how low the scrotum hangs, but the experiences involve foreskin-restoration practices and years of changing conditions, not a controlled test.</li>
-<li><a href="https://www.reddit.com/r/MaleSexualHealth/comments/1fydoe2/" target="_blank" rel="noopener noreferrer">Semen volume and lecithin: a detailed self-experiment</a>. A member shares repeated measurements and a claimed improvement. It remains a self-report without independent verification or controls that establish cause and effect.</li>
+<section class="reading" id="original-reports"><h2>5. Community threads cited</h2><p>Every community discussion this article draws on, with the venue it came from and what we are offering it as. These are independent conversations, not verified case studies. They can contain explicit language and descriptions of potentially harmful practices. We link them to show what people really asked and answered, not to recommend reproducing any method.</p>
+<ul class="community-refs">
+<li><span class="venue">thebiohacker.com forum</span><a href="https://thebiohacker.com/forums/threads/pump-users-did-pumping-increase-your-erect-glans-size-permanently.3246767/" target="_blank" rel="noopener noreferrer">Pump users: did pumping increase your erect glans size permanently?</a><span>Offered as a record of men disagreeing about permanence while using several methods at once, which is what makes an individual cause impossible to isolate. Not offered as evidence that pumping changes glans size.</span></li>
+<li><span class="venue">Reddit, r/foreskin_restoration</span><a href="https://www.reddit.com/r/foreskin_restoration/comments/1g2e801/" target="_blank" rel="noopener noreferrer">Restoration reports describing scrotal appearance</a><span>Offered as a record of perceived changes in how low the scrotum hangs, described alongside foreskin-restoration practices over years of changing conditions. Not offered as evidence that any practice changes scrotal position.</span></li>
+<li><span class="venue">Reddit, r/MaleSexualHealth</span><a href="https://www.reddit.com/r/MaleSexualHealth/comments/1fydoe2/" target="_blank" rel="noopener noreferrer">A lecithin self-experiment with repeated home measurements</a><span>Offered as an unusually well documented single-person self-report. Not offered as evidence of cause and effect: there is no control, no blinding, and the abstinence interval before each measurement is not recorded.</span></li>
 </ul><p>These threads are illustrative, not a random sample and not a clinical dataset. Follow-up claims may have changed since the linked comments were written.</p></section>
 <section class="reading"><h2>6. Keep exploring</h2><div class="topics"><a href="/size-enhancement/"><strong>Length and girth progress logs</strong><span>Existing community reports with follow-up questions and original discussion links.</span></a><a href="/research-lab/manual-techniques/"><strong>Manual technique claims</strong><span>Mechanics, evidence limits and known risks, without training protocols.</span></a><a href="/research-lab/supplements/"><strong>Supplement evidence</strong><span>What controlled studies say about popular ingredients.</span></a></div></section>
 <section class="reading"><h2>Sources and further reading</h2><ul class="refs"><li><a href="https://www.gq.com/story/jelqing-larger-penis-technique-1" target="_blank" rel="noopener noreferrer">GQ report on enhancement communities, February 2026</a><span>Supports the membership figures at the time of reporting, not the prevalence or verification of results.</span></li><li><a href="https://www.mayoclinic.org/healthy-lifestyle/sexual-health/in-depth/penis/art-20045363" target="_blank" rel="noopener noreferrer">Mayo Clinic on penis enlargement methods</a><span>Supports temporary enlargement with vacuum devices and tissue-injury concerns.</span></li><li><a href="https://my.clevelandclinic.org/health/body/scrotum" target="_blank" rel="noopener noreferrer">Cleveland Clinic scrotum anatomy</a><span>Supports normal temperature-related changes in scrotal position and appearance.</span></li><li><a href="https://pubmed.ncbi.nlm.nih.gov/38828413/" target="_blank" rel="noopener noreferrer">Abstinence and semen-volume trial meta-analysis</a><span>Supports the influence of abstinence interval on semen volume.</span></li></ul></section>
