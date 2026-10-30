@@ -44,8 +44,25 @@ const LABELS = [
     ['ev-none', 'Insufficient evidence'],
 ];
 
+/** Every article, as opposed to the landing page. */
+const ARTICLES = [TOPIC, ...NEW_PAGES.map(p => p[0])];
+
+/* TWO TIERS OF SOURCE, AND THE LAB'S CREDIBILITY IS THE DISTINCTION.
+   .refs holds clinical and research sources, each with a "Supports ..."
+   statement. .community-refs holds forum threads, each with a venue and an
+   "Offered as ..." statement, because a forum post is not evidence for a
+   claim: it is a record of what somebody said.
+
+   This used to run against manual-techniques alone, and that is how three
+   forum links came to sit on community-reports with nothing listing them.
+   It runs against every article now, so a citation added to any of them
+   has to land in one list or the other. */
+const COMMUNITY_DOMAINS = ['www.reddit.com', 'thebiohacker.com'];
+
 /** Sources the Lab is allowed to cite. */
 const CREDIBLE_DOMAINS = [
+    'www.gq.com', 'www.sciencedirect.com', 'pmc.ncbi.nlm.nih.gov',
+    'www.nccih.nih.gov', 'www.fda.gov',
     'pubmed.ncbi.nlm.nih.gov', 'www.ncbi.nlm.nih.gov', 'www.niddk.nih.gov',
     'www.mayoclinic.org', 'www.nhs.uk', 'healthymale.org.au',
     'my.clevelandclinic.org', 'www.heart.org', 'orthoinfo.aaos.org',
@@ -368,16 +385,19 @@ describe('the page does not imply unverified effectiveness', () => {
 });
 
 describe('sources and the review stamp', () => {
-    test('EVERY SOURCE IS CREDIBLE, HTTPS, AND PAIRED WITH ITS CLAIM', () => {
-        const refs = read(TOPIC).match(/<ul class="refs">([\s\S]*?)<\/ul>/);
+    test.each(ARTICLES)('%s: EVERY RESEARCH SOURCE IS CREDIBLE, HTTPS AND PAIRED WITH ITS CLAIM', (page) => {
+        const refs = read(page).match(/<ul class="refs">([\s\S]*?)<\/ul>/);
         expect(refs, 'no reference list').not.toBeNull();
         const rows = [...refs[1].matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m => m[1]);
-        expect(rows.length, 'too few sources').toBeGreaterThanOrEqual(5);
+        expect(rows.length, 'too few sources').toBeGreaterThanOrEqual(4);
         for (const r of rows) {
             const a = r.match(/<a href="(https:\/\/[^"]+)"([^>]*)>/);
             expect(a, `a reference has no https link: ${r.slice(0, 60)}`).not.toBeNull();
-            expect(CREDIBLE_DOMAINS, `${new URL(a[1]).host} is not approved`)
-                .toContain(new URL(a[1]).host);
+            const host = new URL(a[1]).host;
+            expect(CREDIBLE_DOMAINS, `${host} is not approved for the research list`)
+                .toContain(host);
+            expect(COMMUNITY_DOMAINS, `${host} is a forum and belongs in the community list`)
+                .not.toContain(host);
             expect(a[2]).toContain('rel="noopener noreferrer"');
             expect(a[2]).toContain('target="_blank"');
             const why = r.match(/<\/a><span>([^<]+)<\/span>/);
@@ -387,12 +407,67 @@ describe('sources and the review stamp', () => {
         }
     });
 
-    test('the page cites no source it does not list', () => {
-        const src = strip(read(TOPIC));
-        const refs = src.match(/<ul class="refs">([\s\S]*?)<\/ul>/)[1];
-        const external = [...src.matchAll(/<a [^>]*href="(https?:\/\/[^"]+)"/g)].map(m => m[1]);
-        const listed = [...refs.matchAll(/<a href="(https?:\/\/[^"]+)"/g)].map(m => m[1]);
-        expect([...new Set(external)].sort()).toEqual([...new Set(listed)].sort());
+    test.each(ARTICLES)('%s: EVERY COMMUNITY THREAD NAMES ITS VENUE AND WHAT IT IS OFFERED AS', (page) => {
+        const src = strip(read(page));
+        const hasForum = [...src.matchAll(/<a [^>]*href="(https?:\/\/[^"]+)"/g)]
+            .some(m => COMMUNITY_DOMAINS.includes(new URL(m[1]).host));
+        const list = src.match(/<ul class="community-refs">([\s\S]*?)<\/ul>/);
+        if (!hasForum) {
+            expect(list, `${page} has no forum citations but carries a community list`).toBeNull();
+            return;
+        }
+        expect(list, `${page} cites a forum thread with no "Community threads cited" list`).not.toBeNull();
+        const rows = [...list[1].matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m => m[1]);
+        expect(rows.length).toBeGreaterThan(0);
+        for (const r of rows) {
+            /* The venue comes first, so a reader knows it is a forum before
+               he reads the headline. "a 2025 discussion" hides that. */
+            const venue = r.match(/<span class="venue">([^<]+)<\/span>/);
+            expect(venue, `community row has no venue: ${r.slice(0, 70)}`).not.toBeNull();
+            expect(venue[1].length).toBeGreaterThan(5);
+            const a = r.match(/<a href="(https:\/\/[^"]+)"([^>]*)>/);
+            expect(a, `community row has no https link: ${r.slice(0, 70)}`).not.toBeNull();
+            expect(COMMUNITY_DOMAINS, `${new URL(a[1]).host} is not a known community venue`)
+                .toContain(new URL(a[1]).host);
+            expect(a[2]).toContain('rel="noopener noreferrer"');
+            expect(a[2]).toContain('target="_blank"');
+            const why = r.match(/<\/a><span>([^<]+)<\/span>/);
+            expect(why, `community row says nothing about what it is offered as`).not.toBeNull();
+            /* "Offered as", never "Supports". A thread supports nothing. */
+            expect(why[1]).toMatch(/^Offered as /);
+            expect(why[1], 'a community row must also say what it is NOT')
+                .toMatch(/Not offered as /);
+            expect(why[1].length).toBeGreaterThan(80);
+        }
+    });
+
+    test.each(ARTICLES)('%s: cites no source it does not list, in one list or the other', (page) => {
+        const src = strip(read(page));
+        const inList = (re) => {
+            const m = src.match(re);
+            return m ? [...m[1].matchAll(/<a href="(https?:\/\/[^"]+)"/g)].map(x => x[1]) : [];
+        };
+        const listed = new Set([
+            ...inList(/<ul class="refs">([\s\S]*?)<\/ul>/),
+            ...inList(/<ul class="community-refs">([\s\S]*?)<\/ul>/),
+        ]);
+        const external = [...new Set([...src.matchAll(/<a [^>]*href="(https?:\/\/[^"]+)"/g)]
+            .map(m => m[1]))].filter(u => !u.startsWith('https://theblueprint.site'));
+        const unlisted = external.filter(u => !listed.has(u));
+        expect(unlisted, `${page} cites sources that appear in neither list`).toEqual([]);
+    });
+
+    test.each(ARTICLES)('%s: no source is cited twice under two spellings', (page) => {
+        /* A trailing slash makes one thread look like two sources, and the
+           reference lists then disagree with the article. */
+        const src = strip(read(page));
+        const urls = [...new Set([...src.matchAll(/<a [^>]*href="(https?:\/\/[^"]+)"/g)].map(m => m[1]))];
+        const seen = new Map();
+        for (const u of urls) {
+            const key = u.replace(/\/+$/, '');
+            expect(seen.has(key), `${u} and ${seen.get(key)} are the same source`).toBe(false);
+            seen.set(key, u);
+        }
     });
 
     test('structured data cites only what the page shows', () => {
