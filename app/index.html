@@ -7668,7 +7668,15 @@ function frozenStep(idx){
     return f.steps[i]||null;
 }
 function startMission(mission,source){
-    if(!mission||pelvicPracticeNeedsReview()) return;
+    if(!mission) return;
+    /* A BLOCKED TAP HAS TO SAY SO. This guard used to return silently, so a
+       member who reached Mission Select from a back button while his last
+       pelvic practice was reported painful tapped Length and watched nothing
+       happen. The block itself is correct and unchanged: no session starts,
+       no draft is touched, and nothing here decides anything new. It now
+       renders Today the way resumeSession() already does, which is where the
+       pelvic-pain explanation and the "Symptoms have settled" button live. */
+    if(pelvicPracticeNeedsReview()){ goToStep(0); return; }
     /* BEFORE session.routineType is assigned, deliberately. The snapshot is
        what the PROGRAMME prescribed; routineType is what the member is about
        to perform. Capturing after the assignment would make no difference to

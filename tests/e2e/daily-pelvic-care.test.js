@@ -74,6 +74,105 @@ describe('prescribed pelvic practice in the real app',()=>{
   expect(await app.page.evaluate(()=>currentPrescription().prepare)).toBe('pelvic-pain');
   await app.page.locator('#daily-pelvic-review').click();const r=await app.page.evaluate(()=>currentPelvicPracticePlan());expect(r.mode).toBe('foundation');expect(r.steps.map(x=>x.id)).toEqual(['breathing']);
  });
+ /* THE BLOCKED TAP HAS TO SAY SO.
+    startMission() guarded unresolved pelvic-practice pain by returning with
+    no re-render, so a member who reached Mission Select from a back button
+    tapped Length and watched nothing happen. The block is unchanged: these
+    assert that it still starts nothing and still touches no draft, and that
+    the member now lands on the Today card where the explanation and the
+    "Symptoms have settled" button live. */
+ const reportPain=()=>app.page.evaluate(()=>{
+  persisted.pelvicProfile='standard';persisted.schedule[new Date().getDay()]='length';
+  persisted.sessionLog=[{date:new Date().toISOString(),routineType:'recovery',pelvicPractice:{feedback:'painful'}}];
+  try{localStorage.removeItem(pelvicReviewKey());}catch{}
+  renderDashboard();
+ });
+
+ test('A BLOCKED MISSION TAP LANDS ON THE EXPLANATION INSTEAD OF DOING NOTHING',async()=>{
+  await reportPain();
+  const r=await app.page.evaluate(()=>{
+   goToStep(3);                                   // Mission Select, as a back button reaches it
+   const from=session.step;
+   startMission('length','test');                 // the tap
+   return {from,step:session.step,routineType:session.routineType,
+           prepare:currentPrescription().prepare,
+           draft:localStorage.getItem('bp_session_draft_'+currentUser.id),
+           todayVisible:!document.getElementById('step-0').classList.contains('hidden-step')};
+  });
+  expect(r.from).toBe(3);
+  expect(r.step,'a session started').toBe(0);
+  expect(r.todayVisible).toBe(true);
+  expect(r.prepare).toBe('pelvic-pain');
+  expect(r.draft,'a draft was written').toBeNull();
+  expect(app.errors).toEqual([]);
+ });
+
+ test('and the same tap starts the session normally once symptoms are cleared',async()=>{
+  await reportPain();
+  await app.page.evaluate(()=>{localStorage.setItem(pelvicReviewKey(),'settled');renderDashboard();});
+  const r=await app.page.evaluate(()=>{
+   goToStep(3);startMission('length','test');
+   const out={step:session.step,routineType:session.routineType};
+   session.timer?.cancel();session.timer=null;return out;
+  });
+  /* startMission() lands on the readiness step, not the running session;
+     the other tests in this file reach step 4 with an explicit goToStep(4).
+     What matters here is that the tap was accepted at all. */
+  expect(r.step).toBe(2);
+  expect(r.routineType).toBe('length');
+ });
+
+ test('a second device without the local self-clear key stays blocked',async()=>{
+  /* pelvicPracticeNeedsReview() reads localStorage, which does not sync.
+     Another device reads no key, which is not 'settled', so the gate stays
+     on. It fails in the safe direction and this pins that. */
+  await reportPain();
+  await app.page.evaluate(()=>{localStorage.setItem(pelvicReviewKey(),'settled');renderDashboard();});
+  expect(await app.page.evaluate(()=>currentPrescription().prepare)).toBeNull();
+  const r=await app.page.evaluate(()=>{
+   localStorage.removeItem(pelvicReviewKey());    // the other device
+   renderDashboard();
+   goToStep(3);startMission('length','test');
+   return {step:session.step,prepare:currentPrescription().prepare};
+  });
+  expect(r.prepare).toBe('pelvic-pain');
+  expect(r.step).toBe(0);
+ });
+
+ test('an unfinished draft is not resumed and not destroyed while pain is unresolved',async()=>{
+  await app.page.evaluate(()=>{
+   persisted.pelvicProfile='standard';persisted.schedule[new Date().getDay()]='length';
+   startMission('length','test');goToStep(4);session.exerciseIndex=1;
+   session._aborting=false;goToStep(0);                 // writes the draft
+   session.timer?.cancel();session.timer=null;
+  });
+  const before=await app.page.evaluate(()=>localStorage.getItem('bp_session_draft_'+currentUser.id));
+  expect(before,'the fixture did not produce a draft').not.toBeNull();
+  await reportPain();
+  const r=await app.page.evaluate(()=>{
+   resumeSession();
+   return {step:session.step,prepare:currentPrescription().prepare,
+           draft:localStorage.getItem('bp_session_draft_'+currentUser.id)};
+  });
+  expect(r.step).toBe(0);
+  expect(r.prepare).toBe('pelvic-pain');
+  expect(r.draft,'the draft was lost').toBe(before);
+ });
+
+ test('no pain: the control, so none of the above is passing vacuously',async()=>{
+  await app.page.evaluate(()=>{
+   persisted.pelvicProfile='standard';persisted.schedule[new Date().getDay()]='length';
+   persisted.sessionLog=[];renderDashboard();
+  });
+  const r=await app.page.evaluate(()=>{
+   goToStep(3);startMission('length','test');
+   const out={step:session.step,prepare:currentPrescription().prepare};
+   session.timer?.cancel();session.timer=null;return out;
+  });
+  expect(r.prepare).toBeNull();
+  expect(r.step).toBe(2);
+ });
+
  test('contraction blocks alternate short lifts and full release rather than a minute-long hold',async()=>{
   const r=await app.page.evaluate(()=>({start:pelvicRhythmCue(ROUTINES.recovery[3],60),release:pelvicRhythmCue(ROUTINES.recovery[3],55),next:pelvicRhythmCue(ROUTINES.recovery[3],50),sets:ROUTINES.recovery[3].sets}));expect(r.start).toMatch(/lift/i);expect(r.release).toMatch(/release/i);expect(r.next).toMatch(/lift/i);expect(r.sets).toBe(1);
  });
