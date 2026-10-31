@@ -62,8 +62,28 @@ export const SCHEDULE_UNRESOLVED = 'schedule-unresolved';
  */
 export const PRESCRIPTION_UNAVAILABLE = 'prescription-unavailable';
 
-/** Why a PREPARE was returned. The UI must be able to explain which gate it hit. */
-export const PREPARE_REASONS = ['loading', 'goal', 'pelvic-screen', SCHEDULE_UNRESOLVED];
+/**
+ * Why a PREPARE was returned. The UI must be able to explain which gate it hit.
+ *
+ * EVERY VALUE THIS MODULE CAN EMIT, AND NOTHING ELSE. It drifted once: the
+ * pelvic-pain gate and the unreadable-prescription gate were both added to
+ * the body without being added here, so for a while this list described four
+ * of six reachable gates. An audit then read the list and the INPUT block
+ * below, concluded the pelvic-pain input did not exist, and reported a
+ * safety gap that was not real.
+ *
+ * Nothing is pinned twice. tests/nextBestAction.test.js derives the reachable
+ * set from the source and from live calls, and fails if either disagrees with
+ * this array, so the next gate cannot be added without arriving here.
+ */
+export const PREPARE_REASONS = [
+    'loading',
+    'pelvic-pain',
+    'goal',
+    'pelvic-screen',
+    SCHEDULE_UNRESOLVED,
+    PRESCRIPTION_UNAVAILABLE,
+];
 
 /* This module used to carry its own isDeloadWeek(firstSessionDate, now),
    a copy of the old `getISOWeek(now) % 4 === 0` rule. When the real deload
@@ -167,8 +187,19 @@ const CHANGES = {
  *                     the dated answer and the legacy seven-boolean answer are
  *                     different questions and this function must not pick.
  *   sessionDraft      the unfinished session, or null
- *   soreness          '' | 'none' | 'mild' | 'moderate' | 'high'
+ *   soreness          '' | 'none' | 'mild' | 'moderate' | 'high'. MUSCLE
+ *                     soreness, which is what the readiness step asks. It is
+ *                     not a report about penile tissue; see pelvicPain below
+ *                     and the note above nextBestAction for what is and is
+ *                     not covered.
  *   pelvicProfile     '' | 'tight' | 'standard'
+ *   pelvicPain        boolean. The member's most recent pelvic-practice
+ *                     feedback was 'painful' and he has not pressed
+ *                     "Symptoms have settled". Supplied by the page adapter
+ *                     from pelvicPracticeNeedsReview(). It withholds
+ *                     mechanical work and refuses the override, and it is
+ *                     checked second, above RESUME, so an unfinished session
+ *                     is not offered back to a member in pain.
  *   deload            boolean, the authoritative deload answer from the caller
  *   weekComplete      boolean, every scheduled session of this week is done
  *   returnContext     null | 'returning' | 'extended-return', from the caller
@@ -199,6 +230,23 @@ const CHANGES = {
  *   intendedMission   what was going to be prescribed before a gate intervened
  *   withheldSession   an unfinished session deliberately not offered, else null
  *   recoveryPlan      the recovery indices this prescription may actually use
+ *
+ * WHAT THE SYMPTOM GATES IN HERE DO AND DO NOT COVER. Two signals can stop
+ * mechanical work, and between them they do not amount to an injury check:
+ *
+ *   soreness: 'high'   MUSCLE soreness, self-reported at the readiness step.
+ *   pelvicPain         the last PELVIC PRACTICE was reported painful.
+ *
+ * Neither asks about the penis. Nothing in this module, or anywhere else in
+ * the app, captures penile pain, numbness, bruising, altered coloration, a
+ * new curve or nodule, or a sudden loss of erection after an injury. A
+ * member who finished a girth circuit with bruising, whose muscles are not
+ * sore and who has done no pelvic practice, reaches TRAIN.
+ *
+ * That gap is open and scoped in issue #177. Its questions, its referral
+ * thresholds and its fail-closed behaviour need clinician review, so do not
+ * close it by adding a condition here. Emergency signs must route to care
+ * now, never to a waiting period.
  */
 export function nextBestAction(input) {
     const i = input || {};

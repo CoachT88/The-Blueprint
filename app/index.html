@@ -7244,13 +7244,33 @@ function currentPelvicPracticePlan(busy=false){
 }
 function renderDailyPelvicCare(r){
     const card=document.getElementById('daily-pelvic-card');
-    const ready=!!currentUser&&_persistedLoaded&&!!r&&r.state!=='COMPLETE'
+    const paused=pelvicPracticeNeedsReview();
+    /* COMPLETE HIDES THIS CARD, UNLESS SOMETHING HURTS.
+
+       A closed day has no practice left to offer, so COMPLETE suppressed the
+       card outright. The exception matters more than the rule, because
+       reporting pain is how a day most often ends: the practice is included
+       in the scheduled session, the comfort question is asked at the end of
+       it, and tapping "painful" and finishing lands precisely on COMPLETE.
+
+       So the one member who had just said something hurt was shown nothing
+       about it. Not the instruction to stop, not the line telling him that
+       persistent symptoms need a pelvic-health clinician, and not the only
+       control that clears the flag, which left him unable to resolve it at
+       all until the next day moved the state under him.
+
+       Presentation only. No state is decided here and nothing startable
+       appears: `paused` already hides the start, busy and details controls
+       below, so a paused card is the note plus "Symptoms have settled". The
+       combination is not new either, because a daily-practice-only session
+       reported painful already renders a paused card with its practice
+       logged as done. Only the state gate changed. */
+    const ready=!!currentUser&&_persistedLoaded&&!!r&&(r.state!=='COMPLETE'||paused)
         &&!(r.state==='PREPARE'&&!['pelvic-screen','pelvic-pain'].includes(r.prepare));
     card.classList.toggle('hidden',!ready);if(!ready)return;
     const done=dailyPelvicCareDone(),plan=currentPelvicPracticePlan();
     const integrated=['TRAIN','MODIFIED','RECOVER'].includes(r.state)||(r.state==='PREPARE'&&r.prepare==='pelvic-screen');
     card.dataset.integrated=String(integrated);
-    const paused=pelvicPracticeNeedsReview();
     const labels=(plan?.steps||[]).map(x=>ROUTINES.recovery[x.index].title).join(' · ');
     const minutes=plan?Math.ceil(window.BP.practiceSeconds(plan)/60):0;
     document.getElementById('daily-pelvic-note').textContent=paused?'You reported pain. Pause pelvic exercises. Persistent or recurring symptoms need a pelvic-health clinician. Resume gentle breathing only once symptoms have settled.'
@@ -7668,7 +7688,31 @@ function frozenStep(idx){
     return f.steps[i]||null;
 }
 function startMission(mission,source){
-    if(!mission||pelvicPracticeNeedsReview()) return;
+    if(!mission) return;
+    /* A BLOCKED TAP HAS TO SAY SO, AND THIS ONE CANNOT BE TAPPED.
+
+       Say the weaker thing first, because the stronger thing was claimed
+       once here and was not true: NO VISIBLE CONTROL REACHES MISSION SELECT
+       WHILE PAIN IS UNRESOLVED. The four ways in are "Something else", which
+       renders only on TRAIN and MODIFIED, and the back buttons out of
+       warmup, the exercise engine and the recovery picker, none of which a
+       member in pain can be standing in, because startMission(),
+       resumeSession(), startRecoverySession() and startDailyPelvicCare() all
+       refuse first. tests/e2e/daily-pelvic-care.test.js pins exactly that,
+       so the claim is checked rather than asserted.
+
+       This is therefore defence in depth, like the other three, and not a
+       repair for a route anyone can walk today. The silent return was still
+       the wrong shape for it: a guard whose whole job is to hold if a route
+       ever opens should not answer a tap with nothing, and its two siblings
+       both re-render. Going to Today costs nothing and means that if such a
+       route does open, the member arrives somewhere that explains itself.
+
+       The block is unchanged: no session starts, no draft is written or
+       destroyed, and nothing here decides anything new. goToStep(0) is safe
+       from Mission Select because its draft-writing branch is conditioned on
+       session.step being 4. */
+    if(pelvicPracticeNeedsReview()){ goToStep(0); return; }
     /* BEFORE session.routineType is assigned, deliberately. The snapshot is
        what the PROGRAMME prescribed; routineType is what the member is about
        to perform. Capturing after the assignment would make no difference to

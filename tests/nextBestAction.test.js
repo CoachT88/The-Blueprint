@@ -1,7 +1,9 @@
 import { describe, test, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
     nextBestAction, hasPelvicScreen, isPelvicSpecific, allowedRecoveryPlan,
     STATES, TRAINING_MISSIONS, PREPARE_REASONS, SCHEDULE_UNRESOLVED,
+    PRESCRIPTION_UNAVAILABLE,
 } from '../src/nextBestAction.js';
 import { estimateSessionMinutes } from '../src/sessionDuration.js';
 import { todayPrescription, primarySatisfied } from '../src/todayPrescription.js';
@@ -873,5 +875,162 @@ describe('nextBestAction: the returned object', () => {
         // Same state, two different days, two different answers.
         expect(nextBestAction(input({ now: MON })).mission).toBe('girth');
         expect(nextBestAction(input({ now: WED })).mission).toBe('stamina');
+    });
+});
+
+/**
+ * THE EXPORTED CONTRACT MUST MATCH THE CODE, AND NEITHER IS PINNED TWICE.
+ *
+ * PREPARE_REASONS drifted: the pelvic-pain gate and the unreadable-prescription
+ * gate were both added to the body without being added to the list, so for a
+ * while the public vocabulary described four of six reachable gates. An audit
+ * then read the list and the INPUT block, concluded the pelvicPain input did
+ * not exist, and reported a safety gap that was not real.
+ *
+ * Writing the six names out again here would reproduce exactly that failure
+ * one file further along. So both halves are derived: one from the source
+ * text, one from live calls, and each is compared with the export.
+ */
+describe('the PREPARE vocabulary is derived, not duplicated', () => {
+    const SRC = readFileSync(new URL('../src/nextBestAction.js', import.meta.url), 'utf8');
+
+    /** Every value `prepare` is ever assigned, read out of the source. */
+    const assignedInSource = () => {
+        const named = { SCHEDULE_UNRESOLVED, PRESCRIPTION_UNAVAILABLE };
+        const found = new Set();
+        /* Each `prepare = <expr>;` statement, including the ternary, and
+           excluding the `prepare = null` initialiser. */
+        for (const m of SRC.matchAll(/\bprepare\s*=\s*([^;]+);/g)) {
+            const rhs = m[1];
+            for (const lit of rhs.matchAll(/'([a-z-]+)'/g)) found.add(lit[1]);
+            for (const id of rhs.matchAll(/\b([A-Z][A-Z_]{3,})\b/g)) {
+                if (id[1] in named) found.add(named[id[1]]);
+            }
+        }
+        return found;
+    };
+
+    test('EVERY REASON THE SOURCE ASSIGNS IS AN EXPORTED REASON', () => {
+        const assigned = [...assignedInSource()].sort();
+        expect(assigned.length, 'the scan found no assignments, so it is broken')
+            .toBeGreaterThanOrEqual(4);
+        const undeclared = assigned.filter(r => !PREPARE_REASONS.includes(r));
+        expect(undeclared, 'these gates exist in the code and not in PREPARE_REASONS')
+            .toEqual([]);
+    });
+
+    test('and every exported reason is one the source can actually assign', () => {
+        const assigned = assignedInSource();
+        const unreachable = PREPARE_REASONS.filter(r => !assigned.has(r));
+        expect(unreachable, 'these are exported but nothing assigns them').toEqual([]);
+    });
+
+    test('ALL SIX ARE REACHABLE BY A REAL CALL', () => {
+        /* The source scan proves the list matches the text. This proves the
+           text is not dead code, by driving the resolver to each gate. */
+        const reached = new Map();
+        const at = (name, over) => {
+            const r = nextBestAction(input(over));
+            expect(r.state, `${name} did not reach PREPARE`).toBe('PREPARE');
+            reached.set(r.prepare, name);
+        };
+        at('not loaded', { dataLoaded: false });
+        at('pelvic pain', { pelvicPain: true });
+        at('no goal', { goalKey: '' });
+        /* Reached the way the existing screener tests reach it: a scheduled
+           pelvic mission, which is the Phase 2B shape. No shipped day type
+           is pelvic specific on its own. */
+        at('unscreened floor on a pelvic day', {
+            trainingMissions: ['length', 'girth', 'stamina', 'pelvic'],
+            pelvicMissions: ['recovery', 'pelvic'],
+            schedule: ['rest', 'pelvic', 'rest', 'rest', 'rest', 'rest', 'rest'],
+            pelvicProfile: '',
+        });
+        at('slot unresolved', {
+            todayPrescription: { ok: false, source: 'legacy', date: '2025-01-06', reason: 'slot_unresolved' },
+        });
+        at('dated plan unreadable', {
+            todayPrescription: { ok: false, source: 'dated_plan', date: '2025-01-06', reason: 'plan_missing' },
+        });
+        expect([...reached.keys()].sort()).toEqual([...PREPARE_REASONS].sort());
+    });
+});
+
+/**
+ * The pelvic-pain gate, driven synthetically.
+ *
+ * This exists because an audit claimed the gate was absent. It is not, and
+ * the cases below are the ones that correction asked to be proven: a
+ * scheduled primary day, an unfinished draft, the self-clear, and the
+ * precedence against every rule it has to outrank.
+ *
+ * Scope, deliberately recorded here as well as in the module: this gate is
+ * about PELVIC PRACTICE pain. It is not a penile-injury screener, and
+ * nothing in these tests should be read as evidence that penile pain,
+ * numbness, bruising, altered coloration, a new curve or nodule, or a sudden
+ * loss of erection is detected anywhere. That gap is open in issue #177.
+ */
+describe('pelvic-practice pain withholds mechanical work', () => {
+    test('A SCHEDULED PRIMARY DAY BECOMES PREPARE, WITH NO MISSION AND NO OVERRIDE', () => {
+        const r = nextBestAction(input({ now: MON, pelvicPain: true }));
+        expect(r.state).toBe('PREPARE');
+        expect(r.prepare).toBe('pelvic-pain');
+        expect(r.mission).toBeNull();
+        expect(r.overrideAllowed).toBe(false);
+        expect(r.reason).toMatch(/pelvic-health clinician/);
+    });
+
+    test('an unfinished draft is withheld rather than offered back', () => {
+        const withPain = nextBestAction(input({
+            now: MON, pelvicPain: true, sessionDraft: { routineType: 'girth' },
+        }));
+        expect(withPain.state).toBe('PREPARE');
+        expect(withPain.prepare).toBe('pelvic-pain');
+        /* The control: the same draft resumes normally without the pain. */
+        const without = nextBestAction(input({
+            now: MON, sessionDraft: { routineType: 'girth' },
+        }));
+        expect(without.state).toBe('RESUME');
+        expect(without.mission).toBe('girth');
+    });
+
+    test('the self-clear restores the normal prescription and nothing else', () => {
+        /* The page clears by writing its localStorage key, which turns the
+           input false. The resolver has no memory of the gate. */
+        const cleared = nextBestAction(input({ now: MON, pelvicPain: false }));
+        expect(cleared.state).toBe('TRAIN');
+        expect(cleared.mission).toBe('girth');
+        expect(cleared).toEqual(nextBestAction(input({ now: MON })));
+    });
+
+    test('IT OUTRANKS EVERY RULE IT HAS TO', () => {
+        for (const [name, over] of [
+            ['high soreness', { soreness: 'high' }],
+            ['moderate soreness', { soreness: 'moderate' }],
+            ['an unchosen goal', { goalKey: '' }],
+            ['an unscreened floor', { pelvicProfile: '' }],
+            ['a deload week', { deload: true }],
+            ['an unfinished draft', { sessionDraft: { routineType: 'length' } }],
+        ]) {
+            const r = nextBestAction(input({ now: MON, pelvicPain: true, ...over }));
+            expect(r.prepare, `pain lost to ${name}`).toBe('pelvic-pain');
+            expect(r.mission, `pain lost to ${name}`).toBeNull();
+        }
+    });
+
+    test('and it withholds nothing on a day that prescribes no primary work', () => {
+        /* Tuesday is rest. There is no mechanical session to stop, so raising
+           the gate would be noise rather than safety. */
+        const rest = nextBestAction(input({ now: TUE, pelvicPain: true }));
+        expect(rest.state).toBe('REST');
+        expect(rest.mission).toBeNull();
+    });
+
+    test('a member who already trained today is not told to prepare', () => {
+        const done = nextBestAction(input({
+            now: MON, pelvicPain: true, completedDays: [false, true, false, false, false, false, false],
+        }));
+        expect(done.state).toBe('COMPLETE');
+        expect(done.mission).toBeNull();
     });
 });
