@@ -8665,7 +8665,25 @@ function renderAccount(){
     document.getElementById('account-goal-value').textContent=GOALS[persisted.primaryGoal]?.label||'Not set';
     const pending=window.BP.pendingProgrammeChange(persisted.programme);
     const note=document.getElementById('account-goal-pending');
-    note.textContent=pending ? `Your new program starts ${goalStartLabel(pending.effectiveDate)}. This week's training stays the same.` : '';
+    /* A QUEUED CHANGE WHOSE DATE HAS PASSED HAS NOT STARTED.
+
+       pendingProgrammeChange() validates the shape of the date and not its
+       position in time, so this sentence used to promise a start on whatever
+       date was stored, including one already behind us. Today that cannot be
+       read, because adoption clears the queued change on the first load at or
+       after its date, so the only reachable case is a genuine future start.
+
+       It becomes readable as soon as adoption can be refused while the choice
+       stays queued, which is precisely what the first support-only day does
+       to the legacy projection. Rather than leave a sentence that is true
+       only by luck of timing, say which of the two situations it is. Nothing
+       is decided here and the queued change is untouched: the member's choice
+       is still saved and still waiting. */
+    const _dueNotApplied=!!pending&&pending.effectiveDate<=window.BP.planDateKey(new Date());
+    note.textContent=!pending ? ''
+        : _dueNotApplied
+            ? 'Your new program has not been applied yet. Your current program is still active, and your choice is saved.'
+            : `Your new program starts ${goalStartLabel(pending.effectiveDate)}. This week's training stays the same.`;
     note.classList.toggle('hidden',!pending);
 }
 function openAccount(){
