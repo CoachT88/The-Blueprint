@@ -141,18 +141,37 @@ describe('each bridge says what is there, then the most useful thing against it'
         expect(b).toMatch(/Read first, decide later/);
     });
 
-    test('the erection section does not sell a session that does not exist', () => {
-        /* The P0 from #177: GOALS.eq promises erection quality and no
-           erection-quality session type exists. Until that is resolved this
-           page has to say so, and this is what stops the sentence being
-           quietly deleted by a later copy pass. */
+    test('the erection section tells a buyer the goal schedules a length session', () => {
+        /* THE P0 FROM #177, AND THE PART THE FIRST DRAFT MISSED.
+           GOALS.eq.schedule is ['stamina','rest','length','rest','stamina',
+           'rest','rest']. Saying only that no erection-quality session
+           exists left a man free to assume the goal therefore schedules
+           nothing he did not ask for, and it schedules a length day. A
+           purchase decision made without that is not an informed one, so the
+           page states the actual mix and the way to change it. */
         const b = visible(bridge('for-erections'));
-        expect(b).toMatch(/no separate erection quality session/i);
-        expect(b).toMatch(/treats erectile dysfunction|treats nothing/i);
+        expect(b).toMatch(/no erection quality session type/i);
+        expect(b).toMatch(/two stamina sessions and one length session/i);
+        expect(b).toMatch(/week calendar/i);
+        expect(b).toMatch(/treats erectile dysfunction/i);
         expect(b).toMatch(/medical assessment/i);
         /* What it does claim is the tracking, which is real. */
         expect(b).toMatch(/1 to 10/);
         expect(b).toMatch(/charts/i);
+    });
+
+    test('the pelvic screener is described as a precaution, never a diagnosis', () => {
+        /* Six yes/no questions and a 3-yes threshold cannot establish muscle
+           tone, so the page may say what the check DOES, and may not say
+           what the man's body IS. The earlier draft asserted that a tight
+           pelvic floor is made worse by contraction work, which is a
+           clinical claim applied to an individual the app has not examined. */
+        const b = visible(bridge('for-erections'));
+        expect(b).toMatch(/not a diagnosis/i);
+        expect(b).toMatch(/professional evaluation/i);
+        expect(b).toMatch(/helps the app decide/i);
+        expect(b).not.toMatch(/made worse by/i);
+        expect(b).not.toMatch(/\bdiagnoses\b|\bdetects\b|\bmeasures your (tone|muscle)/i);
     });
 
     test('the size section does not turn community reports into evidence', () => {
@@ -160,9 +179,16 @@ describe('each bridge says what is there, then the most useful thing against it'
         expect(b).toMatch(/No manual method has established evidence/i);
         expect(b).toMatch(/reports, not proof/i);
         expect(b).toMatch(/injury and scarring/i);
-        expect(b).toMatch(/will not tell you to use more force/i);
+        /* An EVIDENCE limit, not a promise about how the app behaves. The
+           first draft said the app would never tell you to use more force or
+           train more often, which is not verifiable: difficulty tiers change
+           sets and durations, and the manual instructions carry explicit
+           force percentages such as "60-70% force at pubic bone ligament".
+           What is true is that no force, frequency or dose is established. */
+        expect(b).toMatch(/no established safe or effective force, frequency or dose/i);
+        expect(b).toMatch(/more intensity is not evidence of a better result/i);
+        expect(b).not.toMatch(/will not tell you to use more force/i);
         expect(b).not.toMatch(/\binches\b/i);
-        expect(b).not.toMatch(/permanent/i);
     });
 
     test('the stamina section promises practice, not a cure', () => {
@@ -179,7 +205,29 @@ describe('each bridge says what is there, then the most useful thing against it'
            were. */
         const b = visible(bridge('for-multiple-goals'));
         expect(b).toMatch(/not a fifth kind of training/i);
-        expect(b).toMatch(/no separate erection quality session/i);
+        expect(b).toMatch(/does not add a separate erection quality session/i);
+        expect(b).toMatch(/recovery and realistic expectations/i);
+        /* No prediction about how this customer will behave. The draft said
+           it was the easiest goal to fall behind on, which is a guess about
+           him rather than a fact about the app, and it argues against the
+           thing it is describing. */
+        expect(b).not.toMatch(/fall behind|most work of the four/i);
+    });
+
+    test('and no goal section predicts what the customer will do', () => {
+        for (const p of PATHS) {
+            const b = visible(bridge(p.anchor));
+            expect(b, `${p.anchor} predicts behaviour`)
+                .not.toMatch(/you will (probably|likely|struggle|give up|fail)/i);
+        }
+    });
+
+    test('a direct visitor can skip to his own goal without scrolling all four', () => {
+        /* Skimmability answered with four anchors that already exist, so no
+           limitation is collapsed, shortened or put behind a click. */
+        const jump = productMain.slice(productMain.indexOf('class="muted jump"'),
+                                       productMain.indexOf('class="goal-bridge"'));
+        for (const p of PATHS) expect(jump).toContain(`href="#${p.anchor}"`);
     });
 
     test('NO UNSHIPPED CAPABILITY IS CLAIMED ANYWHERE ON THE PAGE', () => {
