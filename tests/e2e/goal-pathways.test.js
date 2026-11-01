@@ -86,7 +86,8 @@ describe('a man taps his goal and arrives at an answer about it', () => {
             } finally { await page.close(); }
         }, 60_000);
 
-    test.each(PATHS)('$goal: and its purchase action points at the existing checkout section',
+    test.each(PATHS.filter(p => p.goal !== 'erections'))(
+        '$goal: and its purchase action points at the existing checkout section',
         async ({ anchor }) => {
             const page = await open(`/whats-inside/#${anchor}`);
             try {
@@ -110,6 +111,93 @@ describe('a man taps his goal and arrives at an answer about it', () => {
         }, 60_000);
 });
 
+describe('the held erection offer, and the page it sits on', () => {
+    test('the erection section offers reading, not a purchase', async () => {
+        /* Held under the owner's own condition in the #183 review. Driven
+           rather than read from source, because what matters is that no
+           buy control renders there, not that a string is absent. */
+        const page = await open('/whats-inside/#for-erections');
+        try {
+            const out = await page.evaluate(() => {
+                const el = document.getElementById('for-erections');
+                const links = [...el.querySelectorAll('a')];
+                return {
+                    buy: links.filter(a => a.getAttribute('href') === '/#get').length,
+                    cta: el.querySelectorAll('.cta').length,
+                    free: links.filter(a => (a.getAttribute('href') || '').startsWith('/')
+                        && a.getAttribute('href') !== '/#get').length,
+                    text: el.innerText,
+                    /* The page itself must still be buyable, or the hold
+                       reads as the product being unavailable. */
+                    pageBuys: document.querySelectorAll('main a[href="/#get"]').length,
+                };
+            });
+            expect(out.buy).toBe(0);
+            expect(out.cta).toBe(0);
+            expect(out.free).toBeGreaterThan(0);
+            expect(out.text).toMatch(/not asking you to buy on this goal yet/i);
+            expect(out.pageBuys).toBe(5);
+        } finally { await page.close(); }
+    }, 60_000);
+
+    test('no duplicate ids, so every anchor resolves to one place', async () => {
+        const page = await open('/whats-inside/');
+        try {
+            const dupes = await page.evaluate(() => {
+                const seen = new Map();
+                for (const el of document.querySelectorAll('[id]')) {
+                    seen.set(el.id, (seen.get(el.id) || 0) + 1);
+                }
+                return [...seen].filter(([, n]) => n > 1).map(([id]) => id);
+            });
+            expect(dupes).toEqual([]);
+        } finally { await page.close(); }
+    }, 60_000);
+
+    test('the new copy clears AA contrast, including the limitation notes', async () => {
+        /* The limitations are the most important sentences here and they are
+           the ones set in muted grey, which is exactly the combination that
+           gets quietly unreadable. Composited against real backgrounds
+           rather than assumed from the token. */
+        const page = await open('/whats-inside/');
+        try {
+            const worst = await page.evaluate(() => {
+                const lum = ([r, g, b]) => {
+                    const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+                    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+                };
+                const parse = c => { const n = (c.match(/[\d.]+/g) || []).map(Number);
+                    return { r: n[0] || 0, g: n[1] || 0, b: n[2] || 0, a: n.length > 3 ? n[3] : 1 }; };
+                const over = (f, b) => [0, 1, 2].map(i => Math.round([f.r, f.g, f.b][i] * f.a + b[i] * (1 - f.a)));
+                const bgOf = el => {
+                    const stack = []; let n = el;
+                    while (n && n !== document.documentElement) {
+                        const c = parse(getComputedStyle(n).backgroundColor);
+                        if (c.a > 0) stack.push(c);
+                        if (c.a === 1) break;
+                        n = n.parentElement;
+                    }
+                    const base = parse(getComputedStyle(document.documentElement).backgroundColor);
+                    let out = [base.r, base.g, base.b];
+                    for (let i = stack.length - 1; i >= 0; i--) out = over(stack[i], out);
+                    return out;
+                };
+                let min = 99, where = '';
+                for (const el of document.querySelectorAll('.goal-bridge p, .goal-bridge h3, .goal-bridge a, .jump, .jump a')) {
+                    if (!el.innerText.trim()) continue;
+                    const fg = parse(getComputedStyle(el).color);
+                    const composited = over(fg, bgOf(el));
+                    const [hi, lo] = [lum(composited), lum(bgOf(el))].sort((a, b) => b - a);
+                    const ratio = (hi + 0.05) / (lo + 0.05);
+                    if (ratio < min) { min = ratio; where = el.className + ': ' + el.innerText.slice(0, 40); }
+                }
+                return { min, where };
+            });
+            expect(worst.min, `lowest contrast at ${worst.where}`).toBeGreaterThanOrEqual(4.5);
+        } finally { await page.close(); }
+    }, 60_000);
+});
+
 describe('it does not depend on JavaScript', () => {
     test.each(PATHS)('$goal: the pathway works with scripting disabled',
         async ({ from, anchor, heading }) => {
@@ -125,7 +213,16 @@ describe('it does not depend on JavaScript', () => {
                    disabled the page cannot have rewritten anything, which is
                    the whole point of the check. */
                 expect((await page.locator(`#${anchor} h3`).textContent()).trim()).toBe(heading);
-                expect(await page.locator(`#${anchor} a.cta`).getAttribute('href')).toBe('/#get');
+                /* The erection section's offer is held, so what must work
+                   without scripting there is the free reading instead. */
+                const cta = page.locator(`#${anchor} a.cta`);
+                if (anchor === 'for-erections') {
+                    expect(await cta.count()).toBe(0);
+                    expect(await page.locator(`#${anchor} a[href="/stronger-erections/"]`).count())
+                        .toBeGreaterThanOrEqual(1);
+                } else {
+                    expect(await cta.getAttribute('href')).toBe('/#get');
+                }
                 /* And it is genuinely in view, not merely in the document. */
                 expect(await page.locator(`#${anchor} h3`).isVisible()).toBe(true);
             } finally { await page.close(); }
@@ -167,9 +264,15 @@ describe('keyboard and phone widths', () => {
                         overflowX: document.documentElement.scrollWidth - window.innerWidth,
                         boxes: blocks.map(b => {
                             const r = b.getBoundingClientRect();
-                            return { left: Math.round(r.left), right: Math.round(r.right),
+                            /* The erection block has no CTA while its offer
+                               is held, so the tap target is checked where
+                               one exists rather than assumed on all four. */
+                            const c = b.querySelector('a.cta');
+                            return { id: b.id, left: Math.round(r.left), right: Math.round(r.right),
                                      height: Math.round(r.height),
-                                     cta: Math.round(b.querySelector('a.cta').getBoundingClientRect().height) };
+                                     cta: c ? Math.round(c.getBoundingClientRect().height) : null,
+                                     links: [...b.querySelectorAll('a')].map(a =>
+                                         Math.round(a.getBoundingClientRect().height)) };
                         }),
                     };
                 }, width);
@@ -179,9 +282,13 @@ describe('keyboard and phone widths', () => {
                     expect(b.left).toBeGreaterThanOrEqual(0);
                     expect(b.right).toBeLessThanOrEqual(width);
                     expect(b.height).toBeGreaterThan(0);
-                    /* A tap target a thumb can hit. */
-                    expect(b.cta).toBeGreaterThanOrEqual(44);
+                    /* A tap target a thumb can hit, where one is offered. */
+                    if (b.cta !== null) expect(b.cta, `${b.id} CTA`).toBeGreaterThanOrEqual(44);
+                    /* Every bridge still offers at least one reachable link,
+                       so the held section is not a dead end. */
+                    expect(b.links.length, `${b.id} has no links`).toBeGreaterThan(0);
                 }
+                expect(out.boxes.filter(b => b.cta !== null)).toHaveLength(3);
                 expect(page.errors).toEqual([]);
             } finally { await page.close(); }
         }, 60_000);

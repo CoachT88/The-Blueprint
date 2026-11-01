@@ -50,10 +50,14 @@ const visible = html => html
 
 /* intent -> the hub a man reads for free, and the anchor he lands on. */
 const PATHS = [
-    { goal: 'erections', hub: 'stronger-erections/index.html', anchor: 'for-erections' },
-    { goal: 'stamina',   hub: 'last-longer/index.html',        anchor: 'for-stamina' },
-    { goal: 'size',      hub: 'size-enhancement/index.html',   anchor: 'for-size' },
-    { goal: 'combined',  hub: 'better-sexual-performance/index.html', anchor: 'for-multiple-goals' },
+    { goal: 'erections', hub: 'stronger-erections/index.html', anchor: 'for-erections', minFree: 3 },
+    { goal: 'stamina',   hub: 'last-longer/index.html',        anchor: 'for-stamina',   minFree: 3 },
+    /* Size is a research page rather than a list of guides: its free value
+       is the report itself, which is why its link count is lower and why
+       the test below also checks the report is still there. A flat
+       threshold across all four would have been a number chosen to pass. */
+    { goal: 'size',      hub: 'size-enhancement/index.html',   anchor: 'for-size',      minFree: 2 },
+    { goal: 'combined',  hub: 'better-sexual-performance/index.html', anchor: 'for-multiple-goals', minFree: 3 },
 ];
 
 describe('the homepage offers the four goals the app actually has', () => {
@@ -84,12 +88,25 @@ describe('the homepage offers the four goals the app actually has', () => {
 });
 
 describe('every pathway reaches its own goal, for free first', () => {
-    test.each(PATHS)('$goal: the hub points at its anchor and keeps its free guides', ({ hub, anchor }) => {
+    test.each(PATHS)('$goal: the hub points at its anchor and keeps its free guides', ({ hub, anchor, minFree }) => {
         const src = readFileSync(hub, 'utf8');
         expect(src, `${hub} must bridge to #${anchor}`).toContain(`href="/whats-inside/#${anchor}"`);
-        /* The free reading is still reachable from the page itself, so the
-           bridge is an offer and not a toll gate. */
-        expect(src).toMatch(/href="\/[a-z0-9-]+\/"/);
+        /* THE FREE READING IS STILL REACHABLE FROM THE BODY, measured in
+           <main> rather than anywhere on the page. The first version of this
+           matched any internal link and was therefore satisfied by the
+           footer, which every page has: it would have passed on a hub
+           stripped of every guide it exists to offer. */
+        const main = src.slice(src.indexOf('<main'), src.indexOf('</main>'));
+        const free = [...main.matchAll(/href="(\/[a-z0-9-]*\/)"/g)].map(m => m[1])
+            .filter(h => !['/whats-inside/', '/#get', '/learn/'].includes(h));
+        expect(new Set(free).size, `${hub} offers no free reading in its body`)
+            .toBeGreaterThanOrEqual(minFree);
+        if (hub.startsWith('size-enhancement')) {
+            /* Its free value is the report, so the report has to survive the
+               bridge rather than the bridge replacing it. */
+            expect(main).toContain('Last reviewed:');
+            expect(main).toMatch(/community reports|what their own logs|members report/i);
+        }
         /* No answer, concern or intent is carried in a query string. */
         expect(src).not.toMatch(/href="\/whats-inside\/\?/);
     });
@@ -116,16 +133,24 @@ describe('every pathway reaches its own goal, for free first', () => {
     });
 });
 
+/* The three goals the page currently invites a purchase on. Erections is
+   deliberately not among them; see the held-offer test below. */
+const SELLING = ['for-stamina', 'for-size', 'for-multiple-goals'];
+
 describe('each bridge says what is there, then the most useful thing against it', () => {
-    test.each(PATHS.map(p => p.anchor))('%s carries a recognition line, a limit and one way to buy', anchor => {
+    test.each(PATHS.map(p => p.anchor))('%s carries a recognition line, a limit and a free way out', anchor => {
         const b = bridge(anchor);
         expect(b, 'his own words first').toContain('class="recognition"');
         expect(b, 'what is actually in the app').toContain('What is actually in the app');
         expect(b, 'the honest limit').toContain('The honest limit');
-        /* Exactly one purchase action, pointed at the route that already
-           exists. No second checkout, no competing offer.
+        /* The free route, so reading is never the thing he pays for. */
+        expect(visible(b)).toMatch(/read first/i);
+        expect(b).toMatch(/<a href="\/[a-z-]+\/"/);
+    });
 
-           SECONDARY, deliberately. tests/pageTemplate.test.js caps a page at
+    test.each(SELLING)('%s offers exactly one secondary purchase action', anchor => {
+        const b = bridge(anchor);
+        /* SECONDARY, deliberately. tests/pageTemplate.test.js caps a page at
            two primary actions, on the grounds that three is a page that has
            not decided what it wants, and four goal buttons plus the page's
            own two broke it. The rule was right and the fix is the honest one
@@ -137,8 +162,6 @@ describe('each bridge says what is there, then the most useful thing against it'
         expect(b).toContain('href="/#get"');
         expect(visible(b)).toContain('$99 once');
         expect(visible(b)).toMatch(/One payment, no subscription/);
-        /* And the free route out, so reading is never the thing he pays for. */
-        expect(b).toMatch(/Read first, decide later/);
     });
 
     test('the erection section tells a buyer the goal schedules a length session', () => {
@@ -152,12 +175,38 @@ describe('each bridge says what is there, then the most useful thing against it'
         const b = visible(bridge('for-erections'));
         expect(b).toMatch(/no erection quality session type/i);
         expect(b).toMatch(/two stamina sessions and one length session/i);
-        expect(b).toMatch(/week calendar/i);
+        expect(b).toMatch(/cannot currently be swapped/i);
         expect(b).toMatch(/treats erectile dysfunction/i);
         expect(b).toMatch(/medical assessment/i);
         /* What it does claim is the tracking, which is real. */
         expect(b).toMatch(/1 to 10/);
         expect(b).toMatch(/charts/i);
+    });
+
+    test('THE ERECTION GOAL MAKES NO PURCHASE INVITATION WHILE THE MISMATCH IS OPEN', () => {
+        /* The owner's review pre-authorised this: "If a concise, truthful
+           explanation cannot coexist with the offer, hold the EQ-specific
+           direct purchase invitation until #177 addresses the mismatch."
+
+           The condition turned out to be met, and only after the second
+           pass. The goal schedules a length session, and the day-editing
+           escape I first offered as the remedy does not exist for anyone on
+           authoritative plans. So the truthful version is: we will schedule
+           you penile length work you did not ask for and cannot remove.
+           Inviting payment inside that same box is the part that does not
+           sit right, so the section ends in free reading instead.
+
+           ONE LINE TO REVERSE. Restoring the CTA means adding the anchor
+           back and moving this anchor into SELLING. The page's own two
+           purchase actions are untouched, so the app is still for sale. */
+        const b = bridge('for-erections');
+        expect(b, 'the held offer came back without a decision').not.toContain('href="/#get"');
+        expect(b).not.toMatch(/class="cta/);
+        expect(visible(b)).toMatch(/not asking you to buy on this goal yet/i);
+        expect(visible(b)).toMatch(/under review/i);
+        /* And he is told the app is still purchasable, so the hold reads as
+           candour about one goal rather than the product being unavailable. */
+        expect(visible(b)).toMatch(/still for sale/i);
     });
 
     test('the pelvic screener is described as a precaution, never a diagnosis', () => {
@@ -257,7 +306,9 @@ describe('each bridge says what is there, then the most useful thing against it'
            established ones, so the existing coupling test keeps its exact
            count instead of being loosened to accommodate this work. */
         expect(productMain.split('<a class="cta" href="/#get">Get The Blueprint, $99</a>')).toHaveLength(3);
-        expect((productMain.match(/href="\/#get"/g) || [])).toHaveLength(6);
+        /* Two page-level actions plus three selling goals. Five, not six,
+           because the erection goal's invitation is held. */
+        expect((productMain.match(/href="\/#get"/g) || [])).toHaveLength(5);
         /* The page's two primary actions, and only two, which is the ceiling
            tests/pageTemplate.test.js enforces across every public page. */
         expect((productMain.match(/<a class="(?:cta|btn|daily-cta)"/g) || [])).toHaveLength(2);
@@ -272,6 +323,115 @@ describe('each bridge says what is there, then the most useful thing against it'
         for (const ch of ['—', '–', '⸺', '⸻', '&mdash;', '&ndash;']) {
             expect(added.includes(ch), `${JSON.stringify(ch)} appears`).toBe(false);
         }
+    });
+});
+
+describe('THE PAGE IS CHECKED AGAINST THE APP, NOT AGAINST ITSELF', () => {
+    /* Marketing copy goes stale silently. Every sentence in these sections
+       was verified against app/index.html by hand once, and a hand check
+       expires the moment someone edits a schedule. These tests read the app
+       and fail when the page stops describing it, which is the same drift
+       that produced a false safety finding in #177: three surfaces
+       describing one thing, two of them stale.
+
+       A failure here usually means THE COPY needs updating, not that the app
+       change was wrong. */
+    const app = readFileSync('app/index.html', 'utf8');
+    const slotSrc = readFileSync('src/scheduleSlot.js', 'utf8');
+
+    const goalSchedule = key => {
+        const m = app.match(new RegExp(`\\n\\s{4}${key}:\\s*\\{[\\s\\S]{0,400}?schedule:\\s*\\[([^\\]]+)\\]`));
+        expect(m, `GOALS.${key}.schedule must be readable`).not.toBeNull();
+        return m[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''));
+    };
+    const count = (arr, t) => arr.filter(x => x === t).length;
+
+    test('the erection section states the real GOALS.eq week', () => {
+        const eq = goalSchedule('eq');
+        const why = 'GOALS.eq.schedule changed; rewrite the #for-erections day mix to match';
+        expect(count(eq, 'stamina'), why).toBe(2);
+        expect(count(eq, 'length'), why).toBe(1);
+        expect(count(eq, 'girth'), why).toBe(0);
+        expect(visible(bridge('for-erections'))).toMatch(/two stamina sessions and one length session/i);
+    });
+
+    test('and the claim that no erection quality session type exists is still true', () => {
+        const m = slotSrc.match(/LEGACY_PRIMARY_TYPES = Object\.freeze\(\[([^\]]+)\]/);
+        expect(m, 'LEGACY_PRIMARY_TYPES must be readable').not.toBeNull();
+        expect(m[1], 'an EQ session type now exists; the page says it does not')
+            .not.toMatch(/\beq\b|erection/i);
+    });
+
+    test('the size section names routines the app actually ships', () => {
+        for (const title of ['Directional Pulls', 'V-Stretch', 'Wet Jelq', 'Uli']) {
+            expect(app, `${title} is named on the page but not in ROUTINES`).toContain(`title:'${title}`);
+        }
+        const b = visible(bridge('for-size'));
+        for (const phrase of ['directional stretching', 'V stretch', 'wet jelq', 'Uli clamp']) {
+            expect(b.toLowerCase()).toContain(phrase.toLowerCase());
+        }
+    });
+
+    test('the page never promises day editing, because the app withdrew it', () => {
+        /* THE HOLE THE SECOND PASS LEFT. The first fix for the EQ mismatch
+           told a buyer he could change any day from the week calendar.
+           openDayModal() hides the day types whenever onAuthoritativePlans()
+           is true, which is every member who has a programme key, and the
+           app's own comment calls it "a withdrawn feature, not a finished
+           one". The remedy was fiction for exactly the reader it addressed. */
+        expect(app, 'the lock must still exist for this rule to be needed')
+            .toMatch(/const locked=onAuthoritativePlans\(\)/);
+        expect(app).toContain('Your week is set by your program now.');
+        const copy = visible(productMain);
+        for (const claim of [
+            /week calendar lets you change/i,
+            /change any day/i,
+            /swap (that|the) (length )?(day|session) (for|to)/i,
+            /choose which days/i,
+            /edit your week/i,
+        ]) {
+            expect(copy, `the page promises day editing: ${claim}`).not.toMatch(claim);
+        }
+    });
+
+    test('the EQ tracking the page sells is present in the app', () => {
+        expect(app, 'the 1 to 10 EQ control').toContain('id="eq-checkin-btns"');
+        expect(app, 'the EQ chart').toContain('id="eq-chart"');
+        expect(app, 'BPEL entry').toContain('id="input-bpel"');
+        expect(app, 'MSEG entry').toContain('id="input-mseg"');
+    });
+
+    test('and the weekly report is described as the member sees it, not as Coach Tee sees it', () => {
+        /* CAUGHT BY ADVERSARIAL REVIEW, AND IT WAS THE SUBTLEST ONE. The
+           first wording said the weekly note compares the recent average
+           against the one before. That sentence IS in the app, at
+           "EQ trend: ... recent avg X vs prior Y", and it is inside
+           _coachContext(): it is written for Coach Tee, not rendered to the
+           member, and it needs four rated sessions.
+
+           What the member actually reads is #weekly-report-content, which
+           needs two rated sessions in the week and reports that week's
+           average plus an up, down or stable direction from the first
+           rating to the last. Describing the model's context as the
+           member's screen is a marketing claim about a surface he will
+           never find. */
+        expect(app, 'the member-visible weekly report').toContain('weekly-report-content');
+        expect(app, 'its two-rating threshold').toMatch(/weekSessions\.filter\(s=>s\.eq\)\.length>=2/);
+        expect(app).toMatch(/EQ trending up/);
+        const b = visible(bridge('for-erections'));
+        expect(b).toMatch(/weekly report/i);
+        expect(b).toMatch(/at least two sessions/i);
+        expect(b).not.toMatch(/recent average sits above or below/i);
+    });
+
+    test('the screener the page describes is still six questions behind a threshold', () => {
+        /* If the screener ever becomes a validated instrument, or stops
+           being a routing precaution, the page's careful wording about it
+           needs revisiting rather than inheriting. */
+        expect(app).toContain('PELVIC_SCREEN_QUESTIONS');
+        expect(app).toMatch(/PELVIC_TIGHT_THRESHOLD\s*=\s*3/);
+        const b = visible(bridge('for-erections'));
+        expect(b).toMatch(/not a diagnosis/i);
     });
 });
 
