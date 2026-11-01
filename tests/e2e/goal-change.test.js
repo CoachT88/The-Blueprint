@@ -58,6 +58,8 @@ describe('goal change uses the real picker and generation', () => {
             await app.page.click('#account-goal-change');
             await app.page.waitForFunction(() => document.getElementById('onboarding-overlay').classList.contains('show'));
             await app.page.click('.goal-opt[data-goal="stamina"]');
+            // the goal picker now discloses the week before it commits (#184)
+            await app.page.click('#goal-disclose-start');
             expect(await snapshot(app.page)).toBe(before);
             const state=await app.page.evaluate(() => ({key:persisted.programme.key,
                 pending:persisted.programme.pendingChange,

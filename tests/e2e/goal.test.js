@@ -43,8 +43,12 @@ describe('goal capture', () => {
             persisted.schedule = DEFAULT_PERSISTED.schedule.slice();
             persisted.primaryGoal = '';
             document.querySelector('.goal-opt[data-goal="stamina"]').click();
-            return { goal: persisted.primaryGoal, selected: document.querySelector('.goal-opt.selected')?.dataset.goal };
+            /* the goal picker now discloses the week before it commits (#184): a tap opens the panel, Start commits. */
+            const disclosed = !document.getElementById('goal-disclose').classList.contains('hidden');
+            document.getElementById('goal-disclose-start').click();
+            return { disclosed, goal: persisted.primaryGoal, selected: document.querySelector('.goal-opt.selected')?.dataset.goal };
         });
+        expect(r.disclosed, 'the week must be shown before it is taken').toBe(true);
         expect(r.goal).toBe('stamina');
         expect(r.selected).toBe('stamina');
     });

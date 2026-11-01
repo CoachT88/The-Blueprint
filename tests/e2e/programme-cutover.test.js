@@ -638,7 +638,11 @@ describe('after cutover the week cannot be edited directly', () => {
             selectGoal('stamina');
             return document.getElementById('goal-confirm').textContent;
         });
-        expect(r).toBe('Weekly schedule set for lasting longer.');
+        expect(r).toBe(/* The note used to name the goal back at the member, which read
+                   "Weekly schedule set for erection quality" above a LENGTH DAY
+                   card. It now repeats the week, counted from the same preset
+                   the disclosure counts. */
+                'Lasting longer plan set: 3 stamina sessions, 4 rest days.');
     }, 30_000);
 
     test('the picker still works for a member who has not cut over', async () => {

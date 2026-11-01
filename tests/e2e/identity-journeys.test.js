@@ -141,6 +141,7 @@ describe('journey: a new member who gives a name', () => {
         // onboarding ends when obNext() runs on the final slide.
         const done = await app.page.evaluate(() => {
             document.querySelector('.goal-opt[data-goal="all"]').click();
+            document.getElementById('goal-disclose-start').click();   // the goal picker now discloses the week before it commits (#184)
             const last = _obSlide >= _obLastIdx();
             obNext();
             renderDashboard();
@@ -205,6 +206,7 @@ describe('journey: a new member who skips the name', () => {
 
         await app.page.evaluate(() => {
             document.querySelector('.goal-opt[data-goal="all"]').click();
+            document.getElementById('goal-disclose-start').click();   // the goal picker now discloses the week before it commits (#184)
             obNext();                       // the last slide: this finishes onboarding
             renderDashboard();
         });

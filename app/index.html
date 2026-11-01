@@ -2157,11 +2157,28 @@
             <button class="goal-opt" data-goal="eq"><i class="fas fa-heart-pulse text-emerald-400"></i><span>Erection quality</span><em>Firmness and blood flow</em></button>
             <button class="goal-opt" data-goal="all"><i class="fas fa-layer-group text-amber-400"></i><span>All of it</span><em>The complete protocol</em></button>
         </div>
+        <!-- WHAT THE WEEK ACTUALLY CONTAINS, BEFORE HE COMMITS TO IT.
+             A goal name is not a prescription. Erection quality schedules a
+             manual length session, and until this panel existed a first-time
+             member was never told: selectGoal()'s confirm is skipped for an
+             untouched account, so the one surface that disclosed anything was
+             the one the new buyer never saw. Every line below is counted from
+             GOALS[key].schedule at render time, so it cannot drift from the
+             preset it describes. -->
+        <div id="goal-disclose" class="hidden w-full max-w-xs mt-4 text-left" role="group" aria-labelledby="goal-disclose-title">
+            <h3 id="goal-disclose-title" class="text-sm font-black uppercase italic text-white"></h3>
+            <p id="goal-disclose-week" class="text-[11px] text-slate-300 leading-relaxed mt-2"></p>
+            <p id="goal-disclose-manual" class="hidden text-[11px] leading-relaxed mt-2 p-2.5 rounded-xl text-amber-200/90" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25)"></p>
+            <p id="goal-disclose-fixed" class="text-[10px] u-text-2 leading-relaxed mt-2"></p>
+            <p id="goal-disclose-when" class="text-[10px] u-text-2 leading-relaxed mt-2"></p>
+            <button id="goal-disclose-start" class="btn-primary w-full mt-4 py-4 text-xs">Start this plan</button>
+            <button id="goal-disclose-back" class="btn-outline w-full mt-2 py-3 text-[10px]">Choose another goal</button>
+        </div>
         <p id="goal-confirm" class="hidden text-[10px] text-emerald-400 font-bold mt-4"></p>
     </div>
 
 <!-- Nav -->
-<div class="absolute bottom-0 left-0 right-0 p-8 flex flex-col items-center gap-4">
+<div id="ob-nav" class="absolute bottom-0 left-0 right-0 p-8 flex flex-col items-center gap-4">
     <div class="flex gap-2" id="ob-dots">
         <div class="ob-dot active"></div>
         <div class="ob-dot"></div>
@@ -9187,6 +9204,9 @@ function commitPreferredName(){
 
 // ── Primary goal picker ────────────────────────────────────────────────────
 function renderGoalOptions(){
+    /* Any re-render of the picker is a fresh visit to it, so a half-finished
+       disclosure from last time must not be sitting open over the grid. */
+    closeGoalDisclosure();
     const cur=persisted.primaryGoal||'';
     document.querySelectorAll('#goal-options .goal-opt').forEach(b=>{
         b.classList.toggle('selected',b.dataset.goal===cur);
@@ -9195,7 +9215,124 @@ function renderGoalOptions(){
     const note=document.getElementById('goal-confirm');
     if(note) note.classList.add('hidden');
 }
-function selectGoal(key){
+/**
+ * The week a goal really prescribes, counted from the preset.
+ *
+ * ONE SOURCE. The counts, the session names and the "there is no X session"
+ * line are all read from GOALS[key].schedule here, so a preset edit changes
+ * what the member is told automatically. A second table of descriptions
+ * would be the same drift that let the app promise erection quality and
+ * schedule a length day.
+ */
+function goalWeekSummary(key){
+    const sched=(GOALS[key]&&GOALS[key].schedule)||[];
+    const n={};
+    for(const t of sched) n[t]=(n[t]||0)+1;
+    const parts=['length','girth','stamina','rest'].filter(t=>n[t]).map(t=>t==='rest'
+        ? `${n[t]} rest ${n[t]===1?'day':'days'}`
+        : `${n[t]} ${t} ${n[t]===1?'session':'sessions'}`);
+    return {
+        counts:n,
+        parts,
+        /* Manual penile work, which is the part a man who did not ask for it
+           has to be able to see before he agrees to it. */
+        mechanical:(n.length||0)+(n.girth||0),
+    };
+}
+
+/**
+ * Show what the plan contains, and let him back out, before anything is written.
+ *
+ * This is a consent surface, not a prescription change. It decides nothing,
+ * stores nothing and sends no event: the only state it touches is which goal
+ * is pending confirmation in this view.
+ */
+let _goalAwaitingConfirm=null;
+function openGoalDisclosure(key){
+    const s=goalWeekSummary(key);
+    const g=GOALS[key];
+    _goalAwaitingConfirm=key;
+    const set=(id,text,show)=>{
+        const el=document.getElementById(id);
+        if(!el) return;
+        if(text!==undefined) el.textContent=text;
+        if(show!==undefined) el.classList.toggle('hidden',!show);
+    };
+    set('goal-disclose-title',`Your ${g.label.toLowerCase()} plan`);
+    set('goal-disclose-week',`Each week: ${s.parts.join(', ')}.`);
+    /* THE PANEL DESCRIBES THE PLAN, NOT THE PRODUCT'S GAPS.
+       Two earlier drafts explained the week by naming a capability the app
+       does not have: first "There is no erection quality session type in the
+       app...", then the same fact moved later in the paragraph. Both told a
+       buyer what is missing when what he needs is what he will be given.
+       Nothing is hidden by dropping it: the counts above say exactly which
+       sessions arrive, the line below says what the manual ones are and what
+       they are not established to do, the next line says the days are fixed,
+       and the button beside Start lets him decline. That is the whole of
+       informed consent; "no session is named after your goal" was commentary
+       on the catalogue. */
+    set('goal-disclose-manual',
+        'Length and girth sessions are manual penile training. No manual method is an established treatment for erection difficulties, or a proven way to increase size.',
+        s.mechanical>0);
+    set('goal-disclose-fixed','Once a plan is running, the app sets each day. Day types cannot be changed in the app.');
+    const untouched=goalAppliesImmediately();
+    set('goal-disclose-when',untouched
+        ? 'This starts today.'
+        : `Starts ${goalStartLabel(window.BP.planDateKey(window.BP.horizonFor(new Date()).nextMonday))}. This week stays the same, and your completed sessions, XP, measurements and milestones stay saved.`);
+    document.getElementById('goal-options').classList.add('hidden');
+    const panel=document.getElementById('goal-disclose');
+    panel.classList.remove('hidden');
+    document.getElementById('goal-confirm')?.classList.add('hidden');
+    /* ONE DECISION ON SCREEN. The onboarding nav's last slide shows a blue
+       "Done", which would sit directly under "Start this plan" as a second
+       primary button and is the more familiar way to leave a wizard. A man
+       being asked to agree to a week should not have a competing affordance
+       next to the agreement, so the nav steps aside until he answers. */
+    document.getElementById('ob-nav')?.classList.add('hidden');
+    document.getElementById('goal-disclose-start').focus();
+}
+function closeGoalDisclosure(returnFocus){
+    _goalAwaitingConfirm=null;
+    document.getElementById('goal-disclose')?.classList.add('hidden');
+    document.getElementById('goal-options')?.classList.remove('hidden');
+    document.getElementById('ob-nav')?.classList.remove('hidden');
+    if(returnFocus){
+        const btn=document.querySelector(`#goal-options .goal-opt[data-goal="${returnFocus}"]`);
+        if(btn) btn.focus();
+    }
+}
+/** The same test selectGoal() uses to decide an immediate rewrite. */
+function goalAppliesImmediately(){
+    return (persisted.allTimeSessionCount||0)===0
+        && persisted.sessionLog.length===0
+        && JSON.stringify(persisted.schedule)===JSON.stringify(DEFAULT_PERSISTED.schedule)
+        && !buildResolverInput().sessionDraft;
+}
+
+/**
+ * The only route a tap on a goal takes. Disclosure first, commitment second.
+ *
+ * selectGoal() keeps its contract as the function that commits, because five
+ * browser suites and PR #187 drive it directly and a consent fix should not
+ * require rewriting their expectations. What changed is that nothing in the
+ * UI calls it until the member has seen the week and pressed Start.
+ */
+function chooseGoal(key){
+    if(!GOALS[key]||!_persistedLoaded||!currentUser) return;
+    const pending=window.BP.pendingProgrammeChange(persisted.programme);
+    const target=window.BP.programmeKeyFor({migration:{source:'preset',presetKey:key}});
+    const alreadyCurrent=window.BP.programmeKeyFor(persisted.programme)===target;
+    /* Already on it with nothing queued: a no-op, and opening a disclosure
+       for a change that is not happening would be noise. */
+    if(persisted.primaryGoal===key && !pending && alreadyCurrent) return;
+    /* Cancelling a queued change asks a different question, and selectGoal()
+       already asks it. Disclosing a week he is staying on would be the
+       confusing second prompt. Semantics unchanged. */
+    if(alreadyCurrent && pending){ selectGoal(key); return; }
+    openGoalDisclosure(key);
+}
+
+function selectGoal(key,opts){
     if(!GOALS[key]||!_persistedLoaded||!currentUser) return;
     const untouched=(persisted.allTimeSessionCount||0)===0
         && persisted.sessionLog.length===0
@@ -9206,7 +9343,11 @@ function selectGoal(key){
     const alreadyCurrent=window.BP.programmeKeyFor(persisted.programme)===target;
     if(persisted.primaryGoal===key && !pending && alreadyCurrent) return;
     const date=window.BP.planDateKey(window.BP.horizonFor(new Date()).nextMonday);
-    if(!untouched && (!alreadyCurrent||pending) && !confirm(
+    /* The disclosure panel has already asked, and asking twice is worse than
+       not asking once. Only the UI sets this; a direct programmatic call
+       keeps the dialog it always had. */
+    const disclosed=!!(opts&&opts.disclosed);
+    if(!untouched && (!alreadyCurrent||pending) && !disclosed && !confirm(
         alreadyCurrent
             ? 'Keep your current program and cancel the scheduled goal change? Your progress stays saved.'
             : `Change your goal to ${GOALS[key].label.toLowerCase()}?\n${GOALS[key].blurb}.\n\nYour new program starts ${goalStartLabel(date)}. This week's training stays the same.\n\nCompleted sessions, XP, streaks, measurements, and milestones stay saved.`)) return;
@@ -9236,8 +9377,12 @@ function selectGoal(key){
     savePersisted();
     const note=document.getElementById('goal-confirm');
     if(note){
+        /* It used to read "Weekly schedule set for erection quality" on a
+           screen whose next card said LENGTH DAY. Naming the goal back to
+           him is not confirmation of what he got, so it now repeats the
+           week, counted from the same preset the disclosure counted. */
         note.textContent=untouched
-            ? `Weekly schedule set for ${GOALS[key].label.toLowerCase()}.`
+            ? `${GOALS[key].label} plan set: ${goalWeekSummary(key).parts.join(', ')}.`
             : (alreadyCurrent ? 'Your current program stays in place. Your progress is saved.'
                 : `New program starts ${goalStartLabel(change.effectiveDate)}. This week stays the same. Your progress is saved.`);
         note.classList.remove('hidden');
@@ -10939,7 +11084,21 @@ function init(){
     document.getElementById('history-close-btn').addEventListener('click',()=>document.getElementById('history-modal').style.display='none');
     document.getElementById('ob-next-btn').addEventListener('click',obNext);
     document.querySelectorAll('#goal-options .goal-opt').forEach(btn=>{
-        btn.addEventListener('click',()=>selectGoal(btn.dataset.goal));
+        /* chooseGoal, never selectGoal: a tap opens the disclosure and the
+           commit happens from its Start button. A test pins this wiring,
+           because reverting this one word is how the consent gate would
+           silently disappear. */
+        btn.addEventListener('click',()=>chooseGoal(btn.dataset.goal));
+    });
+    document.getElementById('goal-disclose-start').addEventListener('click',()=>{
+        const key=_goalAwaitingConfirm;
+        if(!key) return;
+        closeGoalDisclosure();
+        selectGoal(key,{disclosed:true});
+    });
+    document.getElementById('goal-disclose-back').addEventListener('click',()=>{
+        /* Nothing was written, so there is nothing to undo. */
+        closeGoalDisclosure(_goalAwaitingConfirm);
     });
     document.getElementById('change-goal-btn').addEventListener('click',openGoalPicker);
     document.getElementById('pelvic-screen-btn').addEventListener('click',()=>{closeManual();setTimeout(openPelvicScreen,320);});
