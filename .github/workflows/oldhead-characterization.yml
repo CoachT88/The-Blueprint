@@ -2,6 +2,9 @@ name: Old-head V1/V2 characterization
 
 # Synthetic V2 fixture only. Runs the unchanged application in Chromium.
 on:
+  push:
+    branches:
+      - audit/old-client-v2-journey-proof
   pull_request:
     paths:
       - .github/workflows/oldhead-characterization.yml
