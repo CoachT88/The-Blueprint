@@ -154,7 +154,15 @@ describe('the erection deep link, and the page it sits on', () => {
             expect(out.visible).toBe(true);
             expect(out.buys, 'a buy button on the erection signpost').toBe(0);
             expect(out.free).toContain('/stronger-erections/');
-            expect(out.text).toMatch(/nothing to buy/i);
+            /* It used to require the literal "nothing to buy". That line is
+               gone: raising the question of buying in order to answer no is
+               the same self-discouraging move as the caution blocks this
+               page removed. What the test was really for is that the
+               signpost offers reading and asks for nothing, and that is
+               checked by `buys` above plus the absence below. */
+            expect(out.text, 'the signpost argues about the sale')
+                .not.toMatch(/nothing to buy|not for sale|we do not sell/i);
+            expect(out.text).toMatch(/free guides/i);
             /* Three plans sell, plus the page's own two actions. */
             expect(out.pageBuys).toBe(5);
         } finally { await page.close(); }
