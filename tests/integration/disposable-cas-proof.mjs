@@ -15,8 +15,9 @@ async function upsert(row){
 }
 async function get(id){
   const resp=await fetch(base+'/user_data?id=eq.'+encodeURIComponent(id),{headers:{Accept:'application/json'}});
-  assert.equal(resp.status,200,JSON.stringify(await resp.text()));
-  const rows=await resp.json();return rows[0];
+  const raw=await resp.text();
+  assert.equal(resp.status,200,raw);
+  const rows=JSON.parse(raw);return rows[0];
 }
 let ready=false;
 for(let i=0;i<60;i++){
