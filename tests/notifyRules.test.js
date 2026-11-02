@@ -561,10 +561,21 @@ describe('#186 phase 1: the Worker tolerates slot values it has never seen', () 
             /* Deliberately unchanged. Whether a due but unreadable pending
                change should suppress rather than use a superseded schedule is
                a policy question, and it does not belong in a compatibility
-               PR. Raised separately. */
+               PR. Raised separately.
+
+               EVERY CASE HERE MUST DISCRIMINATE. Wednesday index 3 is
+               'length' under the current Size preset, so a fallback sends;
+               each malformed schedule below holds a NON-training value at
+               index 3, so wrongly accepting it would suppress. A case whose
+               index 3 also happens to be non-training proves nothing, which
+               is how the empty-string case first slipped through: mutating
+               the `t.length > 0` guard away changed no observable outcome. */
+            expect(current[3]).toBe('length');
             for (const bad of [['rest'], null, 'rest', [1,2,3,4,5,6,7],
-                               ['length','girth','rest','length','girth','rest','']]) {
-                expect(decideOn(current, 1,
+                               ['support','support','support','support','support','support',''],
+                               ['support','support','support','support','support','support',null],
+                               Array(7).fill('support').concat('support')]) {
+                expect(decideOn(current, 3,
                     { programme: { pendingChange: { effectiveDate: '2026-03-15', schedule: bad } } }),
                     `malformed ${JSON.stringify(bad)} did not fall back`).not.toBeNull();
             }
