@@ -88,8 +88,20 @@ describe('three plans, and only the ones that exist', () => {
         expect(productMain).toContain('id="for-erections"');
         const signpost = visible(productMain.slice(productMain.indexOf('id="for-erections"')).slice(0, 400));
         expect(signpost).toMatch(/free guides/i);
-        expect(signpost).toMatch(/nothing to buy/i);
         expect(productMain).toContain('href="/stronger-erections/"');
+    });
+
+    test('and it does not argue against the sale on its way out', () => {
+        /* REVIEW CORRECTION. The signpost used to end "Nothing to buy."
+           That is the same self-discouraging move as the caution blocks this
+           page removed, just shorter: it raises the question of buying in
+           order to answer no. The signpost points at free reading and stops.
+           It does not discuss what is or is not for sale. */
+        const copy = visible(productMain);
+        for (const selling of [/nothing to buy/i, /not for sale/i, /no plan to buy/i,
+                               /we do not sell/i, /nothing on offer/i]) {
+            expect(copy, `self-discouraging aside: ${selling}`).not.toMatch(selling);
+        }
     });
 
     test('and the erections hub no longer routes to a purchase', () => {
@@ -124,16 +136,48 @@ describe('benefit first, and no caveat stacking', () => {
     test('ordinary stamina, breathing, mobility and tracking carry no clinical disclaimers', () => {
         /* The founder's rule: we describe intended purpose and what the member
            does. We do not stage an evidence debate beside a breathing
-           exercise. The manual-training exception is asserted separately. */
-        for (const id of ['for-stamina', 'for-multiple-goals']) {
+           exercise. The manual-training exception is asserted separately.
+
+           for-multiple-goals is NOT in this list any more. It schedules the
+           same manual length and girth work as the Size plan, so it carries
+           the same risk note by design: see the manual-training exception
+           below. The evidence-debate patterns are still forbidden there. */
+        const b = visible(bridge('for-stamina'));
+        for (const caveat of [
+            /weak and inconsistent/i, /not an established treatment/i,
+            /no .* evidence/i, /cannot promise/i, /results may vary/i,
+            /not a medical/i, /limited evidence/i,
+        ]) {
+            expect(b, `for-stamina stacks a caveat: ${caveat}`).not.toMatch(caveat);
+        }
+    });
+
+    test('no plan stages an evidence debate, including the combined one', () => {
+        for (const id of PLANS) {
             const b = visible(bridge(id));
-            for (const caveat of [
+            for (const debate of [
                 /weak and inconsistent/i, /not an established treatment/i,
-                /no .* evidence/i, /cannot promise/i, /results may vary/i,
-                /not a medical/i, /limited evidence/i,
+                /limited evidence/i, /cannot promise/i, /results may vary/i,
             ]) {
-                expect(b, `${id} stacks a caveat: ${caveat}`).not.toMatch(caveat);
+                expect(b, `${id} stages an evidence debate: ${debate}`).not.toMatch(debate);
             }
+        }
+    });
+
+    test('and nothing claims a general truth about what most men do', () => {
+        /* REVIEW CORRECTION. Four lines asserted broad causal facts we cannot
+           support: that most men never practise control, that trying harder
+           "is why nothing changes", that reviewable practice is "the
+           difference between people who improve and people who mean to", and
+           that most men stall on forum routines. The payoff stays; the
+           certainty about other people's outcomes goes. */
+        const copy = visible(productMain);
+        for (const claim of [
+            /most men/i, /most of them/i, /why nothing changes/i,
+            /people who mean to/i, /everyone else/i, /\bmost guys\b/i,
+            /the difference between people who/i,
+        ]) {
+            expect(copy, `unsupported general claim: ${claim}`).not.toMatch(claim);
         }
     });
 
@@ -160,6 +204,45 @@ describe('the manual-training exception', () => {
         expect(b, 'safety guidance must be one tap away').toContain('href="/safety/"');
         /* Proximate: inside the size block, before its buy button. */
         expect(b.indexOf('class="note"')).toBeLessThan(b.indexOf('href="/#get"'));
+    });
+
+    test('THE COMBINED PLAN CARRIES IT TOO, BECAUSE IT SCHEDULES THE SAME WORK', () => {
+        /* REVIEW CORRECTION. The combined plan schedules length and girth
+           days and has its own buy button, so a reader who jumps straight to
+           #for-multiple-goals was sold manual training with no risk note at
+           all. Concise rather than a second long block: it points at the
+           Size plan for the detail and carries the three material facts. */
+        const b = bridge('for-multiple-goals');
+        const copy = visible(b);
+        expect(copy).toMatch(/manual length and girth/i);
+        expect(copy).toMatch(/experimental/i);
+        expect(copy).toMatch(/lasting size gains/i);
+        expect(copy).toMatch(/injury or scarring/i);
+        expect(b, 'safety guidance must be one tap away').toContain('href="/safety/"');
+        expect(b.indexOf('class="note"')).toBeLessThan(b.indexOf('href="/#get"'));
+        /* Concise: no longer than the Size note it refers to. Measure the
+           note itself, not the rest of the block, or the CTA wording decides
+           the result. */
+        const noteOf = id => {
+            const b = bridge(id);
+            const start = b.indexOf('<p class="note">');
+            return visible(b.slice(start, b.indexOf('</p>', start))).trim();
+        };
+        expect(noteOf('for-multiple-goals').length)
+            .toBeLessThanOrEqual(noteOf('for-size').length);
+    });
+
+    test('every plan that schedules manual work discloses it, and only those', () => {
+        /* The rule, rather than two hand-written cases: a plan that names
+           length or girth work must carry the note; one that does not must
+           not acquire it. */
+        for (const id of PLANS) {
+            const copy = visible(bridge(id));
+            const schedulesManual = /length and girth/i.test(copy);
+            expect(/experimental/i.test(copy),
+                `${id}: schedulesManual=${schedulesManual} but note presence disagrees`)
+                .toBe(schedulesManual);
+        }
     });
 
     test('the size plan does not call scheduled work optional', () => {
@@ -193,6 +276,46 @@ describe('the page is checked against the app, not against itself', () => {
         expect(app, 'EQ ratings').toContain('id="eq-checkin-btns"');
         expect(app, 'session save').toContain('id="finish-session-btn"');
         expect(app, 'mobility in the practice').toMatch(/title:'Butterfly Stretch/);
+    });
+
+    test('NOWHERE ON THE SITE CALLS SCHEDULED MANUAL WORK OPTIONAL', () => {
+        /* REVIEW CORRECTION, and it was in four more places than the one the
+           review named. Length and girth days are scheduled on the Size and
+           combined plans and the day types cannot be changed once a plan is
+           running, so "optional" was false everywhere it appeared:
+
+             whats-inside  the "read the longer version" link
+             how-it-works  the page lead, and "Explore at your pace"
+             index         the purchase-block aside, and the six-areas detail
+
+           Checked across the pages that make the claim rather than only the
+           one file under review, because a buyer follows the link. */
+        const pages = {
+            'whats-inside/index.html': product,
+            'how-it-works/index.html': readFileSync('how-it-works/index.html', 'utf8'),
+            'index.html': home,
+        };
+        for (const [name, html] of Object.entries(pages)) {
+            const copy = visible(html);
+            for (const lie of [
+                /optional (guided )?(manual )?(length|girth)/i,
+                /(length|girth)[^.]{0,30}\bare optional\b/i,
+                /(length|girth)[^.]{0,30}\bis optional\b/i,
+                /those sessions are optional/i,
+                /optional guided manual sessions/i,
+            ]) {
+                expect(copy, `${name} calls scheduled manual work optional: ${lie}`)
+                    .not.toMatch(lie);
+            }
+        }
+    });
+
+    test('and the longer-version link still goes somewhere that agrees with it', () => {
+        /* The review asked me to check the destination, not just the link. */
+        const hiw = visible(readFileSync('how-it-works/index.html', 'utf8'));
+        expect(hiw).toMatch(/length and girth sessions are scheduled/i);
+        expect(hiw, 'the destination sells an EQ choice we do not offer')
+            .not.toMatch(/choices include[^.]*erection quality/i);
     });
 
     test('the homepage does not promise the pathway we have not built', () => {
