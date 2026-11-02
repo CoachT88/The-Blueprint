@@ -80,6 +80,44 @@ function isReadableSchedule(s) {
     return Array.isArray(s) && s.length === 7;
 }
 
+/**
+ * A QUEUED CHANGE IS A STRICTER QUESTION THAN TODAY'S SLOT.
+ *
+ * These two look similar and are not, and conflating them was the flaw in
+ * the first version of this change.
+ *
+ *   TODAY'S SLOT is data we already hold about a day that is happening. We
+ *   cannot refuse it. All we can decide is what to infer, and the safe
+ *   inference from a value we do not recognise is "not training", which
+ *   sends nothing. Open at the bottom: any future value lands there.
+ *
+ *   A PENDING CHANGE is an assertion that a member's whole week is about to
+ *   become something else. We can and should refuse that outright unless we
+ *   recognise what it says. Accepting any seven non-empty strings meant a
+ *   typo, a truncated write or a foreign record became the member's
+ *   effective reminder schedule for every day of the week. Failing safe on
+ *   one unreadable day is reasonable; adopting an unreadable WEEK is not.
+ *
+ * So this list is closed, and it is the one place the Worker commits to a
+ * forward vocabulary. 'support' and 'full-rest' are the provisional names
+ * for the two new kinds of day. src/scheduleSlot.js is the authority on what
+ * they are finally called, and tests/notifyRules.test.js pins the overlap
+ * with LEGACY_PRIMARY_TYPES so the two sides of the wire cannot drift
+ * silently. If phase B settles on different tokens, this list changes with
+ * it and must deploy before any client can write one.
+ */
+export const PENDING_SLOT_VOCABULARY = Object.freeze([
+    'length', 'girth', 'stamina',  // mechanical primary training
+    'rest',                        // prescribed non-training, today's meaning
+    'support',                     // real supporting work, no primary session
+    'full-rest',                   // nothing required at all
+]);
+
+/** Is this queued week something we recognise well enough to adopt? */
+function isAcceptablePendingSchedule(week) {
+    return isReadableSchedule(week) && week.every(t => PENDING_SLOT_VOCABULARY.includes(t));
+}
+
 /** Hours a reminder is allowed to land in, member's local time. */
 export const EARLIEST_HOUR = 5;
 export const LATEST_HOUR = 23;
@@ -272,19 +310,20 @@ export function decideNotification({
     //    is true of a day whose work is not mechanical training at all.
     // A scheduled goal change must also take effect when the app is closed.
     //
-    // The pending schedule is now accepted on its SHAPE rather than on a
-    // closed list of values. The old `every(t => [...four values].includes(t))`
+    // The pending schedule is accepted against a CLOSED vocabulary, widened
+    // to carry the forward values rather than opened up. The old list of four
     // discarded a queued change the moment it named anything new and silently
     // ran the member on the schedule they had just replaced, which is the one
-    // outcome worse than either schedule. Shape is still checked, so a
-    // genuinely malformed record still falls back exactly as it did before.
+    // outcome worse than either schedule. Widening fixes that; dropping the
+    // list entirely would let a typo or a truncated write become the member's
+    // effective week. See PENDING_SLOT_VOCABULARY on why this is stricter
+    // than the test applied to today's slot below.
     const change = programme && programme.pendingChange;
     const nextWeek = change && change.schedule;
     const effectiveSchedule = change && typeof change.effectiveDate === 'string'
         && /^\d{4}-\d{2}-\d{2}$/.test(change.effectiveDate)
         && change.effectiveDate <= localDate
-        && isReadableSchedule(nextWeek)
-        && nextWeek.every(t => typeof t === 'string' && t.length > 0)
+        && isAcceptablePendingSchedule(nextWeek)
         ? nextWeek : schedule;
     // Present and readable only. A null, short or absent schedule says nothing
     // about today and must not be read as rest. See TRAINING_SLOTS above.
