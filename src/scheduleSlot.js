@@ -61,9 +61,23 @@
 
 import { localDateKeyForWeekday } from './weekUtils.js';
 
-/** What a slot is. Three answers, and the third is not a failure state. */
+/**
+ * What a slot is. Four answers now, and neither of the last two is a failure.
+ *
+ * SUPPORT is the one being added, and the reason is that a support-only day
+ * had no answer here at all. classifySlot() sent it to UNRESOLVED, which
+ * means "the app cannot say what today is" and is the honest answer for a
+ * corrupt record and the wrong one for a day the programme described
+ * perfectly well. Every consumer that branches on UNRESOLVED then treated a
+ * real prescription as unreadable data.
+ *
+ * UNRESOLVED keeps its original meaning, so the distinction the module was
+ * written to protect survives: a value nobody can interpret is still in
+ * neither the numerator nor the denominator, and still prescribes nothing.
+ */
 export const SLOT_CLASS = Object.freeze({
     PRIMARY:    'primary',
+    SUPPORT:    'support',
     REST:       'rest',
     UNRESOLVED: 'unresolved',
 });
@@ -75,6 +89,32 @@ export const SLOT_CLASS = Object.freeze({
  */
 export const LEGACY_PRIMARY_TYPES = Object.freeze(['length', 'girth', 'stamina']);
 export const LEGACY_REST = 'rest';
+
+/**
+ * The two new kinds of day, as slot values.
+ *
+ * SUPPORT    real supporting work and no mechanical primary session.
+ * FULL_REST  nothing required at all: no primary, no supporting work and no
+ *            daily practice. Distinct from LEGACY_REST, which today always
+ *            carries a required practice, so a member on a 'rest' day is
+ *            asked for something and a member on a 'full-rest' day is not.
+ *
+ * These are classified here and are NOT added to the legacy projection
+ * vocabulary. toLegacySlot() still refuses a support-only day, deliberately,
+ * and the long comment there says why. The short version: an older cached
+ * client runs normaliseSchedule() on every load, which replaces any slot
+ * outside DAY_TYPES with the default for that index, so a 'support' value
+ * written into the persisted column does not merely fail to render on an old
+ * client, it is silently rewritten to a MECHANICAL type and saved. Widening
+ * the projection is therefore gated on old clients, not on this module.
+ */
+export const LEGACY_SUPPORT = 'support';
+export const LEGACY_FULL_REST = 'full-rest';
+
+/** Slot values that mean "no mechanical primary work today". */
+export const NON_TRAINING_TYPES = Object.freeze([LEGACY_REST, LEGACY_FULL_REST]);
+/** Slot values that mean "work today, but none of it mechanical primary". */
+export const SUPPORT_TYPES = Object.freeze([LEGACY_SUPPORT]);
 
 /** Why a day plan has no faithful legacy representation. */
 export const PROJECTION_REFUSAL = Object.freeze({
@@ -91,7 +131,9 @@ export const PROJECTION_REFUSAL = Object.freeze({
 const primariesOf = (opts) =>
     (opts && Array.isArray(opts.primaryTypes)) ? opts.primaryTypes : LEGACY_PRIMARY_TYPES;
 const restsOf = (opts) =>
-    (opts && Array.isArray(opts.restTypes)) ? opts.restTypes : [LEGACY_REST];
+    (opts && Array.isArray(opts.restTypes)) ? opts.restTypes : NON_TRAINING_TYPES;
+const supportsOf = (opts) =>
+    (opts && Array.isArray(opts.supportTypes)) ? opts.supportTypes : SUPPORT_TYPES;
 
 /**
  * The canonical classifier.
@@ -102,11 +144,22 @@ const restsOf = (opts) =>
  * today is.
  *
  * Rest is checked first so that a vocabulary which somehow listed 'rest' as a
- * primary type still cannot turn a rest day into training.
+ * primary type still cannot turn a rest day into training. Support is checked
+ * before primary for the same reason and in the same direction: of the two
+ * ways a mistake could go, reading real training as support understates the
+ * day, and reading support as training prescribes manual work nobody
+ * assigned. The cheaper error is the one that cannot hurt anybody.
+ *
+ * The default rest set now holds BOTH 'rest' and 'full-rest', so every
+ * existing consumer treats a genuine full-rest day the way it already treats
+ * a rest day: not training, not a commitment, not a gap in the week. The two
+ * are told apart by isFullRestSlot() where the difference matters, which is
+ * the Today card and the daily practice, not the counting.
  */
 export function classifySlot(value, opts) {
     if (typeof value !== 'string' || value === '') return SLOT_CLASS.UNRESOLVED;
     if (restsOf(opts).includes(value)) return SLOT_CLASS.REST;
+    if (supportsOf(opts).includes(value)) return SLOT_CLASS.SUPPORT;
     if (primariesOf(opts).includes(value)) return SLOT_CLASS.PRIMARY;
     return SLOT_CLASS.UNRESOLVED;
 }
@@ -122,6 +175,92 @@ export function isRestSlot(value, opts) {
 
 export function isUnresolvedSlot(value, opts) {
     return classifySlot(value, opts) === SLOT_CLASS.UNRESOLVED;
+}
+
+/** Real work today, none of it a mechanical primary session. */
+export function isSupportSlot(value, opts) {
+    return classifySlot(value, opts) === SLOT_CLASS.SUPPORT;
+}
+
+/**
+ * Nothing required at all, as against a rest day that still asks for the
+ * daily practice. Asked of the value directly rather than through
+ * classifySlot, because both land on REST there on purpose and this is the
+ * one question that needs them separated.
+ */
+export function isFullRestSlot(value) {
+    return value === LEGACY_FULL_REST;
+}
+
+/**
+ * What kind of day is this PLAN?
+ *
+ * The plan is the authority, not the projected slot, and until now three
+ * callers each worked this out from the plan's fields by hand: typeOfPlan()
+ * in weekStrip, toLegacySlot() here, and the Today prescription. They
+ * agreed about primary and rest and disagreed about everything else,
+ * because a support-only day fell off the end of each of them differently.
+ *
+ * Takes an ALREADY NORMALISED plan, so this answers a question about valid
+ * prescribed state and never about whether a record could be read. A caller
+ * holding raw data runs normaliseDayPlan() first and handles its null, which
+ * is the data-integrity condition this deliberately does not model.
+ *
+ * Note what a MIXED day returns: its primary type. A day carrying a
+ * mechanical primary session AND supporting work is, as far as the slot
+ * vocabulary is concerned, a day of that mechanical type. The supporting
+ * work is additional, tracked separately and completed separately. That is
+ * what lets All of It schedule primary plus support on one date without
+ * needing a slot value for the combination, and it is why no 'mixed' class
+ * appears above.
+ */
+export function classifyDayPlan(plan) {
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) {
+        return { class: SLOT_CLASS.UNRESOLVED, slot: undefined };
+    }
+    const supporting = Array.isArray(plan.supportingWork) ? plan.supportingWork : [];
+    const practice = Array.isArray(plan.dailyPractice) ? plan.dailyPractice : [];
+
+    if (plan.mode === 'rest') {
+        /* EVERY rest-mode plan is 'rest' here, and full rest is NOT inferred.
+           I wrote the opposite first: no daily practice meant genuine full
+           rest. It is wrong, and the way it is wrong is the mistake this
+           module exists to prevent.
+
+           An empty dailyPractice does not mean the programme asked for
+           nothing. It also happens when buildPelvicPracticePlan returns
+           mode 'paused' with no steps, which is what an unresolved PAIN
+           report produces, and on terse records written before the practice
+           existed. So the rule would have silently relabelled a member's
+           rest day as full rest BECAUSE HE REPORTED PAIN, turning a safety
+           state into a programme state. dayPlan.js warns about exactly that
+           conflation and it is right to.
+
+           Full rest therefore has to be marked by the generator, not deduced
+           from an absence, and that marker is a data-contract change with a
+           versioned reader and writer. It belongs in the phase that
+           introduces it. LEGACY_FULL_REST is defined and classified above so
+           the vocabulary is agreed across the wire now; nothing produces one
+           yet, which is the honest position. */
+        return { class: SLOT_CLASS.REST, slot: LEGACY_REST };
+    }
+
+    const primary = plan.primarySession;
+    if (primary && typeof primary === 'object' && typeof primary.type === 'string' && primary.type) {
+        return {
+            class: classifySlot(primary.type) === SLOT_CLASS.PRIMARY
+                ? SLOT_CLASS.PRIMARY : SLOT_CLASS.UNRESOLVED,
+            slot: primary.type,
+            mixed: supporting.length > 0,
+        };
+    }
+
+    if (supporting.length > 0) return { class: SLOT_CLASS.SUPPORT, slot: LEGACY_SUPPORT };
+
+    /* No primary, not rest, and nothing supporting. The programme has not
+       said what this day is, so neither does this. Not relabelled as rest:
+       that would claim a prescription nobody made. */
+    return { class: SLOT_CLASS.UNRESOLVED, slot: undefined };
 }
 
 /**
