@@ -1,6 +1,7 @@
 name: Old-head V1/V2 characterization
 
-# Synthetic V2 fixture only. Runs the unchanged application in Chromium.
+# Synthetic V2 records against the EXACT unchanged pre-#194 V1 source.
+# Two checkouts: test-only probe from this PR, and frozen client from V1.
 on:
   push:
     branches:
@@ -16,11 +17,22 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: probe
+      - name: Check out the actual V1 app and V1 pure modules
+        uses: actions/checkout@v4
+        with:
+          ref: 84b3e07d7a87526d6670a44198b90f2e7a22daf3
+          path: baseline
+      - name: Copy the test ONLY; no V2 source changes
+        run: cp probe/tests/e2e/v1-v2-oldhead-characterization.test.js baseline/tests/e2e/
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
+          cache-dependency-path: baseline/package-lock.json
       - run: npm ci
+        working-directory: baseline
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -28,6 +40,8 @@ jobs:
           restore-keys: |
             playwright-chromium-
       - run: npx playwright install --with-deps chromium
-      - name: Run ONLY the four old-client observations
+        working-directory: baseline
+      - name: Run the four observations on frozen V1 actual app source
         timeout-minutes: 10
         run: E2E=1 npx vitest run tests/e2e/v1-v2-oldhead-characterization.test.js --reporter=verbose
+        working-directory: baseline
