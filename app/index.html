@@ -3656,6 +3656,18 @@ function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
  * repair has already happened and is invisible in the value. */
 let _scheduleRepairedOnAdopt=false;
 
+/* Which load is current.
+ *
+ * loadPersisted() awaits twice, and a reply arriving after the session has
+ * moved on must be able to tell "I am still the load in progress" from
+ * "another load started since". A uid comparison alone cannot: signing out of
+ * A and back into A gives the same uid for a genuinely different load, and the
+ * first load's late reply would pass the check.
+ *
+ * Monotonic, never reset. Each load takes a number and only acts while that
+ * number is still the newest. */
+let _loadToken=0;
+
 /**
  * The one place a restored or imported state becomes `persisted`.
  *
@@ -3735,36 +3747,123 @@ function adoptPersisted(raw){
 async function loadPersisted(){
     if(!currentUser)return;
     _persistedLoaded=false;
-    // Read localStorage backup first so we can compare timestamps
-    let localData=null;
-    try{const raw=localStorage.getItem('bp_data_'+currentUser.id);if(raw)localData=JSON.parse(raw);}catch(e){}
+
+    /* EVERYTHING THIS LOAD IS ABOUT, CAPTURED BEFORE THE FIRST AWAIT.
+
+       currentUser is a mutable global and this function awaits twice. The old
+       code read currentUser.id five separate times, once per use: the backup
+       key, the query filter, the dirty probe, the dirty clear and the XP
+       backup key. A sign-out or an account switch between any two of them
+       applied one member's data, or cleared one member's flag, inside another
+       member's session. _commitWrite() has captured its uid for exactly this
+       reason since Phase 2B; this function never adopted the discipline. */
+    const _uid=currentUser.id;
+    const _myToken=++_loadToken;
+    const _backupKey='bp_data_'+_uid;
+    const _dirtyKey='bp_dirty_'+_uid;
+
+    /* `undefined` means the read THREW. Distinct from null, which means the
+       key is genuinely absent, and the difference is load-bearing below. */
+    const _readRaw=()=>{ try{ return localStorage.getItem(_backupKey); }catch(e){ return undefined; } };
+    const _readDirty=()=>{ try{ return localStorage.getItem(_dirtyKey); }catch(e){ return null; } };
+
+    /* Is this still the load that owns the session? Two conditions, because
+       either alone is insufficient: the uid catches a switch to another
+       account, and the token catches A -> B -> A, where the uid matches but a
+       newer load has already started. */
+    const _stillMine=()=>!!currentUser&&currentUser.id===_uid&&_loadToken===_myToken;
+
+    /* The exact backup string, not just _savedAt: two writes inside the same
+       millisecond share a timestamp and the string does not. */
+    let _backupRaw=_readRaw(), localData=null;
+    try{ if(_backupRaw)localData=JSON.parse(_backupRaw); }catch(e){ localData=null; }
+
+    /* Another tab can replace the backup while we are reading the server, in
+       which case the copy captured above is already stale before it is ever
+       adopted. So re-read and take the newer one. Once, not in a loop.
+
+       Returns false ONLY when the re-read threw. An unverifiable read must not
+       licence adopting the outdated copy we happen to be holding. */
+    const _refreshBackupIfChanged=()=>{
+        const now=_readRaw();
+        if(now===undefined) return false;
+        if(now===_backupRaw) return true;
+        _backupRaw=now;
+        try{ localData=now?JSON.parse(now):null; }catch(e){ localData=null; }
+        return true;
+    };
+
+    /* An unreadable read is never equal to anything, including another
+       unreadable read.
+
+       The `now!==undefined` half is load-bearing: a verification read that
+       throws must not clear the flag, and a mutation test proves it.
+
+       The `_backupRaw!==undefined` half is DEFENSIVE AND CURRENTLY
+       UNREACHABLE, which is worth saying so nobody later treats it as
+       load-bearing. If the capture read throws then localData is null, the
+       resync branch requires `&& localData`, and the clear is never reached.
+       It is kept because the two reads are independent and a future caller
+       could reach this with no captured value, not because it prevents a bug
+       that exists today. A mutation removing it survives, correctly. */
+    const _backupUnchanged=()=>{
+        const now=_readRaw();
+        return now!==undefined && _backupRaw!==undefined && now===_backupRaw;
+    };
+
+    /* The ONLY way `persisted` is written in this function. Six call sites
+       used to write it directly and none of them checked whose session they
+       were in. Routing them through one guard is what makes a seventh
+       unguarded site hard to add. */
+    const _adopt=(raw,opts)=>{
+        if(!_stillMine()) return false;
+        let payload=raw;
+        if(opts&&opts.fromBackup){
+            /* RE-DERIVED HERE, not passed in. The first version took the
+               payload from the caller, which had already destructured it from
+               the copy captured before the await. _refreshBackupIfChanged()
+               then updated `localData` and nothing used the result, so a
+               backup replaced by another tab mid-read was still adopted
+               stale. Deriving it after the refresh is the whole point of
+               having a refresh. */
+            if(!_refreshBackupIfChanged()) return false;
+            if(!localData) return false;
+            const {_savedAt:_,...rest}=localData;
+            payload=rest;
+        }
+        adoptPersisted(payload);
+        _persistedLoaded=true;
+        return true;
+    };
     try{
         const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
-        const _query=sb.from('user_data').select('*').eq('id',currentUser.id).single();
+        const _query=sb.from('user_data').select('*').eq('id',_uid).single();
         let _queryFailed=false;
         const {data,error}=await Promise.race([_query,_timeout]).catch(e=>{
             // Timeout or network error — fall back to localStorage
             _queryFailed=true;
-            if(localData) try{const {_savedAt:_,...rest}=localData;adoptPersisted(rest);_persistedLoaded=true;}catch(e2){}
+            if(localData) try{_adopt(null,{fromBackup:true});}catch(e2){}
             return {};
         });
         if(!data){
             if(localData){
-                try{const {_savedAt:_,...rest}=localData;adoptPersisted(rest);_persistedLoaded=true;}catch(e){}
+                try{_adopt(null,{fromBackup:true});}catch(e){}
             }
             // Brand-new account starts at Beginner, matching what the intro promises.
             // Only when the query genuinely SUCCEEDED and found no row (PGRST116) and
             // there is no local backup — a timeout or error must never downgrade a
             // returning member who simply could not be read this time.
             else if(!_queryFailed && (!error || error.code==='PGRST116')){
-                adoptPersisted({difficulty:'beginner',progressCheckins:[]});
-                _persistedLoaded=true;
+                _adopt({difficulty:'beginner',progressCheckins:[]});
             }
             // Otherwise the read failed and we have no backup: stay unloaded so
             // nothing overwrites the row we could not see.
             else { _showLoadFailedBanner(); }
             return;
         }
+        /* A reply for the account we were reading, landing in a session that
+           has moved on, is discarded rather than applied. */
+        if(!_stillMine()) return;
         _persistedLoaded=true;
         // An older backup cannot replace newly available check-in history with
         // an invented empty list. Merge this one previously unread field.
@@ -3775,19 +3874,38 @@ async function loadPersisted(){
         // treat local as the source of truth and re-sync.
         const dbTime=new Date(data.updated_at||0).getTime();
         const localTime=localData?new Date(localData._savedAt||0).getTime():0;
-        const hasDirty=!!localStorage.getItem('bp_dirty_'+currentUser.id);
+        const hasDirty=!!_readDirty();
         if((localTime>dbTime || (hasDirty && localData && localTime>=dbTime)) && localData){
-            const {_savedAt:_,...rest}=localData;
-            adoptPersisted(rest);
+            if(!_adopt(null,{fromBackup:true})) return;
             // Re-sync Supabase with the newer local data
             try{
-                _persistedLoaded=true; // local backup is a known-good state
-                const _err=await _upsertWithSchemaFallback();
-                if(!_err) localStorage.removeItem('bp_dirty_'+currentUser.id);
+                /* CAPTURED, NOT LIVE. Calling _upsertWithSchemaFallback() with
+                   no argument makes it build the payload from the globals AT
+                   CALL TIME, which here is after an await. Built synchronously
+                   from the backup just adopted and passed in. Every other
+                   write path in this file already captures its payload; this
+                   was the one that did not. */
+                const _payload={id:_uid,..._buildSavePayload()};
+                const _err=await _upsertWithSchemaFallback(_payload);
+                /* Three conditions, all required to clear the flag:
+                     1. the write was acknowledged. _err covers _WRITE_TIMEOUT,
+                        which is truthy, so an uncertain outcome keeps it.
+                     2. this is still our session.
+                     3. the backup we just wrote is still the newest one, and
+                        verifiably so. */
+                if(!_err&&_stillMine()&&_backupUnchanged()){
+                    try{ localStorage.removeItem(_dirtyKey); }catch(e2){}
+                }
             }catch(e){}
         } else {
-            adoptPersisted(_internalFromRow(data));
+            _adopt(_internalFromRow(data));
         }
+        /* OWNERSHIP GATE for the two blocks below. Both mutate `persisted`
+           and then call savePersisted(), and both run after two awaits. A
+           ONE-TIME XP migration applied to the wrong account cannot be undone,
+           and a weekly reset would clear another member's completedDays.
+           Nothing between them awaits, so one gate covers both. */
+        if(!_stillMine()) return;
         // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
         // Use allTimeSessionCount (never truncated) rather than sessionLog.length (capped at 50)
         // so long-time users are never wrongly flagged. Only runs once per account.
@@ -3795,7 +3913,7 @@ async function loadPersisted(){
             const refCount=persisted.allTimeSessionCount || (persisted.sessionLog||[]).length;
             if(refCount>0 && persisted.totalXp > refCount*50){
                 // Back up before modifying, so data can always be recovered
-                try{localStorage.setItem('bp_xp_backup_'+currentUser.id,JSON.stringify({totalXp:persisted.totalXp,refCount,_at:new Date().toISOString()}));}catch(e){}
+                try{localStorage.setItem('bp_xp_backup_'+_uid,JSON.stringify({totalXp:persisted.totalXp,refCount,_at:new Date().toISOString()}));}catch(e){}
                 persisted.totalXp=refCount*15;
             }
             persisted.xpMigrated=true;
@@ -3811,7 +3929,7 @@ async function loadPersisted(){
     }catch(e){
         console.error('loadPersisted:',e);
         if(localData){
-            try{const {_savedAt:_,...rest}=localData;adoptPersisted(rest);_persistedLoaded=true;}catch(e2){}
+            try{const {_savedAt:_,...rest}=localData;_adopt(rest,{fromBackup:true});}catch(e2){}
         } else { _showLoadFailedBanner(); }
     }
 }
