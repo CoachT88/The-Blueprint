@@ -1352,6 +1352,62 @@
                 <button id="today-alt-btn" class="hidden flex-1 text-[11px] font-bold u-text-2 py-2 underline decoration-slate-700 underline-offset-4">Something else</button>
                 </div>
             </div>
+            <!-- MOVE, PREVIEW ONLY.
+                 Two independent gates, and neither is "the generator does not
+                 write this". Saved and imported plans carry whatever they
+                 carry, so unreachable-by-data is not a safety claim:
+                   1. the day's plan must hold a `move` supporting item
+                   2. MOVE_UI_PREVIEW must be true
+                 Every control handler re-checks gate 2, so markup left in the
+                 DOM by any route cannot be driven. Nothing here writes: no
+                 log row, no XP, no streak, no completed day, no save. -->
+            <section id="move-card" class="hidden" aria-labelledby="move-title">
+                <h3 id="move-title">Move</h3>
+                <p id="move-purpose"></p>
+                <button id="move-open" class="btn-primary">Open</button>
+
+                <div id="move-session" class="hidden">
+                    <p id="move-why"></p>
+
+                    <div id="move-ready">
+                        <p id="move-pick-label">Pick what you can do comfortably today</p>
+                        <div id="move-activities" role="group" aria-labelledby="move-pick-label"></div>
+                        <p id="move-duration-label">Duration</p>
+                        <div id="move-durations" role="group" aria-labelledby="move-duration-label"></div>
+                        <button id="move-start" class="btn-primary" disabled>Start</button>
+                        <p id="move-safety"></p>
+                        <button id="move-skip" class="btn-outline">Skip today</button>
+                    </div>
+
+                    <div id="move-running" class="hidden">
+                        <p id="move-elapsed" aria-live="polite" aria-atomic="true"></p>
+                        <p id="move-target"></p>
+                        <p id="move-cue"></p>
+                        <button id="move-pause" class="btn-primary">Pause</button>
+                        <button id="move-resume" class="hidden btn-primary">Resume</button>
+                        <button id="move-stop" class="btn-outline">Stop</button>
+                    </div>
+
+                    <div id="move-summary" class="hidden">
+                        <p id="move-summary-line"></p>
+                        <p id="move-preview-note">Preview only. This activity has not been saved.</p>
+                        <button id="move-confirm" class="btn-primary">Confirm &middot; preview only, nothing is saved</button>
+                        <button id="move-discard" class="hidden btn-outline">Discard</button>
+                        <button id="move-keep-going" class="hidden btn-outline">Keep going</button>
+                    </div>
+
+                    <div id="move-confirmed" class="hidden">
+                        <p id="move-confirmed-note">Preview only. This activity has not been saved.</p>
+                        <p id="move-confirmed-detail">No session was recorded. No progress, no XP, no streak, no history entry.</p>
+                        <button id="move-done" class="btn-primary">Done</button>
+                    </div>
+
+                    <div id="move-skipped" class="hidden">
+                        <p id="move-skipped-note">Skipped today.</p>
+                        <button id="move-undo" class="btn-primary">Undo</button>
+                    </div>
+                </div>
+            </section>
             <section id="daily-pelvic-card" class="hidden" aria-labelledby="daily-pelvic-title">
                 <h3 id="daily-pelvic-title">Daily practice</h3>
                 <p id="daily-pelvic-note"></p>
@@ -7390,6 +7446,9 @@ function renderToday(){
     const card=document.getElementById('hq-today-card');
     if(card) card.dataset.state=r.state;
     renderDailyPelvicCare(r);
+    /* Both gates are inside renderMoveCard, so this call is safe to make
+       unconditionally and the card stays hidden for every current member. */
+    try{ renderMoveCard(todayPlan()); }catch(e){ console.error('move card:',e); }
 }
 
 function dailyPelvicCareDone(){
@@ -7422,6 +7481,270 @@ function currentPelvicPracticePlan(busy=false){
     const stored=todayPlan()?.dailyPractice?.find(x=>x.type==='pelvic-practice');
     return stored?window.BP.normalisePelvicPracticePlan({v:1,date,mode:stored.dose?.mode,steps:stored.dose?.steps}):fresh;
 }
+/* ──────────────────────────────────────────────────────────────────────────
+   MOVE: a support-day activity, PREVIEW ONLY.
+
+   Nothing in this block writes. No session log row, no XP, no streak, no
+   completedDays, no savePersisted(), no push. finishSession() and onSetDone()
+   are not called and not imported into this flow, which is the point: today
+   the TIMER's completion callback is what records a session, and a movement
+   session must not work that way. Confirm is the only control that would ever
+   record, and here it records nothing and says so.
+
+   TWO GATES, AND ONLY ONE OF THEM IS A GUARANTEE.
+
+   The day's plan must carry a `move` supporting item, AND MOVE_UI_PREVIEW
+   must be true. The data condition narrows what is reachable; it is NOT a
+   safety claim, because importData() adopts member-supplied JSON and a
+   day_plans row is just data, so "the generator does not create move work"
+   proves nothing about what a stored plan contains. MOVE_UI_PREVIEW is the
+   gate that holds, and every handler re-checks it so markup left in the DOM
+   by any route cannot be driven.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Off. Flipping this is a deliberate act, and tests do it by bare assignment
+   the way the harness already sets currentUser. */
+let MOVE_UI_PREVIEW=false;
+
+const MOVE_ACTIVITIES=[
+    {id:'walk',    label:'Walk outside'},
+    {id:'marching',label:'Marching on the spot'},
+    {id:'indoors', label:'Walking indoors'},
+    {id:'bike',    label:'Stationary bike'},
+];
+const MOVE_DURATIONS=[15,30];
+const MOVE_WHY='Erections depend partly on healthy blood vessels, and regular '
+    +'activity supports vascular health over time. This is general health work. '
+    +'It is not a treatment for erection problems and it cannot tell you what is '
+    +'causing one.';
+const MOVE_SAFETY='Aim for an effort where your breathing picks up but you could '
+    +'still talk. If anything hurts, feels sharp, or makes you dizzy or breathless, '
+    +'stop. Those are reasons to speak to a doctor, not to push through.';
+/* Keyed on elapsed share of the chosen duration, not on wall-clock, so a
+   15 and a 30 minute session get the same three beats. */
+const MOVE_CUES=[
+    {at:0,    text:'Settle into a pace you could hold for longer than this.'},
+    {at:0.34, text:'Breathing a bit harder is the range you want. If you cannot talk, ease off.'},
+    {at:0.75, text:'Finishing at an easy pace still counts. Coming back another day is the part that builds the habit.'},
+];
+
+/* All of it. Deliberately not on `persisted`: this state is never saved. */
+let _move={state:'card',activity:null,duration:null,elapsed:0,timer:null,startedAt:0};
+let _moveWired=false;
+
+/** The move supporting item for a date, or null. Gate 1. */
+function moveWorkFor(plan){
+    if(!plan||typeof plan!=='object') return null;
+    const items=Array.isArray(plan.supportingWork)?plan.supportingWork:[];
+    return items.find(w=>w&&w.type==='move')||null;
+}
+
+/** Gate 2, asked once per handler. */
+function _moveAllowed(){ return MOVE_UI_PREVIEW===true; }
+
+const _moveEl=id=>document.getElementById(id);
+const _moveShow=(id,on)=>{ const n=_moveEl(id); if(n) n.classList.toggle('hidden',!on); };
+function _moveFmt(sec){
+    const m=Math.floor(sec/60), ss=String(Math.floor(sec%60)).padStart(2,'0');
+    return `${m}:${ss}`;
+}
+/** "6 minutes and 12 seconds", for the summary. Plain words, not a clock. */
+function _moveWords(sec){
+    const m=Math.floor(sec/60), ss=Math.floor(sec%60);
+    const mm=`${m} minute${m===1?'':'s'}`;
+    return ss?`${mm} and ${ss} second${ss===1?'':'s'}`:mm;
+}
+
+function renderMoveCard(plan){
+    const card=_moveEl('move-card');
+    if(!card) return;
+    const work=moveWorkFor(plan);
+    /* BOTH gates, every render. */
+    if(!_moveAllowed()||!work){ card.classList.add('hidden'); return; }
+    card.classList.remove('hidden');
+    const mins=work.dose&&Number.isFinite(work.dose.minutes)?work.dose.minutes:MOVE_DURATIONS[0];
+    _moveEl('move-purpose').textContent=`Steady activity, ${MOVE_DURATIONS.join(' or ')} minutes. `
+        +'You pick the activity and the duration.';
+    _moveEl('move-why').textContent=MOVE_WHY;
+    _moveEl('move-safety').textContent=MOVE_SAFETY;
+    if(!_moveEl('move-activities').children.length) _moveBuildChoices(mins);
+    _moveRenderState();
+}
+
+function _moveBuildChoices(suggested){
+    const acts=_moveEl('move-activities');
+    for(const a of MOVE_ACTIVITIES){
+        const b=document.createElement('button');
+        b.type='button'; b.className='btn-outline';
+        b.dataset.activity=a.id; b.textContent=a.label;
+        b.setAttribute('aria-pressed','false');
+        b.addEventListener('click',()=>_moveChoose('activity',a.id));
+        acts.appendChild(b);
+    }
+    const durs=_moveEl('move-durations');
+    for(const d of MOVE_DURATIONS){
+        const b=document.createElement('button');
+        b.type='button'; b.className='btn-outline';
+        b.dataset.duration=String(d); b.textContent=`${d} minutes`;
+        b.setAttribute('aria-pressed','false');
+        b.addEventListener('click',()=>_moveChoose('duration',d));
+        durs.appendChild(b);
+    }
+    if(MOVE_DURATIONS.includes(suggested)) _moveChoose('duration',suggested);
+}
+
+function _moveChoose(kind,value){
+    if(!_moveAllowed()) return;
+    if(_move.state!=='ready') return;
+    _move[kind]=value;
+    /* Attribute selectors, not classes. A class used only as a query hook
+       has no CSS rule, and tests/classCoverage.test.js correctly refuses a
+       class the vendored stylesheet cannot style. The data attributes were
+       already there for the value. */
+    const sel=kind==='activity'?'#move-activities [data-activity]':'#move-durations [data-duration]';
+    const key=kind==='activity'?'activity':'duration';
+    document.querySelectorAll(sel).forEach(b=>{
+        const on=b.dataset[key]===String(value);
+        b.setAttribute('aria-pressed',String(on));
+        b.classList.toggle('selected',on);
+    });
+    /* Start needs BOTH, so the session always knows what he picked. */
+    _moveEl('move-start').disabled=!(_move.activity&&_move.duration);
+}
+
+function _moveRenderState(){
+    const st=_move.state;
+    _moveShow('move-session',st!=='card');
+    _moveShow('move-ready',st==='ready');
+    _moveShow('move-running',st==='running'||st==='paused');
+    _moveShow('move-summary',st==='stopped'||st==='reached');
+    _moveShow('move-confirmed',st==='confirmed');
+    _moveShow('move-skipped',st==='skipped');
+    _moveShow('move-open',st==='card');
+    if(st==='running'||st==='paused'){
+        const act=MOVE_ACTIVITIES.find(a=>a.id===_move.activity);
+        _moveEl('move-elapsed').textContent=_moveFmt(_move.elapsed);
+        _moveEl('move-target').textContent=st==='paused'
+            ? `Paused \u00b7 of ${_moveFmt(_move.duration*60)}`
+            : `of ${_moveFmt(_move.duration*60)} \u00b7 ${act?act.label:''}`;
+        _moveEl('move-cue').textContent=st==='paused'
+            ? 'Take as long as you need.'
+            : _moveCueFor(_move.elapsed/(_move.duration*60));
+        _moveShow('move-pause',st==='running');
+        _moveShow('move-resume',st==='paused');
+    }
+    if(st==='stopped'||st==='reached'){
+        const reached=st==='reached';
+        _moveEl('move-summary-line').textContent=reached
+            ? `You moved for ${_moveWords(_move.elapsed)}. You can build on that effort during your next session.`
+            : `You moved for ${_moveWords(_move.elapsed)}. Your selected target was ${_move.duration} minutes. `
+              +'You can build on that effort during your next session.';
+        _moveShow('move-discard',!reached);
+        _moveShow('move-keep-going',reached);
+    }
+}
+function _moveCueFor(share){
+    let text=MOVE_CUES[0].text;
+    for(const c of MOVE_CUES) if(share>=c.at) text=c.text;
+    return text;
+}
+
+function _moveTick(){
+    _move.elapsed=Math.round((Date.now()-_move.startedAt)/1000);
+    if(_move.state==='running'&&_move.elapsed>=_move.duration*60&&!_move.reachedSeen){
+        /* The target is reached and NOTHING happens because of it. No award,
+           no completion, no auto-confirm. The timer keeps running and the
+           member decides. This is the inversion of onSetDone(). */
+        _move.reachedSeen=true;
+        _move.state='reached';
+        clearInterval(_move.timer); _move.timer=null;
+    }
+    _moveRenderState();
+}
+
+function moveStart(){
+    if(!_moveAllowed()) return;
+    if(_move.state!=='ready'||!_move.activity||!_move.duration) return;
+    _move.state='running'; _move.elapsed=0; _move.reachedSeen=false;
+    _move.startedAt=Date.now();
+    clearInterval(_move.timer);
+    _move.timer=setInterval(_moveTick,1000);
+    _moveRenderState();
+}
+function movePause(){
+    if(!_moveAllowed()||_move.state!=='running') return;
+    clearInterval(_move.timer); _move.timer=null;
+    _move.state='paused'; _moveRenderState();
+}
+function moveResume(){
+    if(!_moveAllowed()||_move.state!=='paused') return;
+    /* Resume from the SAME elapsed value, not from the original start. */
+    _move.startedAt=Date.now()-_move.elapsed*1000;
+    _move.state='running';
+    _move.timer=setInterval(_moveTick,1000);
+    _moveRenderState();
+}
+function moveStop(){
+    if(!_moveAllowed()) return;
+    if(_move.state!=='running'&&_move.state!=='paused') return;
+    clearInterval(_move.timer); _move.timer=null;
+    /* Reports what actually happened. An early stop is never a completed
+       target, and the summary states both numbers. */
+    _move.state=_move.elapsed>=_move.duration*60?'reached':'stopped';
+    _moveRenderState();
+}
+function moveConfirm(){
+    if(!_moveAllowed()) return;
+    if(_move.state!=='stopped'&&_move.state!=='reached') return;
+    /* THE ONLY CONTROL THAT WOULD EVER RECORD, AND IT RECORDS NOTHING. */
+    _move.state='confirmed'; _moveRenderState();
+}
+function moveDiscard(){
+    if(!_moveAllowed()||_move.state!=='stopped') return;
+    _moveReset();
+}
+function moveKeepGoing(){
+    if(!_moveAllowed()||_move.state!=='reached') return;
+    _move.state='running';
+    _move.startedAt=Date.now()-_move.elapsed*1000;
+    _move.timer=setInterval(_moveTick,1000);
+    _moveRenderState();
+}
+function moveSkip(){
+    if(!_moveAllowed()||_move.state!=='ready') return;
+    _move.state='skipped'; _moveRenderState();
+}
+function moveUndo(){
+    if(!_moveAllowed()||_move.state!=='skipped') return;
+    /* Interface state only. Nothing was written, so nothing is unwritten. */
+    _moveReset();
+}
+function moveDone(){
+    if(!_moveAllowed()||_move.state!=='confirmed') return;
+    _moveReset(); _move.state='card'; _moveRenderState();
+}
+function _moveReset(){
+    clearInterval(_move.timer);
+    _move={state:'ready',activity:_move.activity,duration:_move.duration,
+           elapsed:0,timer:null,startedAt:0};
+    _moveRenderState();
+}
+function moveOpen(){
+    if(!_moveAllowed()||_move.state!=='card') return;
+    /* Open is not Start. A tap to look must never begin a session. */
+    _move.state='ready'; _moveRenderState();
+}
+
+function wireMoveCard(){
+    const on=(id,fn)=>{ const n=_moveEl(id); if(n) n.addEventListener('click',fn); };
+    on('move-open',moveOpen);        on('move-start',moveStart);
+    on('move-pause',movePause);      on('move-resume',moveResume);
+    on('move-stop',moveStop);        on('move-confirm',moveConfirm);
+    on('move-discard',moveDiscard);  on('move-keep-going',moveKeepGoing);
+    on('move-skip',moveSkip);        on('move-undo',moveUndo);
+    on('move-done',moveDone);
+}
+
 function renderDailyPelvicCare(r){
     const card=document.getElementById('daily-pelvic-card');
     const paused=pelvicPracticeNeedsReview();
@@ -8248,6 +8571,7 @@ function renderDashboard(){
     renderCoachNudge();
     renderToday();
     renderWeekStrip();
+    if(!_moveWired){ _moveWired=true; _move.state='card'; wireMoveCard(); }
     renderProgressNudge();
     renderAttentionBand();
     window._bpHqRendered=true;
