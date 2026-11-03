@@ -105,7 +105,11 @@ describe('one adoption boundary, enforced in the source', () => {
            no-data fallback, the brand-new account, the resync branch, the
            server row, and the outer catch. If this moves, a path was added or
            removed. */
-        const body = bodyOf('async function loadPersisted(){');
+        /* COMMENTS STRIPPED FIRST. A doc comment that explains the guard
+           necessarily names it, and `_adopt()` in prose is not a call site.
+           Same technique, and the same reason, as the `code` constant at the
+           top of this file. */
+        const body = bodyOf('async function loadPersisted(){').replace(/\/\*[\s\S]*?\*\//g, ' ');
         const calls = body.match(/(?<!const )_adopt\(/g) || [];
         expect(calls).toHaveLength(6);
     });

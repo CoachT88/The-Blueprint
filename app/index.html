@@ -3778,6 +3778,25 @@ async function loadPersisted(){
     let _backupRaw=_readRaw(), localData=null;
     try{ if(_backupRaw)localData=JSON.parse(_backupRaw); }catch(e){ localData=null; }
 
+    /* The server's check-in history, and the merge that protects it.
+       An older backup must not replace newly available check-ins with an
+       invented empty list. That used to be one statement after the read, which
+       _refreshBackupIfChanged() then undid by re-parsing localData from the raw
+       string. It is a re-appliable function now, applied once after the
+       pre-decision refresh, so a refresh can no longer defeat it. */
+    let _serverCheckins=null;
+    const _mergeServerCheckins=()=>{
+        if(localData&&!Array.isArray(localData.progressCheckins)&&Array.isArray(_serverCheckins))
+            localData={...localData,progressCheckins:_serverCheckins};
+    };
+
+    /* The exact backup every branch below was CHOSEN from.
+       A branch decision is only valid for the snapshot it was made against. If
+       the backup moves again between the decision and the adoption, adopting
+       the new copy would carry out a decision nobody made about it, so _adopt
+       refuses instead. Undefined until a decision point sets it. */
+    let _decisionRaw;
+
     /* Another tab can replace the backup while we are reading the server, in
        which case the copy captured above is already stale before it is ever
        adopted. So re-read and take the newer one. Once, not in a loop.
@@ -3790,6 +3809,12 @@ async function loadPersisted(){
         if(now===_backupRaw) return true;
         _backupRaw=now;
         try{ localData=now?JSON.parse(now):null; }catch(e){ localData=null; }
+        /* NO MERGE HERE, deliberately. It looks like the natural home for it,
+           and a mutation removing it from here survives, because with the
+           refresh now running BEFORE the decision the re-parse path is
+           unreachable afterwards: a later change makes _adopt refuse rather
+           than re-parse. The merge is applied once, explicitly, after this
+           function runs, which is the call a mutation does catch. */
         return true;
     };
 
@@ -3827,6 +3852,12 @@ async function loadPersisted(){
                stale. Deriving it after the refresh is the whole point of
                having a refresh. */
             if(!_refreshBackupIfChanged()) return false;
+            /* The decision was made from a specific snapshot. If the backup has
+               moved on since, that decision no longer describes what is on
+               disk, so refuse rather than silently adopt something else. The
+               caller returns without enabling writes and the next load decides
+               again from fresh data. */
+            if(_decisionRaw!==undefined&&_backupRaw!==_decisionRaw) return false;
             if(!localData) return false;
             const {_savedAt:_,...rest}=localData;
             payload=rest;
@@ -3842,9 +3873,31 @@ async function loadPersisted(){
         const {data,error}=await Promise.race([_query,_timeout]).catch(e=>{
             // Timeout or network error — fall back to localStorage
             _queryFailed=true;
-            if(localData) try{_adopt(null,{fromBackup:true});}catch(e2){}
+            /* REFRESHED BEFORE THE DECISION, like every other branch. A backup
+               written while the read was in flight is the state to fall back
+               to, and the captured one may be stale by now. */
+            if(_stillMine()&&_refreshBackupIfChanged()){
+                _decisionRaw=_backupRaw;
+                if(localData) try{_adopt(null,{fromBackup:true});}catch(e2){}
+            }
             return {};
         });
+        /* OWNERSHIP AND FRESHNESS BEFORE ANY BRANCH READS localData.
+           This used to sit after the `if(!data)` block, which meant that whole
+           branch decided from the copy captured before the await. A backup that
+           APPEARED during the read was therefore invisible to it, and a
+           returning member with no row could be sent down the brand-new-account
+           path and reset to beginner defaults. */
+        if(!_stillMine()) return;
+        _serverCheckins=data&&Array.isArray(data.progress_checkins)?data.progress_checkins:null;
+        if(!_refreshBackupIfChanged()){
+            /* We held a backup and can no longer read it. Adopt nothing and
+               stay unloaded, so no save can overwrite either copy. */
+            _showLoadFailedBanner();
+            return;
+        }
+        _mergeServerCheckins();
+        _decisionRaw=_backupRaw;
         if(!data){
             if(localData){
                 try{_adopt(null,{fromBackup:true});}catch(e){}
@@ -3861,14 +3914,12 @@ async function loadPersisted(){
             else { _showLoadFailedBanner(); }
             return;
         }
-        /* A reply for the account we were reading, landing in a session that
-           has moved on, is discarded rather than applied. */
-        if(!_stillMine()) return;
-        _persistedLoaded=true;
-        // An older backup cannot replace newly available check-in history with
-        // an invented empty list. Merge this one previously unread field.
-        if(localData&&!Array.isArray(localData.progressCheckins)&&Array.isArray(data.progress_checkins))
-            localData={...localData,progressCheckins:data.progress_checkins};
+        /* NO UNCONDITIONAL `_persistedLoaded=true` HERE.
+           It used to be set at this point, so a resync whose adoption then
+           refused left the flag true with nothing adopted. savePersisted()
+           gates on exactly this flag, so the app was free to write defaults,
+           or the previous account's state, over the member's row. _adopt()
+           sets it, and only on success. */
         // If the local backup is newer than Supabase, or if a previous write
         // was locally committed but never confirmed by Supabase (dirty flag),
         // treat local as the source of truth and re-sync.
@@ -3929,7 +3980,7 @@ async function loadPersisted(){
     }catch(e){
         console.error('loadPersisted:',e);
         if(localData){
-            try{const {_savedAt:_,...rest}=localData;_adopt(rest,{fromBackup:true});}catch(e2){}
+            try{_adopt(null,{fromBackup:true});}catch(e2){}
         } else { _showLoadFailedBanner(); }
     }
 }

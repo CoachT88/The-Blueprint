@@ -599,6 +599,191 @@ describe('new protections: ownership of the load and of the dirty flag', () => {
        the same value at that moment and no test can make them differ. Using
        `_uid` there is hardening for consistency, not a fixed defect, and this
        test passes against the unfixed code too. */
+    /* ===================================================================
+       REVIEW FIXES. Every branch decision must be made from a backup that
+       was refreshed and validated FIRST, including the `!data` path, and a
+       decision must not be carried out against a snapshot it was not made
+       from. These six all fail against the pre-fix implementation.
+       =================================================================== */
+
+    test('R1. an older captured backup replaced by a newer one flips the decision', async () => {
+        /* Captured backup is OLDER than the row, so the pre-fix decision went
+           to the server branch and ignored local work entirely. The copy
+           actually on disk by then is NEWER than the row. */
+        const app = await openApp();
+        try {
+            await seed(app.page, { uid: A.id, row: rowFor(), backup: null, dirty: false });
+            await authSignIn(app.page, { ...A, row: rowFor() });
+            await app.page.evaluate(b => localStorage.setItem('bp_data_member-a', b),
+                backupFor({ totalXp: 450, _savedAt: '2026-03-01T00:00:00Z' }));  // older than row
+            await suspendRead(app.page);
+            await startLoad(app.page);
+            await app.page.evaluate(b => localStorage.setItem('bp_data_member-a', b),
+                backupFor({ totalXp: 888, _savedAt: '2026-03-19T00:00:00Z' }));  // newer than row
+            await releaseAndSettle(app.page);
+            const st = await appState(app.page);
+            expect(st.totalXp).toBe(888);
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('R2. a backup appearing during the read is seen by the no-row branch', async () => {
+        /* THE WORST OF THE SET. With no row and no captured backup, the
+           pre-fix `!data` branch decided from the stale view, took the
+           brand-new-account path and reset a returning member to beginner
+           defaults, even though a backup had arrived meanwhile. */
+        const app = await openApp();
+        try {
+            await seed(app.page, { uid: A.id, row: rowFor(), backup: null, dirty: false });
+            await authSignIn(app.page, { ...A, row: rowFor() });
+            await app.page.evaluate(() => {
+                localStorage.removeItem('bp_data_member-a');
+                window.__rowsByUser['member-a'] = null;      // no row this time
+                persisted.difficulty = 'advanced';
+            });
+            await suspendRead(app.page);
+            await startLoad(app.page);
+            await app.page.evaluate(b => localStorage.setItem('bp_data_member-a', b),
+                backupFor({ difficulty: 'advanced', totalXp: 640 }));
+            await releaseAndSettle(app.page);
+            const st = await appState(app.page);
+            expect(st.difficulty).toBe('advanced');   // not reset to beginner
+            expect(st.totalXp).toBe(640);
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('R3. a newer captured backup replaced by an older one re-decides', async () => {
+        /* The copy on disk is the truth even when it moves backwards: another
+           tab may have restored an export. The replacement here is older than
+           the ROW, so a decision made from it goes to the server branch, while
+           a decision made from the captured copy goes to the resync branch and
+           then adopts the older local data. The two answers differ, which is
+           what makes this test worth having: my first version asserted only
+           "not the copy we no longer hold" and passed either way. */
+        const app = await openApp();
+        try {
+            await seed(app.page, { uid: A.id, row: rowFor(), backup: null, dirty: false });
+            await authSignIn(app.page, { ...A, row: rowFor() });
+            await app.page.evaluate(b => localStorage.setItem('bp_data_member-a', b),
+                backupFor({ totalXp: 950, _savedAt: '2026-03-19T00:00:00Z' }));   // newer than row
+            await suspendRead(app.page);
+            await startLoad(app.page);
+            await app.page.evaluate(b => {
+                localStorage.setItem('bp_data_member-a', b);
+                localStorage.removeItem('bp_dirty_member-a');
+            }, backupFor({ totalXp: 120, _savedAt: '2026-03-05T00:00:00Z' }));    // older than row
+            await releaseAndSettle(app.page);
+            const st = await appState(app.page);
+            expect(st.totalXp).toBe(300);       // the server row, per the re-decision
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('R4. a backup changing between the decision and the adoption refuses the load', async () => {
+        /* The branch was chosen from one snapshot. If the backup moves again
+           before adoption, carrying out that decision against a different copy
+           would be acting on a judgement nobody made about it. Refuse, and do
+           not enable writes. */
+        const app = await openApp();
+        try {
+            await seed(app.page, { uid: A.id, row: rowFor(), backup: backupFor(), dirty: true });
+            await authSignIn(app.page, { ...A, row: rowFor() });
+            await app.page.evaluate(b => {
+                localStorage.setItem('bp_data_member-a', b);
+                localStorage.setItem('bp_dirty_member-a', '1');
+                persisted.totalXp = 13;                       // sentinel
+                /* Move the backup once more on the NEXT read, which is the one
+                   _adopt performs after the decision has been taken. */
+                /* Reads: 1 the capture, 2 the pre-decision refresh, 3 the one
+                   _adopt performs. The swap lands on the THIRD, which is the
+                   only way to move the backup AFTER the branch was chosen. */
+                window.__reads = 0;
+                const real = Storage.prototype.getItem;
+                const newer = b.replace('"totalXp":450', '"totalXp":4242');
+                Storage.prototype.getItem = function (k) {
+                    if (String(k) === 'bp_data_member-a') {
+                        window.__reads++;
+                        if (window.__reads >= 3) return newer;
+                    }
+                    return real.call(this, k);
+                };
+            }, backupFor({ totalXp: 450 }));
+            await app.page.evaluate(() => loadPersisted());
+            await app.page.waitForTimeout(1500);
+            const out = await app.page.evaluate(() => ({
+                xp: persisted.totalXp, loaded: _persistedLoaded,
+            }));
+            expect(out.xp).toBe(13);          // neither copy adopted
+            expect(out.loaded).toBe(false);   // and writes stay disabled
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('R5. an unverifiable backup leaves _persistedLoaded false and blocks writes', async () => {
+        /* The flag only matters through savePersisted(), which gates on it, so
+           this asserts the consequence and not just the boolean. Pre-fix the
+           flag was set unconditionally before the branch, so a refused
+           adoption still left the app free to overwrite the row. */
+        const app = await openApp();
+        try {
+            await seed(app.page, { uid: A.id, row: rowFor(), backup: backupFor(), dirty: true });
+            await authSignIn(app.page, { ...A, row: rowFor() });
+            await app.page.evaluate(b => {
+                localStorage.setItem('bp_data_member-a', b);
+                localStorage.setItem('bp_dirty_member-a', '1');
+                window.__reads = 0;
+                const real = Storage.prototype.getItem;
+                Storage.prototype.getItem = function (k) {
+                    if (String(k).startsWith('bp_data_')) {
+                        window.__reads++;
+                        if (window.__reads > 1) throw new Error('storage unavailable');
+                    }
+                    return real.call(this, k);
+                };
+            }, backupFor());
+            await app.page.evaluate(() => loadPersisted());
+            await app.page.waitForTimeout(1500);
+            const loaded = await app.page.evaluate(() => _persistedLoaded);
+            expect(loaded).toBe(false);
+            /* Cleared HERE, not before the load: the sign-in boot debounces a
+               save by 800ms and it would otherwise be counted against this. */
+            await app.page.evaluate(() => { window.__writes.length = 0; });
+            // And the consequence: a save is refused outright.
+            await app.page.evaluate(() => savePersisted());
+            await app.page.waitForTimeout(1200);
+            const writes = await app.page.evaluate(() => window.__writes.length);
+            expect(writes).toBe(0);
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('R6. server check-in history survives a backup refresh', async () => {
+        /* The merge that protects newly available check-ins used to be a
+           one-off statement, which _refreshBackupIfChanged() then undid by
+           re-parsing localData from the raw string. */
+        const app = await openApp();
+        try {
+            const withCheckins = rowFor({ progress_checkins: [{ date: '2026-03-02', score: 4 }] });
+            await seed(app.page, { uid: A.id, row: withCheckins, backup: null, dirty: false });
+            await authSignIn(app.page, { ...A, row: withCheckins });
+            // A backup that carries no check-ins of its own, and wins on time.
+            const noCheckins = JSON.stringify({
+                ...JSON.parse(backupFor()), progressCheckins: undefined,
+            });
+            await app.page.evaluate(b => {
+                localStorage.setItem('bp_data_member-a', b);
+                localStorage.setItem('bp_dirty_member-a', '1');
+            }, noCheckins);
+            await suspendRead(app.page);
+            await startLoad(app.page);
+            // Replaced mid-read, forcing the refresh path that dropped the merge.
+            await app.page.evaluate(b => localStorage.setItem('bp_data_member-a', b),
+                JSON.stringify({ ...JSON.parse(noCheckins), totalXp: 460,
+                                 _savedAt: '2026-03-17T10:00:00Z' }));
+            await releaseAndSettle(app.page);
+            const checkins = await app.page.evaluate(() => persisted.progressCheckins);
+            expect(Array.isArray(checkins)).toBe(true);
+            expect(checkins).toHaveLength(1);
+            expect(checkins[0].score).toBe(4);
+        } finally { await app.close(); }
+    }, 90_000);
+
     test('13. the server read is filtered by the captured account id (characterization)', async () => {
         const app = await openApp();
         try {
