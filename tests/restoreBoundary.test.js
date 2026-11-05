@@ -72,11 +72,56 @@ describe('one adoption boundary, enforced in the source', () => {
     });
 
     test('every path that adopts is still accounted for', () => {
-        /* Seven: four localStorage restores, the brand-new account, the
-           server row, and the import. If this number moves, a path was added
-           or removed and the map in the phase notes is out of date. */
+        /* WAS EIGHT: seven call sites plus the definition. Now three, and the
+           boundary is NARROWER rather than wider.
+
+           loadPersisted() used to call adoptPersisted() directly from five
+           places, none of which checked whose session they were in. Those
+           five now route through one internal guard, _adopt(), which is the
+           single adoptPersisted() call in the function. So the three are: the
+           definition, _adopt()'s one call, and importData()'s one call.
+
+           The count alone no longer protects what it used to. A sixth
+           adoption path added inside loadPersisted() would call _adopt() and
+           leave this number at three, so the tripwire moved to the _adopt()
+           call sites in the next test. Both assertions are needed: this one
+           catches a new path bypassing _adopt entirely, that one catches a new
+           path using it. */
         const all = html.match(/adoptPersisted\(/g) || [];
-        expect(all).toHaveLength(8);   // seven call sites plus the definition
+        expect(all).toHaveLength(3);
+    });
+
+    test('loadPersisted adopts through exactly one guarded helper', () => {
+        const body = bodyOf('async function loadPersisted(){');
+        /* One adoptPersisted() inside the function, and it is inside _adopt.
+           More than one means a path went around the guard. */
+        expect(body.match(/adoptPersisted\(/g) || []).toHaveLength(1);
+        expect(body).toContain('const _adopt=(raw,opts)=>{');
+        expect(body).toMatch(/if\(!_stillMine\(\)\) return false;/);
+    });
+
+    test('all six adoption paths in loadPersisted still go through _adopt', () => {
+        /* SIX, and this is the replacement tripwire. The timeout catch, the
+           no-data fallback, the brand-new account, the resync branch, the
+           server row, and the outer catch. If this moves, a path was added or
+           removed. */
+        /* COMMENTS STRIPPED FIRST. A doc comment that explains the guard
+           necessarily names it, and `_adopt()` in prose is not a call site.
+           Same technique, and the same reason, as the `code` constant at the
+           top of this file. */
+        const body = bodyOf('async function loadPersisted(){').replace(/\/\*[\s\S]*?\*\//g, ' ');
+        const calls = body.match(/(?<!const )_adopt\(/g) || [];
+        expect(calls).toHaveLength(6);
+    });
+
+    test('and every one of them is reachable only while the load still owns the session', () => {
+        /* The guard is inside _adopt rather than repeated at six call sites,
+           which is what makes a seventh site safe by construction. */
+        const body = bodyOf('async function loadPersisted(){');
+        const guard = body.slice(body.indexOf('const _adopt=(raw,opts)=>{'));
+        const upToAdopt = guard.slice(0, guard.indexOf('adoptPersisted('));
+        expect(upToAdopt).toContain('_stillMine()');
+        expect(upToAdopt).toContain('_refreshBackupIfChanged()');
     });
 });
 
