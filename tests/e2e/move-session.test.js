@@ -278,6 +278,139 @@ describe('NOTHING IS SAVED, for Confirm, Stop and Skip', () => {
     }, 90_000);
 });
 
+describe('review corrections: the clock stops, and the copy is honest', () => {
+    /** Is an interval still armed, and is the session still live? */
+    const live = page => page.evaluate(() => ({
+        timer: _move.timer !== null, state: _move.state, elapsed: _move.elapsed,
+    }));
+    const runFor = async (page, ms) => {
+        await click(page, 'move-open');
+        await choose(page);
+        await click(page, 'move-start');
+        await page.evaluate(d => { _move.startedAt = Date.now() - d; _moveTick(); }, ms);
+    };
+
+    test('C1a. signing out stops and resets a running session', async () => {
+        /* A running interval does not care that the member signed out. It keeps
+           ticking against whatever `persisted` now holds, and the screen keeps
+           counting for somebody else. */
+        const app = await start();
+        try {
+            await runFor(app.page, 372_000);
+            expect((await live(app.page)).timer).toBe(true);
+            await app.page.evaluate(() => _closeMemberOverlays());
+            const after = await live(app.page);
+            expect(after.timer).toBe(false);
+            expect(after.state).toBe('card');
+            expect(after.elapsed).toBe(0);
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('C1b. switching account stops and resets a running session', async () => {
+        const app = await start();
+        try {
+            await runFor(app.page, 372_000);
+            // The real account-change path runs the same per-member sweep.
+            await app.page.evaluate(() => {
+                currentUser = { id:'other', email:'other@example.com', user_metadata:{} };
+                _closeMemberOverlays();
+            });
+            const after = await live(app.page);
+            expect(after.timer).toBe(false);
+            expect(after.elapsed).toBe(0);
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('C1c. moving to another day plan does not carry the elapsed count over', async () => {
+        /* One day's activity must not be attributed to another. */
+        const app = await start();
+        try {
+            await runFor(app.page, 372_000);
+            expect((await live(app.page)).elapsed).toBeGreaterThan(300);
+            await app.page.evaluate(() => {
+                // A different dated plan, same Move work.
+                renderMoveCard({ date:'2026-03-20', mode:'prescribed', primarySession:null,
+                    supportingWork:[{type:'move',category:'aerobic',title:'Move',
+                        required:true,dose:{minutes:15}}], dailyPractice:[], status:'pending' });
+            });
+            const after = await live(app.page);
+            expect(after.timer).toBe(false);
+            expect(after.elapsed).toBe(0);
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('C2. the clock cannot keep running once the preview switch goes off', async () => {
+        /* Hiding the card is not stopping the session. An interval that keeps
+           firing is a running session by any definition a member would
+           recognise, so the tick re-asks the gate and tears down. */
+        const app = await start();
+        try {
+            await runFor(app.page, 372_000);
+            expect((await live(app.page)).timer).toBe(true);
+            await app.page.evaluate(() => { MOVE_UI_PREVIEW = false; _moveTick(); });
+            const after = await live(app.page);
+            expect(after.timer).toBe(false);
+            expect(after.state).toBe('card');
+            expect(after.elapsed).toBe(0);
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('C2b. and a render with the switch off ends the session rather than hiding it', async () => {
+        const app = await start();
+        try {
+            await runFor(app.page, 372_000);
+            await app.page.evaluate(() => { MOVE_UI_PREVIEW = false; renderDashboard(); });
+            const after = await live(app.page);
+            expect(after.timer).toBe(false);
+            expect(after.elapsed).toBe(0);
+            expect(await vis(app.page, 'move-card')).toBe(false);
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('C3. the safety line separates normal effort from a warning sign', async () => {
+        /* The first version listed "dizzy or breathless" together as reasons to
+           stop, which put ordinary harder breathing among the warning signs.
+           Breathing harder IS the intended effort. */
+        const app = await start();
+        try {
+            await click(app.page, 'move-open');
+            const t = await text(app.page, 'move-safety');
+            // Normal effort, named as normal.
+            expect(t).toMatch(/breathing picks up/i);
+            expect(t).toMatch(/normal and expected/i);
+            // The three stop signals, each named.
+            expect(t).toMatch(/chest pain/i);
+            expect(t).toMatch(/dizzy|lightheaded/i);
+            expect(t).toMatch(/short of breath/i);
+            // And shortness of breath qualified, not absolute.
+            expect(t).toMatch(/unusual for you/i);
+            // The old conflation is gone.
+            expect(t).not.toMatch(/dizzy or breathless/i);
+        } finally { await app.close(); }
+    }, 90_000);
+
+    test('C4. Start then Stop at 0:00 reports the time and claims no activity', async () => {
+        const app = await start();
+        try {
+            await click(app.page, 'move-open');
+            await choose(app.page);
+            const before = await snapshot(app.page);
+            await click(app.page, 'move-start');
+            await click(app.page, 'move-stop');   // immediately, nothing timed
+            const line = await text(app.page, 'move-summary-line');
+            expect(line).toMatch(/0:00/);
+            expect(line).toMatch(/no activity was timed/i);
+            expect(line).toMatch(/target was 15 minutes/i);
+            // No claim of having moved, and no praise for it.
+            expect(line).not.toMatch(/you moved for/i);
+            expect(line).not.toMatch(/build on that effort/i);
+            // And still nothing written.
+            await app.page.waitForTimeout(1500);
+            expect(await snapshot(app.page)).toEqual(before);
+        } finally { await app.close(); }
+    }, 90_000);
+});
+
 describe('layout and accessibility', () => {
     for (const [name, width] of [['320', 320], ['390', 390], ['desktop', 1280]]) {
         test(`no horizontal overflow at ${name}`, async () => {

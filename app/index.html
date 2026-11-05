@@ -7517,9 +7517,16 @@ const MOVE_WHY='Erections depend partly on healthy blood vessels, and regular '
     +'activity supports vascular health over time. This is general health work. '
     +'It is not a treatment for erection problems and it cannot tell you what is '
     +'causing one.';
-const MOVE_SAFETY='Aim for an effort where your breathing picks up but you could '
-    +'still talk. If anything hurts, feels sharp, or makes you dizzy or breathless, '
-    +'stop. Those are reasons to speak to a doctor, not to push through.';
+/* NORMAL EFFORT AND A WARNING SIGN ARE NOT THE SAME THING, and the first
+   version of this ran them together: "dizzy or breathless" put ordinary
+   harder breathing in a list of reasons to stop. Breathing harder IS the
+   intended effort. The stop signals are named individually instead, and
+   shortness of breath only counts when it is unusual for him. */
+const MOVE_SAFETY='Aim for an effort where your breathing picks up but you can '
+    +'still hold a conversation. Breathing harder than usual is normal and expected. '
+    +'Stop if you get chest pain, if you feel dizzy or lightheaded, or if you become '
+    +'short of breath in a way that is unusual for you. Those are reasons to speak to '
+    +'a doctor, not to push through.';
 /* Keyed on elapsed share of the chosen duration, not on wall-clock, so a
    15 and a 30 minute session get the same three beats. */
 const MOVE_CUES=[
@@ -7529,8 +7536,31 @@ const MOVE_CUES=[
 ];
 
 /* All of it. Deliberately not on `persisted`: this state is never saved. */
-let _move={state:'card',activity:null,duration:null,elapsed:0,timer:null,startedAt:0};
+let _move={state:'card',activity:null,duration:null,elapsed:0,timer:null,startedAt:0,planDate:null};
 let _moveWired=false;
+
+/* STOP THE CLOCK WHEN THE SESSION IT BELONGS TO ENDS.
+   A running interval does not care that the member signed out, switched
+   account, moved to another day's plan, or that the preview was switched
+   off. It keeps ticking against whatever `persisted` now holds, and the
+   screen keeps counting for somebody else. Called from the real sign-out and
+   sign-in paths, from the render when the plan changes, and from the tick
+   itself. Nothing is persisted, so there is nothing to flush: teardown is a
+   clearInterval and a reset. */
+function moveTeardown(){
+    try{ clearInterval(_move.timer); }catch(e){}
+    _move={state:'card',activity:null,duration:null,elapsed:0,timer:null,
+           startedAt:0,planDate:null};
+    try{
+        const acts=document.getElementById('move-activities');
+        const durs=document.getElementById('move-durations');
+        if(acts) acts.innerHTML='';
+        if(durs) durs.innerHTML='';
+        const card=document.getElementById('move-card');
+        if(card) card.classList.add('hidden');
+        _moveRenderState();
+    }catch(e){}
+}
 
 /** The move supporting item for a date, or null. Gate 1. */
 function moveWorkFor(plan){
@@ -7559,8 +7589,18 @@ function renderMoveCard(plan){
     const card=_moveEl('move-card');
     if(!card) return;
     const work=moveWorkFor(plan);
-    /* BOTH gates, every render. */
-    if(!_moveAllowed()||!work){ card.classList.add('hidden'); return; }
+    /* BOTH gates, every render, and a close of either one ENDS the session
+       rather than hiding it. */
+    if(!_moveAllowed()||!work){
+        if(_move.timer||_move.state!=='card') moveTeardown();
+        card.classList.add('hidden');
+        return;
+    }
+    /* A different day's plan is a different session. Carrying an elapsed
+       count across it would attribute one day's activity to another. */
+    const date=plan&&typeof plan.date==='string'?plan.date:null;
+    if(_move.planDate&&_move.planDate!==date) moveTeardown();
+    _move.planDate=date;
     card.classList.remove('hidden');
     const mins=work.dose&&Number.isFinite(work.dose.minutes)?work.dose.minutes:MOVE_DURATIONS[0];
     _moveEl('move-purpose').textContent=`Steady activity, ${MOVE_DURATIONS.join(' or ')} minutes. `
@@ -7635,7 +7675,14 @@ function _moveRenderState(){
     }
     if(st==='stopped'||st==='reached'){
         const reached=st==='reached';
-        _moveEl('move-summary-line').textContent=reached
+        /* NOTHING HAPPENED IS NOT AN ACHIEVEMENT. Start then Stop with the
+           clock at zero used to read "You moved for 0 minutes", which both
+           claims activity and congratulates him for it. The time is still
+           reported, because that is what he did; the praise is not. */
+        _moveEl('move-summary-line').textContent=_move.elapsed<1
+            ? `Stopped at 0:00. Your selected target was ${_move.duration} minutes, `
+              +'and no activity was timed. Start again whenever you are ready.'
+            : reached
             ? `You moved for ${_moveWords(_move.elapsed)}. You can build on that effort during your next session.`
             : `You moved for ${_moveWords(_move.elapsed)}. Your selected target was ${_move.duration} minutes. `
               +'You can build on that effort during your next session.';
@@ -7650,6 +7697,11 @@ function _moveCueFor(share){
 }
 
 function _moveTick(){
+    /* THE GATE IS RE-ASKED ON EVERY TICK. Switching the preview off while a
+       session runs must stop it, not merely hide it: an interval that keeps
+       firing is still a running session by any definition the member would
+       recognise. */
+    if(!_moveAllowed()){ moveTeardown(); return; }
     _move.elapsed=Math.round((Date.now()-_move.startedAt)/1000);
     if(_move.state==='running'&&_move.elapsed>=_move.duration*60&&!_move.reachedSeen){
         /* The target is reached and NOTHING happens because of it. No award,
@@ -10660,6 +10712,11 @@ async function handleForgotPassword(){
    The list below is every body-level overlay that shows one member's own
    data, grouped by how each is hidden. */
 function _closeMemberOverlays(){
+    /* The Move preview holds a live interval, so it belongs in the same sweep
+       as every other per-member surface. All three call sites of this function
+       are account boundaries: handleLogout, the account switch, and the
+       SIGNED_OUT handler. Reused rather than wiring three new hooks. */
+    try{ moveTeardown(); }catch(e){}
     closeProgressCheckin();
     stopGuideSpeech();_guideSpeech?.setEnabled(false);_guideAudioUser=null;
     // Hidden by the `hidden` class.
