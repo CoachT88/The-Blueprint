@@ -3840,6 +3840,17 @@ async function loadPersisted(){
        used to write it directly and none of them checked whose session they
        were in. Routing them through one guard is what makes a seventh
        unguarded site hard to add. */
+    /* A REFUSED RESTORE MUST SAY SO.
+       _adopt() returning false means the backup could not be safely restored:
+       the session moved on, the backup changed past the decision, or it could
+       not be verified. Writes stay blocked either way, because
+       _persistedLoaded is only set by a successful adopt. But silence leaves
+       the member on an app that has loaded nothing and told him nothing, so
+       the existing banner is surfaced. Once, not once per site. */
+    const _refuseLoad=()=>{
+        try{ _showLoadFailedBanner(); }catch(e){}
+    };
+
     const _adopt=(raw,opts)=>{
         if(!_stillMine()) return false;
         let payload=raw;
@@ -3878,8 +3889,8 @@ async function loadPersisted(){
                to, and the captured one may be stale by now. */
             if(_stillMine()&&_refreshBackupIfChanged()){
                 _decisionRaw=_backupRaw;
-                if(localData) try{_adopt(null,{fromBackup:true});}catch(e2){}
-            }
+                if(localData) try{ if(!_adopt(null,{fromBackup:true})) _refuseLoad(); }catch(e2){ _refuseLoad(); }
+            }else if(_stillMine()){ _refuseLoad(); }
             return {};
         });
         /* OWNERSHIP AND FRESHNESS BEFORE ANY BRANCH READS localData.
@@ -3893,14 +3904,14 @@ async function loadPersisted(){
         if(!_refreshBackupIfChanged()){
             /* We held a backup and can no longer read it. Adopt nothing and
                stay unloaded, so no save can overwrite either copy. */
-            _showLoadFailedBanner();
+            _refuseLoad();
             return;
         }
         _mergeServerCheckins();
         _decisionRaw=_backupRaw;
         if(!data){
             if(localData){
-                try{_adopt(null,{fromBackup:true});}catch(e){}
+                try{ if(!_adopt(null,{fromBackup:true})) _refuseLoad(); }catch(e){ _refuseLoad(); }
             }
             // Brand-new account starts at Beginner, matching what the intro promises.
             // Only when the query genuinely SUCCEEDED and found no row (PGRST116) and
@@ -3911,7 +3922,7 @@ async function loadPersisted(){
             }
             // Otherwise the read failed and we have no backup: stay unloaded so
             // nothing overwrites the row we could not see.
-            else { _showLoadFailedBanner(); }
+            else { _refuseLoad(); }
             return;
         }
         /* NO UNCONDITIONAL `_persistedLoaded=true` HERE.
@@ -3927,7 +3938,7 @@ async function loadPersisted(){
         const localTime=localData?new Date(localData._savedAt||0).getTime():0;
         const hasDirty=!!_readDirty();
         if((localTime>dbTime || (hasDirty && localData && localTime>=dbTime)) && localData){
-            if(!_adopt(null,{fromBackup:true})) return;
+            if(!_adopt(null,{fromBackup:true})){ _refuseLoad(); return; }
             // Re-sync Supabase with the newer local data
             try{
                 /* CAPTURED, NOT LIVE. Calling _upsertWithSchemaFallback() with
@@ -3980,8 +3991,8 @@ async function loadPersisted(){
     }catch(e){
         console.error('loadPersisted:',e);
         if(localData){
-            try{_adopt(null,{fromBackup:true});}catch(e2){}
-        } else { _showLoadFailedBanner(); }
+            try{ if(!_adopt(null,{fromBackup:true})) _refuseLoad(); }catch(e2){ _refuseLoad(); }
+        } else { _refuseLoad(); }
     }
 }
 

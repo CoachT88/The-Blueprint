@@ -753,6 +753,61 @@ describe('new protections: ownership of the load and of the dirty flag', () => {
         } finally { await app.close(); }
     }, 90_000);
 
+    test('R7. a refused restore shows the load-failure banner AND blocks writes', async () => {
+        /* THE MEMBER HAS TO BE TOLD, and this has to exercise the RESYNC
+           refusal specifically.
+
+           My first version broke every backup read, which made the PRE-BRANCH
+           refresh fail. That path already showed the banner before this fix,
+           so the test passed against the unfixed code and survived a mutation
+           removing the banner from the resync branch. It was proving nothing.
+
+           So the refusal here is the decision-snapshot mismatch: reads 1 and 2
+           succeed, the branch is chosen, and read 3 (the one _adopt performs)
+           returns a different backup. _adopt refuses because the decision no
+           longer describes what is on disk, and before this fix that returned
+           in silence. */
+        const app = await openApp();
+        try {
+            await seed(app.page, { uid: A.id, row: rowFor(), backup: backupFor(), dirty: true });
+            await authSignIn(app.page, { ...A, row: rowFor() });
+            await app.page.evaluate(b => {
+                document.getElementById('hq-load-failed-banner').classList.add('hidden');
+                localStorage.setItem('bp_data_member-a', b);
+                localStorage.setItem('bp_dirty_member-a', '1');
+                persisted.totalXp = 13;
+                window.__reads = 0;
+                const real = Storage.prototype.getItem;
+                const newer = b.replace('"totalXp":450', '"totalXp":4242');
+                Storage.prototype.getItem = function (k) {
+                    if (String(k) === 'bp_data_member-a') {
+                        window.__reads++;
+                        if (window.__reads >= 3) return newer;   // after the decision
+                    }
+                    return real.call(this, k);
+                };
+            }, backupFor({ totalXp: 450 }));
+            await app.page.evaluate(() => loadPersisted());
+            await app.page.waitForTimeout(1500);
+            const out = await app.page.evaluate(() => ({
+                bannerHidden: document.getElementById('hq-load-failed-banner')
+                                .classList.contains('hidden'),
+                loaded: _persistedLoaded,
+                retryPresent: !!document.getElementById('hq-load-retry-btn'),
+                xp: persisted.totalXp,
+            }));
+            expect(out.xp).toBe(13);                // neither copy adopted
+            expect(out.bannerHidden).toBe(false);   // he is told
+            expect(out.loaded).toBe(false);         // writes stay blocked
+            expect(out.retryPresent).toBe(true);    // with a way out
+            // The consequence, not just the flag.
+            await app.page.evaluate(() => { window.__writes.length = 0; });
+            await app.page.evaluate(() => savePersisted());
+            await app.page.waitForTimeout(1200);
+            expect(await app.page.evaluate(() => window.__writes.length)).toBe(0);
+        } finally { await app.close(); }
+    }, 90_000);
+
     test('R6. server check-in history survives a backup refresh', async () => {
         /* The merge that protects newly available check-ins used to be a
            one-off statement, which _refreshBackupIfChanged() then undid by
