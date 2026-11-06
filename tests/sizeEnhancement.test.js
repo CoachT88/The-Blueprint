@@ -53,7 +53,13 @@ describe('public size enhancement resource', () => {
     expect(page).toContain('Three months of manuals');
     expect(page).toContain('first year mainly to manual jelqing');
     expect(page).toContain('optional guided routines inside The Blueprint');
-    expect(offer).toContain('optional guided sessions inside The Blueprint');
+    /* The product page used to call these "optional guided sessions". They
+       are not optional: the Size plan SCHEDULES length and girth days and the
+       day types cannot be changed in the app, so the word oversold the
+       member's control. #191 replaced it with what the plan actually does.
+       The alignment this test exists to protect is unchanged: the community
+       page and the offer page describe the same routines. */
+    expect(offer).toContain('schedules length and girth sessions');
     expect(faq).toContain('See the original progress reports');
     expect(how).toContain('Explore at your pace');
     expect(safety).toContain('risk-free technique');

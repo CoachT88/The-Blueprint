@@ -14,7 +14,14 @@ describe('Homepage: clear value, fewer decisions, truthful offer',()=>{
     expect(hero).toContain("Experience alone doesn't make you better in bed.");
     expect(hero).toContain('The Blueprint gives you a place to start and a way to practice.');
     expect(hero).toContain('guided sessions');
-    expect(hero).toContain('length or girth');
+    /* The hero must still name the size concern as one of the problems a
+       buyer arrives with. It used to be pinned as the literal 'length or
+       girth', which lived in a sentence calling that training optional.
+       Scheduled Size days are not optional, so the sentence went; the first
+       lede still names the concern, and that is what this is checking. */
+    expect(hero).toMatch(/length (and|or) girth/);
+    expect(hero, 'the hero calls scheduled manual work optional')
+        .not.toMatch(/optional\s+length|length or girth training/);
     expect(hero).toContain('track your own progress');
     expect(hero).toContain('Find my starting point — free');
     expect(hero).toContain('<a class="btn ghost" href="/whats-inside/">Show me the system</a>');
