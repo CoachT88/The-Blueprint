@@ -3,7 +3,9 @@ import {
     MESSAGES,
     localHourFor, localMinuteOfDay, localDateFor, localWeekdayFor,
     utcDayKey, trainedOn, trainedOnLocalDay, reminderHour, reminderMinuteOfDay, decideNotification,
+    TRAINING_SLOTS, isTrainingSlot, PENDING_SLOT_VOCABULARY,
 } from '../supabase/functions/_shared/notifyRules.js';
+import { LEGACY_PRIMARY_TYPES, LEGACY_REST } from '../src/scheduleSlot.js';
 
 /**
  * The settings screen offers AM/PM check-ins, an extra time, and completion
@@ -401,3 +403,257 @@ describe('daily practice remains separate from training notifications',()=>{
   const log=[{date:'2026-10-13T18:30:00Z',workKind:'dailyPractice',trainingRestSatisfied:true}];
   expect(decideNotification({now:new Date('2026-10-13T19:00:00Z'),timezone:'UTC',schedule:Array(7).fill('length'),sessionLog:log})).toBeNull();
  });
+
+/**
+ * WORKER TOLERANCE FOR THE SLOT VOCABULARY THAT IS COMING.
+ *
+ * #186 phase 1. The Worker deploys on its own lifecycle and must accept the
+ * new values before any client can emit one, so this change ships first and
+ * alone. Its whole claim is that it does nothing to anybody today.
+ *
+ * That claim is only worth making if it is proved rather than asserted, and
+ * the owner was right to ask for the legacy cohorts specifically. The first
+ * block below is characterization: every one of the four shipped programmes,
+ * every weekday, pinned to the behaviour it has in production right now. If
+ * the production change alters a single one of those 28 decisions it is not
+ * a compatibility change and this suite says so.
+ *
+ * The second block is the cohorts that have no schedule to read. Inverting
+ * the slot test naively would have read their silence as rest and stopped
+ * their reminders. send-notifications/index.ts falls back to a select
+ * WITHOUT the schedule column on an un-migrated project, so that is not a
+ * hypothetical row, it is every row on a deployment that has not migrated.
+ *
+ * Only the third block describes new behaviour, and nothing the app can
+ * currently write reaches it.
+ */
+describe('#186 phase 1: the Worker tolerates slot values it has never seen', () => {
+    /* The four shipped presets, exactly as app/index.html GOALS holds them.
+       Sunday-indexed, which is why the first entry is Sunday's. */
+    const SHIPPED = {
+        size:    ['length','girth','rest','length','girth','rest','rest'],
+        stamina: ['stamina','rest','stamina','rest','stamina','rest','rest'],
+        eq:      ['stamina','rest','length','rest','stamina','rest','rest'],
+        all:     ['length','girth','rest','stamina','length','rest','rest'],
+    };
+    /* 2026-03-15 is a Sunday, so day index and offset agree. */
+    const SUNDAY = '2026-03-15';
+    const at = i => new Date(`2026-03-${15 + i}T19:00:00Z`);
+    const decideOn = (schedule, i, over = {}) => decideNotification({
+        schedule, timezone: 'UTC', now: at(i), ...over,
+    });
+
+    describe('characterization: no shipped programme changes on any weekday', () => {
+        for (const [goal, schedule] of Object.entries(SHIPPED)) {
+            test(`${goal} sends on its training days and stays silent on its rest days`, () => {
+                const got = schedule.map((_, i) => decideOn(schedule, i) !== null);
+                /* The expectation is derived from the slot, not copied from
+                   the implementation, so the two cannot drift together. */
+                const want = schedule.map(slot => slot !== 'rest');
+                expect(got).toEqual(want);
+            });
+        }
+
+        test('and the day index really is Sunday-first, not Monday-first', () => {
+            /* If this ever flips, every row above silently tests the wrong
+               day and still passes. Size trains on Sunday and rests on
+               Tuesday, which is only true read Sunday-first. */
+            expect(new Date(SUNDAY + 'T12:00:00Z').getUTCDay()).toBe(0);
+            expect(decideOn(SHIPPED.size, 0)).not.toBeNull();
+            expect(decideOn(SHIPPED.size, 2)).toBeNull();
+        });
+    });
+
+    describe('accounts with no schedule to read keep their reminders', () => {
+        /* THE REGRESSION THIS BLOCK EXISTS TO PREVENT. Absence of a schedule
+           is not the presence of a rest day. Each of these members is sent a
+           reminder today and must still be sent one. */
+        test('a project that has not migrated the schedule column', () => {
+            // readTrainingState() falls back to a select without `schedule`
+            // and without `programme`, so every row arrives like this.
+            expect(decideNotification({ schedule: null, programme: null,
+                timezone: 'UTC', now: at(2) })).not.toBeNull();
+        });
+
+        test('the session_log-only fallback below even that', () => {
+            expect(decideNotification({ sessionLog: [], timezone: 'UTC', now: at(2) }))
+                .not.toBeNull();
+        });
+
+        test('a member who has never been given a programme', () => {
+            expect(decideNotification({ timezone: 'UTC', now: at(2) })).not.toBeNull();
+            expect(decideNotification({ schedule: undefined, timezone: 'UTC', now: at(2) }))
+                .not.toBeNull();
+        });
+
+        test('a schedule of the wrong length is unreadable, not restful', () => {
+            for (const bad of [[], ['rest'], Array(6).fill('rest'), Array(8).fill('rest'),
+                               'rest', 42, {}]) {
+                expect(decideNotification({ schedule: bad, timezone: 'UTC', now: at(2) }),
+                    `schedule ${JSON.stringify(bad)} suppressed a reminder`).not.toBeNull();
+            }
+        });
+    });
+
+    describe('new vocabulary, which nothing can emit yet', () => {
+        test('a support day does not announce itself as training', () => {
+            /* A day carrying real supporting work but no mechanical primary
+               session is not "time to train". Under the old rule it was
+               anything-but-rest and therefore sent. */
+            const week = ['rest','support','support','support','rest','support','support'];
+            for (let i = 0; i < 7; i++) {
+                expect(decideOn(week, i), `index ${i} sent a training push`).toBeNull();
+            }
+        });
+
+        test('a genuinely empty day sends nothing either', () => {
+            expect(decideOn(Array(7).fill('full-rest'), 3)).toBeNull();
+        });
+
+        test('an unrecognised value fails safe as not-training', () => {
+            for (const slot of ['mystery','', 'Length','LENGTH',' length', null, 0, undefined]) {
+                const week = Array(7).fill('rest'); week[3] = slot;
+                expect(decideOn(week, 3), `${JSON.stringify(slot)} sent a push`).toBeNull();
+            }
+        });
+
+        test('but a known training slot still sends, including beside new values', () => {
+            const mixed = ['full-rest','length','support','stamina','full-rest','girth','support'];
+            expect(mixed.map((_, i) => decideOn(mixed, i) !== null))
+                .toEqual([false, true, false, true, false, true, false]);
+        });
+
+        test('isTrainingSlot is the single answer, and it is exact', () => {
+            expect(TRAINING_SLOTS).toEqual(['length','girth','stamina']);
+            for (const t of TRAINING_SLOTS) expect(isTrainingSlot(t)).toBe(true);
+            for (const f of ['rest','support','full-rest','recovery','Length','',null,undefined,0])
+                expect(isTrainingSlot(f), `${JSON.stringify(f)}`).toBe(false);
+            /* Frozen, because a consumer that can push onto this list can
+               make any day announce itself as training. */
+            expect(Object.isFrozen(TRAINING_SLOTS)).toBe(true);
+        });
+    });
+
+    describe('a queued goal change is no longer thrown away for naming something new', () => {
+        const current = SHIPPED.size;
+        const pending = eff => ({ pendingChange: { effectiveDate: eff, schedule:
+            ['full-rest','length','support','support','full-rest','girth','support'] } });
+        /* Same thing with the week varied instead of the date. */
+        const pending2 = week => ({ pendingChange: { effectiveDate: '2026-03-15', schedule: week } });
+
+        test('before it is due the current schedule still decides', () => {
+            // Monday index 1 is girth under the current Size preset.
+            expect(decideOn(current, 1, { programme: pending('2026-03-20') })).not.toBeNull();
+        });
+
+        test('once due it is honoured instead of the schedule it replaced', () => {
+            /* THE HOLE THIS CLOSES. The old validator required every value to
+               be one of four, so this pending change was discarded and the
+               member silently ran on the preset they had already left.
+               Wednesday index 3 is 'length' under the current Size preset and
+               'support' under the queued one: the two disagree, which is what
+               makes the assertion meaningful. */
+            expect(current[3]).toBe('length');
+            expect(decideOn(current, 3, { programme: pending('2026-03-15') })).toBeNull();
+            // And Friday index 5 is 'rest' now but 'girth' after the change.
+            expect(current[5]).toBe('rest');
+            expect(decideOn(current, 5, { programme: pending('2026-03-15') })).not.toBeNull();
+        });
+
+        test('a pending change it cannot read is refused, not adopted', () => {
+            /* EVERY CASE HERE MUST DISCRIMINATE. Wednesday index 3 is
+               'length' under the current Size preset, so a fallback sends;
+               each rejected schedule below holds a NON-training value at
+               index 3, so wrongly adopting it would suppress. A case whose
+               index 3 also happens to be non-training proves nothing, which
+               is how the empty-string case first slipped through: mutating
+               the `t.length > 0` guard away changed no observable outcome. */
+            expect(current[3]).toBe('length');
+            for (const bad of [['rest'], null, 'rest', [1,2,3,4,5,6,7],
+                               ['support','support','support','support','support','support',''],
+                               ['support','support','support','support','support','support',null],
+                               Array(7).fill('support').concat('support')]) {
+                expect(decideOn(current, 3,
+                    { programme: { pendingChange: { effectiveDate: '2026-03-15', schedule: bad } } }),
+                    `unreadable ${JSON.stringify(bad)} was adopted`).not.toBeNull();
+            }
+        });
+
+        test('ONE UNKNOWN TOKEN REFUSES THE WHOLE QUEUED WEEK', () => {
+            /* The review correction. Accepting any seven non-empty strings
+               let a typo, a truncated write or a foreign record become the
+               member's effective reminder schedule for every day of the week.
+
+               Failing safe on one unreadable day we already hold is
+               reasonable. Adopting an unreadable WEEK as an assertion about
+               the future is not, and the two decisions must not be confused:
+               today's slot is open at the bottom, a queued change is closed.
+
+               Each mixed week below is otherwise perfectly well formed and
+               differs from the current preset on Wednesday, so adopting it
+               would suppress a reminder the fallback sends. That is what
+               makes old and new behaviour distinguishable here. */
+            expect(current[3]).toBe('length');
+            const mixed = [
+                ['full-rest','length','support','mystery','full-rest','girth','support'],
+                ['full-rest','length','support','Support','full-rest','girth','support'],
+                ['full-rest','length','support','FULL-REST','full-rest','girth','support'],
+                ['full-rest','length','support','full rest','full-rest','girth','support'],
+                ['full-rest','length','support','suport','full-rest','girth','support'],
+                ['full-rest','length','support',' support','full-rest','girth','support'],
+                ['full-rest','length','support','recovery','full-rest','girth','support'],
+            ];
+            for (const week of mixed) {
+                expect(decideOn(current, 3, { programme: pending2(week) }),
+                    `unknown token ${JSON.stringify(week[3])} was adopted`).not.toBeNull();
+            }
+        });
+
+        test('while a fully recognised queued week is adopted on every day', () => {
+            /* The counterpart, so the test above cannot pass by refusing
+               everything. Same shape, every token in the vocabulary. */
+            const week = ['full-rest','length','support','support','full-rest','girth','support'];
+            expect(week.map((_, i) => decideOn(current, i, { programme: pending2(week) }) !== null))
+                .toEqual([false, true, false, false, false, true, false]);
+        });
+
+        test('the pending vocabulary is closed, frozen and documented', () => {
+            expect(PENDING_SLOT_VOCABULARY)
+                .toEqual(['length','girth','stamina','rest','support','full-rest']);
+            expect(Object.isFrozen(PENDING_SLOT_VOCABULARY)).toBe(true);
+            /* It must contain every training slot, or a queued week naming
+               real training would be refused. */
+            for (const t of TRAINING_SLOTS) expect(PENDING_SLOT_VOCABULARY).toContain(t);
+        });
+
+        test('and a malformed effective date cannot bring a pending schedule forward', () => {
+            for (const eff of ['not-a-date', '2026-3-15', 20260315, null]) {
+                // Wednesday is 'length' now, so a fallback sends and an
+                // incorrectly applied pending change would not.
+                expect(decideOn(current, 3, { programme: { pendingChange: { effectiveDate: eff,
+                    schedule: Array(7).fill('support') } } }), `${eff}`).not.toBeNull();
+            }
+        });
+    });
+
+    describe('the two sides of the wire cannot drift apart silently', () => {
+        /* notifyRules.js deliberately has no imports, so the Deno edge
+           function and vitest load it unchanged. That means it carries its
+           own copy of the vocabulary, and a copy is a thing that goes stale.
+           This test is the only place the two modules meet. If phase B
+           renames a token or adds a mechanical type, this fails here rather
+           than in production three weeks later. */
+        test('the Worker agrees with src/scheduleSlot.js about what training is', () => {
+            expect(TRAINING_SLOTS).toEqual([...LEGACY_PRIMARY_TYPES]);
+        });
+
+        test('and about what rest is called', () => {
+            expect(PENDING_SLOT_VOCABULARY).toContain(LEGACY_REST);
+            expect(isTrainingSlot(LEGACY_REST)).toBe(false);
+        });
+
+        test('every legacy primary type is training to the Worker', () => {
+            for (const t of LEGACY_PRIMARY_TYPES) expect(isTrainingSlot(t)).toBe(true);
+        });
+    });
+});

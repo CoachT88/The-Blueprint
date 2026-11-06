@@ -29,6 +29,95 @@
  * screen that other people can read.
  */
 
+/**
+ * THE SLOT VOCABULARY IS OPEN AT THE BOTTOM, CLOSED AT THE TOP.
+ *
+ * The 7-element Sunday-indexed schedule is about to gain values this Worker
+ * has never seen. A programme will be able to prescribe a day that carries
+ * real supporting work but no mechanical primary session, and a day that
+ * genuinely requires nothing at all. The Worker deploys on its own lifecycle,
+ * so it has to tolerate those values BEFORE any client can emit one.
+ *
+ * The old rule was `slot === 'rest'` suppresses, everything else sends. That
+ * is open at the top: a value this file has never heard of produces "Make
+ * sure you show up for training today" on a lock screen, for a day we cannot
+ * actually say contains training. A support day is not mechanical training
+ * and must not be announced as though it were.
+ *
+ * So the test is inverted. Only a value in TRAINING_SLOTS may produce a
+ * reminder. Rest suppresses as before, and so does anything unrecognised.
+ * New vocabulary is then tolerated by construction and needs no second
+ * deploy here: it simply is not training until this list says it is. That
+ * matches src/scheduleSlot.js, where an unresolved slot is in neither the
+ * numerator nor the denominator, so the two sides of the wire agree.
+ *
+ * THE ABSENCE OF A SCHEDULE IS NOT THE PRESENCE OF A REST DAY.
+ *
+ * This distinction is the whole safety argument for the change and it is
+ * easy to lose. Inverting the test naively would have read "no schedule, so
+ * no training slot, so no reminder" and silenced entire cohorts:
+ *
+ *   - a project that has not run the migration adding the schedule column.
+ *     send-notifications/index.ts falls back to a select without it and every
+ *     row then arrives with schedule null, by design.
+ *   - a member who has never been given a programme.
+ *   - the session_log-only fallback, below both of those.
+ *
+ * Those members get reminders today and must keep getting them. The gate
+ * therefore applies ONLY to a schedule that is present and readable: an
+ * array of exactly seven entries. Anything else falls through untouched,
+ * exactly as before.
+ */
+export const TRAINING_SLOTS = Object.freeze(['length', 'girth', 'stamina']);
+
+/** Is this slot mechanical primary training, the only thing worth a push? */
+export function isTrainingSlot(slot) {
+    return TRAINING_SLOTS.includes(slot);
+}
+
+/** A schedule we are entitled to draw a conclusion from. */
+function isReadableSchedule(s) {
+    return Array.isArray(s) && s.length === 7;
+}
+
+/**
+ * A QUEUED CHANGE IS A STRICTER QUESTION THAN TODAY'S SLOT.
+ *
+ * These two look similar and are not, and conflating them was the flaw in
+ * the first version of this change.
+ *
+ *   TODAY'S SLOT is data we already hold about a day that is happening. We
+ *   cannot refuse it. All we can decide is what to infer, and the safe
+ *   inference from a value we do not recognise is "not training", which
+ *   sends nothing. Open at the bottom: any future value lands there.
+ *
+ *   A PENDING CHANGE is an assertion that a member's whole week is about to
+ *   become something else. We can and should refuse that outright unless we
+ *   recognise what it says. Accepting any seven non-empty strings meant a
+ *   typo, a truncated write or a foreign record became the member's
+ *   effective reminder schedule for every day of the week. Failing safe on
+ *   one unreadable day is reasonable; adopting an unreadable WEEK is not.
+ *
+ * So this list is closed, and it is the one place the Worker commits to a
+ * forward vocabulary. 'support' and 'full-rest' are the provisional names
+ * for the two new kinds of day. src/scheduleSlot.js is the authority on what
+ * they are finally called, and tests/notifyRules.test.js pins the overlap
+ * with LEGACY_PRIMARY_TYPES so the two sides of the wire cannot drift
+ * silently. If phase B settles on different tokens, this list changes with
+ * it and must deploy before any client can write one.
+ */
+export const PENDING_SLOT_VOCABULARY = Object.freeze([
+    'length', 'girth', 'stamina',  // mechanical primary training
+    'rest',                        // prescribed non-training, today's meaning
+    'support',                     // real supporting work, no primary session
+    'full-rest',                   // nothing required at all
+]);
+
+/** Is this queued week something we recognise well enough to adopt? */
+function isAcceptablePendingSchedule(week) {
+    return isReadableSchedule(week) && week.every(t => PENDING_SLOT_VOCABULARY.includes(t));
+}
+
 /** Hours a reminder is allowed to land in, member's local time. */
 export const EARLIEST_HOUR = 5;
 export const LATEST_HOUR = 23;
@@ -216,19 +305,30 @@ export function decideNotification({
     //    outlives the streak warning it was first written alongside.
     if ((passProtectedDates || []).includes(todayKey)) return null;
 
-    // 5. Today is a scheduled rest day. "Time to train" on a rest day teaches
-    //    members that the app is not paying attention.
+    // 5. Today is not a day this member trains. "Time to train" on a rest day
+    //    teaches members that the app is not paying attention, and the same
+    //    is true of a day whose work is not mechanical training at all.
     // A scheduled goal change must also take effect when the app is closed.
+    //
+    // The pending schedule is accepted against a CLOSED vocabulary, widened
+    // to carry the forward values rather than opened up. The old list of four
+    // discarded a queued change the moment it named anything new and silently
+    // ran the member on the schedule they had just replaced, which is the one
+    // outcome worse than either schedule. Widening fixes that; dropping the
+    // list entirely would let a typo or a truncated write become the member's
+    // effective week. See PENDING_SLOT_VOCABULARY on why this is stricter
+    // than the test applied to today's slot below.
     const change = programme && programme.pendingChange;
     const nextWeek = change && change.schedule;
     const effectiveSchedule = change && typeof change.effectiveDate === 'string'
         && /^\d{4}-\d{2}-\d{2}$/.test(change.effectiveDate)
         && change.effectiveDate <= localDate
-        && Array.isArray(nextWeek) && nextWeek.length === 7
-        && nextWeek.every(t => ['length', 'girth', 'stamina', 'rest'].includes(t))
+        && isAcceptablePendingSchedule(nextWeek)
         ? nextWeek : schedule;
-    if (Array.isArray(effectiveSchedule) && effectiveSchedule.length === 7) {
-        if (effectiveSchedule[localWeekdayFor(now, timezone)] === 'rest') return null;
+    // Present and readable only. A null, short or absent schedule says nothing
+    // about today and must not be read as rest. See TRAINING_SLOTS above.
+    if (isReadableSchedule(effectiveSchedule)) {
+        if (!isTrainingSlot(effectiveSchedule[localWeekdayFor(now, timezone)])) return null;
     }
 
     // A custom time coinciding with AM/PM is one message, never a double alert.
