@@ -223,7 +223,14 @@ describe('the answer buttons actually look selected', () => {
         });
         await app.page.waitForTimeout(400);
         const before = await bgOf(sel);
-        await app.page.evaluate(s => document.querySelector(s).click(), sel);
+        /* The tap opens the week disclosure now (#184) and the grid is
+           hidden behind it, so the option only becomes `.selected` once the
+           plan is actually taken. The styling under test is unchanged; the
+           step to reach it is not. */
+        await app.page.evaluate(s => {
+            document.querySelector(s).click();
+            document.getElementById('goal-disclose-start').click();
+        }, sel);
         await app.page.waitForTimeout(400);
         const after = await bgOf(sel);
         expect(after).not.toBe(before);

@@ -16,7 +16,10 @@ describe('personal progress uses the real UI and private save path',()=>{
   await app.page.evaluate(()=>showFirstRunSetup());
   expect(await app.page.locator('#ob-slide-4').getAttribute('class')).toContain('active');
   expect(await app.page.locator('#ob-next-btn').textContent()).toBe('Start my plan');
-  await app.page.locator('[data-goal="stamina"]').click();await app.page.locator('#ob-next-btn').click();
+  await app.page.locator('[data-goal="stamina"]').click();
+  // the goal picker now discloses the week before it commits (#184)
+  await app.page.locator('#goal-disclose-start').click();
+  await app.page.locator('#ob-next-btn').click();
   expect(await app.page.evaluate(()=>session.step)).toBe(0);
   expect(await app.page.locator('#onboarding-overlay').getAttribute('class')).not.toContain('show');
   expect(await app.page.locator('#tour-layer').evaluate(x=>x.classList.contains('show'))).toBe(false);
@@ -84,7 +87,10 @@ describe('unread and first-time history are different',()=>{
   await authSignIn(app.page,{id:'first-progress',email:'first-progress@example.com',row:null});
   await app.page.locator('#check-liability').check();await app.page.locator('#check-pain').check();await app.page.locator('#init-btn').click();
   await expect.poll(()=>app.page.locator('#ob-slide-4').getAttribute('class')).toContain('active');
-  await app.page.locator('[data-goal="stamina"]').click();await app.page.locator('#ob-next-btn').click();
+  await app.page.locator('[data-goal="stamina"]').click();
+  // the goal picker now discloses the week before it commits (#184)
+  await app.page.locator('#goal-disclose-start').click();
+  await app.page.locator('#ob-next-btn').click();
   expect(await app.page.evaluate(()=>Array.isArray(persisted.progressCheckins))).toBe(true);
   await app.page.locator('#progress-btn').click();expect(await app.page.locator('#personal-checkin-btn').isEnabled()).toBe(true);
  });
