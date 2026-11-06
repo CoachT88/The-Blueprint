@@ -10336,6 +10336,16 @@ async function handleForgotPassword(){
    The list below is every body-level overlay that shows one member's own
    data, grouped by how each is hidden. */
 function _closeMemberOverlays(){
+    /* The exercise clock belongs to the account that started it. handleLogout
+       hides the step content but never reaches goToStep(), which is where a
+       running timer is normally cancelled, so a set survived the sign-out: the
+       rAF loop kept counting and onSetDone -> advanceEx -> finishSession could
+       fire against whichever account was loaded next, awarding XP and logging a
+       session nobody finished. startSet() opens with these same two lines for
+       the same reason. All three call sites of this function are account
+       boundaries: handleLogout, the account switch, and the SIGNED_OUT handler. */
+    if(session.timer){session.timer.cancel();session.timer=null;}
+    try{ stopJelqStrokePacer(); }catch(e){}
     closeProgressCheckin();
     stopGuideSpeech();_guideSpeech?.setEnabled(false);_guideAudioUser=null;
     // Hidden by the `hidden` class.
