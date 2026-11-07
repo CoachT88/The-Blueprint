@@ -125,6 +125,11 @@ export function weekCompletion(schedule, completedDays, options) {
        EQ-eligible, which is the correct answer for every existing member and
        keeps this change inert until a caller opts in. */
     const eqDays = Array.isArray(opts.eqSatisfiableDays) ? opts.eqSatisfiableDays : [];
+    /* The date key from which the EQ week applies, so a legacy client's
+       stamina completion on an EQ slot can be credited while a stamina
+       completion from before the switch cannot. Absent means credit nothing
+       mechanical on an EQ day, which is the strict default. */
+    const eqFrom = typeof opts.eqCreditFrom === 'string' && opts.eqCreditFrom ? opts.eqCreditFrom : null;
     const crossCheck = Array.isArray(opts.sessionLog);
     const perf = crossCheck ? performedByAttribution(opts.sessionLog, mechanicalTypes) : null;
     const ref = opts.now instanceof Date && !isNaN(opts.now.getTime()) ? opts.now : new Date();
@@ -167,17 +172,31 @@ export function weekCompletion(schedule, completedDays, options) {
            under a previous goal crediting an EQ day after the switch to it.
            Recovery satisfies neither, as before.
 
-           The cost is deliberate: a member whose client is still cached serves
-           the legacy stamina routine on a migrated EQ slot and logs 'stamina',
-           which this will not credit. That is the honest answer -- the day
-           asked for an EQ session and they did not do one -- and it corrects
-           itself as soon as the client updates. */
+           LEGACY-CLIENT CREDIT, and why a date settles it. A member whose
+           client is still cached serves the legacy stamina routine on a
+           migrated EQ slot and logs 'stamina'. That is legitimate work done as
+           instructed and should count. A Stamina session logged under a
+           PREVIOUS goal should not. Both are 'stamina' entries carrying a
+           prescriptionDate, so the routineType cannot tell them apart -- but
+           the clock can: the first can only happen on or after the EQ week was
+           adopted, and the second can only happen before it. So eqCreditFrom
+           is that adoption date key, and mechanical work credits an EQ day only
+           from it onward. No new compatibility machinery, one date comparison,
+           and the keys are already in hand here.
+
+           Without eqCreditFrom nothing mechanical credits an EQ day, which is
+           the strict behaviour and the correct default. */
         const eqOk = eqDays.includes(i);
-        const ok = (rec) => !!rec && (eqOk ? rec.eq === true : rec.mechanical === true);
-        const dated = perf.dated.get(localDateKeyForWeekday(ref, i));
-        if (ok(dated)) return true;                            // proven prescription
-        const legacy = perf.legacy.get(dateKeyForWeekday(ref, i));
-        if (ok(legacy)) return true;                           // the real thing
+        const datedKey = localDateKeyForWeekday(ref, i);
+        const legacyKey = dateKeyForWeekday(ref, i);
+        const creditable = (key) => !!eqFrom && typeof key === 'string' && key >= eqFrom;
+        const ok = (rec, key) => !!rec && (eqOk
+            ? (rec.eq === true || (creditable(key) && rec.mechanical === true))
+            : rec.mechanical === true);
+        const dated = perf.dated.get(datedKey);
+        if (ok(dated, datedKey)) return true;                  // proven prescription
+        const legacy = perf.legacy.get(legacyKey);
+        if (ok(legacy, legacyKey)) return true;                // the real thing
         if ((dated && dated.any) || (legacy && legacy.any)) return false;   // Recovery only
         return done[i] === true;                               // a manual tick
     };

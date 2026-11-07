@@ -262,9 +262,36 @@ describe('an EQ completion satisfies only an EQ day', () => {
     test('a stamina completion from a previous goal cannot satisfy an EQ day', () => {
         // The mirror of the leak above. The member trained Stamina on
         // Wednesday under another goal, then switched to EQ, where Wednesday
-        // is now an EQ day. Eligibility is exclusive, so it does not credit.
+        // is now an EQ day. The entry predates the EQ week's adoption, so it
+        // does not credit even with legacy credit enabled.
+        const r = weekCompletion(EQ_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5],
+              eqCreditFrom: '2025-06-12' });
+        expect(r.satisfied[3]).toBe(false);
+    });
+
+    test('a legacy client\'s stamina completion on a migrated EQ slot is credited', () => {
+        // An older cached client serves the legacy stamina routine on the EQ
+        // slot and logs 'stamina'. That is the work the member was shown, done
+        // as instructed, and it falls on or after the EQ week was adopted.
+        const r = weekCompletion(EQ_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5],
+              eqCreditFrom: '2025-06-11' });
+        expect(r.satisfied[3]).toBe(true);
+    });
+
+    test('without an adoption date nothing mechanical credits an EQ day', () => {
         const r = weekCompletion(EQ_WEEK, NO_DAYS,
             { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5] });
+        expect(r.satisfied[3]).toBe(false);
+    });
+
+    test('legacy credit never reaches a mechanical day', () => {
+        // eqCreditFrom only widens what an EQ DAY accepts. A Length day still
+        // refuses an EQ completion no matter the date.
+        const r = weekCompletion(SIZE_WEEK, NO_DAYS,
+            { sessionLog: EQ_ON_WED, now: MON, eqSatisfiableDays: [],
+              eqCreditFrom: '2025-06-01' });
         expect(r.satisfied[3]).toBe(false);
     });
 
