@@ -121,6 +121,17 @@ export function canAttribute(entry) {
  * prescription attribution, so they are invisible to satisfaction and remain
  * entirely visible to history.
  */
+/**
+ * The logged routineType of an EQ session.
+ *
+ * Deliberately NOT a member of any mechanical-type or mission list. It is a
+ * history label and a completion signal, never prescribable work: the slot an
+ * EQ session is scheduled against stays 'stamina', which is what keeps the
+ * persisted 7-slot column inside the legacy vocabulary an older cached client
+ * can read without normaliseSchedule() rewriting it.
+ */
+export const EQ_TYPE = 'eq';
+
 export function performedByAttribution(sessionLog, mechanicalTypes) {
     const mech = Array.isArray(mechanicalTypes) ? mechanicalTypes : [];
     const dated = new Map();
@@ -129,10 +140,23 @@ export function performedByAttribution(sessionLog, mechanicalTypes) {
         const a = attributeEntry(e);
         if (a.kind === ATTRIBUTION.UNKNOWN) continue;
         const into = a.kind === ATTRIBUTION.DATED ? dated : legacy;
-        const prev = into.get(a.key) || { any: false, mechanical: false };
+        const prev = into.get(a.key) || { any: false, mechanical: false, eq: false };
         into.set(a.key, {
             any: true,
             mechanical: prev.mechanical || mech.includes(e.routineType),
+            /* Reported separately from `mechanical` on purpose. An EQ session is
+               not mechanical work and must never accrue mechanical progression,
+               but it does satisfy the day it was prescribed for. Keeping the two
+               flags apart is what lets weekCompletion() credit an EQ day without
+               letting an EQ entry satisfy Length, Girth or Stamina work.
+
+               prescriptionDate proves WHICH DAY an entry belongs to. It does not
+               prove that the day still prescribes what the entry performed: a
+               goal change, a customisation or any other transition can leave an
+               EQ completion sitting on a date that now prescribes Length. So the
+               eligibility test lives with the caller, which knows the current
+               programme, and this flag only reports what was performed. */
+            eq: prev.eq || e.routineType === EQ_TYPE,
         });
     }
     return { dated, legacy };

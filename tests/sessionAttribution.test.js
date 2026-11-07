@@ -60,8 +60,8 @@ describe('an ABSENT prescriptionDate keeps the historical fallback', () => {
         ];
         const { legacy, dated } = performedByAttribution(log, MECH);
         expect(dated.size).toBe(0);
-        expect(legacy.get('2026-03-09')).toEqual({ any: true, mechanical: true });
-        expect(legacy.get('2026-03-12')).toEqual({ any: true, mechanical: true });
+        expect(legacy.get('2026-03-09')).toEqual({ any: true, mechanical: true, eq: false });
+        expect(legacy.get('2026-03-12')).toEqual({ any: true, mechanical: true, eq: false });
     });
 
     test('an unreadable completion date is UNKNOWN, not a guess', () => {
@@ -148,17 +148,17 @@ describe('aggregation is order independent', () => {
 
     test('Recovery then mechanical satisfies', () => {
         const { dated } = performedByAttribution([recov('2026-03-12'), mech('2026-03-12')], MECH);
-        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: true });
+        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: true, eq: false });
     });
 
     test('mechanical then Recovery also satisfies', () => {
         const { dated } = performedByAttribution([mech('2026-03-12'), recov('2026-03-12')], MECH);
-        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: true });
+        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: true, eq: false });
     });
 
     test('Recovery alone does not satisfy, and is not invisible either', () => {
         const { dated } = performedByAttribution([recov('2026-03-12')], MECH);
-        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: false });
+        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: false, eq: false });
     });
 
     test('three of each, interleaved, in both directions', () => {
@@ -182,7 +182,7 @@ describe('legacy and 3C.4 records mix in one week', () => {
         expect([...dated.keys()]).toEqual(['2026-03-12']);
         /* Both 3C.4 entries landed on the same prescription date, which is
            correct: one finished on the day and one after midnight. */
-        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: true });
+        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: true, eq: false });
         /* And the null one is in neither. */
         expect(dated.has('2026-03-14')).toBe(false);
         expect(legacy.has('2026-03-14')).toBe(false);
@@ -223,7 +223,7 @@ describe('it is pure and it cannot throw', () => {
         const { dated } = performedByAttribution(
             [{ date: '2026-03-12T19:00:00.000Z', prescriptionDate: '2026-03-12', routineType: 'length' }],
             undefined);
-        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: false });
+        expect(dated.get('2026-03-12')).toEqual({ any: true, mechanical: false, eq: false });
     });
 });
 
@@ -282,5 +282,33 @@ describe('every consumer reads this module and none reimplements it', () => {
         for (const line of reads) {
             expect(line, line.trim()).toMatch(/_snap\.prescriptionDate|prescriptionDate:/);
         }
+    });
+});
+
+/**
+ * An EQ session is reported separately from mechanical work.
+ *
+ * It must satisfy the day it was prescribed for without ever accruing
+ * mechanical progression, so the two facts travel as two flags rather than one.
+ */
+describe('EQ completions are reported apart from mechanical work', () => {
+    const MECH = ['length', 'girth', 'stamina'];
+    const eqEntry = { prescriptionDate: '2025-06-11', routineType: 'eq' };
+
+    test('an EQ entry is not mechanical', () => {
+        const { dated } = performedByAttribution([eqEntry], MECH);
+        expect(dated.get('2025-06-11')).toEqual({ any: true, mechanical: false, eq: true });
+    });
+
+    test('a mechanical entry does not set the eq flag', () => {
+        const { dated } = performedByAttribution(
+            [{ prescriptionDate: '2025-06-11', routineType: 'length' }], MECH);
+        expect(dated.get('2025-06-11')).toEqual({ any: true, mechanical: true, eq: false });
+    });
+
+    test('both on one date are reported independently', () => {
+        const { dated } = performedByAttribution(
+            [eqEntry, { prescriptionDate: '2025-06-11', routineType: 'length' }], MECH);
+        expect(dated.get('2025-06-11')).toEqual({ any: true, mechanical: true, eq: true });
     });
 });

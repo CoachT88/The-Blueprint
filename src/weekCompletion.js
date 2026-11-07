@@ -119,6 +119,12 @@ export function weekCompletion(schedule, completedDays, options) {
     const sched = Array.isArray(schedule) ? schedule : [];
     const done = Array.isArray(completedDays) ? completedDays : [];
 
+    /* Weekday indices an EQ completion may satisfy. The caller supplies them
+       because only it knows the member's current goal and prescription; this
+       module stays pure and ignorant of GOALS. Absent or empty means no day is
+       EQ-eligible, which is the correct answer for every existing member and
+       keeps this change inert until a caller opts in. */
+    const eqDays = Array.isArray(opts.eqSatisfiableDays) ? opts.eqSatisfiableDays : [];
     const crossCheck = Array.isArray(opts.sessionLog);
     const perf = crossCheck ? performedByAttribution(opts.sessionLog, mechanicalTypes) : null;
     const ref = opts.now instanceof Date && !isNaN(opts.now.getTime()) ? opts.now : new Date();
@@ -144,10 +150,19 @@ export function weekCompletion(schedule, completedDays, options) {
      */
     const isSatisfied = (i) => {
         if (!crossCheck) return done[i] === true;
+        /* An EQ completion satisfies ONLY a day the caller says is currently an
+           EQ day. prescriptionDate proves which day an entry belongs to, not
+           that the day still prescribes what the entry performed, so a goal
+           change or a customisation can leave an EQ completion on a date that
+           now prescribes Length. Without this gate that entry would satisfy the
+           Length day, because it would be indistinguishable from any other
+           same-date completion. 'eq' is therefore absent from mechanicalTypes
+           and eligibility is asked per day instead. */
+        const eqOk = eqDays.includes(i);
         const dated = perf.dated.get(localDateKeyForWeekday(ref, i));
-        if (dated && dated.mechanical) return true;            // proven prescription
+        if (dated && (dated.mechanical || (eqOk && dated.eq))) return true;   // proven prescription
         const legacy = perf.legacy.get(dateKeyForWeekday(ref, i));
-        if (legacy && legacy.mechanical) return true;          // the real thing
+        if (legacy && (legacy.mechanical || (eqOk && legacy.eq))) return true;  // the real thing
         if ((dated && dated.any) || (legacy && legacy.any)) return false;   // Recovery only
         return done[i] === true;                               // a manual tick
     };
