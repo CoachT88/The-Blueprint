@@ -265,33 +265,37 @@ describe('an EQ completion satisfies only an EQ day', () => {
         // is now an EQ day. The entry predates the EQ week's adoption, so it
         // does not credit even with legacy credit enabled.
         const r = weekCompletion(EQ_WEEK, NO_DAYS,
-            { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5],
-              eqCreditFrom: '2025-06-12' });
+            { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5] });
         expect(r.satisfied[3]).toBe(false);
     });
 
-    test('a legacy client\'s stamina completion on a migrated EQ slot is credited', () => {
-        // An older cached client serves the legacy stamina routine on the EQ
-        // slot and logs 'stamina'. That is the work the member was shown, done
-        // as instructed, and it falls on or after the EQ week was adopted.
-        const r = weekCompletion(EQ_WEEK, NO_DAYS,
-            { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5],
-              eqCreditFrom: '2025-06-11' });
-        expect(r.satisfied[3]).toBe(true);
-    });
-
-    test('without an adoption date nothing mechanical credits an EQ day', () => {
+    /* KNOWN LIMITATION, pinned so it cannot be "fixed" by accident. A stale
+       cached client serves the legacy stamina routine on a migrated EQ slot
+       and logs 'stamina'. That is legitimate work and it is NOT credited,
+       because nothing at this layer separates it from a stamina session
+       logged under a previous goal. Strict and accurate beats generous and
+       wrong; it resolves when the client updates. */
+    test('a legacy client\'s stamina completion on an EQ slot is not credited', () => {
         const r = weekCompletion(EQ_WEEK, NO_DAYS,
             { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5] });
         expect(r.satisfied[3]).toBe(false);
     });
 
-    test('legacy credit never reaches a mechanical day', () => {
-        // eqCreditFrom only widens what an EQ DAY accepts. A Length day still
+    test('a previous-goal session on the SAME DAY as adoption must not credit', () => {
+        // Wednesday morning, still on Size: a stamina substitution against a
+        // scheduled Length day. Wednesday afternoon the member switches to EQ,
+        // so adoption lands on the same calendar date. A date comparison alone
+        // cannot separate the two, and must not credit the morning's work.
+        const r = weekCompletion(EQ_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5] });
+        expect(r.satisfied[3]).toBe(false);
+    });
+
+    test('an EQ completion never reaches a mechanical day', () => {
+        // Eligibility is per day and exclusive. A Length day still
         // refuses an EQ completion no matter the date.
         const r = weekCompletion(SIZE_WEEK, NO_DAYS,
-            { sessionLog: EQ_ON_WED, now: MON, eqSatisfiableDays: [],
-              eqCreditFrom: '2025-06-01' });
+            { sessionLog: EQ_ON_WED, now: MON, eqSatisfiableDays: [] });
         expect(r.satisfied[3]).toBe(false);
     });
 
