@@ -259,11 +259,29 @@ describe('an EQ completion satisfies only an EQ day', () => {
         expect(r.satisfied[0]).toBe(false);
     });
 
-    test('a stamina completion still satisfies an EQ day, so older clients keep counting', () => {
-        // An older cached client serves the legacy stamina routine on these
-        // slots and logs routineType 'stamina'. That must still credit the day.
+    test('a stamina completion from a previous goal cannot satisfy an EQ day', () => {
+        // The mirror of the leak above. The member trained Stamina on
+        // Wednesday under another goal, then switched to EQ, where Wednesday
+        // is now an EQ day. Eligibility is exclusive, so it does not credit.
         const r = weekCompletion(EQ_WEEK, NO_DAYS,
             { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5] });
-        expect(r.satisfied[3]).toBe(true);
+        expect(r.satisfied[3]).toBe(false);
+    });
+
+    test('a recovery completion satisfies neither an EQ day nor a mechanical one', () => {
+        const eq = weekCompletion(EQ_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'recovery')], now: MON, eqSatisfiableDays: [0, 3, 5] });
+        expect(eq.satisfied[3]).toBe(false);
+        const mech = weekCompletion(SIZE_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'recovery')], now: MON });
+        expect(mech.satisfied[3]).toBe(false);
+    });
+
+    test('an EQ completion cannot satisfy a mechanical day even when another day is eligible', () => {
+        // Index 3 is Length in SIZE_WEEK. Marking index 5 eligible must not
+        // make the EQ entry on index 3 credit the Length day.
+        const r = weekCompletion(SIZE_WEEK, NO_DAYS,
+            { sessionLog: EQ_ON_WED, now: MON, eqSatisfiableDays: [5] });
+        expect(r.satisfied[3]).toBe(false);
     });
 });

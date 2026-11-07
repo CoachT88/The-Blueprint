@@ -157,12 +157,27 @@ export function weekCompletion(schedule, completedDays, options) {
            now prescribes Length. Without this gate that entry would satisfy the
            Length day, because it would be indistinguishable from any other
            same-date completion. 'eq' is therefore absent from mechanicalTypes
-           and eligibility is asked per day instead. */
+           and eligibility is asked per day instead.
+
+           Eligibility is EXCLUSIVE, not additive. An EQ day is satisfied by an
+           EQ completion and by nothing else; a mechanical day is satisfied by
+           mechanical work and not by an EQ completion. Additive would leak in
+           both directions: an EQ completion crediting the Length day that
+           replaced it after a goal change, and a Stamina completion logged
+           under a previous goal crediting an EQ day after the switch to it.
+           Recovery satisfies neither, as before.
+
+           The cost is deliberate: a member whose client is still cached serves
+           the legacy stamina routine on a migrated EQ slot and logs 'stamina',
+           which this will not credit. That is the honest answer -- the day
+           asked for an EQ session and they did not do one -- and it corrects
+           itself as soon as the client updates. */
         const eqOk = eqDays.includes(i);
+        const ok = (rec) => !!rec && (eqOk ? rec.eq === true : rec.mechanical === true);
         const dated = perf.dated.get(localDateKeyForWeekday(ref, i));
-        if (dated && (dated.mechanical || (eqOk && dated.eq))) return true;   // proven prescription
+        if (ok(dated)) return true;                            // proven prescription
         const legacy = perf.legacy.get(dateKeyForWeekday(ref, i));
-        if (legacy && (legacy.mechanical || (eqOk && legacy.eq))) return true;  // the real thing
+        if (ok(legacy)) return true;                           // the real thing
         if ((dated && dated.any) || (legacy && legacy.any)) return false;   // Recovery only
         return done[i] === true;                               // a manual tick
     };

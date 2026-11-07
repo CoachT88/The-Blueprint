@@ -4814,7 +4814,7 @@ function renderDifficultySelector(){
             const applied=shapeEx(applyDifficulty(ROUTINES.stamina[0]),shapes);
             detail.innerHTML=`${d.label}: Edging Protocol — ${applied.sets} sets · vascular conditioning`;
         } else {
-            const sampleEx=ROUTINES[session.routineType]?.[0];
+            const sampleEx=currentRoutine()?.[0];
             if(sampleEx){
                 const applied=shapeEx(applyDifficulty(sampleEx),shapes);
                 detail.innerHTML=`${d.label}: ${applied.duration}s per set · ${applied.sets} sets · ${SESSION_XP[d.id]||15} XP`;
@@ -5708,11 +5708,44 @@ ROUTINES.recovery.push({...DAILY_PELVIC_RESET});
    leaves the dose alone instead of running applyDifficulty(). An EQ week
    therefore has no load progression, and the member-facing copy says so
    rather than implying one. */
-ROUTINES.eq=[
-    ROUTINES.recovery[8],   // Diaphragmatic breathing
-    ROUTINES.recovery[2],   // Pelvic Floor Release
-    ROUTINES.recovery[4],   // Deep Squat — Malasana
+const EQ_STEP_INDICES=[
+    8,  // Diaphragmatic breathing
+    2,  // Pelvic Floor Release
+    4,  // Deep Squat — Malasana
 ];
+ROUTINES.eq=EQ_STEP_INDICES.map(i=>ROUTINES.recovery[i]);
+
+/* The step list for one EQ session, captured at launch so it cannot change
+   under a running session.
+
+   REUSING RECOVERY EXERCISES MUST NOT ROUTE AROUND THE RULES THAT GOVERN
+   THEM. The EQ session is pelvic work, so it answers to the same protections
+   the daily practice does. A member who reported pain and has not cleared it
+   keeps the breathing and the hip opener and does NOT get the pelvic item:
+   buildPelvicPracticePlan() pauses pelvic work in that state, and an EQ day
+   must not be the one route that ignores it.
+
+   allowedRecoveryIndices() is applied as well. None of these three is a
+   contraction, so nothing here is blocked today -- but if CONTRACTION_RECOVERY_IDX
+   ever widens, this must not be the place that forgot to ask. */
+function buildEqRoutine(){
+    let idx=EQ_STEP_INDICES.slice();
+    try{ if(pelvicPracticeNeedsReview()) idx=idx.filter(i=>i!==2); }catch(e){}
+    try{ idx=allowedRecoveryIndices(idx); }catch(e){}
+    /* Breathing is the floor. An empty session would be worse than a short one. */
+    if(!idx.length) idx=[8];
+    return idx.map(i=>ROUTINES.recovery[i]);
+}
+
+/* The exercise list the running session is actually performing. Every reader
+   goes through here so the EQ session's captured, pain-filtered list cannot
+   be bypassed by a direct ROUTINES lookup. */
+function currentRoutine(){
+    if(session.routineType==='eq'){
+        return (session.eqRoutine&&session.eqRoutine.length) ? session.eqRoutine : ROUTINES.eq;
+    }
+    return ROUTINES[session.routineType]||[];
+}
 
 /* The EQ goal performs EQ work on the stamina slots its week schedules.
 
@@ -5972,7 +6005,7 @@ function getCurEx(){
         const step=session.pelvicPracticePlan?.steps[session.pelvicPracticeIndex];
         return step?{...ROUTINES.recovery[step.index],sets:step.sets,duration:step.duration,restDur:step.restDur}:DAILY_PELVIC_RESET;
     }
-    const ex = ROUTINES[session.routineType][session.exerciseIndex];
+    const ex = currentRoutine()[session.exerciseIndex];
     if(ex.isRecovery){
         const dose=session.recoveryDoseByIndex?.[session.exerciseIndex];
         return dose?{...ex,sets:dose.sets,duration:dose.duration,restDur:dose.restDur}:ex;
@@ -7912,7 +7945,7 @@ function executableStepCount(){
     if(f&&_launchedPrescription&&_launchedPrescription.performedType===session.routineType){
         return f.steps.length;
     }
-    const exs=ROUTINES[session.routineType];
+    const exs=currentRoutine();
     return exs?exs.length:0;
 }
 /** The frozen step for the running exercise, or null on the dynamic path. */
@@ -7959,6 +7992,9 @@ function startMission(mission,source){
        anyway so the dependency cannot be introduced later by accident. */
     captureLaunchPrescription(mission);
     session.routineType=eqRoutineFor(mission);
+    /* Captured once, here, so a mid-session feedback change cannot resize the
+       step list under a running session. */
+    session.eqRoutine=session.routineType==='eq'?buildEqRoutine():null;
     track('mission_selected',{mission,source:source||'prescribed'});
     if(mission==='recovery'){ goToRecoveryPicker(); return; }
     if(mission==='girth'){
