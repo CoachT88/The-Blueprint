@@ -2877,6 +2877,25 @@ const GOALS={
               mission:'stamina', coach:'Their focus is lasting longer. Lead with ejaculatory control, pelvic floor state (assess hypertonic vs weak before recommending anything), arousal management and stamina work. Do not push size training unless they ask.'},
     eq:      {label:'Erection quality',blurb:'Firmness and blood flow',      icon:'fa-heart-pulse', color:'emerald',
               schedule:['stamina','rest','length','rest','stamina','rest','rest'],
+              /* Above is the DISABLED-STATE answer, left exactly as it shipped:
+                 index 2 is 'length', the substitution the EQ week replaces. It
+                 stays so that with EQ_SESSIONS_ENABLED false the preset offered
+                 is byte-for-byte today's. Kept directly under the key because
+                 tests/goalBridge.test.js parses this schedule out of the source
+                 with a 400-character window, to hold the website copy to the
+                 shipped week. */
+              /* The EQ week, offered only through goalSchedule() and only when
+                 the flag is on. Three session days with a day between each, two
+                 supporting-practice days, two genuine rest days. Every slot is
+                 'stamina' or 'rest': both are legacy vocabulary, so an older
+                 cached client reads this column without normaliseSchedule()
+                 rewriting it to a Size default. */
+              eqSchedule:['stamina','rest','rest','stamina','rest','stamina','rest'],
+              /* Weekday indices that require nothing at all. Expressed as goal
+                 metadata rather than a slot value because 'full-rest' outside
+                 DAY_TYPES would be silently rewritten to a MECHANICAL type and
+                 saved by an older client -- see src/scheduleSlot.js:105. */
+              fullRestDays:[2,6],
               mission:'stamina', coach:'Their focus is erection quality. Lead with vascular health, nitric oxide and endothelial function, sleep, and pelvic floor blood flow. Do not push size training unless they ask.'},
     all:     {label:'All of it',       blurb:'The complete protocol',        icon:'fa-layer-group', color:'amber',
               schedule:['length','girth','rest','stamina','length','rest','rest'],
@@ -5762,8 +5781,44 @@ function currentRoutine(){
 let EQ_SESSIONS_ENABLED=false;
 
 function eqRoutineFor(mission){
-    if(EQ_SESSIONS_ENABLED!==true) return mission;
+    if(!eqEnabled()) return mission;
     return (mission==='stamina'&&getGoalKey()==='eq') ? 'eq' : mission;
+}
+
+/* ONE gate for the whole experience. Session selection, the schedule preset,
+   full rest, completion eligibility and the migration all ask this, so the
+   programme cannot half-activate: there is no state where a member has the EQ
+   week but the old completion rules, or genuine rest days that still demand a
+   practice. */
+function eqEnabled(){ return EQ_SESSIONS_ENABLED===true; }
+
+/* The schedule preset a goal offers. The EQ week is substituted here, at read
+   time, rather than written into GOALS.eq.schedule -- a literal cannot be
+   gated, and every preset reader would otherwise see the new week the moment
+   this shipped. */
+function goalSchedule(k){
+    const g=GOALS[k];
+    if(!g) return null;
+    return (eqEnabled()&&k==='eq'&&Array.isArray(g.eqSchedule)) ? g.eqSchedule : g.schedule;
+}
+
+/* Weekday indices that require nothing at all, for the member's current goal.
+   Empty unless the flag is on and the goal declares them, so no existing
+   member's rest day changes meaning. */
+function fullRestDays(){
+    if(!eqEnabled()) return [];
+    const g=GOALS[getGoalKey()];
+    return Array.isArray(g&&g.fullRestDays) ? g.fullRestDays : [];
+}
+function isFullRestDay(i){ return fullRestDays().includes(i); }
+
+/* Weekday indices an EQ completion may satisfy: the session days of the EQ
+   week, which are its non-rest slots. weekCompletion() is pure and knows
+   nothing of GOALS, so the answer is computed here and passed in. */
+function eqSatisfiableDays(){
+    if(!eqEnabled()||getGoalKey()!=='eq') return [];
+    const wk=goalSchedule('eq')||[];
+    return wk.map((t,i)=>(t&&t!=='rest')?i:-1).filter(i=>i>=0);
 }
 
 /* EQ sessions are recovery content, so they follow the recovery rules for XP
@@ -6952,7 +7007,11 @@ function currentWeekCompletion(){
        would be the worst possible failure for a progress surface. */
     const prescription=(slots&&slots.ok)?slots.slots:persisted.schedule;
     return window.BP.weekCompletion(prescription,persisted.completedDays,
-        {sessionLog:persisted.sessionLog,now:new Date()});
+        {sessionLog:persisted.sessionLog,now:new Date(),
+         /* Which days an EQ completion may satisfy. Empty unless the flag
+            is on and the member is on EQ, so completion rules cannot move
+            for anyone else. */
+         eqSatisfiableDays:eqSatisfiableDays()});
 }
 /* Everything that speaks about the week reads the line above. The strip and
    the Week Complete treatment used to call weekCompletion() separately with
@@ -7498,12 +7557,28 @@ function pelvicPracticeNeedsReview(){
     try{return localStorage.getItem(pelvicReviewKey())!=='settled';}catch{return true;}
 }
 function plannedPelvicItems(date,slot){
+    /* A genuine rest day requires nothing. A 'rest' slot cannot say that on its
+       own, because a rest slot always carries a practice today, so the EQ week
+       names its two no-task days and they return an empty list here.
+
+       The weekday comes from the date key rather than an extra parameter:
+       dailyPracticeFor(date,slot) is the generator's contract and widening it
+       would reach planFor() and two call chains for no gain. A key is
+       'YYYY-MM-DD' in local terms, so this is deterministic. */
+    if(eqEnabled()&&typeof date==='string'){
+        const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+        if(m&&isFullRestDay(new Date(+m[1],+m[2]-1,+m[3]).getDay())) return [];
+    }
     const last=lastPelvicFeedback();
     return window.BP.dailyPracticeItems(window.BP.buildPelvicPracticePlan({date,dayKind:slot==='rest'?'rest':'primary',profile:persisted.pelvicProfile,
         feedback:last?.pelvicPractice.feedback||'',painCleared:!pelvicPracticeNeedsReview()}));
 }
 function currentPelvicPracticePlan(busy=false){
     if(!window.BP?.buildPelvicPracticePlan)return null;
+    /* Genuine rest: no plan at all, so nothing is required and nothing is
+       rendered as if it were. Checked before the prescription is read, because
+       a full-rest day is a property of the week rather than of the slot. */
+    if(isFullRestDay(new Date().getDay())) return null;
     const date=window.BP.planDateKey(new Date());
     const last=lastPelvicFeedback();
     const pres=currentTodayPrescription();
@@ -8207,7 +8282,7 @@ function syncProgression(reason){
             /* The real arrays, passed rather than copied into the module.
                GOALS lives here and a second definition there is how two
                copies drift apart. */
-            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,goalSchedule(k)])),
             defaultSchedule:DEFAULT_PERSISTED.schedule,
             /* Deliberately not supplied: allTimeSessionCount, sessionLog,
                firstSessionDate, progressionLedger. None of them says whether
@@ -8238,7 +8313,7 @@ function syncProgression(reason){
             legacySchedule:persisted.schedule,
             /* The real tables, passed rather than copied into the module. A
                second dose table there is how two prescriptions drift. */
-            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,goalSchedule(k)])),
             tables:{
                 routines:ROUTINES,
                 difficulties:DIFFICULTIES,
@@ -9490,7 +9565,7 @@ function selectGoal(key){
     const change=window.BP.goalChangePlan({
         goal:key, immediate:untouched, programme:persisted.programme,
         existingPlans:persisted.dayPlans, legacySchedule:persisted.schedule,
-        presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+        presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,goalSchedule(k)])),
         tables:{routines:ROUTINES,difficulties:DIFFICULTIES,girthCircuit:GIRTH_CIRCUIT,
             directionals:DIRECTIONALS,exExperience:EX_EXPERIENCE},
         dailyPracticeFor:plannedPelvicItems,
