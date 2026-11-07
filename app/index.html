@@ -2860,7 +2860,9 @@ function dayTypeIcon(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].icon)||UNKNOWN_DAY_I
    reached the calendar's substitution tooltip. */
 function dayTypeLabel(t){
     if(DAY_TYPES[t]) return DAY_TYPES[t].label;
-    return t==='recovery'?'Recovery':'Unset';
+    if(t==='recovery') return 'Recovery';
+    if(t==='eq') return 'EQ session';
+    return 'Unset';
 }
 
 // ── Primary goal ───────────────────────────────────────────────────────────
@@ -4788,7 +4790,7 @@ function renderDifficultySelector(){
     if(eliteNote) eliteNote.classList.add('hidden'); // hidden by default — shown on tap of locked elite
     const detail=document.getElementById('diff-detail');
     const recovNote=document.getElementById('diff-recovery-note');
-    const isRecov=session.routineType==='recovery';
+    const isRecov=isRecoveryRoutine();
     document.getElementById('diff-selector').style.opacity=isRecov?'0.3':'1';
     document.getElementById('diff-selector').style.pointerEvents=isRecov?'none':'';
     if(recovNote) recovNote.classList.toggle('hidden',!isRecov);
@@ -5681,6 +5683,63 @@ function stopWarmup(){if(session.warmupTimer){session.warmupTimer.cancel();sessi
 // RECOVERY PICKER
 // ═══════════════════════════════════════════════════════════════════════════
 ROUTINES.recovery.push({...DAILY_PELVIC_RESET});
+
+/* ── The EQ session ────────────────────────────────────────────────────────
+   Three steps, every one an existing recovery exercise, assembled here
+   because breathing only becomes recovery[8] on the line above.
+
+   WHY THESE THREE. Pelvic floor work is the one family with direct
+   erectile-function trial evidence, weak and mixed as it is. Breathing and
+   hip mobility are supporting work and are described that way to the member,
+   not as erection levers. The Length, Girth and Stamina routines are all
+   wrong for this goal: the first two train size, and both stamina exercises
+   train ejaculatory control -- Lateral Compression's own copy describes "a
+   steady, controlled drop in erection fullness", which is the opposite of
+   what an EQ member asked for.
+
+   NO CONTRACTIONS. recovery[0] and recovery[3] are deliberately absent.
+   Passing the pelvic screener does not establish that strengthening suits
+   anyone, so contraction work stays where it is: reachable by explicit
+   member choice in the recovery picker, still refused by isExerciseBlocked()
+   where the screener says so. Nothing here is gated, because nothing here
+   is a contraction.
+
+   FIXED DOSES, NO PROGRESSION. Every entry is isRecovery, so getCurEx()
+   leaves the dose alone instead of running applyDifficulty(). An EQ week
+   therefore has no load progression, and the member-facing copy says so
+   rather than implying one. */
+ROUTINES.eq=[
+    ROUTINES.recovery[8],   // Diaphragmatic breathing
+    ROUTINES.recovery[2],   // Pelvic Floor Release
+    ROUTINES.recovery[4],   // Deep Squat — Malasana
+];
+
+/* The EQ goal performs EQ work on the stamina slots its week schedules.
+
+   The MISSION stays 'stamina': that is what the programme prescribed, what
+   the progression ledger records, and what keeps the persisted 7-slot column
+   inside the legacy vocabulary that an older cached client can read without
+   normaliseSchedule() rewriting it to a Size default. Only the ROUTINE
+   performed -- and logged, so history is accurate -- becomes 'eq'. */
+/* THE ACTIVATION GATE. False until the behaviour and the exercise guidance
+   have been reviewed. Without it this change is not inert: an existing EQ
+   member already has stamina slots, so flipping the routine would hand them
+   the new session the moment this shipped. Same role MOVE_UI_PREVIEW plays,
+   and checked in the one place that decides what gets performed. */
+let EQ_SESSIONS_ENABLED=false;
+
+function eqRoutineFor(mission){
+    if(EQ_SESSIONS_ENABLED!==true) return mission;
+    return (mission==='stamina'&&getGoalKey()==='eq') ? 'eq' : mission;
+}
+
+/* EQ sessions are recovery content, so they follow the recovery rules for XP
+   and for difficulty: fixed doses mean a difficulty selector would be
+   lying, and awarding a mechanical session's XP for three recovery items
+   would inflate the only number a member watches. */
+function isRecoveryRoutine(){
+    return session.routineType==='recovery'||session.routineType==='eq';
+}
 const RECOVERY_EX_IDS = ROUTINES.recovery.map(ex=>ex.title);
 // The 6 Coach Tee recommends (indices into ROUTINES.recovery)
 const COACH_REC_INDICES = [0,1,2,3,4,5,6,7]; // all 8
@@ -6255,7 +6314,7 @@ function startSet(){
         const timerEl=document.getElementById('ex-timer');
         timerEl.innerText=fmtDuration(rem);
         timerEl.classList.toggle('timer-urgent',rem>0&&rem<=10);
-        document.getElementById('live-xp').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP`;
+        document.getElementById('live-xp').innerText=`+${isRecoveryRoutine()?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP`;
         // Uli: cue stays static. Wet Jelq: pacer interval owns cue updates.
         if(ex.pelvicRhythm)updateActiveCue(pelvicRhythmCue(ex,rem));
         else if(!isUli&&!isWetJelq){
@@ -6411,7 +6470,7 @@ function completeRoutineWithPelvicCare(){
     if(startRemainingPelvicPractice())return;
     session.dailyPelvicPhase=false;
     haptic([100,50,100,50,300]);
-    document.getElementById('success-xp-text').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
+    document.getElementById('success-xp-text').innerText=`+${isRecoveryRoutine()?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
     goToStep(5);
 }
 function advanceEx(){
@@ -7899,7 +7958,7 @@ function startMission(mission,source){
        this function, which never reads routineType, and the ordering is kept
        anyway so the dependency cannot be introduced later by accident. */
     captureLaunchPrescription(mission);
-    session.routineType=mission;
+    session.routineType=eqRoutineFor(mission);
     track('mission_selected',{mission,source:source||'prescribed'});
     if(mission==='recovery'){ goToRecoveryPicker(); return; }
     if(mission==='girth'){
@@ -8445,7 +8504,7 @@ function finishSession(){
        durable history derived from a mutable tier, so a tier change between
        launch and completion used to rewrite what was recorded. */
     const _xpTier=(_launchedPrescription&&_launchedPrescription.xpTier)||getDiff().id;
-    const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[_xpTier]||100);
+    const earnedXp=isRecoveryRoutine()?SESSION_XP.recovery:(SESSION_XP[_xpTier]||100);
     /* ONE clock read for the whole completion. finishSession() used to call
        new Date() four separate times, so a rollover mid-function could make
        its own fields describe different days. */
