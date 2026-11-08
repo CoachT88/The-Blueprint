@@ -30,7 +30,10 @@ describe('the EQ foundation', () => {
             persisted.schedule = ['stamina', 'rest', 'length', 'rest', 'stamina', 'rest', 'rest'];
             persisted.sessionLog = [];
             persisted.dayPlans = [];
-            persisted.programme = {key: 'eq', custom: false,
+            /* No programme.key: onAuthoritativePlans() is false, so the live
+               prescription IS the legacy column. mayGenerateOver() does not
+               need a key, so the migration tests are unaffected. */
+            persisted.programme = {custom: false,
                 migration: {source: 'preset'}, adoptedAt: '2026-01-01T00:00:00.000Z'};
         });
     });
@@ -102,6 +105,7 @@ describe('the EQ foundation', () => {
 
     test('Tuesday and Saturday are genuine rest, and the stored plan asks nothing', async () => {
         const r = await on(() => ({
+            _onWeek: (persisted.schedule = goalSchedule('eq').slice(), onEqWeek()),
             full: fullRestDays(),
             tue: isFullRestDay(2), sat: isFullRestDay(6), wed: isFullRestDay(3),
             // 2026-11-10 is a Tuesday, 2026-11-14 a Saturday, 2026-11-09 a Monday.
@@ -124,22 +128,83 @@ describe('the EQ foundation', () => {
     });
 
     test('the three session days are the EQ-satisfiable ones', async () => {
-        expect(await on(() => eqSatisfiableDays())).toEqual([0, 3, 5]);
+        expect(await on(() => {
+            persisted.schedule = goalSchedule('eq').slice();
+            return eqSatisfiableDays();
+        })).toEqual([0, 3, 5]);
     });
 
     test('a session day serves the three EQ steps, and logs as eq', async () => {
         const r = await on(() => {
+            persisted.schedule = goalSchedule('eq').slice();
+            /* Selection and completion must agree, whatever weekday the suite
+               happens to run on. That agreement is the property, not the
+               particular answer. */
+            const isSessionDay = eqSatisfiableDays().includes(new Date().getDay());
             const mapped = eqRoutineFor('stamina');
-            session.routineType = mapped;
+            session.routineType = 'eq';
             session.eqRoutine = buildEqRoutine();
-            return {mapped, titles: currentRoutine().map(x => x.title),
+            return {isSessionDay, mapped, titles: currentRoutine().map(x => x.title),
                     label: dayTypeLabel('eq'), recoveryRules: isRecoveryRoutine()};
         });
-        expect(r.mapped).toBe('eq');
+        expect(r.mapped).toBe(r.isSessionDay ? 'eq' : 'stamina');
         expect(r.titles).toEqual(['Diaphragmatic breathing', 'Pelvic Floor Release', 'Deep Squat — Malasana']);
         expect(r.label).toBe('EQ session');
         // Recovery rules for XP and difficulty, because that is what it is.
         expect(r.recoveryRules).toBe(true);
+    });
+
+    /* ── The EQ behaviour follows the ACTIVE PRESCRIPTION, not the goal ─── */
+
+    test('a customised EQ week keeps the experience the member chose', async () => {
+        // Goal is 'eq' and the flag is on, but they rearranged their days, so
+        // the migration skipped them. Nothing EQ may touch them: not their
+        // stamina exercise, not their Tuesday, not their completion rules.
+        const r = await on(() => {
+            persisted.schedule = ['rest', 'stamina', 'length', 'rest', 'stamina', 'rest', 'rest'];
+            return {onWeek: onEqWeek(), mapped: eqRoutineFor('stamina'),
+                    full: fullRestDays(), sat: eqSatisfiableDays(),
+                    tueItems: plannedPelvicItems('2026-11-10', 'rest').length};
+        });
+        expect(r.onWeek).toBe(false);
+        expect(r.mapped).toBe('stamina');
+        expect(r.full).toEqual([]);
+        expect(r.sat).toEqual([]);
+        expect(r.tueItems).toBeGreaterThan(0);
+    });
+
+    test('a preserved dated plan outranks the new week on a migration day', async () => {
+        // migrateEqWeek() keeps today's prescription. So on the day of the
+        // migration the stored week is the new one while today's plan is the
+        // old one -- and today must answer to the plan it was given.
+        const r = await on(() => {
+            persisted.schedule = goalSchedule('eq').slice();
+            persisted.programme = {key: 'eq', custom: false,
+                migration: {source: 'preset'}, adoptedAt: '2026-01-01T00:00:00.000Z'};
+            const today = window.BP.planDateKey(new Date());
+            // A rest-mode plan is the minimal valid dated plan.
+            persisted.dayPlans = [{date: today, mode: 'rest'}];
+            return {today: new Date().getDay(), sat: eqSatisfiableDays(),
+                    mapped: eqRoutineFor('stamina')};
+        });
+        // Today's preserved plan says rest, so today is not an EQ day even if
+        // the new week schedules a session on that weekday.
+        expect(r.sat).not.toContain(r.today);
+        expect(r.mapped).toBe('stamina');
+    });
+
+    test('an unknown live prescription is never treated as nothing required', async () => {
+        // Authoritative plans with none stored: we cannot say what the day
+        // asks for, and "unsure" is not a reason to tell a member to rest.
+        const r = await on(() => {
+            persisted.schedule = goalSchedule('eq').slice();
+            persisted.programme = {key: 'eq', custom: false,
+                migration: {source: 'preset'}, adoptedAt: '2026-01-01T00:00:00.000Z'};
+            persisted.dayPlans = [];
+            return {full: fullRestDays(), sat: eqSatisfiableDays()};
+        });
+        expect(r.full).toEqual([]);
+        expect(r.sat).toEqual([]);
     });
 
     test('unresolved pelvic pain withholds the pelvic step, keeping the rest', async () => {

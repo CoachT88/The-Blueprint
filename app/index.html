@@ -5855,9 +5855,12 @@ function currentRoutine(){
    and checked in the one place that decides what gets performed. */
 let EQ_SESSIONS_ENABLED=false;
 
+/* ONE source for "is today an EQ session day", shared with completion, so
+   selection and credit cannot disagree. A stamina mission on a day the live
+   prescription does not treat as an EQ day keeps serving the stamina routine. */
 function eqRoutineFor(mission){
-    if(!eqEnabled()) return mission;
-    return (mission==='stamina'&&getGoalKey()==='eq') ? 'eq' : mission;
+    if(mission!=='stamina') return mission;
+    return eqSatisfiableDays().includes(new Date().getDay()) ? 'eq' : mission;
 }
 
 /* ONE gate for the whole experience. Session selection, the schedule preset,
@@ -5877,24 +5880,66 @@ function goalSchedule(k){
     return (eqEnabled()&&k==='eq'&&Array.isArray(g.eqSchedule)) ? g.eqSchedule : g.schedule;
 }
 
-/* Weekday indices that require nothing at all, for the member's current goal.
-   Empty unless the flag is on and the goal declares them, so no existing
-   member's rest day changes meaning. */
+/* Is this member actually FOLLOWING the EQ week?
+   The goal alone is not enough, and that was a real defect. A member whose
+   goal is 'eq' but who rearranged their days was deliberately skipped by the
+   migration -- and then three separate helpers changed their experience
+   anyway, because each asked only getGoalKey(). Their stamina exercise was
+   replaced, their customised Tuesday was suppressed, and EQ completion rules
+   were applied to days that were not EQ days.
+
+   So the question is asked of their stored week, not of their goal. */
+function onEqWeek(){
+    if(!eqEnabled()||getGoalKey()!=='eq') return false;
+    const want=goalSchedule('eq'), cur=persisted.schedule;
+    if(!Array.isArray(want)||!Array.isArray(cur)||cur.length!==want.length) return false;
+    return cur.every((t,i)=>t===want[i]);
+}
+
+/* The week as actually prescribed: dated plans where they are authoritative,
+   the legacy column otherwise. Derived exactly as currentWeekCompletion()
+   derives it, so the two cannot disagree about what a day asks for. */
+function resolvedWeekSlots(){
+    const s=(window.BP&&window.BP.weekStripSlots)?window.BP.weekStripSlots({
+        now:new Date(),
+        authoritative:onAuthoritativePlans(),
+        dayPlans:persisted.dayPlans,
+        legacySchedule:persisted.schedule,
+    }):null;
+    return (s&&s.ok)?s.slots:(Array.isArray(persisted.schedule)?persisted.schedule:[]);
+}
+
+/* Weekday indices an EQ completion may satisfy: the EQ week's session days,
+   INTERSECTED with what the live prescription actually asks for.
+
+   The intersection is what honours a preserved dated plan. migrateEqWeek()
+   deliberately keeps today's prescription, so on the day of a migration the
+   stored week is the new one while today's plan is still the old one. A day
+   the old plan filled with Length and the new week leaves at rest is NOT an
+   EQ day: today answers to the prescription the member actually launched
+   against. */
+function eqSatisfiableDays(){
+    if(!onEqWeek()) return [];
+    const want=goalSchedule('eq')||[], live=resolvedWeekSlots();
+    return want.map((t,i)=>
+        (t&&t!=='rest'&&live[i]&&live[i]!=='rest') ? i : -1).filter(i=>i>=0);
+}
+
+/* Days that require nothing at all -- but never a day the live prescription
+   still asks for work on. A preserved dated plan outranks the template, so a
+   migration day cannot have its activities suppressed out from under it. */
 function fullRestDays(){
-    if(!eqEnabled()) return [];
-    const g=GOALS[getGoalKey()];
-    return Array.isArray(g&&g.fullRestDays) ? g.fullRestDays : [];
+    if(!onEqWeek()) return [];
+    const declared=Array.isArray(GOALS.eq.fullRestDays)?GOALS.eq.fullRestDays:[];
+    const live=resolvedWeekSlots();
+    /* Explicitly 'rest', not merely unknown. An unreadable dated plan means
+       we cannot say what the day asks for, and "we are not sure" is not a
+       reason to tell a member nothing is required. */
+    return declared.filter(i=>live[i]==='rest');
 }
 function isFullRestDay(i){ return fullRestDays().includes(i); }
 
-/* Weekday indices an EQ completion may satisfy: the session days of the EQ
-   week, which are its non-rest slots. weekCompletion() is pure and knows
-   nothing of GOALS, so the answer is computed here and passed in. */
-function eqSatisfiableDays(){
-    if(!eqEnabled()||getGoalKey()!=='eq') return [];
-    const wk=goalSchedule('eq')||[];
-    return wk.map((t,i)=>(t&&t!=='rest')?i:-1).filter(i=>i>=0);
-}
+
 
 /* EQ sessions are recovery content, so they follow the recovery rules for XP
    and for difficulty: fixed doses mean a difficulty selector would be
