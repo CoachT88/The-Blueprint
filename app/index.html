@@ -3762,7 +3762,56 @@ function adoptPersisted(raw){
     /* Assigned, never |=. Each adoption answers for its own state, so an
        account switch cannot inherit the previous member's repair. */
     _scheduleRepairedOnAdopt=normaliseSchedule().changed;
+    /* After normalisation, so the comparison below is against a repaired
+       column rather than a half-readable one. Returns false and touches
+       nothing while EQ_SESSIONS_ENABLED is false. */
+    try{ migrateEqWeek(); }catch(e){}
     return persisted;
+}
+
+/* ── Correcting an existing EQ member's week ───────────────────────────────
+   FOUR GATES, ALL OF WHICH MUST HOLD. mayGenerateOver() alone is not enough:
+   it returns true for a custom programme as long as adoptedAt parses, because
+   it gates on known PROVENANCE rather than on leaving custom work alone. So
+   `custom` is checked separately and explicitly.
+
+   An exact match against the old preset is the fourth gate. A member who has
+   rearranged their week has expressed a preference, and silently restoring a
+   template over it would be the rudest possible correction. Those members are
+   left exactly as they are; the week they chose keeps working, and offering
+   them the update is a conversation rather than a migration.
+
+   WHAT IS PRESERVED, BY CONSTRUCTION. sessionLog, totalXp, measurements,
+   progressionLedger and completedDays are neither read nor written here.
+   completedDays is weekday-indexed and the indices do not move, so a member
+   who completed Tuesday keeps that completion even though Tuesday becomes a
+   rest day. */
+function eqMigrationEligible(){
+    if(!eqEnabled()) return false;                                  // 1. the gate
+    if(getGoalKey()!=='eq') return false;                           // 2. their goal
+    if(!window.BP||typeof window.BP.mayGenerateOver!=='function') return false;
+    if(!window.BP.mayGenerateOver(persisted.programme)) return false;  // 3. authority
+    if(persisted.programme&&persisted.programme.custom===true) return false;
+    const cur=persisted.schedule, old=GOALS.eq.schedule;            // 4. untouched preset
+    if(!Array.isArray(cur)||cur.length!==old.length) return false;
+    return cur.every((t,i)=>t===old[i]);
+}
+
+function migrateEqWeek(){
+    if(!eqMigrationEligible()) return false;
+    const next=goalSchedule('eq');
+    if(!Array.isArray(next)) return false;
+    persisted.schedule=next.slice();
+    /* TODAY'S PRESCRIPTION IS HONOURED. The member may already have launched
+       against it, and a dated plan is the identity a completion attributes to.
+       Only FUTURE plans are dropped, so they regenerate from the new week
+       through the normal authority path rather than being rewritten here. */
+    const today=window.BP.planDateKey?window.BP.planDateKey(new Date()):null;
+    if(today&&Array.isArray(persisted.dayPlans)){
+        persisted.dayPlans=persisted.dayPlans
+            .filter(p=>p&&typeof p.date==='string'&&p.date<=today);
+    }
+    return true;
 }
 
 async function loadPersisted(){
@@ -5727,6 +5776,32 @@ ROUTINES.recovery.push({...DAILY_PELVIC_RESET});
    leaves the dose alone instead of running applyDifficulty(). An EQ week
    therefore has no load progression, and the member-facing copy says so
    rather than implying one. */
+/* ── What members are told ────────────────────────────────────────────────
+   Three rules this copy keeps. It never promises an erection outcome. It
+   describes what each component is FOR rather than what it will do to you.
+   And it says plainly what progress here is, because consistency and a
+   self-rating are worth having without being evidence of a mechanism. */
+const EQ_COPY={
+    fullRest:'Rest day. Nothing is required today, and nothing is waiting for you. '
+        +'Recovery is part of the plan rather than a gap in it.',
+    progress:'We track two things here: how consistently you train, and how you rate '
+        +'your own erections over time. Both are your own experience, recorded '
+        +'honestly. Neither is a measurement of blood flow or tissue, and neither is '
+        +'proof that anything has physically changed. A rising trend is worth having. '
+        +'It is not evidence of a mechanism.',
+    noProgression:'The doses here stay the same week to week. This is practice rather '
+        +'than loading, so there is nothing to add weight to.',
+    why:{
+        breathing:'Here to teach the letting-go, and to settle you before the rest. '
+            +'Relaxation work, not pelvic floor strengthening -- they are not '
+            +'interchangeable.',
+        release:'A floor that can relax matters as much as one that can squeeze. This '
+            +'is the side of it most men have never practised.',
+        mobility:'General care for the muscles around the pelvis that shorten from '
+            +'sitting. Comfortable rather than clever.',
+    },
+};
+
 const EQ_STEP_INDICES=[
     8,  // Diaphragmatic breathing
     2,  // Pelvic Floor Release
@@ -7449,7 +7524,12 @@ function renderToday(){
             `<li class="text-[11px] text-slate-400 leading-relaxed flex gap-2"><span class="u-text-2">&bull;</span><span>${c}</span></li>`).join('');
         changes.classList.add('hidden');     // revealed by "Why this today?"
     }
-    const planContext=window.BP.todayPlanExplanation(r,currentPelvicPracticePlan()||{},lastPelvicFeedback()?.pelvicPractice.feedback||'');
+    /* A day that requires nothing says so, in its own words. The generic
+       rest explanation describes a rest day that still carries a practice,
+       which is not what this is. */
+    const planContext=isFullRestDay(new Date().getDay())
+        ? EQ_COPY.fullRest
+        : window.BP.todayPlanExplanation(r,currentPelvicPracticePlan()||{},lastPelvicFeedback()?.pelvicPractice.feedback||'');
     set('today-plan-context',planContext,false);
     set('today-why-btn',undefined,r.changes.length>0||!!planContext);
     const whyBtn=document.getElementById('today-why-btn');
