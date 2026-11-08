@@ -5921,8 +5921,14 @@ function resolvedWeekSlots(){
 function eqSatisfiableDays(){
     if(!onEqWeek()) return [];
     const want=goalSchedule('eq')||[], live=resolvedWeekSlots();
+    /* live[i] must be the slot the EQ week prescribes, not merely some
+       training slot. "Non-rest" was too loose: a member can reach the EQ week
+       without migrating -- selectGoal() writes the preset directly -- and
+       their previous programme's dated plans survive for the current week. A
+       preserved Length prescription on an EQ session weekday would then have
+       counted as an EQ day. */
     return want.map((t,i)=>
-        (t&&t!=='rest'&&live[i]&&live[i]!=='rest') ? i : -1).filter(i=>i>=0);
+        (t&&t!=='rest'&&live[i]===t) ? i : -1).filter(i=>i>=0);
 }
 
 /* Days that require nothing at all -- but never a day the live prescription
@@ -5938,6 +5944,36 @@ function fullRestDays(){
     return declared.filter(i=>live[i]==='rest');
 }
 function isFullRestDay(i){ return fullRestDays().includes(i); }
+
+/* Is THAT DATE a day with nothing required?
+   fullRestDays() answers for the CURRENT week, because resolvedWeekSlots()
+   resolves against today. plannedPelvicItems() is called for arbitrary dates,
+   including future weeks during generation, so asking the weekday question
+   there read this week's prescription for next week's day: a preserved Length
+   plan on this Tuesday would have put activities on every future Tuesday.
+
+   So the date answers for itself -- its own dated plan when it has one, the
+   column otherwise. */
+function isFullRestDate(dateKey){
+    if(!onEqWeek()) return false;
+    const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey||'');
+    if(!m) return false;
+    const i=new Date(+m[1],+m[2]-1,+m[3]).getDay();
+    const declared=Array.isArray(GOALS.eq.fullRestDays)?GOALS.eq.fullRestDays:[];
+    if(!declared.includes(i)) return false;
+    const raw=(Array.isArray(persisted.dayPlans)?persisted.dayPlans:[])
+        .find(p=>p&&p.date===dateKey);
+    if(raw){
+        /* An explicit rest-mode plan means nothing required. Anything else,
+           including an unreadable plan, outranks the template. */
+        const plan=window.BP&&window.BP.normaliseDayPlan?window.BP.normaliseDayPlan(raw):null;
+        return !!plan&&plan.mode==='rest';
+    }
+    /* No plan for that date: the column is the prescription, and under
+       onEqWeek() the column is the EQ week. */
+    const cur=Array.isArray(persisted.schedule)?persisted.schedule:[];
+    return cur[i]==='rest';
+}
 
 
 
@@ -7572,7 +7608,7 @@ function renderToday(){
     /* A day that requires nothing says so, in its own words. The generic
        rest explanation describes a rest day that still carries a practice,
        which is not what this is. */
-    const planContext=isFullRestDay(new Date().getDay())
+    const planContext=isFullRestDate(window.BP.planDateKey(new Date()))
         ? EQ_COPY.fullRest
         : window.BP.todayPlanExplanation(r,currentPelvicPracticePlan()||{},lastPelvicFeedback()?.pelvicPractice.feedback||'');
     set('today-plan-context',planContext,false);
@@ -7690,10 +7726,7 @@ function plannedPelvicItems(date,slot){
        dailyPracticeFor(date,slot) is the generator's contract and widening it
        would reach planFor() and two call chains for no gain. A key is
        'YYYY-MM-DD' in local terms, so this is deterministic. */
-    if(eqEnabled()&&typeof date==='string'){
-        const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-        if(m&&isFullRestDay(new Date(+m[1],+m[2]-1,+m[3]).getDay())) return [];
-    }
+    if(isFullRestDate(date)) return [];
     const last=lastPelvicFeedback();
     return window.BP.dailyPracticeItems(window.BP.buildPelvicPracticePlan({date,dayKind:slot==='rest'?'rest':'primary',profile:persisted.pelvicProfile,
         feedback:last?.pelvicPractice.feedback||'',painCleared:!pelvicPracticeNeedsReview()}));
@@ -7703,7 +7736,7 @@ function currentPelvicPracticePlan(busy=false){
     /* Genuine rest: no plan at all, so nothing is required and nothing is
        rendered as if it were. Checked before the prescription is read, because
        a full-rest day is a property of the week rather than of the slot. */
-    if(isFullRestDay(new Date().getDay())) return null;
+    if(isFullRestDate(window.BP.planDateKey(new Date()))) return null;
     const date=window.BP.planDateKey(new Date());
     const last=lastPelvicFeedback();
     const pres=currentTodayPrescription();

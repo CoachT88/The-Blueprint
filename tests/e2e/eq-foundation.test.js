@@ -207,6 +207,60 @@ describe('the EQ foundation', () => {
         expect(r.sat).toEqual([]);
     });
 
+    test('a preserved Length prescription is not an EQ day', async () => {
+        // A member can reach the EQ week without migrating -- selectGoal()
+        // writes the preset directly -- so their previous programme's dated
+        // plans survive the current week. Sunday is an EQ session day in the
+        // new week; a preserved Length plan on it is training, but it is not
+        // the session the EQ week prescribes.
+        const r = await on(() => {
+            persisted.schedule = goalSchedule('eq').slice();
+            persisted.programme = {key: 'eq', custom: false,
+                migration: {source: 'preset'}, adoptedAt: '2026-01-01T00:00:00.000Z'};
+            const sunday = window.BP.planDateKey(new Date());
+            const day = new Date().getDay();
+            persisted.dayPlans = [{date: sunday, mode: 'prescribed',
+                primarySession: {type: 'length', dose: {v: 1, shape: 'sets',
+                    exercises: [{title: 'Directional Pulls', sets: 3, duration: 30}]}}}];
+            return {day, sat: eqSatisfiableDays(), live: resolvedWeekSlots()[day]};
+        });
+        // Whatever weekday the suite runs on, today's live slot is length and
+        // the EQ week never prescribes length, so today is not EQ-eligible.
+        expect(r.sat).not.toContain(r.day);
+    });
+
+    test('a future rest day is decided by its own date, not this week\'s', async () => {
+        // plannedPelvicItems() is called for future dates during generation.
+        // Asking the weekday question against THIS week meant a preserved
+        // non-rest plan on this Tuesday put activities on every Tuesday.
+        const r = await on(() => {
+            persisted.schedule = goalSchedule('eq').slice();
+            persisted.programme = {key: 'eq', custom: false,
+                migration: {source: 'preset'}, adoptedAt: '2026-01-01T00:00:00.000Z'};
+            /* This week's Tuesday carries a preserved training plan. Find the
+               Tuesday of the current week the same way the app resolves it. */
+            const now = new Date();
+            const thisTue = new Date(now); thisTue.setDate(now.getDate() + ((2 - now.getDay() + 7) % 7));
+            const thisTueKey = window.BP.planDateKey(thisTue);
+            const nextTue = new Date(thisTue); nextTue.setDate(thisTue.getDate() + 7);
+            const nextTueKey = window.BP.planDateKey(nextTue);
+            persisted.dayPlans = [{date: thisTueKey, mode: 'prescribed',
+                primarySession: {type: 'length', dose: {v: 1, shape: 'sets',
+                    exercises: [{title: 'Directional Pulls', sets: 3, duration: 30}]}}}];
+            return {thisTueKey, nextTueKey,
+                    thisTue: plannedPelvicItems(thisTueKey, 'rest').length,
+                    nextTue: plannedPelvicItems(nextTueKey, 'rest').length,
+                    thisIsRest: isFullRestDate(thisTueKey),
+                    nextIsRest: isFullRestDate(nextTueKey)};
+        });
+        // This Tuesday has a training plan, so it still asks for its practice.
+        expect(r.thisIsRest).toBe(false);
+        expect(r.thisTue).toBeGreaterThan(0);
+        // Next Tuesday has no plan of its own, so the EQ week decides: rest.
+        expect(r.nextIsRest).toBe(true);
+        expect(r.nextTue).toBe(0);
+    });
+
     test('unresolved pelvic pain withholds the pelvic step, keeping the rest', async () => {
         const r = await on(() => {
             /* latestPracticeFeedback() reads pelvicPractice at the TOP level of
