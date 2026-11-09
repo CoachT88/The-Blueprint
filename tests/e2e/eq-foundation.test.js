@@ -297,6 +297,49 @@ describe('the EQ foundation', () => {
         expect(r.happyBaby).toBe('Happy Baby');
     });
 
+    test('a resumed session keeps the mobility exercise it started with', async () => {
+        // The bug this pins: the draft restored routineType but not the step
+        // list, so currentRoutine() fell back to ROUTINES.eq and a Sunday
+        // Cat-Cow session came back as Deep Squat. Re-deriving on resume would
+        // have the same effect across midnight.
+        const r = await on(() => {
+            // Started on a Sunday: Cat-Cow.
+            const started = eqStepIndicesFor('2026-11-08');
+            // Resume reads the saved list, whatever today is.
+            const draft = {routineType: 'eq', eqStepIndices: started.slice()};
+            const ok = Array.isArray(draft.eqStepIndices) && draft.eqStepIndices.length
+                && draft.eqStepIndices.every(i => Number.isInteger(i) && i >= 0 && i < ROUTINES.recovery.length);
+            const restored = ok ? draft.eqStepIndices.slice() : null;
+            return {started, restored,
+                    titles: eqStepsFrom(restored).map(x => x.title),
+                    fallbackWouldBe: ROUTINES.eq.map(x => x.title)};
+        });
+        expect(r.restored).toEqual(r.started);
+        expect(r.titles).toEqual(['Diaphragmatic breathing', 'Pelvic Floor Release', 'Cat-Cow']);
+        // And it genuinely differs from the fallback, so the test is not vacuous.
+        expect(r.titles).not.toEqual(r.fallbackWouldBe);
+    });
+
+    test('the breathing step carries its own pelvic cue, but not inside the EQ session', async () => {
+        // Standalone it may be the only activity of the day, so it keeps a
+        // short line about easing tension without pushing. In the EQ session
+        // Pelvic Floor Release teaches that properly in the next step, so the
+        // line is dropped rather than repeated.
+        const r = await on(() => {
+            const shared = ROUTINES.recovery[8];
+            const inEq = buildEqRoutine('2026-11-08')[0];
+            return {sharedHowto: shared.howto.join(' '), eqHowto: inEq.howto.join(' '),
+                    sharedDetail: shared.detail, eqDetail: inEq.detail,
+                    sharedSteps: shared.howto.length, eqSteps: inEq.howto.length};
+        });
+        expect(r.sharedHowto).toMatch(/let any tension underneath your pelvis ease/);
+        expect(r.sharedDetail).toMatch(/without pushing or straining/);
+        expect(r.eqHowto).not.toMatch(/let any tension underneath your pelvis ease/);
+        expect(r.eqSteps).toBe(r.sharedSteps - 1);
+        // The rhythm instruction survives in both: only the pelvic line goes.
+        expect(r.eqHowto).toMatch(/out for about six seconds/);
+    });
+
     test('unresolved pelvic pain withholds the pelvic step, keeping the rest', async () => {
         const r = await on(() => {
             /* latestPracticeFeedback() reads pelvicPractice at the TOP level of

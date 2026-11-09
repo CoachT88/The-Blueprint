@@ -3291,7 +3291,7 @@ const COACH_TIPS = [
 const DAILY_PELVIC_RESET={
     title:'Diaphragmatic breathing', sets:1, duration:120, isRecovery:true,
     eq:'No EQ needed',
-    detail:'Find an easy rhythm: in for four, out for six. Breathe into your lower ribs and belly and let yourself settle. Nothing is forced and nothing is held.',
+    detail:'Find an easy rhythm: in for four, out for six. Breathe into your lower ribs and belly, and let any tension underneath your pelvis ease without pushing or straining.',
     feel:'A longer breath out than in, and a gradual settling. Nothing needs to be forced.',
     dontFeel:'Pain, pressure, pushing down or a forced contraction.',
     howto:[
@@ -3300,6 +3300,7 @@ const DAILY_PELVIC_RESET={
         'Breathe in through your nose for about four seconds. The lower hand rises and your lower ribs widen; the chest hand barely moves. Do not reach for a big breath.',
         'Breathe out for about six seconds, slower than you breathed in. Let the air leave rather than pushing it out, and let your shoulders drop as it goes.',
         'If the exhale is hard to pace, breathe out through a straw, or through pursed lips if you do not have one. Both just slow the breath down so it is easier to feel.',
+        'As you breathe out, let any tension underneath your pelvis ease. Do not push down or strain; just stop holding.',
         'Keep going at that pace. If four and six ever leave you short of air, breathe normally for a moment and start again shorter. Stop for pain, pelvic pressure or dizziness; persistent pelvic symptoms deserve a clinician assessment.',
     ],
     cues:[{time:120,text:'Settle in. Jaw loose, shoulders down. Lower hand on the belly.'},
@@ -5655,6 +5656,13 @@ function goToStep(step){
            understands from one it does not. The snapshot inside carries its
            own doseVersion, because the two change for different reasons. */
         const draft={v:DRAFT_SCHEMA_VERSION,exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,
+            /* The EQ step list, by recovery index. Without it a resumed EQ
+               session fell back to ROUTINES.eq and silently changed its
+               mobility exercise: a Sunday Cat-Cow session resumed as Deep
+               Squat. exerciseIndex points into this list, so losing it also
+               means resuming at the wrong step. Indices rather than objects,
+               because the index is the identity and the text is not state. */
+            eqStepIndices:Array.isArray(session.eqStepIndices)?session.eqStepIndices.slice():null,
             /* The circuit position, which the draft never carried. Resuming a
                girth session used to lose which round the member was on AND
                how many there were, because resetSession is the only place
@@ -5839,6 +5847,11 @@ const EQ_COPY={
    breathing owns the rhythm, release owns letting tension go, mobility owns
    moving. The overlap this replaces was not wording -- the breathing step was
    teaching pelvic release and the release step was teaching breathing. */
+/* The one line the EQ session drops, and the detail it shows instead. Kept as
+   constants so the filter cannot drift from the text it is filtering. */
+const STANDALONE_PELVIC_LINE='As you breathe out, let any tension underneath your pelvis ease. Do not push down or strain; just stop holding.';
+const EQ_BREATH_DETAIL='Find an easy rhythm: in for four, out for six. Breathe into your lower ribs and belly and let yourself settle. Nothing is forced and nothing is held.';
+
 const EQ_FIXED_STEPS=[
     8,  // Diaphragmatic breathing — the rhythm
     2,  // Pelvic Floor Release    — letting go
@@ -5880,14 +5893,34 @@ ROUTINES.eq=[...EQ_FIXED_STEPS,EQ_MOBILITY_FALLBACK].map(i=>ROUTINES.recovery[i]
    allowedRecoveryIndices() is applied as well. None of these three is a
    contraction, so nothing here is blocked today -- but if CONTRACTION_RECOVERY_IDX
    ever widens, this must not be the place that forgot to ask. */
-function buildEqRoutine(dateKey){
+function eqStepIndicesFor(dateKey){
     let idx=[...EQ_FIXED_STEPS,eqMobilityIndex(dateKey)];
     try{ if(pelvicPracticeNeedsReview()) idx=idx.filter(i=>i!==2); }catch(e){}
     try{ idx=allowedRecoveryIndices(idx); }catch(e){}
     /* Breathing is the floor. An empty session would be worse than a short one. */
     if(!idx.length) idx=[8];
-    return idx.map(i=>ROUTINES.recovery[i]);
+    return idx;
 }
+
+/* The breathing exercise is shared with the daily practice, where on a
+   foundation day it is the ONLY step -- so it keeps a short line about easing
+   pelvic tension without pushing, which a member doing just that one activity
+   needs. Inside the full EQ session that line is redundant, because Pelvic
+   Floor Release teaches the same thing properly in the very next step.
+
+   So the EQ session hands back a copy with that one line dropped. A shallow
+   spread, not a second exercise and not a second instructional system. */
+function eqStepsFrom(idx){
+    return idx.map(i=>{
+        const ex=ROUTINES.recovery[i];
+        if(i!==8||!Array.isArray(ex.howto)) return ex;
+        return {...ex,
+            detail:EQ_BREATH_DETAIL,
+            howto:ex.howto.filter(line=>line!==STANDALONE_PELVIC_LINE)};
+    });
+}
+
+function buildEqRoutine(dateKey){ return eqStepsFrom(eqStepIndicesFor(dateKey)); }
 
 /* The exercise list the running session is actually performing. Every reader
    goes through here so the EQ session's captured, pain-filtered list cannot
@@ -8287,10 +8320,14 @@ function startMission(mission,source){
        step list under a running session. */
     /* The PRESCRIBED date, not the clock: a session launched either side of
        midnight still belongs to the day it was prescribed for. */
-    session.eqRoutine=session.routineType==='eq'
-        ? buildEqRoutine((currentTodayPrescription()||{}).date
-            ||(window.BP.planDateKey?window.BP.planDateKey(new Date()):null))
-        : null;
+    if(session.routineType==='eq'){
+        const _d=(currentTodayPrescription()||{}).date
+            ||(window.BP.planDateKey?window.BP.planDateKey(new Date()):null);
+        session.eqStepIndices=eqStepIndicesFor(_d);
+        session.eqRoutine=eqStepsFrom(session.eqStepIndices);
+    } else {
+        session.eqStepIndices=null; session.eqRoutine=null;
+    }
     track('mission_selected',{mission,source:source||'prescribed'});
     if(mission==='recovery'){ goToRecoveryPicker(); return; }
     if(mission==='girth'){
@@ -8701,6 +8738,21 @@ function resumeSession(){
     session.exerciseIndex=draft.exerciseIndex;
     session.setIndex=draft.setIndex;
     session.routineType=draft.routineType;
+    /* Restored, never recomputed. Re-deriving would read today's date, and
+       a session paused before midnight and resumed after it would come back
+       as a different exercise. Each index is range-checked, and anything
+       unreadable falls back to a fresh build for the prescribed date rather
+       than to a half-restored list. */
+    if(draft.routineType==='eq'){
+        const _raw=Array.isArray(draft.eqStepIndices)?draft.eqStepIndices:null;
+        const _ok=_raw&&_raw.length&&_raw.every(i=>Number.isInteger(i)&&i>=0&&i<ROUTINES.recovery.length);
+        session.eqStepIndices=_ok?_raw.slice()
+            :eqStepIndicesFor((currentTodayPrescription()||{}).date
+                ||(window.BP.planDateKey?window.BP.planDateKey(new Date()):null));
+        session.eqRoutine=eqStepsFrom(session.eqStepIndices);
+    } else {
+        session.eqStepIndices=null; session.eqRoutine=null;
+    }
     session.directionalIndex=draft.directionalIndex;
     session.xp=draft.xp;
     session.dailyPelvicPhase=draft.dailyPelvicPhase===true;
