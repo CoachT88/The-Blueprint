@@ -947,7 +947,7 @@
         <!-- Breathing circle pacer — focal visual -->
         <div class="relative flex items-center justify-center mb-5" style="width:200px;height:200px;">
             <!-- Outer expanding circle (breath) -->
-            <div id="breath-circle" style="position:absolute;width:120px;height:120px;border-radius:50%;
+            <div id="breath-circle" data-breath="circle" style="position:absolute;width:120px;height:120px;border-radius:50%;
                 background:radial-gradient(circle,rgba(16,185,129,.18) 0%,rgba(16,185,129,.04) 70%);
                 border:2px solid rgba(16,185,129,.35);
                 box-shadow:0 0 30px rgba(16,185,129,.12);
@@ -972,17 +972,17 @@
 
         <!-- Box breathing phase -->
         <div class="text-center mb-4">
-            <p id="box-phase-label" class="text-3xl font-black uppercase italic text-emerald-400 leading-none mb-1">INHALE</p>
-            <p id="box-phase-sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest">let the floor open and drop</p>
-            <div id="box-phase-count" class="text-5xl font-black text-emerald-300 tabular-nums mt-2">4</div>
+            <p id="box-phase-label" data-breath="label" class="text-3xl font-black uppercase italic text-emerald-400 leading-none mb-1">INHALE</p>
+            <p id="box-phase-sub" data-breath="sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest">let the floor open and drop</p>
+            <div id="box-phase-count" data-breath="count" class="text-5xl font-black text-emerald-300 tabular-nums mt-2">4</div>
         </div>
 
         <!-- Box phase pips -->
-        <div class="flex gap-2.5 mb-5">
-            <div id="box-pip-0" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
-            <div id="box-pip-1" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
-            <div id="box-pip-2" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
-            <div id="box-pip-3" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+        <div data-breath="pips" class="flex gap-2.5 mb-5">
+            <div id="box-pip-0" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div id="box-pip-1" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div id="box-pip-2" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div id="box-pip-3" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
         </div>
 
         <!-- Protocol reminder -->
@@ -1863,6 +1863,31 @@
     </div>
 
     <!-- One guide cue, visible before starting and while running. -->
+    <!-- Breath guide for the exercise screen. The SAME driver renders this and
+         the rest overlay's copy, by class rather than by id, so there is one
+         animation and one piece of state. The rest overlay's own block stays
+         exactly as it was, because it also carries the rest countdown and the
+         re-lube instruction, which do not belong here. -->
+    <div id="ex-breath-guide" class="hidden flex-col items-center my-3">
+        <div class="relative flex items-center justify-center" style="width:150px;height:150px;">
+            <div data-breath="circle" style="position:absolute;width:88px;height:88px;border-radius:50%;
+                background:radial-gradient(circle,rgba(16,185,129,.18) 0%,rgba(16,185,129,.04) 70%);
+                border:2px solid rgba(16,185,129,.35);box-shadow:0 0 30px rgba(16,185,129,.12);
+                transition:transform 4s ease-in-out;transform:scale(1);"></div>
+            <div data-breath="count" class="absolute text-4xl font-black text-emerald-300 tabular-nums">4</div>
+        </div>
+        <p data-breath="label" class="text-2xl font-black uppercase italic text-emerald-400 leading-none mt-2">INHALE</p>
+        <p data-breath="sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest mt-0.5">through the nose</p>
+        <div data-breath="pips" class="flex gap-2.5 mt-3">
+            <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+        </div>
+        <div class="flex gap-2 mt-3" role="group" aria-label="Breathing options">
+            <button type="button" data-eq-opt="pause" aria-pressed="false" onclick="toggleEqBreathPref('pause')" class="text-[10px] font-black uppercase tracking-widest rounded-full" style="min-height:44px;padding:0 14px;border:1px solid;">1s pause</button>
+            <button type="button" data-eq-opt="longExhale" aria-pressed="false" onclick="toggleEqBreathPref('longExhale')" class="text-[10px] font-black uppercase tracking-widest rounded-full" style="min-height:44px;padding:0 14px;border:1px solid;">8s exhale</button>
+        </div>
+    </div>
     <div id="ex-active-cue" class="hidden mx-2 my-3 px-4 py-3 rounded-2xl bg-blue-500/[0.08] border border-blue-500/15 text-center" style="position:relative;z-index:var(--z-raised);">
         <p id="ex-cue-text" class="text-sm font-bold text-blue-200 italic leading-relaxed" role="status" aria-live="polite" aria-atomic="true"></p>
     </div>
@@ -3291,21 +3316,24 @@ const COACH_TIPS = [
 const DAILY_PELVIC_RESET={
     title:'Diaphragmatic breathing', sets:1, duration:120, isRecovery:true,
     eq:'No EQ needed',
-    detail:'Sit or lie comfortably. Breathe gently into your lower ribs and belly. Let the pelvic floor soften with each inhale. Exhale without squeezing. No pushing, straining or breath-holding. Stop if this causes pain.',
-    feel:'Gentle breathing and gradual relaxation. Nothing needs to be forced.',
+    detail:'Find an easy rhythm: in for four, out for six. Breathe into your lower ribs and belly, and let any tension underneath your pelvis ease without pushing or straining.',
+    feel:'A longer breath out than in, and a gradual settling. Nothing needs to be forced.',
     dontFeel:'Pain, pressure, pushing down or a forced contraction.',
     howto:[
-        'Lie on your back with knees bent and feet on the floor, or sit with your back supported. Let your jaw, shoulders and buttocks relax.',
-        'Put one hand on your lower belly and one on your chest. Breathe in gently through your nose; let the lower hand rise and your lower ribs widen. Do not force a big breath.',
-        'As you breathe in, soften the muscles underneath your pelvis. Think of letting go to start peeing, or allowing gas to pass easily. Do not push anything out or brace your stomach.',
-        'Breathe out comfortably. Let your ribs, belly and pelvic floor return naturally without adding a kegel squeeze. Repeat at your own comfortable pace; no breath holding.',
-        'The movement may be subtle. Stop if you feel pain, pelvic pressure or dizziness; return to normal breathing. Persistent pelvic symptoms deserve a clinician assessment.',
+        'Get comfortable. Sitting with your back supported is fine. If you want the easiest version, lie on your back and rest your lower legs on a chair or sofa so your hips and knees sit at about right angles — the 90/90 position. It is optional; it just takes the work out of holding yourself up.',
+        'Put one hand on your lower belly and one on your chest. Let your jaw, shoulders and buttocks go soft.',
+        'Breathe in through your nose for about four seconds. The lower hand rises and your lower ribs widen; the chest hand barely moves. Do not reach for a big breath.',
+        'Breathe out for about six seconds, slower than you breathed in. Let the air leave rather than pushing it out, and let your shoulders drop as it goes.',
+        'If the exhale is hard to pace, breathe out through a straw, or through pursed lips if you do not have one. Both just slow the breath down so it is easier to feel.',
+        'As you breathe out, let any tension underneath your pelvis ease. Do not push down or strain; just stop holding.',
+        'Keep going at that pace. If four and six ever leave you short of air, breathe normally for a moment and start again shorter. Stop for pain, pelvic pressure or dizziness; persistent pelvic symptoms deserve a clinician assessment.',
     ],
-    cues:[{time:120,text:'Get comfortable. Unclench your jaw and let your shoulders soften.'},
-        {time:90,text:'Breathe gently into your belly and lower ribs. No breath-holding.'},
-        {time:60,text:'Let go as if allowing pee or gas to pass easily. Do not push anything out.'},
-        {time:30,text:'Exhale comfortably. Let the next breath arrive without forcing it.'},
-        {time:5,text:'One more easy breath. Carry that relaxed feeling with you.'}],
+    cues:[{time:120,text:'Settle in. Jaw loose, shoulders down. Lower hand on the belly.'},
+        {time:96,text:'In for four through the nose — lower ribs widen, chest stays quiet.'},
+        {time:72,text:'Out for six, slower than you came in. Let it leave on its own.'},
+        {time:48,text:'Straw or pursed lips if the exhale is hard to pace. Both work.'},
+        {time:24,text:'Short of air? Breathe normally, then start again shorter. No forcing.'},
+        {time:5,text:'One more easy breath. Keep that rhythm for the next step.'}],
 };
 const ROUTINES={
     length:[
@@ -3423,22 +3451,22 @@ const ROUTINES={
             ]
         },
         {
-            title:'Pelvic Floor Release', detail:'Let tension ease underneath your pelvis using comfortable breathing. This is a gentle relaxation exercise.', sets:3, duration:45, isRecovery:true,
+            title:'Pelvic Floor Release', detail:'Find the tension you are holding underneath your pelvis, and let it go. Keep the rhythm you just found; this step is about noticing, not breathing.', sets:3, duration:45, isRecovery:true,
             howto:[
-                'Sit supported or lie on your back with knees bent. Use a pillow under your head if it helps you settle.',
-                'Relax your jaw, shoulders, belly and buttocks. Notice any tightness around the openings where pee and gas leave your body.',
-                'Breathe in gently into your lower ribs and belly. Imagine a clenched fist slowly opening underneath your pelvis.',
-                'Breathe out comfortably and let the muscles return naturally. Keep breathing; do not squeeze or push downward.',
-                'You do not need to feel warmth, heaviness or a large movement. A small easing of tension is enough. Stop if this causes pain, pressure or worsening symptoms.',
+                'Stay where you are and keep the breathing rhythm going. You do not need to think about it any more; this step is about what you find underneath.',
+                'Turn your attention to the muscles around the openings where pee and gas leave your body. Most men are gripping there without knowing it. Just notice whether you are.',
+                'Now let go, the way you let go to start peeing or to let gas pass easily. That is the feeling — a release, not a push. Nothing comes out and nothing is forced.',
+                'It may be very small, and it may take a few tries to find at all. A slight easing is the whole exercise. You do not need warmth, heaviness or any big movement.',
+                'If you cannot find it, that is information rather than failure — it is what the practice is for. Stop for pain, pressure or worsening symptoms.',
             ],
             eq:'Soft — 0 EQ', feel:'A small easing of tension while your belly and breathing remain relaxed. The movement may be subtle.',
             dontFeel:'Pain, pressure, pushing downward, a braced belly or holding your breath. Stop if these occur.',
             cues:[
-                {time:45, text:'Sit or lie supported. Unclench your jaw, belly and buttocks.'},
-                {time:38, text:'Breathe in gently. Imagine a fist slowly opening underneath your pelvis.'},
-                {time:28, text:'Keep the breath comfortable. A small easing of tension is enough.'},
-                {time:15, text:'Let go of tension. No pushing downward or squeezing.'},
-                {time:5, text:'Breathe out comfortably. Let the muscles return naturally.'}
+                {time:45, text:'Keep the rhythm from the last step. Attention underneath now.'},
+                {time:36, text:'Are you gripping down there? Most men are, without noticing.'},
+                {time:26, text:'Let go, like letting pee start or gas pass. A release, never a push.'},
+                {time:14, text:'Small is correct. A slight easing is the whole exercise.'},
+                {time:4,  text:'Let it rest there. Nothing to hold, nothing to squeeze.'}
             ]
         },
         {
@@ -5653,6 +5681,13 @@ function goToStep(step){
            understands from one it does not. The snapshot inside carries its
            own doseVersion, because the two change for different reasons. */
         const draft={v:DRAFT_SCHEMA_VERSION,exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,
+            /* The EQ step list, by recovery index. Without it a resumed EQ
+               session fell back to ROUTINES.eq and silently changed its
+               mobility exercise: a Sunday Cat-Cow session resumed as Deep
+               Squat. exerciseIndex points into this list, so losing it also
+               means resuming at the wrong step. Indices rather than objects,
+               because the index is the identity and the text is not state. */
+            eqStepIndices:Array.isArray(session.eqStepIndices)?session.eqStepIndices.slice():null,
             /* The circuit position, which the draft never carried. Resuming a
                girth session used to lose which round the member was on AND
                how many there were, because resetSession is the only place
@@ -5752,6 +5787,37 @@ function stopWarmup(){if(session.warmupTimer){session.warmupTimer.cancel();sessi
 // ═══════════════════════════════════════════════════════════════════════════
 ROUTINES.recovery.push({...DAILY_PELVIC_RESET});
 
+/* APPENDED, never inserted. PRACTICE_EXERCISES in src/pelvicPractice.js maps
+   ids to indices into this array, and normalisePelvicPracticePlan re-checks
+   that mapping on read, so moving an existing index would invalidate every
+   stored plan. Cat-Cow therefore becomes index 9 and nothing shifts.
+
+   WHY CAT-COW, WHEN THERE ARE ALREADY FOUR MOBILITY ITEMS. All four are
+   STATIC HOLDS -- Deep Squat, Happy Baby, Pigeon, Butterfly. This is the only
+   movement, and it is the only one whose rhythm belongs to the breath rather
+   than to a count. That is a different experience, not a fifth stretch. */
+ROUTINES.recovery.push({
+    title:'Cat-Cow', sets:2, duration:45, restDur:15, isRecovery:true,
+    eq:'No EQ needed',
+    detail:'Move slowly between two easy shapes, letting your breath set the pace. Nothing is stretched hard and nothing is held.',
+    howto:[
+        'Start on hands and knees. Hands under your shoulders, knees under your hips, about hip width apart. If your wrists complain, come onto your forearms or make fists; if your knees complain, double a towel or cushion under them.',
+        'Breathe in and let your chest and tailbone lift gently, so your middle sags toward the floor. Look slightly forward rather than craning your neck up.',
+        'Breathe out and round the other way: tuck your tailbone, draw your middle up, let your head drop easily between your arms.',
+        'Keep moving between the two with your breath, one shape per breath, slowly. There is no end position to reach and nothing to push into.',
+        'Stay inside the range that feels easy. Back off the moment anything pinches, and stop for wrist, knee, hip, back or pelvic pain rather than working around it.',
+    ],
+    feel:'Your spine moving freely through an easy range, and your breath leading the movement rather than following it.',
+    dontFeel:'Pinching or sharp pain anywhere in the wrists, knees, hips, lower back or pelvis. Stop and come out rather than adjusting around it.',
+    cues:[
+        {time:45, text:'Hands under shoulders, knees under hips. Forearms or fists if your wrists object; padding if your knees do.'},
+        {time:34, text:'Breathe in — chest and tailbone lift, middle sags. Easy range only.'},
+        {time:22, text:'Breathe out — tailbone tucks, middle rounds up, head drops easily.'},
+        {time:10, text:'One shape per breath. Slow is the point; there is nothing to reach.'},
+        {time:4,  text:'Come back to a neutral back and rest.'}
+    ],
+});
+
 /* ── The EQ session ────────────────────────────────────────────────────────
    Three steps, every one an existing recovery exercise, assembled here
    because breathing only becomes recovery[8] on the line above.
@@ -5777,37 +5843,102 @@ ROUTINES.recovery.push({...DAILY_PELVIC_RESET});
    therefore has no load progression, and the member-facing copy says so
    rather than implying one. */
 /* ── What members are told ────────────────────────────────────────────────
-   Three rules this copy keeps. It never promises an erection outcome. It
-   describes what each component is FOR rather than what it will do to you.
-   And it says plainly what progress here is, because consistency and a
-   self-rating are worth having without being evidence of a mechanism. */
+   Lead with what each stage is FOR and what a member can track. Never
+   promise an erection outcome, and keep stop signals and real limits clear --
+   but say them once, where they matter, rather than as a running disclaimer. */
 const EQ_COPY={
-    fullRest:'Rest day. Nothing is required today, and nothing is waiting for you. '
-        +'Recovery is part of the plan rather than a gap in it.',
-    progress:'We track two things here: how consistently you train, and how you rate '
-        +'your own erections over time. Both are your own experience, recorded '
-        +'honestly. Neither is a measurement of blood flow or tissue, and neither is '
-        +'proof that anything has physically changed. A rising trend is worth having. '
-        +'It is not evidence of a mechanism.',
-    noProgression:'The doses here stay the same week to week. This is practice rather '
-        +'than loading, so there is nothing to add weight to.',
+    fullRest:'Rest day. Nothing is required today; recovery is part of the plan.',
+    progress:'Track your consistency and erection quality ratings over time to recognize patterns in your personal progress.',
+    /* What each stage is FOR, shown on its own exercise screen. */
     why:{
-        breathing:'Here to teach the letting-go, and to settle you before the rest. '
-            +'Relaxation work, not pelvic floor strengthening -- they are not '
-            +'interchangeable.',
-        release:'A floor that can relax matters as much as one that can squeeze. This '
-            +'is the side of it most men have never practised.',
-        mobility:'General care for the muscles around the pelvis that shorten from '
-            +'sitting. Comfortable rather than clever.',
+        breathing:'Builds an easy, comfortable breathing rhythm and settles you in before the rest of the session.',
+        release:'Builds awareness of the tension you hold underneath your pelvis, and the skill of letting it go.',
+        mobility:'Supports comfortable movement through your hips and the muscles around your pelvis.',
     },
+    adjusted:'Your session has been adjusted based on your feedback. Continue with comfortable breathing and mobility, and stop any movement that causes discomfort.',
 };
 
-const EQ_STEP_INDICES=[
-    8,  // Diaphragmatic breathing
-    2,  // Pelvic Floor Release
-    4,  // Deep Squat — Malasana
+/* Three stages, and each one owns a job the other two give up:
+   breathing owns the rhythm, release owns letting tension go, mobility owns
+   moving. The overlap this replaces was not wording -- the breathing step was
+   teaching pelvic release and the release step was teaching breathing. */
+/* The one line the EQ session drops, and the detail it shows instead. Kept as
+   constants so the filter cannot drift from the text it is filtering. */
+const STANDALONE_PELVIC_LINE='As you breathe out, let any tension underneath your pelvis ease. Do not push down or strain; just stop holding.';
+const EQ_BREATH_DETAIL='Find an easy rhythm: in for four, out for six. Breathe into your lower ribs and belly and let yourself settle. Nothing is forced and nothing is held.';
+
+/* ── The EQ breathing pattern ──────────────────────────────────────────────
+   Four in, six out, and nothing held. The rest overlay's 4/4/4/4 box is a
+   different pattern for a different moment and is untouched.
+
+   The optional phase is called PAUSE, never HOLD, and its cue says so: a
+   member who reads "hold" holds, and this is not a breath-holding exercise.
+   Both adjustments are opt-in and either can be turned off mid-practice. */
+function eqBreathPrefs(){
+    try{
+        const raw=localStorage.getItem('bp_eq_breath_'+(currentUser?currentUser.id:''));
+        const p=raw?JSON.parse(raw):{};
+        return {pause:p.pause===true,longExhale:p.longExhale===true};
+    }catch(e){ return {pause:false,longExhale:false}; }
+}
+function setEqBreathPref(key,on){
+    if(!currentUser) return;
+    const p={...eqBreathPrefs(),[key]:on===true};
+    try{ localStorage.setItem('bp_eq_breath_'+currentUser.id,JSON.stringify(p)); }catch(e){}
+    /* Takes effect at the next phase boundary rather than mid-breath, so a
+       toggle never cuts a phase short or leaves the driver pointing past the
+       end of a shorter pattern. */
+    if(_boxInterval&&_breathPhases!==BOX_PHASES) _breathSwapPending=true;
+    syncEqBreathControls();
+}
+function toggleEqBreathPref(key){ setEqBreathPref(key,!eqBreathPrefs()[key]); }
+function syncEqBreathControls(){
+    const pr=eqBreathPrefs();
+    document.querySelectorAll('[data-eq-opt]').forEach(b=>{
+        const on=pr[b.dataset.eqOpt]===true;
+        b.setAttribute('aria-pressed',String(on));
+        b.style.background=on?'rgba(16,185,129,.22)':'transparent';
+        b.style.borderColor=on?'rgba(16,185,129,.7)':'rgba(100,116,139,.5)';
+        b.style.color=on?'#6ee7b7':'#94a3b8';
+    });
+}
+function eqBreathPhases(){
+    const pr=eqBreathPrefs();
+    const out=[{label:'INHALE',sub:'through the nose — lower ribs widen',secs:4,circleScale:1.55}];
+    if(pr.pause) out.push({label:'PAUSE',sub:'a beat between — nothing to hold',secs:1,circleScale:1.55});
+    out.push({label:'EXHALE',
+        sub:pr.longExhale?'long and slow — let it leave':'slower than you came in',
+        secs:pr.longExhale?8:6,circleScale:1.0});
+    return out;
+}
+
+const EQ_FIXED_STEPS=[
+    8,  // Diaphragmatic breathing — the rhythm
+    2,  // Pelvic Floor Release    — letting go
 ];
-ROUTINES.eq=EQ_STEP_INDICES.map(i=>ROUTINES.recovery[i]);
+
+/* Mobility rotates across the three session days, so the week is not the same
+   ten minutes three times. Deterministic from the PRESCRIBED date, never from
+   the clock at render time, and captured once when the session begins. */
+const EQ_MOBILITY_BY_WEEKDAY=Object.freeze({
+    0: 9,   // Sunday    — Cat-Cow        (movement)
+    3: 4,   // Wednesday — Deep Squat     (hold)
+    5: 5,   // Friday    — Happy Baby     (hold)
+});
+const EQ_MOBILITY_FALLBACK=4;   // any other day, e.g. a substituted session
+
+function eqMobilityIndex(dateKey){
+    const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey||'');
+    const day=m?new Date(+m[1],+m[2]-1,+m[3]).getDay():new Date().getDay();
+    return Object.prototype.hasOwnProperty.call(EQ_MOBILITY_BY_WEEKDAY,day)
+        ? EQ_MOBILITY_BY_WEEKDAY[day] : EQ_MOBILITY_FALLBACK;
+}
+
+/* The default-day shape. The live session always comes from buildEqRoutine();
+   this exists so currentRoutine() has a fallback and the exercise manual can
+   enumerate the routine. Cat-Cow is covered by the manual either way, because
+   it is a member of ROUTINES.recovery. */
+ROUTINES.eq=[...EQ_FIXED_STEPS,EQ_MOBILITY_FALLBACK].map(i=>ROUTINES.recovery[i]);
 
 /* The step list for one EQ session, captured at launch so it cannot change
    under a running session.
@@ -5822,14 +5953,41 @@ ROUTINES.eq=EQ_STEP_INDICES.map(i=>ROUTINES.recovery[i]);
    allowedRecoveryIndices() is applied as well. None of these three is a
    contraction, so nothing here is blocked today -- but if CONTRACTION_RECOVERY_IDX
    ever widens, this must not be the place that forgot to ask. */
-function buildEqRoutine(){
-    let idx=EQ_STEP_INDICES.slice();
+function eqStepIndicesFor(dateKey){
+    let idx=[...EQ_FIXED_STEPS,eqMobilityIndex(dateKey)];
     try{ if(pelvicPracticeNeedsReview()) idx=idx.filter(i=>i!==2); }catch(e){}
     try{ idx=allowedRecoveryIndices(idx); }catch(e){}
     /* Breathing is the floor. An empty session would be worse than a short one. */
     if(!idx.length) idx=[8];
-    return idx.map(i=>ROUTINES.recovery[i]);
+    return idx;
 }
+
+/* The breathing exercise is shared with the daily practice, where on a
+   foundation day it is the ONLY step -- so it keeps a short line about easing
+   pelvic tension without pushing, which a member doing just that one activity
+   needs. Inside the full EQ session that line is redundant, because Pelvic
+   Floor Release teaches the same thing properly in the very next step.
+
+   So the EQ session hands back a copy with that one line dropped. A shallow
+   spread, not a second exercise and not a second instructional system. */
+const EQ_BREATH_OPTIONS_LINE='Two optional adjustments sit under the circle: a one-second pause between breaths, and a longer eight-second exhale. The pause is a turnaround rather than a breath to hold. Switch either off whenever you like; comfort comes first.';
+function eqStepsFrom(idx){
+    /* Withheld means the list lacks the Release step. Derived from the
+       captured list itself, so there is no extra state to save or restore. */
+    const adjusted=!idx.includes(2);
+    return idx.map(i=>{
+        const ex=ROUTINES.recovery[i];
+        const why=i===8?EQ_COPY.why.breathing:i===2?EQ_COPY.why.release:EQ_COPY.why.mobility;
+        const purpose=[why,adjusted?EQ_COPY.adjusted:''].filter(Boolean);
+        if(i!==8||!Array.isArray(ex.howto)) return {...ex,purpose};
+        const kept=ex.howto.filter(line=>line!==STANDALONE_PELVIC_LINE);
+        /* Beside the closing line, so the options come before "keep going". */
+        const howto=[...kept.slice(0,-1),EQ_BREATH_OPTIONS_LINE,...kept.slice(-1)];
+        return {...ex,detail:EQ_BREATH_DETAIL,howto,purpose};
+    });
+}
+
+function buildEqRoutine(dateKey){ return eqStepsFrom(eqStepIndicesFor(dateKey)); }
 
 /* The exercise list the running session is actually performing. Every reader
    goes through here so the EQ session's captured, pain-filtered list cannot
@@ -6385,7 +6543,8 @@ function updateExUI(){
 
     // Detail card (recovery)
     const detailCard=document.getElementById('ex-detail-card');
-    if(ex.isRecovery&&ex.detail&&!ex.howto?.length){detailCard.innerHTML=ex.detail;detailCard.classList.add('show')}
+    if(Array.isArray(ex.purpose)&&ex.purpose.length){detailCard.innerHTML=ex.purpose.map(t=>`<p>${t}</p>`).join('');detailCard.classList.add('show')}
+    else if(ex.isRecovery&&ex.detail&&!ex.howto?.length){detailCard.innerHTML=ex.detail;detailCard.classList.add('show')}
     else{detailCard.classList.remove('show');detailCard.innerHTML=''}
 
     // How-to panel
@@ -6539,6 +6698,13 @@ function startSet(){
     document.getElementById('pause-icon').className='fas fa-pause text-4xl text-slate-300';
     setFocusedMode(true);
     if(!ex.isRecovery)sayGuide('Timer started. Breathe normally and stop for discomfort.');
+    /* The breath guide runs for the EQ session's breathing step only. The
+       daily practice's copy of the same exercise keeps its cue-only
+       presentation, so nothing outside the EQ session changes. */
+    const isEqBreath=session.routineType==='eq'&&ex.title==='Diaphragmatic breathing';
+    const guide=document.getElementById('ex-breath-guide');
+    if(guide) guide.classList.toggle('hidden',!isEqBreath);
+    if(isEqBreath){ syncEqBreathControls(); startBoxBreathing(eqBreathPhases()); }
     const isWetJelq=ex.title==='Wet Jelq';
     const isUli=ex.title==='Uli — Manual Clamp';
     if(isUli){
@@ -6577,6 +6743,12 @@ function pauseResumeSet(){
         _guideActive=false;stopGuideSpeech();
         document.getElementById('guide-breath-visual').dataset.paused='true';
         stopJelqStrokePacer();
+        /* The breath animation is a pacer too, and a paced breath running
+           against a frozen timer is exactly the competing state we avoid
+           elsewhere. Stopped, not hidden. Resuming begins a fresh inhale from
+           the small circle: a clean start, with nothing about the interrupted
+           breath to save or restore. */
+        stopBoxBreathing();
         ic.className='fas fa-play text-4xl text-slate-300';
         if(lbl)lbl.innerText='Resume';
         _syncWakeLock();
@@ -6588,6 +6760,7 @@ function pauseResumeSet(){
         // Restart pacer if this is a Wet Jelq set
         const ex=getCurEx();
         if(ex.title==='Wet Jelq') startJelqStrokePacer();
+        if(session.routineType==='eq'&&ex.title==='Diaphragmatic breathing') startBoxBreathing(eqBreathPhases());
         ic.className='fas fa-pause text-4xl text-slate-300';
         if(lbl)lbl.innerText='Pause';
         _syncWakeLock();
@@ -6595,6 +6768,7 @@ function pauseResumeSet(){
 }
 function onSetDone(){
     stopJelqStrokePacer();
+    stopEqBreathGuide();
     document.getElementById('ex-pause-btn').style.display='none';
     setFocusedMode(false);
     session.timer=null;_syncWakeLock();
@@ -6615,58 +6789,107 @@ const BOX_PHASES=[
 ];
 let _boxPhaseIdx=0, _boxPhaseElapsed=0, _boxInterval=null;
 
+/* The pattern currently being guided. The rest overlay's 4/4/4/4 box is the
+   default and is unchanged; the EQ breathing step supplies its own. One
+   driver, one piece of state, so two patterns can never animate at once. */
+let _breathPhases=BOX_PHASES;
+let _breathSwapPending=false;
+
+/* Next phase index. A queued pattern change is applied here and only here:
+   the phase just finished is mapped to its successor in the new pattern. */
+function _advanceBreathPhase(){
+    const cur=_breathPhases[_boxPhaseIdx];
+    if(_breathSwapPending&&cur){
+        _breathSwapPending=false;
+        const next=eqBreathPhases();
+        _boxPhaseIdx=cur.label==='EXHALE'?0:cur.label==='INHALE'?1:next.length-1;
+        _breathPhases=next;
+    } else {
+        _boxPhaseIdx=(_boxPhaseIdx+1)%_breathPhases.length;
+    }
+    _boxPhaseElapsed=0;
+    renderBoxPhase();
+}
+
+/* Written by CLASS, not by id, so the rest overlay's block and the exercise
+   screen's smaller copy are driven by the same code. Each host renders only
+   the nodes it has. */
+function _breathNodes(sel){ return [...document.querySelectorAll(sel)]; }
+
 function renderBoxPhase(){
-    const p=BOX_PHASES[_boxPhaseIdx];
-    document.getElementById('box-phase-label').innerText=p.label;
-    document.getElementById('box-phase-sub').innerText=p.sub;
-    document.getElementById('box-phase-count').innerText=p.secs;
-    // Animate breathing circle
-    const circle=document.getElementById('breath-circle');
-    if(circle){
-        // INHALE → expand over 4s, EXHALE → contract over 4s, HOLDs keep current size
+    const phases=_breathPhases, p=phases[_boxPhaseIdx];
+    if(!p) return;
+    _breathNodes('[data-breath=\"label\"]').forEach(el=>{el.innerText=p.label;});
+    _breathNodes('[data-breath="sub"]').forEach(el=>{el.innerText=p.sub;});
+    _breathNodes('[data-breath="count"]').forEach(el=>{el.innerText=p.secs;});
+    /* The transition lasts as long as the phase. This was the literal '4s',
+       which made a six-second exhale finish its animation two seconds early
+       and then sit still -- the one thing a pacing visual must not do. */
+    _breathNodes('[data-breath="circle"]').forEach(circle=>{
         if(p.label==='INHALE'){
-            circle.style.transition='transform 4s ease-in-out, box-shadow 4s ease-in-out';
+            circle.style.transition=`transform ${p.secs}s ease-in-out, box-shadow ${p.secs}s ease-in-out`;
             circle.style.transform=`scale(${p.circleScale})`;
             circle.style.boxShadow='0 0 50px rgba(16,185,129,.25)';
         } else if(p.label==='EXHALE'){
-            circle.style.transition='transform 4s ease-in-out, box-shadow 4s ease-in-out';
+            circle.style.transition=`transform ${p.secs}s ease-in-out, box-shadow ${p.secs}s ease-in-out`;
             circle.style.transform=`scale(${p.circleScale})`;
             circle.style.boxShadow='0 0 15px rgba(16,185,129,.08)';
         }
-        // HOLD phases: no transition change — circle stays at current scale
-    }
-    // Update pip dots
-    for(let i=0;i<4;i++){
-        const pip=document.getElementById('box-pip-'+i);
-        if(pip) pip.style.background=i===_boxPhaseIdx?'#10b981':i<_boxPhaseIdx?'rgba(16,185,129,0.4)':'rgba(16,185,129,0.1)';
-        if(pip&&i===_boxPhaseIdx) pip.style.transform='scale(1.5)';
-        else if(pip) pip.style.transform='scale(1)';
-    }
+        /* A HOLD or a PAUSE changes nothing: the circle stays where the
+           breath left it, which is what makes the pause read as a rest
+           rather than as another instruction. */
+    });
+    /* PER HOST. A flat querySelectorAll would hand the second host the first
+       host's indices -- with the rest overlay's four pips in the DOM, the
+       exercise guide's three all came out past the end of a two-phase pattern
+       and were hidden. Each row is numbered from its own start. */
+    _breathNodes('[data-breath="pips"]').forEach(row=>{
+        [...row.querySelectorAll('[data-breath="pip"]')].forEach((pip,i)=>{
+            /* A host may carry more pips than the pattern has phases. The
+               extras are hidden rather than left lit, so a two-phase pattern
+               does not look like a three-phase one with a dead dot. */
+            if(i>=phases.length){ pip.style.display='none'; return; }
+            pip.style.display='';
+            pip.style.background=i===_boxPhaseIdx?'#10b981':i<_boxPhaseIdx?'rgba(16,185,129,0.4)':'rgba(16,185,129,0.1)';
+            pip.style.transform=i===_boxPhaseIdx?'scale(1.5)':'scale(1)';
+        });
+    });
 }
 
-function startBoxBreathing(){
+/* phases defaults to the rest overlay's box pattern, so every existing caller
+   keeps its behaviour without passing anything. */
+function startBoxBreathing(phases){
     stopBoxBreathing();
-    _boxPhaseIdx=0; _boxPhaseElapsed=0;
-    // Reset breathing circle to contracted state before first inhale
-    const circle=document.getElementById('breath-circle');
-    if(circle){circle.style.transition='none';circle.style.transform='scale(1)';circle.style.boxShadow='';}
+    _breathPhases=Array.isArray(phases)&&phases.length?phases:BOX_PHASES;
+    _boxPhaseIdx=0; _boxPhaseElapsed=0; _breathSwapPending=false;
+    _breathNodes('[data-breath="circle"]').forEach(circle=>{
+        circle.style.transition='none';circle.style.transform='scale(1)';circle.style.boxShadow='';
+    });
     renderBoxPhase();
     _boxInterval=setInterval(()=>{
         _boxPhaseElapsed++;
-        const p=BOX_PHASES[_boxPhaseIdx];
+        const p=_breathPhases[_boxPhaseIdx];
+        if(!p) return;
         const remaining=p.secs-_boxPhaseElapsed;
         if(remaining>0){
-            document.getElementById('box-phase-count').innerText=remaining;
+            _breathNodes('[data-breath="count"]').forEach(el=>{el.innerText=remaining;});
         } else {
-            _boxPhaseIdx=(_boxPhaseIdx+1)%4;
-            _boxPhaseElapsed=0;
-            renderBoxPhase();
+            _advanceBreathPhase();
         }
     },1000);
 }
 
 function stopBoxBreathing(){
     if(_boxInterval){clearInterval(_boxInterval);_boxInterval=null;}
+}
+
+/* Stops the animation AND hides the exercise-screen host, so a finished or
+   abandoned breathing step cannot leave a circle pulsing behind the next
+   exercise. One owner for the interval, so there are never two. */
+function stopEqBreathGuide(){
+    stopBoxBreathing();
+    const guide=document.getElementById('ex-breath-guide');
+    if(guide) guide.classList.add('hidden');
 }
 
 function startRest(){
@@ -7611,8 +7834,9 @@ function renderToday(){
     const planContext=isFullRestDate(window.BP.planDateKey(new Date()))
         ? EQ_COPY.fullRest
         : window.BP.todayPlanExplanation(r,currentPelvicPracticePlan()||{},lastPelvicFeedback()?.pelvicPractice.feedback||'');
-    set('today-plan-context',planContext,false);
-    set('today-why-btn',undefined,r.changes.length>0||!!planContext);
+    const eqProgress=(eqEnabled()&&getGoalKey()==='eq'&&!isFullRestDate(window.BP.planDateKey(new Date())))?EQ_COPY.progress:'';
+    set('today-plan-context',[planContext,eqProgress].filter(Boolean).join(' '),false);
+    set('today-why-btn',undefined,r.changes.length>0||!!planContext||!!eqProgress);
     const whyBtn=document.getElementById('today-why-btn');
     if(whyBtn) whyBtn.textContent='Why this today?';
 
@@ -8227,7 +8451,16 @@ function startMission(mission,source){
     session.routineType=eqRoutineFor(mission);
     /* Captured once, here, so a mid-session feedback change cannot resize the
        step list under a running session. */
-    session.eqRoutine=session.routineType==='eq'?buildEqRoutine():null;
+    /* The PRESCRIBED date, not the clock: a session launched either side of
+       midnight still belongs to the day it was prescribed for. */
+    if(session.routineType==='eq'){
+        const _d=(currentTodayPrescription()||{}).date
+            ||(window.BP.planDateKey?window.BP.planDateKey(new Date()):null);
+        session.eqStepIndices=eqStepIndicesFor(_d);
+        session.eqRoutine=eqStepsFrom(session.eqStepIndices);
+    } else {
+        session.eqStepIndices=null; session.eqRoutine=null;
+    }
     track('mission_selected',{mission,source:source||'prescribed'});
     if(mission==='recovery'){ goToRecoveryPicker(); return; }
     if(mission==='girth'){
@@ -8638,6 +8871,37 @@ function resumeSession(){
     session.exerciseIndex=draft.exerciseIndex;
     session.setIndex=draft.setIndex;
     session.routineType=draft.routineType;
+    /* Restored, never recomputed. Re-deriving would read today's date, and
+       a session paused before midnight and resumed after it would come back
+       as a different exercise. Each index is range-checked, and anything
+       unreadable falls back to a fresh build for the prescribed date rather
+       than to a half-restored list. */
+    if(draft.routineType==='eq'){
+        const _raw=Array.isArray(draft.eqStepIndices)?draft.eqStepIndices:null;
+        const _ok=_raw&&_raw.length&&_raw.every(i=>Number.isInteger(i)&&i>=0&&i<ROUTINES.recovery.length);
+        let _idx=_ok?_raw.slice()
+            :eqStepIndicesFor((currentTodayPrescription()||{}).date
+                ||(window.BP.planDateKey?window.BP.planDateKey(new Date()):null));
+        /* A SAVED STEP IS NOT A PERMIT. The protections are re-applied on the
+           way back in: a member who reported pain between pausing and
+           resuming must not have the pelvic step handed to them because it
+           was in the list when they left. Same two filters the build uses, so
+           there is one rule rather than two that can drift. */
+        try{ if(pelvicPracticeNeedsReview()) _idx=_idx.filter(i=>i!==2); }catch(e){}
+        try{ _idx=allowedRecoveryIndices(_idx); }catch(e){}
+        if(!_idx.length) _idx=[8];
+        session.eqStepIndices=_idx;
+        session.eqRoutine=eqStepsFrom(_idx);
+        /* exerciseIndex points INTO that list, and the list may have just got
+           shorter, so a stale or malformed index would resume at the wrong
+           step -- or at none. Clamped rather than trusted. */
+        const _n=session.eqRoutine.length;
+        if(!Number.isInteger(session.exerciseIndex)||session.exerciseIndex<0||session.exerciseIndex>=_n){
+            session.exerciseIndex=Math.max(0,Math.min(_n-1,Number.isInteger(session.exerciseIndex)?session.exerciseIndex:0));
+        }
+    } else {
+        session.eqStepIndices=null; session.eqRoutine=null;
+    }
     session.directionalIndex=draft.directionalIndex;
     session.xp=draft.xp;
     session.dailyPelvicPhase=draft.dailyPelvicPhase===true;
@@ -10674,6 +10938,7 @@ function _closeMemberOverlays(){
        boundaries: handleLogout, the account switch, and the SIGNED_OUT handler. */
     if(session.timer){session.timer.cancel();session.timer=null;}
     try{ stopJelqStrokePacer(); }catch(e){}
+    try{ stopEqBreathGuide(); }catch(e){}
     closeProgressCheckin();
     stopGuideSpeech();_guideSpeech?.setEnabled(false);_guideAudioUser=null;
     // Hidden by the `hidden` class.
@@ -11383,7 +11648,7 @@ function init(){
     document.getElementById('ex-abort-btn').addEventListener('click',()=>goToStep(0));
     document.getElementById('ex-home-btn').addEventListener('click',()=>{
         if(session.timer){session.timer.cancel();session.timer=null;}
-        stopBoxBreathing();
+        stopEqBreathGuide();
         document.getElementById('rest-overlay').classList.add('hidden');
         setFocusedMode(false);
         goToStep(0);
@@ -11391,7 +11656,7 @@ function init(){
     document.getElementById('ex-back-btn').addEventListener('click',()=>{
         // Stop any running timer first
         if(session.timer){session.timer.cancel();session.timer=null;}
-        stopBoxBreathing();
+        stopEqBreathGuide();
         document.getElementById('rest-overlay').classList.add('hidden');
         setFocusedMode(false);
         if(session.routineType==='recovery') goToRecoveryPicker();
@@ -11419,7 +11684,7 @@ function init(){
     document.getElementById('rest-back-btn').addEventListener('click',()=>{
         // Back = abort rest, keep session active, return to exercise ready state
         if(session.timer){session.timer.cancel();session.timer=null;}
-        stopBoxBreathing();
+        stopEqBreathGuide();
         document.getElementById('rest-overlay').classList.add('hidden');
         // Don't advance setIndex — let user re-engage the same set
         updateExUI();

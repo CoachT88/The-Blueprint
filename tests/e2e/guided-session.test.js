@@ -48,12 +48,13 @@ describe('the guided session uses real execution and completion',()=>{
      feel:document.getElementById('feel-msg').textContent,stop:document.getElementById('dont-feel-msg').textContent};
    }));
   });
-  /* 15 distinct exercises plus the EQ session's three. ROUTINES.eq is a view
-     over recovery[8], recovery[2] and recovery[4] rather than new content, so
-     those three are counted twice here on purpose: iterating them is what
-     proves they still render their own instructions, feel and stop cues when
-     the routine type is 'eq' and the list comes from currentRoutine(). */
-  expect(rows).toHaveLength(18);
+  /* 16 distinct exercises plus the EQ session's three. Cat-Cow brought the
+     recovery library to ten. ROUTINES.eq is a view over recovery[8],
+     recovery[2] and recovery[4] rather than new content, so those three are
+     counted twice here on purpose: iterating them is what proves they still
+     render their own instructions, feel and stop cues when the routine type
+     is 'eq' and the list comes from currentRoutine(). */
+  expect(rows).toHaveLength(19);
   for(const row of rows){
    expect(row.open,row.title).toBe(true);expect(row.howtoVisible,row.title).toBe(true);
    expect(row.steps.length,row.title).toBeGreaterThanOrEqual(4);
@@ -63,15 +64,37 @@ describe('the guided session uses real execution and completion',()=>{
   const reverse=rows.find(x=>x.title==='Reverse Kegel Stretch');
   expect(reverse.steps.join(' ')).toMatch(/let go to start peeing/);
   expect(reverse.steps.join(' ')).toMatch(/Do not push/);
+  /* The release-sensation cue moved WITH THE JOB. It used to sit on the
+     breathing step, which was also teaching pelvic release; breathing now
+     owns the rhythm and Pelvic Floor Release owns letting go. What must not
+     change is that the cue stays a RELEASE and never a push: it replaced a
+     "gently bear down" instruction, which is Valsalva, and it was being
+     served to men whose screener flagged a floor that holds tension. */
+  const release=rows.find(x=>x.title==='Pelvic Floor Release');
+  expect(release.steps.join(' ')).toMatch(/let gas pass easily/);
+  expect(release.steps.join(' ')).toMatch(/not a push/);
   const breath=rows.find(x=>x.title==='Diaphragmatic breathing');
-  expect(breath.steps.join(' ')).toMatch(/allowing gas to pass easily/);
+  expect(breath.steps.join(' ')).not.toMatch(/bear down/i);
+  /* And the de-duplication itself: breathing no longer teaches the release,
+     so the two steps cannot read as one instruction given twice. */
+  expect(breath.steps.join(' ')).not.toMatch(/gas pass easily|start peeing/);
+  /* Cat-Cow carries the joint-specific stop cues it needs. */
+  const cat=rows.find(x=>x.title==='Cat-Cow');
+  expect(cat.steps.join(' ')).toMatch(/wrists/);
+  expect(cat.steps.join(' ')).toMatch(/knees/);
+  expect(cat.stop).toMatch(/wrists, knees, hips, lower back or pelvis/);
  });
  test('an experienced member can open the full guide before starting',async()=>{
   await app.page.evaluate(()=>{persisted.allTimeSessionCount=FULL_SAFETY_SESSIONS;updateExUI();});
   expect(await app.page.locator('#guide-technique').getAttribute('open')).toBeNull();
   await app.page.locator('#ex-info-btn').click();
   await expect.poll(()=>app.page.locator('#howto-panel').isVisible()).toBe(true);
-  expect(await app.page.locator('#howto-steps .howto-step').count()).toBe(5);
+  /* Seven: the breathing guide has a straw / pursed-lips step and keeps its
+     own short pelvic-easing line, which it needs when it is the only activity
+     of the day. The pause and longer-exhale options are offered only inside the
+     EQ session, where the controls exist -- see the EQ foundation suite. The
+     number is the tripwire: the full guide must render every step it has. */
+  expect(await app.page.locator('#howto-steps .howto-step').count()).toBe(7);
   expect(await app.page.evaluate(()=>session.timer?.isRunning()||false)).toBe(false);
  });
  test('audio requires a tap, does not repeat on every tick, and cancels when paused or left',async()=>{
