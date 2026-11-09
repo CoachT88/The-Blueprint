@@ -107,6 +107,12 @@ finding changes direction.
   reports Browser suites as `skipped`.
 - A regression test must fail against the unfixed code. A test that passes before the fix
   proves nothing.
+- **Pre-flight before a full run.** Find direct and indirect dependencies first: changed
+  symbols, shared arrays and indices, exercise step counts, and copy that tests assert on.
+  Browser tests inspect the page rather than import modules, so search `tests/` and
+  `tests/e2e/` for each touched name and string, not only the imports. Run the matching test
+  files, fix what fails, commit, then run the full suite once on the final implementation.
+  A documentation-only change does not void a valid run; any application or test change does.
 
 ## Claim standards
 
