@@ -947,7 +947,7 @@
         <!-- Breathing circle pacer — focal visual -->
         <div class="relative flex items-center justify-center mb-5" style="width:200px;height:200px;">
             <!-- Outer expanding circle (breath) -->
-            <div id="breath-circle" style="position:absolute;width:120px;height:120px;border-radius:50%;
+            <div id="breath-circle" data-breath="circle" style="position:absolute;width:120px;height:120px;border-radius:50%;
                 background:radial-gradient(circle,rgba(16,185,129,.18) 0%,rgba(16,185,129,.04) 70%);
                 border:2px solid rgba(16,185,129,.35);
                 box-shadow:0 0 30px rgba(16,185,129,.12);
@@ -972,17 +972,17 @@
 
         <!-- Box breathing phase -->
         <div class="text-center mb-4">
-            <p id="box-phase-label" class="text-3xl font-black uppercase italic text-emerald-400 leading-none mb-1">INHALE</p>
-            <p id="box-phase-sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest">let the floor open and drop</p>
-            <div id="box-phase-count" class="text-5xl font-black text-emerald-300 tabular-nums mt-2">4</div>
+            <p id="box-phase-label" data-breath="label" class="text-3xl font-black uppercase italic text-emerald-400 leading-none mb-1">INHALE</p>
+            <p id="box-phase-sub" data-breath="sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest">let the floor open and drop</p>
+            <div id="box-phase-count" data-breath="count" class="text-5xl font-black text-emerald-300 tabular-nums mt-2">4</div>
         </div>
 
         <!-- Box phase pips -->
-        <div class="flex gap-2.5 mb-5">
-            <div id="box-pip-0" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
-            <div id="box-pip-1" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
-            <div id="box-pip-2" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
-            <div id="box-pip-3" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+        <div data-breath="pips" class="flex gap-2.5 mb-5">
+            <div id="box-pip-0" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div id="box-pip-1" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div id="box-pip-2" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div id="box-pip-3" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
         </div>
 
         <!-- Protocol reminder -->
@@ -1863,6 +1863,27 @@
     </div>
 
     <!-- One guide cue, visible before starting and while running. -->
+    <!-- Breath guide for the exercise screen. The SAME driver renders this and
+         the rest overlay's copy, by class rather than by id, so there is one
+         animation and one piece of state. The rest overlay's own block stays
+         exactly as it was, because it also carries the rest countdown and the
+         re-lube instruction, which do not belong here. -->
+    <div id="ex-breath-guide" class="hidden flex-col items-center my-3">
+        <div class="relative flex items-center justify-center" style="width:150px;height:150px;">
+            <div data-breath="circle" style="position:absolute;width:88px;height:88px;border-radius:50%;
+                background:radial-gradient(circle,rgba(16,185,129,.18) 0%,rgba(16,185,129,.04) 70%);
+                border:2px solid rgba(16,185,129,.35);box-shadow:0 0 30px rgba(16,185,129,.12);
+                transition:transform 4s ease-in-out;transform:scale(1);"></div>
+            <div data-breath="count" class="absolute text-4xl font-black text-emerald-300 tabular-nums">4</div>
+        </div>
+        <p data-breath="label" class="text-2xl font-black uppercase italic text-emerald-400 leading-none mt-2">INHALE</p>
+        <p data-breath="sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest mt-0.5">through the nose</p>
+        <div data-breath="pips" class="flex gap-2.5 mt-3">
+            <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+        </div>
+    </div>
     <div id="ex-active-cue" class="hidden mx-2 my-3 px-4 py-3 rounded-2xl bg-blue-500/[0.08] border border-blue-500/15 text-center" style="position:relative;z-index:var(--z-raised);">
         <p id="ex-cue-text" class="text-sm font-bold text-blue-200 italic leading-relaxed" role="status" aria-live="polite" aria-atomic="true"></p>
     </div>
@@ -5852,6 +5873,38 @@ const EQ_COPY={
 const STANDALONE_PELVIC_LINE='As you breathe out, let any tension underneath your pelvis ease. Do not push down or strain; just stop holding.';
 const EQ_BREATH_DETAIL='Find an easy rhythm: in for four, out for six. Breathe into your lower ribs and belly and let yourself settle. Nothing is forced and nothing is held.';
 
+/* ── The EQ breathing pattern ──────────────────────────────────────────────
+   Four in, six out, and nothing held. The rest overlay's 4/4/4/4 box is a
+   different pattern for a different moment and is untouched.
+
+   The optional phase is called PAUSE, never HOLD, and its cue says so: a
+   member who reads "hold" holds, and this is not a breath-holding exercise.
+   Both adjustments are opt-in and either can be turned off mid-practice. */
+function eqBreathPrefs(){
+    try{
+        const raw=localStorage.getItem('bp_eq_breath_'+(currentUser?currentUser.id:''));
+        const p=raw?JSON.parse(raw):{};
+        return {pause:p.pause===true,longExhale:p.longExhale===true};
+    }catch(e){ return {pause:false,longExhale:false}; }
+}
+function setEqBreathPref(key,on){
+    if(!currentUser) return;
+    const p={...eqBreathPrefs(),[key]:on===true};
+    try{ localStorage.setItem('bp_eq_breath_'+currentUser.id,JSON.stringify(p)); }catch(e){}
+    /* Takes effect on the next phase rather than mid-breath, so a toggle
+       never cuts an inhale short. */
+    if(_boxInterval) _breathPhases=eqBreathPhases();
+}
+function eqBreathPhases(){
+    const pr=eqBreathPrefs();
+    const out=[{label:'INHALE',sub:'through the nose — lower ribs widen',secs:4,circleScale:1.55}];
+    if(pr.pause) out.push({label:'PAUSE',sub:'just rest here — do not hold',secs:1,circleScale:1.55});
+    out.push({label:'EXHALE',
+        sub:pr.longExhale?'long and slow — let it leave':'slower than you came in',
+        secs:pr.longExhale?8:6,circleScale:1.0});
+    return out;
+}
+
 const EQ_FIXED_STEPS=[
     8,  // Diaphragmatic breathing — the rhythm
     2,  // Pelvic Floor Release    — letting go
@@ -6630,6 +6683,13 @@ function startSet(){
     document.getElementById('pause-icon').className='fas fa-pause text-4xl text-slate-300';
     setFocusedMode(true);
     if(!ex.isRecovery)sayGuide('Timer started. Breathe normally and stop for discomfort.');
+    /* The breath guide runs for the EQ session's breathing step only. The
+       daily practice's copy of the same exercise keeps its cue-only
+       presentation, so nothing outside the EQ session changes. */
+    const isEqBreath=session.routineType==='eq'&&ex.title==='Diaphragmatic breathing';
+    const guide=document.getElementById('ex-breath-guide');
+    if(guide) guide.classList.toggle('hidden',!isEqBreath);
+    if(isEqBreath) startBoxBreathing(eqBreathPhases());
     const isWetJelq=ex.title==='Wet Jelq';
     const isUli=ex.title==='Uli — Manual Clamp';
     if(isUli){
@@ -6686,6 +6746,7 @@ function pauseResumeSet(){
 }
 function onSetDone(){
     stopJelqStrokePacer();
+    stopEqBreathGuide();
     document.getElementById('ex-pause-btn').style.display='none';
     setFocusedMode(false);
     session.timer=null;_syncWakeLock();
@@ -6706,50 +6767,75 @@ const BOX_PHASES=[
 ];
 let _boxPhaseIdx=0, _boxPhaseElapsed=0, _boxInterval=null;
 
+/* The pattern currently being guided. The rest overlay's 4/4/4/4 box is the
+   default and is unchanged; the EQ breathing step supplies its own. One
+   driver, one piece of state, so two patterns can never animate at once. */
+let _breathPhases=BOX_PHASES;
+
+/* Written by CLASS, not by id, so the rest overlay's block and the exercise
+   screen's smaller copy are driven by the same code. Each host renders only
+   the nodes it has. */
+function _breathNodes(sel){ return [...document.querySelectorAll(sel)]; }
+
 function renderBoxPhase(){
-    const p=BOX_PHASES[_boxPhaseIdx];
-    document.getElementById('box-phase-label').innerText=p.label;
-    document.getElementById('box-phase-sub').innerText=p.sub;
-    document.getElementById('box-phase-count').innerText=p.secs;
-    // Animate breathing circle
-    const circle=document.getElementById('breath-circle');
-    if(circle){
-        // INHALE → expand over 4s, EXHALE → contract over 4s, HOLDs keep current size
+    const phases=_breathPhases, p=phases[_boxPhaseIdx];
+    if(!p) return;
+    _breathNodes('[data-breath=\"label\"]').forEach(el=>{el.innerText=p.label;});
+    _breathNodes('[data-breath="sub"]').forEach(el=>{el.innerText=p.sub;});
+    _breathNodes('[data-breath="count"]').forEach(el=>{el.innerText=p.secs;});
+    /* The transition lasts as long as the phase. This was the literal '4s',
+       which made a six-second exhale finish its animation two seconds early
+       and then sit still -- the one thing a pacing visual must not do. */
+    _breathNodes('[data-breath="circle"]').forEach(circle=>{
         if(p.label==='INHALE'){
-            circle.style.transition='transform 4s ease-in-out, box-shadow 4s ease-in-out';
+            circle.style.transition=`transform ${p.secs}s ease-in-out, box-shadow ${p.secs}s ease-in-out`;
             circle.style.transform=`scale(${p.circleScale})`;
             circle.style.boxShadow='0 0 50px rgba(16,185,129,.25)';
         } else if(p.label==='EXHALE'){
-            circle.style.transition='transform 4s ease-in-out, box-shadow 4s ease-in-out';
+            circle.style.transition=`transform ${p.secs}s ease-in-out, box-shadow ${p.secs}s ease-in-out`;
             circle.style.transform=`scale(${p.circleScale})`;
             circle.style.boxShadow='0 0 15px rgba(16,185,129,.08)';
         }
-        // HOLD phases: no transition change — circle stays at current scale
-    }
-    // Update pip dots
-    for(let i=0;i<4;i++){
-        const pip=document.getElementById('box-pip-'+i);
-        if(pip) pip.style.background=i===_boxPhaseIdx?'#10b981':i<_boxPhaseIdx?'rgba(16,185,129,0.4)':'rgba(16,185,129,0.1)';
-        if(pip&&i===_boxPhaseIdx) pip.style.transform='scale(1.5)';
-        else if(pip) pip.style.transform='scale(1)';
-    }
+        /* A HOLD or a PAUSE changes nothing: the circle stays where the
+           breath left it, which is what makes the pause read as a rest
+           rather than as another instruction. */
+    });
+    /* PER HOST. A flat querySelectorAll would hand the second host the first
+       host's indices -- with the rest overlay's four pips in the DOM, the
+       exercise guide's three all came out past the end of a two-phase pattern
+       and were hidden. Each row is numbered from its own start. */
+    _breathNodes('[data-breath="pips"]').forEach(row=>{
+        [...row.querySelectorAll('[data-breath="pip"]')].forEach((pip,i)=>{
+            /* A host may carry more pips than the pattern has phases. The
+               extras are hidden rather than left lit, so a two-phase pattern
+               does not look like a three-phase one with a dead dot. */
+            if(i>=phases.length){ pip.style.display='none'; return; }
+            pip.style.display='';
+            pip.style.background=i===_boxPhaseIdx?'#10b981':i<_boxPhaseIdx?'rgba(16,185,129,0.4)':'rgba(16,185,129,0.1)';
+            pip.style.transform=i===_boxPhaseIdx?'scale(1.5)':'scale(1)';
+        });
+    });
 }
 
-function startBoxBreathing(){
+/* phases defaults to the rest overlay's box pattern, so every existing caller
+   keeps its behaviour without passing anything. */
+function startBoxBreathing(phases){
     stopBoxBreathing();
+    _breathPhases=Array.isArray(phases)&&phases.length?phases:BOX_PHASES;
     _boxPhaseIdx=0; _boxPhaseElapsed=0;
-    // Reset breathing circle to contracted state before first inhale
-    const circle=document.getElementById('breath-circle');
-    if(circle){circle.style.transition='none';circle.style.transform='scale(1)';circle.style.boxShadow='';}
+    _breathNodes('[data-breath="circle"]').forEach(circle=>{
+        circle.style.transition='none';circle.style.transform='scale(1)';circle.style.boxShadow='';
+    });
     renderBoxPhase();
     _boxInterval=setInterval(()=>{
         _boxPhaseElapsed++;
-        const p=BOX_PHASES[_boxPhaseIdx];
+        const p=_breathPhases[_boxPhaseIdx];
+        if(!p) return;
         const remaining=p.secs-_boxPhaseElapsed;
         if(remaining>0){
-            document.getElementById('box-phase-count').innerText=remaining;
+            _breathNodes('[data-breath="count"]').forEach(el=>{el.innerText=remaining;});
         } else {
-            _boxPhaseIdx=(_boxPhaseIdx+1)%4;
+            _boxPhaseIdx=(_boxPhaseIdx+1)%_breathPhases.length;
             _boxPhaseElapsed=0;
             renderBoxPhase();
         }
@@ -6758,6 +6844,15 @@ function startBoxBreathing(){
 
 function stopBoxBreathing(){
     if(_boxInterval){clearInterval(_boxInterval);_boxInterval=null;}
+}
+
+/* Stops the animation AND hides the exercise-screen host, so a finished or
+   abandoned breathing step cannot leave a circle pulsing behind the next
+   exercise. One owner for the interval, so there are never two. */
+function stopEqBreathGuide(){
+    stopBoxBreathing();
+    const guide=document.getElementById('ex-breath-guide');
+    if(guide) guide.classList.add('hidden');
 }
 
 function startRest(){
@@ -8746,10 +8841,26 @@ function resumeSession(){
     if(draft.routineType==='eq'){
         const _raw=Array.isArray(draft.eqStepIndices)?draft.eqStepIndices:null;
         const _ok=_raw&&_raw.length&&_raw.every(i=>Number.isInteger(i)&&i>=0&&i<ROUTINES.recovery.length);
-        session.eqStepIndices=_ok?_raw.slice()
+        let _idx=_ok?_raw.slice()
             :eqStepIndicesFor((currentTodayPrescription()||{}).date
                 ||(window.BP.planDateKey?window.BP.planDateKey(new Date()):null));
-        session.eqRoutine=eqStepsFrom(session.eqStepIndices);
+        /* A SAVED STEP IS NOT A PERMIT. The protections are re-applied on the
+           way back in: a member who reported pain between pausing and
+           resuming must not have the pelvic step handed to them because it
+           was in the list when they left. Same two filters the build uses, so
+           there is one rule rather than two that can drift. */
+        try{ if(pelvicPracticeNeedsReview()) _idx=_idx.filter(i=>i!==2); }catch(e){}
+        try{ _idx=allowedRecoveryIndices(_idx); }catch(e){}
+        if(!_idx.length) _idx=[8];
+        session.eqStepIndices=_idx;
+        session.eqRoutine=eqStepsFrom(_idx);
+        /* exerciseIndex points INTO that list, and the list may have just got
+           shorter, so a stale or malformed index would resume at the wrong
+           step -- or at none. Clamped rather than trusted. */
+        const _n=session.eqRoutine.length;
+        if(!Number.isInteger(session.exerciseIndex)||session.exerciseIndex<0||session.exerciseIndex>=_n){
+            session.exerciseIndex=Math.max(0,Math.min(_n-1,Number.isInteger(session.exerciseIndex)?session.exerciseIndex:0));
+        }
     } else {
         session.eqStepIndices=null; session.eqRoutine=null;
     }
@@ -10789,6 +10900,7 @@ function _closeMemberOverlays(){
        boundaries: handleLogout, the account switch, and the SIGNED_OUT handler. */
     if(session.timer){session.timer.cancel();session.timer=null;}
     try{ stopJelqStrokePacer(); }catch(e){}
+    try{ stopEqBreathGuide(); }catch(e){}
     closeProgressCheckin();
     stopGuideSpeech();_guideSpeech?.setEnabled(false);_guideAudioUser=null;
     // Hidden by the `hidden` class.

@@ -340,6 +340,150 @@ describe('the EQ foundation', () => {
         expect(r.eqHowto).toMatch(/out for about six seconds/);
     });
 
+    test('a saved step list does not bypass a restriction that applies on return', async () => {
+        // The member started a Sunday session with all three steps, then
+        // reported pain before resuming. The saved list still contains the
+        // pelvic step; the protections must re-apply on the way back in.
+        const r = await on(() => {
+            const saved = eqStepIndicesFor('2026-11-08');     // [8, 2, 9]
+            persisted.sessionLog = [{date: new Date().toISOString(), routineType: 'recovery',
+                pelvicPractice: {feedback: 'painful'}}];
+            try { localStorage.removeItem(pelvicReviewKey()); } catch (e) {}
+            // The resume path's own filtering, applied to the saved list.
+            let idx = saved.slice();
+            if (pelvicPracticeNeedsReview()) idx = idx.filter(i => i !== 2);
+            idx = allowedRecoveryIndices(idx);
+            return {saved, pending: pelvicPracticeNeedsReview(),
+                    titles: eqStepsFrom(idx).map(x => x.title)};
+        });
+        expect(r.saved).toContain(2);
+        expect(r.pending).toBe(true);
+        expect(r.titles).not.toContain('Pelvic Floor Release');
+        expect(r.titles).toEqual(['Diaphragmatic breathing', 'Cat-Cow']);
+    });
+
+    test('a malformed saved index cannot resume at the wrong step', async () => {
+        const r = await on(() => {
+            const bad = [
+                [8, 2, 99],          // out of range
+                [8, 2, -1],          // negative
+                [8, 2, 1.5],         // not an integer
+                [],                  // empty
+                ['8', '2'],          // strings
+            ];
+            const n = ROUTINES.recovery.length;
+            const accepted = bad.map(raw =>
+                !!(raw.length && raw.every(i => Number.isInteger(i) && i >= 0 && i < n)));
+            // And the clamp: an exerciseIndex past the end comes back in range.
+            const steps = eqStepsFrom(eqStepIndicesFor('2026-11-08'));
+            const clamp = (i) => Math.max(0, Math.min(steps.length - 1,
+                Number.isInteger(i) ? i : 0));
+            return {accepted, clamped: [clamp(99), clamp(-4), clamp(1.5), clamp(2)]};
+        });
+        expect(r.accepted).toEqual([false, false, false, false, false]);
+        expect(r.clamped).toEqual([2, 0, 0, 2]);
+    });
+
+    /* ── The breathing guide ─────────────────────────────────────────────── */
+
+    test('the default pattern is four in, six out, and nothing held', async () => {
+        const r = await on(() => eqBreathPhases().map(p => ({l: p.label, s: p.secs})));
+        expect(r).toEqual([{l: 'INHALE', s: 4}, {l: 'EXHALE', s: 6}]);
+        // No HOLD anywhere in the default: this is not a breath-holding drill.
+        expect(r.some(p => p.l === 'HOLD')).toBe(false);
+    });
+
+    test('the optional pause is called PAUSE, never HOLD', async () => {
+        const r = await on(() => {
+            setEqBreathPref('pause', true);
+            const ph = eqBreathPhases();
+            return {labels: ph.map(p => p.label), secs: ph.map(p => p.secs),
+                    sub: ph[1].sub};
+        });
+        expect(r.labels).toEqual(['INHALE', 'PAUSE', 'EXHALE']);
+        expect(r.secs).toEqual([4, 1, 6]);
+        // A member who reads "hold" holds. The cue says the opposite.
+        expect(r.sub).toMatch(/do not hold/i);
+    });
+
+    test('the longer exhale is eight seconds and is opt-in', async () => {
+        const r = await on(() => {
+            setEqBreathPref('pause', false);
+            setEqBreathPref('longExhale', true);
+            const on8 = eqBreathPhases();
+            setEqBreathPref('longExhale', false);
+            const off = eqBreathPhases();
+            return {on8: on8.map(p => p.secs), off: off.map(p => p.secs)};
+        });
+        expect(r.on8).toEqual([4, 8]);
+        expect(r.off).toEqual([4, 6]);
+    });
+
+    test('the rest overlay keeps its own 4/4/4/4 box pattern', async () => {
+        // Called with no argument, as every existing caller does.
+        const r = await on(() => {
+            startBoxBreathing();
+            const used = _breathPhases.map(p => ({l: p.label, s: p.secs}));
+            stopBoxBreathing();
+            return used;
+        });
+        expect(r).toEqual([
+            {l: 'INHALE', s: 4}, {l: 'HOLD', s: 4},
+            {l: 'EXHALE', s: 4}, {l: 'HOLD', s: 4},
+        ]);
+    });
+
+    test('the circle animates for exactly as long as the phase lasts', async () => {
+        // The bug: the transition was the literal 4s, so a six-second exhale
+        // finished animating two seconds early and then sat still -- the one
+        // thing a pacing visual must not do.
+        const r = await on(() => {
+            startBoxBreathing(eqBreathPhases());
+            const inhale = document.querySelector('#ex-breath-guide [data-breath="circle"]').style.transition;
+            _breathPhases = eqBreathPhases(); _boxPhaseIdx = 1; renderBoxPhase();
+            const exhale = document.querySelector('#ex-breath-guide [data-breath="circle"]').style.transition;
+            stopBoxBreathing();
+            return {inhale, exhale};
+        });
+        expect(r.inhale).toMatch(/transform 4s/);
+        expect(r.exhale).toMatch(/transform 6s/);
+    });
+
+    test('extra pips are hidden rather than left lit', async () => {
+        // The host markup carries three pips; a two-phase pattern must not
+        // look like a three-phase one with a dead dot.
+        const r = await on(() => {
+            setEqBreathPref('pause', false);
+            startBoxBreathing(eqBreathPhases());
+            const pips = [...document.querySelectorAll('#ex-breath-guide [data-breath="pip"]')]
+                .map(p => p.style.display);
+            stopBoxBreathing();
+            return pips;
+        });
+        expect(r).toEqual(['', '', 'none']);
+    });
+
+    test('the guide shows for the EQ breathing step and hides when it ends', async () => {
+        const r = await on(() => {
+            persisted.schedule = goalSchedule('eq').slice();
+            session.routineType = 'eq';
+            session.eqStepIndices = eqStepIndicesFor('2026-11-08');
+            session.eqRoutine = eqStepsFrom(session.eqStepIndices);
+            session.exerciseIndex = 0; session.setIndex = 1;
+            startSet();
+            const during = !document.getElementById('ex-breath-guide').classList.contains('hidden');
+            const running = _boxInterval !== null;
+            stopEqBreathGuide();
+            const after = !document.getElementById('ex-breath-guide').classList.contains('hidden');
+            if (session.timer) { session.timer.cancel(); session.timer = null; }
+            return {during, running, after, intervalAfter: _boxInterval};
+        });
+        expect(r.during).toBe(true);
+        expect(r.running).toBe(true);
+        expect(r.after).toBe(false);
+        expect(r.intervalAfter).toBe(null);
+    });
+
     test('unresolved pelvic pain withholds the pelvic step, keeping the rest', async () => {
         const r = await on(() => {
             /* latestPracticeFeedback() reads pelvicPractice at the TOP level of
