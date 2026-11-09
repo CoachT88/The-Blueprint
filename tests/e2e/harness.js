@@ -144,6 +144,29 @@ function installSupabaseStub(cfg) {
     window.__rowsByUser = {};         // per-account user_data, keyed by id
     window.__authEvents = [];         // every event fired, for assertions
 
+    /* The revision guard, modelled on supabase/revision-guard.sql, which
+       tests/sql/ proves against real PostgreSQL. OFF by default, so every
+       existing suite sees the stub it always saw. Setting __revMode to 'soft'
+       or 'hard' makes accepted upserts MUTATE window.__row the way the trigger
+       does: a write that names a stale base_rev is refused with PT409; one
+       that names none is accepted in soft mode (rev bumped, last_write_id
+       cleared) and refused in hard mode. __applyRevGuard() lets a test play
+       "some other device" writing to the same row. */
+    window.__revMode = null;
+    const applyRevGuard = (payload) => {
+        const row = window.__row;
+        if (!row) { window.__row = { ...payload, rev: 0, base_rev: null }; return null; }
+        const hasBase = typeof payload.base_rev === 'number';
+        if (!hasBase && window.__revMode === 'hard') return { code: 'PT409', message: 'rev_required' };
+        if (hasBase && payload.base_rev !== row.rev) return { code: 'PT409', message: 'rev_conflict' };
+        const next = { ...payload }; delete next.base_rev; delete next.rev;
+        Object.assign(row, next);
+        row.rev = (row.rev || 0) + 1; row.base_rev = null;
+        if (!hasBase) row.last_write_id = null;
+        return null;
+    };
+    window.__applyRevGuard = applyRevGuard;
+
     const noRow = { data: null, error: { code: 'PGRST116', message: 'no rows' } };
     /* A per-account row wins when one is registered, so two accounts in one
        browser can hold genuinely different data. Otherwise the single __row
@@ -191,14 +214,23 @@ function installSupabaseStub(cfg) {
                deadline has to treat as unknown rather than failed.
                __hangUpsertCommits records the payload anyway, modelling a
                remote success whose answer never came back. */
-            if (window.__hangUpsert) {
-                if (window.__hangUpsertCommits) window.__writes.push(payload);
+            /* __hangUpsertOnce: only the NEXT write loses its answer. */
+            if (window.__hangUpsert || window.__hangUpsertOnce) {
+                window.__hangUpsertOnce = false;
+                if (window.__hangUpsertCommits) {
+                    window.__writes.push(payload);
+                    if (window.__revMode) applyRevGuard(payload);
+                }
                 return new Promise(() => {});
             }
             /* Throws rather than resolving with an error, for the path where
                the client library itself blows up. */
             if (window.__throwUpsert) {
                 return Promise.reject(new Error('simulated client throw'));
+            }
+            if (window.__revMode) {
+                const refused = applyRevGuard(payload);
+                if (refused) return Promise.resolve({ error: refused });
             }
             window.__writes.push(payload);
             return Promise.resolve({ error: null });
