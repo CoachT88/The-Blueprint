@@ -3321,6 +3321,7 @@ const DAILY_PELVIC_RESET={
         'Breathe in through your nose for about four seconds. The lower hand rises and your lower ribs widen; the chest hand barely moves. Do not reach for a big breath.',
         'Breathe out for about six seconds, slower than you breathed in. Let the air leave rather than pushing it out, and let your shoulders drop as it goes.',
         'If the exhale is hard to pace, breathe out through a straw, or through pursed lips if you do not have one. Both just slow the breath down so it is easier to feel.',
+        'Two optional adjustments, if you want them: a one-second beat between the breaths, and a longer eight-second exhale. The beat is a turnaround rather than a breath to hold, and neither is something to push through — turn either off the moment it stops being comfortable.',
         'As you breathe out, let any tension underneath your pelvis ease. Do not push down or strain; just stop holding.',
         'Keep going at that pace. If four and six ever leave you short of air, breathe normally for a moment and start again shorter. Stop for pain, pelvic pressure or dizziness; persistent pelvic symptoms deserve a clinician assessment.',
     ],
@@ -5898,7 +5899,7 @@ function setEqBreathPref(key,on){
 function eqBreathPhases(){
     const pr=eqBreathPrefs();
     const out=[{label:'INHALE',sub:'through the nose — lower ribs widen',secs:4,circleScale:1.55}];
-    if(pr.pause) out.push({label:'PAUSE',sub:'just rest here — do not hold',secs:1,circleScale:1.55});
+    if(pr.pause) out.push({label:'PAUSE',sub:'a beat between — nothing to hold',secs:1,circleScale:1.55});
     out.push({label:'EXHALE',
         sub:pr.longExhale?'long and slow — let it leave':'slower than you came in',
         secs:pr.longExhale?8:6,circleScale:1.0});
@@ -6728,6 +6729,12 @@ function pauseResumeSet(){
         _guideActive=false;stopGuideSpeech();
         document.getElementById('guide-breath-visual').dataset.paused='true';
         stopJelqStrokePacer();
+        /* The breath animation is a pacer too, and a paced breath running
+           against a frozen timer is exactly the competing state we avoid
+           elsewhere. Stopped, not hidden: the circle stays where the breath
+           left it so resuming picks the rhythm back up rather than restarting
+           it from a jump. */
+        stopBoxBreathing();
         ic.className='fas fa-play text-4xl text-slate-300';
         if(lbl)lbl.innerText='Resume';
         _syncWakeLock();
@@ -6739,6 +6746,7 @@ function pauseResumeSet(){
         // Restart pacer if this is a Wet Jelq set
         const ex=getCurEx();
         if(ex.title==='Wet Jelq') startJelqStrokePacer();
+        if(session.routineType==='eq'&&ex.title==='Diaphragmatic breathing') startBoxBreathing(eqBreathPhases());
         ic.className='fas fa-pause text-4xl text-slate-300';
         if(lbl)lbl.innerText='Pause';
         _syncWakeLock();
@@ -11610,7 +11618,7 @@ function init(){
     document.getElementById('ex-abort-btn').addEventListener('click',()=>goToStep(0));
     document.getElementById('ex-home-btn').addEventListener('click',()=>{
         if(session.timer){session.timer.cancel();session.timer=null;}
-        stopBoxBreathing();
+        stopEqBreathGuide();
         document.getElementById('rest-overlay').classList.add('hidden');
         setFocusedMode(false);
         goToStep(0);
@@ -11618,7 +11626,7 @@ function init(){
     document.getElementById('ex-back-btn').addEventListener('click',()=>{
         // Stop any running timer first
         if(session.timer){session.timer.cancel();session.timer=null;}
-        stopBoxBreathing();
+        stopEqBreathGuide();
         document.getElementById('rest-overlay').classList.add('hidden');
         setFocusedMode(false);
         if(session.routineType==='recovery') goToRecoveryPicker();
@@ -11646,7 +11654,7 @@ function init(){
     document.getElementById('rest-back-btn').addEventListener('click',()=>{
         // Back = abort rest, keep session active, return to exercise ready state
         if(session.timer){session.timer.cancel();session.timer=null;}
-        stopBoxBreathing();
+        stopEqBreathGuide();
         document.getElementById('rest-overlay').classList.add('hidden');
         // Don't advance setIndex — let user re-engage the same set
         updateExUI();

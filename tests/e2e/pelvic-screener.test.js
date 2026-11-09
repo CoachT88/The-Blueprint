@@ -69,10 +69,17 @@ describe('a tight result actually changes the protocol', () => {
     });
 
     test('Select All cannot hand back the blocked exercises', async () => {
-        const r = await app.page.evaluate(() => { selectAllRecovery(); return selectedRecoveryIndices; });
-        expect(r).not.toContain(0);
-        expect(r).not.toContain(3);
-        expect(r.length).toBe(7);
+        const r = await app.page.evaluate(() => ({
+            picked: (selectAllRecovery(), selectedRecoveryIndices),
+            library: ROUTINES.recovery.length,
+        }));
+        expect(r.picked).not.toContain(0);
+        expect(r.picked).not.toContain(3);
+        /* Derived, not a magic number. The property is "exactly the two
+           contraction exercises are withheld" -- a hardcoded count silently
+           passes the day someone adds an eleventh exercise AND the gate stops
+           working, which is the one combination that matters. */
+        expect(r.picked.length).toBe(r.library - 2);
     });
 
     test("Today's Pick cannot either, including via its fallback", async () => {
@@ -148,10 +155,15 @@ describe('a standard result leaves the protocol intact', () => {
     afterAll(async () => { await app?.close(); });
 
     test('all eight remain available', async () => {
-        const r = await app.page.evaluate(() => { selectAllRecovery(); return selectedRecoveryIndices; });
-        expect(r.length).toBe(9);
-        expect(r).toContain(0);
-        expect(r).toContain(3);
+        const r = await app.page.evaluate(() => ({
+            picked: (selectAllRecovery(), selectedRecoveryIndices),
+            library: ROUTINES.recovery.length,
+        }));
+        /* A standard result withholds nothing, so the whole library is on
+           offer -- derived, for the same reason as above. */
+        expect(r.picked.length).toBe(r.library);
+        expect(r.picked).toContain(0);
+        expect(r.picked).toContain(3);
     });
 
     test('nothing is locked', async () => {
