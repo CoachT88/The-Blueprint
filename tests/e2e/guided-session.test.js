@@ -89,13 +89,12 @@ describe('the guided session uses real execution and completion',()=>{
   expect(await app.page.locator('#guide-technique').getAttribute('open')).toBeNull();
   await app.page.locator('#ex-info-btn').click();
   await expect.poll(()=>app.page.locator('#howto-panel').isVisible()).toBe(true);
-  /* Eight: the breathing guide gained a straw / pursed-lips step, a note that
-     the pause and the longer exhale are optional and droppable, and it keeps
-     its own short pelvic-easing line, which it needs when it is the only
-     activity of the day. Inside the EQ session that last line is dropped and
-     this renders seven -- see the EQ foundation suite. The number is the
-     tripwire: the full guide must render every step it has. */
-  expect(await app.page.locator('#howto-steps .howto-step').count()).toBe(8);
+  /* Seven: the breathing guide has a straw / pursed-lips step and keeps its
+     own short pelvic-easing line, which it needs when it is the only activity
+     of the day. The pause and longer-exhale options are offered only inside the
+     EQ session, where the controls exist -- see the EQ foundation suite. The
+     number is the tripwire: the full guide must render every step it has. */
+  expect(await app.page.locator('#howto-steps .howto-step').count()).toBe(7);
   expect(await app.page.evaluate(()=>session.timer?.isRunning()||false)).toBe(false);
  });
  test('audio requires a tap, does not repeat on every tick, and cancels when paused or left',async()=>{
