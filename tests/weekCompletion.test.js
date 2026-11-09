@@ -204,3 +204,115 @@ describe('the session log settles what a scheduled day actually was', () => {
         expect(() => run([null, 'junk', { date: 5 }, {}])).not.toThrow();
     });
 });
+
+/**
+ * An EQ completion satisfies the day it was prescribed for and nothing else.
+ *
+ * prescriptionDate proves WHICH DAY an entry belongs to. It does not prove the
+ * day still prescribes what the entry performed. A goal change, a customisation
+ * or any other transition can leave an EQ completion sitting on a date that now
+ * prescribes Length, and without a per-day eligibility test that entry would
+ * satisfy the Length day. So 'eq' is deliberately absent from mechanicalTypes
+ * and the caller, which knows the current programme, says which days are
+ * EQ-eligible.
+ */
+describe('an EQ completion satisfies only an EQ day', () => {
+    const MON = new Date(2025, 5, 9, 12, 0, 0);          // Monday 9 June 2025
+    const EQ_WEEK  = ['stamina', 'rest', 'rest', 'stamina', 'rest', 'stamina', 'rest'];
+    const SIZE_WEEK = ['length', 'girth', 'rest', 'length', 'girth', 'rest', 'rest'];
+    const NO_DAYS = [false, false, false, false, false, false, false];
+    const on = (day, routineType) => ({ date: `2025-06-${String(day).padStart(2, '0')}T12:00:00.000Z`, routineType });
+    // Wednesday 11 June is weekday index 3, an EQ session day in EQ_WEEK.
+    const EQ_ON_WED = [on(11, 'eq')];
+
+    test('it satisfies a day the caller marks EQ-eligible', () => {
+        const r = weekCompletion(EQ_WEEK, NO_DAYS,
+            { sessionLog: EQ_ON_WED, now: MON, eqSatisfiableDays: [0, 3, 5] });
+        expect(r.satisfied[3]).toBe(true);
+        expect(r.completed).toBe(1);
+    });
+
+    test('it satisfies nothing when the caller marks no day EQ-eligible', () => {
+        // Which is every existing member, so this change is inert until a
+        // caller opts in.
+        const r = weekCompletion(EQ_WEEK, NO_DAYS, { sessionLog: EQ_ON_WED, now: MON });
+        expect(r.satisfied[3]).toBe(false);
+        expect(r.completed).toBe(0);
+    });
+
+    test('after a goal change it cannot satisfy the Length day that replaced it', () => {
+        // The member logged an EQ session on Wednesday, then switched to Size.
+        // Wednesday now prescribes Length and is no longer EQ-eligible. The
+        // stored entry still carries that date; it must not be credited.
+        const r = weekCompletion(SIZE_WEEK, NO_DAYS,
+            { sessionLog: EQ_ON_WED, now: MON, eqSatisfiableDays: [] });
+        expect(r.satisfied[3]).toBe(false);
+        expect(r.completed).toBe(0);
+    });
+
+    test('it cannot satisfy a Girth or Stamina day it was never eligible for', () => {
+        // Index 4 is Girth in SIZE_WEEK; the EQ entry is on index 3. Even with
+        // index 3 eligible, nothing leaks sideways to another day.
+        const r = weekCompletion(SIZE_WEEK, NO_DAYS,
+            { sessionLog: EQ_ON_WED, now: MON, eqSatisfiableDays: [3] });
+        expect(r.satisfied[4]).toBe(false);
+        expect(r.satisfied[0]).toBe(false);
+    });
+
+    test('a stamina completion from a previous goal cannot satisfy an EQ day', () => {
+        // The mirror of the leak above. The member trained Stamina on
+        // Wednesday under another goal, then switched to EQ, where Wednesday
+        // is now an EQ day. The entry predates the EQ week's adoption, so it
+        // does not credit even with legacy credit enabled.
+        const r = weekCompletion(EQ_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5] });
+        expect(r.satisfied[3]).toBe(false);
+    });
+
+    /* KNOWN LIMITATION, pinned so it cannot be "fixed" by accident. A stale
+       cached client serves the legacy stamina routine on a migrated EQ slot
+       and logs 'stamina'. That is legitimate work and it is NOT credited,
+       because nothing at this layer separates it from a stamina session
+       logged under a previous goal. Strict and accurate beats generous and
+       wrong; it resolves when the client updates. */
+    test('a legacy client\'s stamina completion on an EQ slot is not credited', () => {
+        const r = weekCompletion(EQ_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5] });
+        expect(r.satisfied[3]).toBe(false);
+    });
+
+    test('a previous-goal session on the SAME DAY as adoption must not credit', () => {
+        // Wednesday morning, still on Size: a stamina substitution against a
+        // scheduled Length day. Wednesday afternoon the member switches to EQ,
+        // so adoption lands on the same calendar date. A date comparison alone
+        // cannot separate the two, and must not credit the morning's work.
+        const r = weekCompletion(EQ_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'stamina')], now: MON, eqSatisfiableDays: [0, 3, 5] });
+        expect(r.satisfied[3]).toBe(false);
+    });
+
+    test('an EQ completion never reaches a mechanical day', () => {
+        // Eligibility is per day and exclusive. A Length day still
+        // refuses an EQ completion no matter the date.
+        const r = weekCompletion(SIZE_WEEK, NO_DAYS,
+            { sessionLog: EQ_ON_WED, now: MON, eqSatisfiableDays: [] });
+        expect(r.satisfied[3]).toBe(false);
+    });
+
+    test('a recovery completion satisfies neither an EQ day nor a mechanical one', () => {
+        const eq = weekCompletion(EQ_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'recovery')], now: MON, eqSatisfiableDays: [0, 3, 5] });
+        expect(eq.satisfied[3]).toBe(false);
+        const mech = weekCompletion(SIZE_WEEK, NO_DAYS,
+            { sessionLog: [on(11, 'recovery')], now: MON });
+        expect(mech.satisfied[3]).toBe(false);
+    });
+
+    test('an EQ completion cannot satisfy a mechanical day even when another day is eligible', () => {
+        // Index 3 is Length in SIZE_WEEK. Marking index 5 eligible must not
+        // make the EQ entry on index 3 credit the Length day.
+        const r = weekCompletion(SIZE_WEEK, NO_DAYS,
+            { sessionLog: EQ_ON_WED, now: MON, eqSatisfiableDays: [5] });
+        expect(r.satisfied[3]).toBe(false);
+    });
+});

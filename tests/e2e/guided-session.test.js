@@ -48,7 +48,12 @@ describe('the guided session uses real execution and completion',()=>{
      feel:document.getElementById('feel-msg').textContent,stop:document.getElementById('dont-feel-msg').textContent};
    }));
   });
-  expect(rows).toHaveLength(15);
+  /* 15 distinct exercises plus the EQ session's three. ROUTINES.eq is a view
+     over recovery[8], recovery[2] and recovery[4] rather than new content, so
+     those three are counted twice here on purpose: iterating them is what
+     proves they still render their own instructions, feel and stop cues when
+     the routine type is 'eq' and the list comes from currentRoutine(). */
+  expect(rows).toHaveLength(18);
   for(const row of rows){
    expect(row.open,row.title).toBe(true);expect(row.howtoVisible,row.title).toBe(true);
    expect(row.steps.length,row.title).toBeGreaterThanOrEqual(4);

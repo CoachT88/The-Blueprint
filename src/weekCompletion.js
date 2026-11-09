@@ -119,6 +119,12 @@ export function weekCompletion(schedule, completedDays, options) {
     const sched = Array.isArray(schedule) ? schedule : [];
     const done = Array.isArray(completedDays) ? completedDays : [];
 
+    /* Weekday indices an EQ completion may satisfy. The caller supplies them
+       because only it knows the member's current goal and prescription; this
+       module stays pure and ignorant of GOALS. Absent or empty means no day is
+       EQ-eligible, which is the correct answer for every existing member and
+       keeps this change inert until a caller opts in. */
+    const eqDays = Array.isArray(opts.eqSatisfiableDays) ? opts.eqSatisfiableDays : [];
     const crossCheck = Array.isArray(opts.sessionLog);
     const perf = crossCheck ? performedByAttribution(opts.sessionLog, mechanicalTypes) : null;
     const ref = opts.now instanceof Date && !isNaN(opts.now.getTime()) ? opts.now : new Date();
@@ -144,10 +150,52 @@ export function weekCompletion(schedule, completedDays, options) {
      */
     const isSatisfied = (i) => {
         if (!crossCheck) return done[i] === true;
+        /* An EQ completion satisfies ONLY a day the caller says is currently an
+           EQ day. prescriptionDate proves which day an entry belongs to, not
+           that the day still prescribes what the entry performed, so a goal
+           change or a customisation can leave an EQ completion on a date that
+           now prescribes Length. Without this gate that entry would satisfy the
+           Length day, because it would be indistinguishable from any other
+           same-date completion. 'eq' is therefore absent from mechanicalTypes
+           and eligibility is asked per day instead.
+
+           Eligibility is EXCLUSIVE, not additive. An EQ day is satisfied by an
+           EQ completion and by nothing else; a mechanical day is satisfied by
+           mechanical work and not by an EQ completion. Additive would leak in
+           both directions: an EQ completion crediting the Length day that
+           replaced it after a goal change, and a Stamina completion logged
+           under a previous goal crediting an EQ day after the switch to it.
+           Recovery satisfies neither, as before.
+
+           A KNOWN LIMITATION, DELIBERATELY NOT PAPERED OVER. A member whose
+           client is still cached serves the legacy stamina routine on a
+           migrated EQ slot and logs 'stamina'. That is legitimate work and it
+           will NOT be credited here. Crediting it would mean accepting
+           mechanical work on an EQ day, and nothing available at this layer
+           separates it from a stamina session logged under a PREVIOUS goal:
+
+             - routineType is 'stamina' in both cases.
+             - An adoption date does not separate them either. A substitution
+               logged on the morning a member switches to EQ carries the same
+               date key as the switch, so a `date >= adopted` rule credits it.
+               A test pins that case.
+             - scheduledType, which the launch snapshot does record, would
+               reject that morning substitution (it was scheduled 'length'),
+               but not a genuine stamina session under the Stamina goal on a
+               weekday that is a training day in both weeks. Using it would
+               also mean threading per-entry fields through
+               performedByAttribution, which five consumers share.
+
+           So completion stays strict and accurate, and the gap is reported
+           rather than guessed at. It closes itself as soon as the client
+           updates, and it cannot occur at all while EQ_SESSIONS_ENABLED is
+           false, because no member has a migrated EQ week to serve. */
+        const eqOk = eqDays.includes(i);
+        const ok = (rec) => !!rec && (eqOk ? rec.eq === true : rec.mechanical === true);
         const dated = perf.dated.get(localDateKeyForWeekday(ref, i));
-        if (dated && dated.mechanical) return true;            // proven prescription
+        if (ok(dated)) return true;                            // proven prescription
         const legacy = perf.legacy.get(dateKeyForWeekday(ref, i));
-        if (legacy && legacy.mechanical) return true;          // the real thing
+        if (ok(legacy)) return true;                           // the real thing
         if ((dated && dated.any) || (legacy && legacy.any)) return false;   // Recovery only
         return done[i] === true;                               // a manual tick
     };
