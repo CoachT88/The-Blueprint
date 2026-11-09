@@ -110,6 +110,13 @@ finding changes direction.
 
 ## Claim standards
 
+**Lead with what The Blueprint helps members accomplish, not what it doesn't do.**
+Describe each exercise and feature by its purpose, its experience and the progress a member
+can track. Do not open with, or repeat, what something cannot achieve. Keep essential
+safety instructions, stop signals and material limitations clear and say them once, where
+they matter; unnecessary disclaimers must not dominate the experience. This applies to the
+whole product, and it never licenses an unsupported outcome promise.
+
 Member-facing copy and exercise guidance must not:
 - state a proposed mechanism as an outcome, or present a sensation as evidence of adaptation;
 - publish a figure, rate or percentage without pointing at what measured it;

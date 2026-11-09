@@ -335,7 +335,8 @@ describe('the EQ foundation', () => {
         expect(r.sharedHowto).toMatch(/let any tension underneath your pelvis ease/);
         expect(r.sharedDetail).toMatch(/without pushing or straining/);
         expect(r.eqHowto).not.toMatch(/let any tension underneath your pelvis ease/);
-        expect(r.eqSteps).toBe(r.sharedSteps - 1);   // 8 standalone, 7 in the EQ session
+        // One line out (the pelvic cue), one in (the breathing options): 7 and 7.
+        expect(r.eqSteps).toBe(r.sharedSteps);
         // The rhythm instruction survives in both: only the pelvic line goes.
         expect(r.eqHowto).toMatch(/out for about six seconds/);
     });
@@ -532,14 +533,107 @@ describe('the EQ foundation', () => {
             const ph = eqBreathPhases();
             setEqBreathPref('pause', false);
             return {label: ph[1].label, sub: ph[1].sub, secs: ph[1].secs,
-                    howto: ROUTINES.recovery[8].howto.join(' ')};
+                    howto: eqStepsFrom([8])[0].howto.join(' '),
+                    shared: ROUTINES.recovery[8].howto.join(' ')};
         });
         expect(r.label).toBe('PAUSE');
         expect(r.secs).toBe(1);
         expect(r.sub).toMatch(/nothing to hold/i);
         // And the guide says both adjustments are optional and droppable.
         expect(r.howto).toMatch(/turnaround rather than a breath to hold/i);
-        expect(r.howto).toMatch(/turn either off the moment it stops being comfortable/i);
+        expect(r.howto).toMatch(/switch either off whenever you like/i);
+        // The daily practice has no controls, so it must not offer any.
+        expect(r.shared).not.toMatch(/eight-second|one-second/i);
+    });
+
+    /* ── Controls, and when a change lands ───────────────────────────────── */
+
+    test('the two options are real, labelled, pressable controls', async () => {
+        const r = await on(() => {
+            localStorage.removeItem('bp_eq_breath_' + currentUser.id);
+            syncEqBreathControls();
+            const btn = k => document.querySelector(`#ex-breath-guide [data-eq-opt="${k}"]`);
+            const before = [btn('pause').getAttribute('aria-pressed'), btn('longExhale').getAttribute('aria-pressed')];
+            btn('pause').click();
+            btn('longExhale').click();
+            const after = [btn('pause').getAttribute('aria-pressed'), btn('longExhale').getAttribute('aria-pressed')];
+            const phases = eqBreathPhases().map(p => p.secs);
+            btn('pause').click(); btn('longExhale').click();
+            return {before, after, phases, tag: btn('pause').tagName,
+                    height: parseInt(btn('pause').style.minHeight)};
+        });
+        expect(r.before).toEqual(['false', 'false']);
+        expect(r.after).toEqual(['true', 'true']);
+        expect(r.phases).toEqual([4, 1, 8]);
+        expect(r.tag).toBe('BUTTON');
+        expect(r.height).toBeGreaterThanOrEqual(44);
+    });
+
+    test('a toggle waits for the phase boundary and never strands the driver', async () => {
+        const r = await on(() => {
+            setEqBreathPref('pause', true); setEqBreathPref('longExhale', false);
+            startBoxBreathing(eqBreathPhases());            // INHALE, PAUSE, EXHALE
+            _boxPhaseIdx = 2;                                // mid-EXHALE
+            setEqBreathPref('pause', false);                 // would leave idx 2 past a 2-phase pattern
+            const mid = {len: _breathPhases.length, idx: _boxPhaseIdx};
+            _advanceBreathPhase();
+            const afterExhale = {len: _breathPhases.length, label: _breathPhases[_boxPhaseIdx].label};
+            _boxPhaseIdx = 0;                                // mid-INHALE, now turn the pause on
+            setEqBreathPref('pause', true);
+            const midInhale = _breathPhases.length;
+            _advanceBreathPhase();
+            const afterInhale = _breathPhases[_boxPhaseIdx].label;
+            setEqBreathPref('pause', false);
+            stopBoxBreathing();
+            return {mid, afterExhale, midInhale, afterInhale};
+        });
+        expect(r.mid).toEqual({len: 3, idx: 2});             // the active phase is untouched
+        expect(r.afterExhale).toEqual({len: 2, label: 'INHALE'});
+        expect(r.midInhale).toBe(2);
+        expect(r.afterInhale).toBe('PAUSE');
+    });
+
+    /* ── Purpose, adjustment and progress copy ───────────────────────────── */
+
+    test('each stage states its purpose on its own screen, without a disclaimer', async () => {
+        const r = await on(() => eqStepsFrom([8, 2, 9]).map(x => x.purpose.join(' ')));
+        expect(r[0]).toMatch(/comfortable breathing rhythm/i);
+        expect(r[1]).toMatch(/awareness of the tension/i);
+        expect(r[2]).toMatch(/comfortable movement/i);
+        // None of them is framed by what it does not do.
+        expect(r.join(' ')).not.toMatch(/\bnot\b|\bnever\b|cannot|doesn.t/i);
+        // And a full session carries no adjustment notice.
+        expect(r.join(' ')).not.toMatch(/adjusted/i);
+    });
+
+    test('a withheld pelvic step is explained, positively, on every remaining screen', async () => {
+        const r = await on(() => eqStepsFrom([8, 9]).map(x => x.purpose));
+        for (const p of r) {
+            expect(p[1]).toBe('Your session has been adjusted based on your feedback. '
+                + 'Continue with comfortable breathing and mobility, and stop any movement that causes discomfort.');
+        }
+    });
+
+    test('the purpose is actually drawn on the exercise screen', async () => {
+        const r = await on(() => {
+            session.routineType = 'eq';
+            session.eqStepIndices = [8, 9];
+            session.eqRoutine = eqStepsFrom([8, 9]);
+            session.exerciseIndex = 0; session.setIndex = 1;
+            updateExUI();
+            const card = document.getElementById('ex-detail-card');
+            return {shown: card.classList.contains('show'), text: card.textContent};
+        });
+        expect(r.shown).toBe(true);
+        expect(r.text).toMatch(/comfortable breathing rhythm/i);
+        expect(r.text).toMatch(/session has been adjusted/i);
+    });
+
+    test('EQ progress copy is concise and positive; rest-day copy leads with the plan', async () => {
+        const r = await on(() => EQ_COPY);
+        expect(r.progress).toBe('Track your consistency and erection quality ratings over time to recognize patterns in your personal progress.');
+        expect(r.fullRest).toMatch(/recovery is part of the plan/i);
+        expect(r.noProgression).toBeUndefined();
     });
 
     test('a pain-restricted resume lands on the right exercise with its own instructions', async () => {

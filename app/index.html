@@ -1883,6 +1883,10 @@
             <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
             <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
         </div>
+        <div class="flex gap-2 mt-3" role="group" aria-label="Breathing options">
+            <button type="button" data-eq-opt="pause" aria-pressed="false" onclick="toggleEqBreathPref('pause')" class="text-[10px] font-black uppercase tracking-widest rounded-full" style="min-height:44px;padding:0 14px;border:1px solid;">1s pause</button>
+            <button type="button" data-eq-opt="longExhale" aria-pressed="false" onclick="toggleEqBreathPref('longExhale')" class="text-[10px] font-black uppercase tracking-widest rounded-full" style="min-height:44px;padding:0 14px;border:1px solid;">8s exhale</button>
+        </div>
     </div>
     <div id="ex-active-cue" class="hidden mx-2 my-3 px-4 py-3 rounded-2xl bg-blue-500/[0.08] border border-blue-500/15 text-center" style="position:relative;z-index:var(--z-raised);">
         <p id="ex-cue-text" class="text-sm font-bold text-blue-200 italic leading-relaxed" role="status" aria-live="polite" aria-atomic="true"></p>
@@ -3321,7 +3325,6 @@ const DAILY_PELVIC_RESET={
         'Breathe in through your nose for about four seconds. The lower hand rises and your lower ribs widen; the chest hand barely moves. Do not reach for a big breath.',
         'Breathe out for about six seconds, slower than you breathed in. Let the air leave rather than pushing it out, and let your shoulders drop as it goes.',
         'If the exhale is hard to pace, breathe out through a straw, or through pursed lips if you do not have one. Both just slow the breath down so it is easier to feel.',
-        'Two optional adjustments, if you want them: a one-second beat between the breaths, and a longer eight-second exhale. The beat is a turnaround rather than a breath to hold, and neither is something to push through — turn either off the moment it stops being comfortable.',
         'As you breathe out, let any tension underneath your pelvis ease. Do not push down or strain; just stop holding.',
         'Keep going at that pace. If four and six ever leave you short of air, breathe normally for a moment and start again shorter. Stop for pain, pelvic pressure or dizziness; persistent pelvic symptoms deserve a clinician assessment.',
     ],
@@ -5840,29 +5843,19 @@ ROUTINES.recovery.push({
    therefore has no load progression, and the member-facing copy says so
    rather than implying one. */
 /* ── What members are told ────────────────────────────────────────────────
-   Three rules this copy keeps. It never promises an erection outcome. It
-   describes what each component is FOR rather than what it will do to you.
-   And it says plainly what progress here is, because consistency and a
-   self-rating are worth having without being evidence of a mechanism. */
+   Lead with what each stage is FOR and what a member can track. Never
+   promise an erection outcome, and keep stop signals and real limits clear --
+   but say them once, where they matter, rather than as a running disclaimer. */
 const EQ_COPY={
-    fullRest:'Rest day. Nothing is required today, and nothing is waiting for you. '
-        +'Recovery is part of the plan rather than a gap in it.',
-    progress:'We track two things here: how consistently you train, and how you rate '
-        +'your own erections over time. Both are your own experience, recorded '
-        +'honestly. Neither is a measurement of blood flow or tissue, and neither is '
-        +'proof that anything has physically changed. A rising trend is worth having. '
-        +'It is not evidence of a mechanism.',
-    noProgression:'The doses here stay the same week to week. This is practice rather '
-        +'than loading, so there is nothing to add weight to.',
+    fullRest:'Rest day. Nothing is required today; recovery is part of the plan.',
+    progress:'Track your consistency and erection quality ratings over time to recognize patterns in your personal progress.',
+    /* What each stage is FOR, shown on its own exercise screen. */
     why:{
-        breathing:'Here to teach the letting-go, and to settle you before the rest. '
-            +'Relaxation work, not pelvic floor strengthening -- they are not '
-            +'interchangeable.',
-        release:'A floor that can relax matters as much as one that can squeeze. This '
-            +'is the side of it most men have never practised.',
-        mobility:'General care for the muscles around the pelvis that shorten from '
-            +'sitting. Comfortable rather than clever.',
+        breathing:'Builds an easy, comfortable breathing rhythm and settles you in before the rest of the session.',
+        release:'Builds awareness of the tension you hold underneath your pelvis, and the skill of letting it go.',
+        mobility:'Supports comfortable movement through your hips and the muscles around your pelvis.',
     },
+    adjusted:'Your session has been adjusted based on your feedback. Continue with comfortable breathing and mobility, and stop any movement that causes discomfort.',
 };
 
 /* Three stages, and each one owns a job the other two give up:
@@ -5892,9 +5885,22 @@ function setEqBreathPref(key,on){
     if(!currentUser) return;
     const p={...eqBreathPrefs(),[key]:on===true};
     try{ localStorage.setItem('bp_eq_breath_'+currentUser.id,JSON.stringify(p)); }catch(e){}
-    /* Takes effect on the next phase rather than mid-breath, so a toggle
-       never cuts an inhale short. */
-    if(_boxInterval) _breathPhases=eqBreathPhases();
+    /* Takes effect at the next phase boundary rather than mid-breath, so a
+       toggle never cuts a phase short or leaves the driver pointing past the
+       end of a shorter pattern. */
+    if(_boxInterval&&_breathPhases!==BOX_PHASES) _breathSwapPending=true;
+    syncEqBreathControls();
+}
+function toggleEqBreathPref(key){ setEqBreathPref(key,!eqBreathPrefs()[key]); }
+function syncEqBreathControls(){
+    const pr=eqBreathPrefs();
+    document.querySelectorAll('[data-eq-opt]').forEach(b=>{
+        const on=pr[b.dataset.eqOpt]===true;
+        b.setAttribute('aria-pressed',String(on));
+        b.style.background=on?'rgba(16,185,129,.22)':'transparent';
+        b.style.borderColor=on?'rgba(16,185,129,.7)':'rgba(100,116,139,.5)';
+        b.style.color=on?'#6ee7b7':'#94a3b8';
+    });
 }
 function eqBreathPhases(){
     const pr=eqBreathPrefs();
@@ -5964,13 +5970,20 @@ function eqStepIndicesFor(dateKey){
 
    So the EQ session hands back a copy with that one line dropped. A shallow
    spread, not a second exercise and not a second instructional system. */
+const EQ_BREATH_OPTIONS_LINE='Two optional adjustments sit under the circle: a one-second pause between breaths, and a longer eight-second exhale. The pause is a turnaround rather than a breath to hold. Switch either off whenever you like; comfort comes first.';
 function eqStepsFrom(idx){
+    /* Withheld means the list lacks the Release step. Derived from the
+       captured list itself, so there is no extra state to save or restore. */
+    const adjusted=!idx.includes(2);
     return idx.map(i=>{
         const ex=ROUTINES.recovery[i];
-        if(i!==8||!Array.isArray(ex.howto)) return ex;
-        return {...ex,
-            detail:EQ_BREATH_DETAIL,
-            howto:ex.howto.filter(line=>line!==STANDALONE_PELVIC_LINE)};
+        const why=i===8?EQ_COPY.why.breathing:i===2?EQ_COPY.why.release:EQ_COPY.why.mobility;
+        const purpose=[why,adjusted?EQ_COPY.adjusted:''].filter(Boolean);
+        if(i!==8||!Array.isArray(ex.howto)) return {...ex,purpose};
+        const kept=ex.howto.filter(line=>line!==STANDALONE_PELVIC_LINE);
+        /* Beside the closing line, so the options come before "keep going". */
+        const howto=[...kept.slice(0,-1),EQ_BREATH_OPTIONS_LINE,...kept.slice(-1)];
+        return {...ex,detail:EQ_BREATH_DETAIL,howto,purpose};
     });
 }
 
@@ -6530,7 +6543,8 @@ function updateExUI(){
 
     // Detail card (recovery)
     const detailCard=document.getElementById('ex-detail-card');
-    if(ex.isRecovery&&ex.detail&&!ex.howto?.length){detailCard.innerHTML=ex.detail;detailCard.classList.add('show')}
+    if(Array.isArray(ex.purpose)&&ex.purpose.length){detailCard.innerHTML=ex.purpose.map(t=>`<p>${t}</p>`).join('');detailCard.classList.add('show')}
+    else if(ex.isRecovery&&ex.detail&&!ex.howto?.length){detailCard.innerHTML=ex.detail;detailCard.classList.add('show')}
     else{detailCard.classList.remove('show');detailCard.innerHTML=''}
 
     // How-to panel
@@ -6690,7 +6704,7 @@ function startSet(){
     const isEqBreath=session.routineType==='eq'&&ex.title==='Diaphragmatic breathing';
     const guide=document.getElementById('ex-breath-guide');
     if(guide) guide.classList.toggle('hidden',!isEqBreath);
-    if(isEqBreath) startBoxBreathing(eqBreathPhases());
+    if(isEqBreath){ syncEqBreathControls(); startBoxBreathing(eqBreathPhases()); }
     const isWetJelq=ex.title==='Wet Jelq';
     const isUli=ex.title==='Uli — Manual Clamp';
     if(isUli){
@@ -6731,9 +6745,9 @@ function pauseResumeSet(){
         stopJelqStrokePacer();
         /* The breath animation is a pacer too, and a paced breath running
            against a frozen timer is exactly the competing state we avoid
-           elsewhere. Stopped, not hidden: the circle stays where the breath
-           left it so resuming picks the rhythm back up rather than restarting
-           it from a jump. */
+           elsewhere. Stopped, not hidden. Resuming begins a fresh inhale from
+           the small circle: a clean start, with nothing about the interrupted
+           breath to save or restore. */
         stopBoxBreathing();
         ic.className='fas fa-play text-4xl text-slate-300';
         if(lbl)lbl.innerText='Resume';
@@ -6779,6 +6793,23 @@ let _boxPhaseIdx=0, _boxPhaseElapsed=0, _boxInterval=null;
    default and is unchanged; the EQ breathing step supplies its own. One
    driver, one piece of state, so two patterns can never animate at once. */
 let _breathPhases=BOX_PHASES;
+let _breathSwapPending=false;
+
+/* Next phase index. A queued pattern change is applied here and only here:
+   the phase just finished is mapped to its successor in the new pattern. */
+function _advanceBreathPhase(){
+    const cur=_breathPhases[_boxPhaseIdx];
+    if(_breathSwapPending&&cur){
+        _breathSwapPending=false;
+        const next=eqBreathPhases();
+        _boxPhaseIdx=cur.label==='EXHALE'?0:cur.label==='INHALE'?1:next.length-1;
+        _breathPhases=next;
+    } else {
+        _boxPhaseIdx=(_boxPhaseIdx+1)%_breathPhases.length;
+    }
+    _boxPhaseElapsed=0;
+    renderBoxPhase();
+}
 
 /* Written by CLASS, not by id, so the rest overlay's block and the exercise
    screen's smaller copy are driven by the same code. Each host renders only
@@ -6830,7 +6861,7 @@ function renderBoxPhase(){
 function startBoxBreathing(phases){
     stopBoxBreathing();
     _breathPhases=Array.isArray(phases)&&phases.length?phases:BOX_PHASES;
-    _boxPhaseIdx=0; _boxPhaseElapsed=0;
+    _boxPhaseIdx=0; _boxPhaseElapsed=0; _breathSwapPending=false;
     _breathNodes('[data-breath="circle"]').forEach(circle=>{
         circle.style.transition='none';circle.style.transform='scale(1)';circle.style.boxShadow='';
     });
@@ -6843,9 +6874,7 @@ function startBoxBreathing(phases){
         if(remaining>0){
             _breathNodes('[data-breath="count"]').forEach(el=>{el.innerText=remaining;});
         } else {
-            _boxPhaseIdx=(_boxPhaseIdx+1)%_breathPhases.length;
-            _boxPhaseElapsed=0;
-            renderBoxPhase();
+            _advanceBreathPhase();
         }
     },1000);
 }
@@ -7805,8 +7834,9 @@ function renderToday(){
     const planContext=isFullRestDate(window.BP.planDateKey(new Date()))
         ? EQ_COPY.fullRest
         : window.BP.todayPlanExplanation(r,currentPelvicPracticePlan()||{},lastPelvicFeedback()?.pelvicPractice.feedback||'');
-    set('today-plan-context',planContext,false);
-    set('today-why-btn',undefined,r.changes.length>0||!!planContext);
+    const eqProgress=(eqEnabled()&&getGoalKey()==='eq'&&!isFullRestDate(window.BP.planDateKey(new Date())))?EQ_COPY.progress:'';
+    set('today-plan-context',[planContext,eqProgress].filter(Boolean).join(' '),false);
+    set('today-why-btn',undefined,r.changes.length>0||!!planContext||!!eqProgress);
     const whyBtn=document.getElementById('today-why-btn');
     if(whyBtn) whyBtn.textContent='Why this today?';
 
