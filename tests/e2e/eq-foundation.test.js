@@ -261,6 +261,42 @@ describe('the EQ foundation', () => {
         expect(r.nextTue).toBe(0);
     });
 
+    test('mobility rotates by the prescribed date, deterministically', async () => {
+        // 2026-11-08 is a Sunday, 11-11 a Wednesday, 11-13 a Friday.
+        const r = await on(() => ({
+            sun: buildEqRoutine('2026-11-08').map(x => x.title),
+            wed: buildEqRoutine('2026-11-11').map(x => x.title),
+            fri: buildEqRoutine('2026-11-13').map(x => x.title),
+            // Same date twice must give the same answer: no clock, no randomness.
+            again: buildEqRoutine('2026-11-08').map(x => x.title),
+            // A day outside the rotation falls back rather than breaking.
+            tue: buildEqRoutine('2026-11-10').map(x => x.title),
+        }));
+        expect(r.sun).toEqual(['Diaphragmatic breathing', 'Pelvic Floor Release', 'Cat-Cow']);
+        expect(r.wed).toEqual(['Diaphragmatic breathing', 'Pelvic Floor Release', 'Deep Squat — Malasana']);
+        expect(r.fri).toEqual(['Diaphragmatic breathing', 'Pelvic Floor Release', 'Happy Baby']);
+        expect(r.again).toEqual(r.sun);
+        expect(r.tue).toEqual(['Diaphragmatic breathing', 'Pelvic Floor Release', 'Deep Squat — Malasana']);
+    });
+
+    test('Cat-Cow is appended, so no stored index moves', async () => {
+        const r = await on(() => ({
+            catCow: ROUTINES.recovery.findIndex(x => x.title === 'Cat-Cow'),
+            total: ROUTINES.recovery.length,
+            // The indices src/pelvicPractice.js maps ids onto must be untouched.
+            breathing: ROUTINES.recovery[8].title,
+            release: ROUTINES.recovery[2].title,
+            squat: ROUTINES.recovery[4].title,
+            happyBaby: ROUTINES.recovery[5].title,
+        }));
+        expect(r.catCow).toBe(9);
+        expect(r.total).toBe(10);
+        expect(r.breathing).toBe('Diaphragmatic breathing');
+        expect(r.release).toBe('Pelvic Floor Release');
+        expect(r.squat).toBe('Deep Squat — Malasana');
+        expect(r.happyBaby).toBe('Happy Baby');
+    });
+
     test('unresolved pelvic pain withholds the pelvic step, keeping the rest', async () => {
         const r = await on(() => {
             /* latestPracticeFeedback() reads pelvicPractice at the TOP level of

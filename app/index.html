@@ -3291,21 +3291,23 @@ const COACH_TIPS = [
 const DAILY_PELVIC_RESET={
     title:'Diaphragmatic breathing', sets:1, duration:120, isRecovery:true,
     eq:'No EQ needed',
-    detail:'Sit or lie comfortably. Breathe gently into your lower ribs and belly. Let the pelvic floor soften with each inhale. Exhale without squeezing. No pushing, straining or breath-holding. Stop if this causes pain.',
-    feel:'Gentle breathing and gradual relaxation. Nothing needs to be forced.',
+    detail:'Find an easy rhythm: in for four, out for six. Breathe into your lower ribs and belly and let yourself settle. Nothing is forced and nothing is held.',
+    feel:'A longer breath out than in, and a gradual settling. Nothing needs to be forced.',
     dontFeel:'Pain, pressure, pushing down or a forced contraction.',
     howto:[
-        'Lie on your back with knees bent and feet on the floor, or sit with your back supported. Let your jaw, shoulders and buttocks relax.',
-        'Put one hand on your lower belly and one on your chest. Breathe in gently through your nose; let the lower hand rise and your lower ribs widen. Do not force a big breath.',
-        'As you breathe in, soften the muscles underneath your pelvis. Think of letting go to start peeing, or allowing gas to pass easily. Do not push anything out or brace your stomach.',
-        'Breathe out comfortably. Let your ribs, belly and pelvic floor return naturally without adding a kegel squeeze. Repeat at your own comfortable pace; no breath holding.',
-        'The movement may be subtle. Stop if you feel pain, pelvic pressure or dizziness; return to normal breathing. Persistent pelvic symptoms deserve a clinician assessment.',
+        'Get comfortable. Sitting with your back supported is fine. If you want the easiest version, lie on your back and rest your lower legs on a chair or sofa so your hips and knees sit at about right angles — the 90/90 position. It is optional; it just takes the work out of holding yourself up.',
+        'Put one hand on your lower belly and one on your chest. Let your jaw, shoulders and buttocks go soft.',
+        'Breathe in through your nose for about four seconds. The lower hand rises and your lower ribs widen; the chest hand barely moves. Do not reach for a big breath.',
+        'Breathe out for about six seconds, slower than you breathed in. Let the air leave rather than pushing it out, and let your shoulders drop as it goes.',
+        'If the exhale is hard to pace, breathe out through a straw, or through pursed lips if you do not have one. Both just slow the breath down so it is easier to feel.',
+        'Keep going at that pace. If four and six ever leave you short of air, breathe normally for a moment and start again shorter. Stop for pain, pelvic pressure or dizziness; persistent pelvic symptoms deserve a clinician assessment.',
     ],
-    cues:[{time:120,text:'Get comfortable. Unclench your jaw and let your shoulders soften.'},
-        {time:90,text:'Breathe gently into your belly and lower ribs. No breath-holding.'},
-        {time:60,text:'Let go as if allowing pee or gas to pass easily. Do not push anything out.'},
-        {time:30,text:'Exhale comfortably. Let the next breath arrive without forcing it.'},
-        {time:5,text:'One more easy breath. Carry that relaxed feeling with you.'}],
+    cues:[{time:120,text:'Settle in. Jaw loose, shoulders down. Lower hand on the belly.'},
+        {time:96,text:'In for four through the nose — lower ribs widen, chest stays quiet.'},
+        {time:72,text:'Out for six, slower than you came in. Let it leave on its own.'},
+        {time:48,text:'Straw or pursed lips if the exhale is hard to pace. Both work.'},
+        {time:24,text:'Short of air? Breathe normally, then start again shorter. No forcing.'},
+        {time:5,text:'One more easy breath. Keep that rhythm for the next step.'}],
 };
 const ROUTINES={
     length:[
@@ -3423,22 +3425,22 @@ const ROUTINES={
             ]
         },
         {
-            title:'Pelvic Floor Release', detail:'Let tension ease underneath your pelvis using comfortable breathing. This is a gentle relaxation exercise.', sets:3, duration:45, isRecovery:true,
+            title:'Pelvic Floor Release', detail:'Find the tension you are holding underneath your pelvis, and let it go. Keep the rhythm you just found; this step is about noticing, not breathing.', sets:3, duration:45, isRecovery:true,
             howto:[
-                'Sit supported or lie on your back with knees bent. Use a pillow under your head if it helps you settle.',
-                'Relax your jaw, shoulders, belly and buttocks. Notice any tightness around the openings where pee and gas leave your body.',
-                'Breathe in gently into your lower ribs and belly. Imagine a clenched fist slowly opening underneath your pelvis.',
-                'Breathe out comfortably and let the muscles return naturally. Keep breathing; do not squeeze or push downward.',
-                'You do not need to feel warmth, heaviness or a large movement. A small easing of tension is enough. Stop if this causes pain, pressure or worsening symptoms.',
+                'Stay where you are and keep the breathing rhythm going. You do not need to think about it any more; this step is about what you find underneath.',
+                'Turn your attention to the muscles around the openings where pee and gas leave your body. Most men are gripping there without knowing it. Just notice whether you are.',
+                'Now let go, the way you let go to start peeing or to let gas pass easily. That is the feeling — a release, not a push. Nothing comes out and nothing is forced.',
+                'It may be very small, and it may take a few tries to find at all. A slight easing is the whole exercise. You do not need warmth, heaviness or any big movement.',
+                'If you cannot find it, that is information rather than failure — it is what the practice is for. Stop for pain, pressure or worsening symptoms.',
             ],
             eq:'Soft — 0 EQ', feel:'A small easing of tension while your belly and breathing remain relaxed. The movement may be subtle.',
             dontFeel:'Pain, pressure, pushing downward, a braced belly or holding your breath. Stop if these occur.',
             cues:[
-                {time:45, text:'Sit or lie supported. Unclench your jaw, belly and buttocks.'},
-                {time:38, text:'Breathe in gently. Imagine a fist slowly opening underneath your pelvis.'},
-                {time:28, text:'Keep the breath comfortable. A small easing of tension is enough.'},
-                {time:15, text:'Let go of tension. No pushing downward or squeezing.'},
-                {time:5, text:'Breathe out comfortably. Let the muscles return naturally.'}
+                {time:45, text:'Keep the rhythm from the last step. Attention underneath now.'},
+                {time:36, text:'Are you gripping down there? Most men are, without noticing.'},
+                {time:26, text:'Let go, like letting pee start or gas pass. A release, never a push.'},
+                {time:14, text:'Small is correct. A slight easing is the whole exercise.'},
+                {time:4,  text:'Let it rest there. Nothing to hold, nothing to squeeze.'}
             ]
         },
         {
@@ -5752,6 +5754,37 @@ function stopWarmup(){if(session.warmupTimer){session.warmupTimer.cancel();sessi
 // ═══════════════════════════════════════════════════════════════════════════
 ROUTINES.recovery.push({...DAILY_PELVIC_RESET});
 
+/* APPENDED, never inserted. PRACTICE_EXERCISES in src/pelvicPractice.js maps
+   ids to indices into this array, and normalisePelvicPracticePlan re-checks
+   that mapping on read, so moving an existing index would invalidate every
+   stored plan. Cat-Cow therefore becomes index 9 and nothing shifts.
+
+   WHY CAT-COW, WHEN THERE ARE ALREADY FOUR MOBILITY ITEMS. All four are
+   STATIC HOLDS -- Deep Squat, Happy Baby, Pigeon, Butterfly. This is the only
+   movement, and it is the only one whose rhythm belongs to the breath rather
+   than to a count. That is a different experience, not a fifth stretch. */
+ROUTINES.recovery.push({
+    title:'Cat-Cow', sets:2, duration:45, restDur:15, isRecovery:true,
+    eq:'No EQ needed',
+    detail:'Move slowly between two easy shapes, letting your breath set the pace. Nothing is stretched hard and nothing is held.',
+    howto:[
+        'Start on hands and knees. Hands under your shoulders, knees under your hips, about hip width apart. If your wrists complain, come onto your forearms or make fists; if your knees complain, double a towel or cushion under them.',
+        'Breathe in and let your chest and tailbone lift gently, so your middle sags toward the floor. Look slightly forward rather than craning your neck up.',
+        'Breathe out and round the other way: tuck your tailbone, draw your middle up, let your head drop easily between your arms.',
+        'Keep moving between the two with your breath, one shape per breath, slowly. There is no end position to reach and nothing to push into.',
+        'Stay inside the range that feels easy. Back off the moment anything pinches, and stop for wrist, knee, hip, back or pelvic pain rather than working around it.',
+    ],
+    feel:'Your spine moving freely through an easy range, and your breath leading the movement rather than following it.',
+    dontFeel:'Pinching or sharp pain anywhere in the wrists, knees, hips, lower back or pelvis. Stop and come out rather than adjusting around it.',
+    cues:[
+        {time:45, text:'Hands under shoulders, knees under hips. Forearms or fists if your wrists object; padding if your knees do.'},
+        {time:34, text:'Breathe in — chest and tailbone lift, middle sags. Easy range only.'},
+        {time:22, text:'Breathe out — tailbone tucks, middle rounds up, head drops easily.'},
+        {time:10, text:'One shape per breath. Slow is the point; there is nothing to reach.'},
+        {time:4,  text:'Come back to a neutral back and rest.'}
+    ],
+});
+
 /* ── The EQ session ────────────────────────────────────────────────────────
    Three steps, every one an existing recovery exercise, assembled here
    because breathing only becomes recovery[8] on the line above.
@@ -5802,12 +5835,37 @@ const EQ_COPY={
     },
 };
 
-const EQ_STEP_INDICES=[
-    8,  // Diaphragmatic breathing
-    2,  // Pelvic Floor Release
-    4,  // Deep Squat — Malasana
+/* Three stages, and each one owns a job the other two give up:
+   breathing owns the rhythm, release owns letting tension go, mobility owns
+   moving. The overlap this replaces was not wording -- the breathing step was
+   teaching pelvic release and the release step was teaching breathing. */
+const EQ_FIXED_STEPS=[
+    8,  // Diaphragmatic breathing — the rhythm
+    2,  // Pelvic Floor Release    — letting go
 ];
-ROUTINES.eq=EQ_STEP_INDICES.map(i=>ROUTINES.recovery[i]);
+
+/* Mobility rotates across the three session days, so the week is not the same
+   ten minutes three times. Deterministic from the PRESCRIBED date, never from
+   the clock at render time, and captured once when the session begins. */
+const EQ_MOBILITY_BY_WEEKDAY=Object.freeze({
+    0: 9,   // Sunday    — Cat-Cow        (movement)
+    3: 4,   // Wednesday — Deep Squat     (hold)
+    5: 5,   // Friday    — Happy Baby     (hold)
+});
+const EQ_MOBILITY_FALLBACK=4;   // any other day, e.g. a substituted session
+
+function eqMobilityIndex(dateKey){
+    const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey||'');
+    const day=m?new Date(+m[1],+m[2]-1,+m[3]).getDay():new Date().getDay();
+    return Object.prototype.hasOwnProperty.call(EQ_MOBILITY_BY_WEEKDAY,day)
+        ? EQ_MOBILITY_BY_WEEKDAY[day] : EQ_MOBILITY_FALLBACK;
+}
+
+/* The default-day shape. The live session always comes from buildEqRoutine();
+   this exists so currentRoutine() has a fallback and the exercise manual can
+   enumerate the routine. Cat-Cow is covered by the manual either way, because
+   it is a member of ROUTINES.recovery. */
+ROUTINES.eq=[...EQ_FIXED_STEPS,EQ_MOBILITY_FALLBACK].map(i=>ROUTINES.recovery[i]);
 
 /* The step list for one EQ session, captured at launch so it cannot change
    under a running session.
@@ -5822,8 +5880,8 @@ ROUTINES.eq=EQ_STEP_INDICES.map(i=>ROUTINES.recovery[i]);
    allowedRecoveryIndices() is applied as well. None of these three is a
    contraction, so nothing here is blocked today -- but if CONTRACTION_RECOVERY_IDX
    ever widens, this must not be the place that forgot to ask. */
-function buildEqRoutine(){
-    let idx=EQ_STEP_INDICES.slice();
+function buildEqRoutine(dateKey){
+    let idx=[...EQ_FIXED_STEPS,eqMobilityIndex(dateKey)];
     try{ if(pelvicPracticeNeedsReview()) idx=idx.filter(i=>i!==2); }catch(e){}
     try{ idx=allowedRecoveryIndices(idx); }catch(e){}
     /* Breathing is the floor. An empty session would be worse than a short one. */
@@ -8227,7 +8285,12 @@ function startMission(mission,source){
     session.routineType=eqRoutineFor(mission);
     /* Captured once, here, so a mid-session feedback change cannot resize the
        step list under a running session. */
-    session.eqRoutine=session.routineType==='eq'?buildEqRoutine():null;
+    /* The PRESCRIBED date, not the clock: a session launched either side of
+       midnight still belongs to the day it was prescribed for. */
+    session.eqRoutine=session.routineType==='eq'
+        ? buildEqRoutine((currentTodayPrescription()||{}).date
+            ||(window.BP.planDateKey?window.BP.planDateKey(new Date()):null))
+        : null;
     track('mission_selected',{mission,source:source||'prescribed'});
     if(mission==='recovery'){ goToRecoveryPicker(); return; }
     if(mission==='girth'){
