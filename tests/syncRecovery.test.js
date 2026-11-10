@@ -219,35 +219,85 @@ describe('Recovery Passes', () => {
     });
 });
 
-describe('settings are never replayed over newer ones', () => {
+describe('settings: each one decided from three views (last synced, this tab, server)', () => {
     const fp = (s) => settingsFingerprint(s);
-    test('the server wins goal, schedule and difficulty', () => {
-        const server = server0({ primaryGoal: 'eq', schedule: ['stamina'], difficulty: 'advanced' });
-        const local = server0({ primaryGoal: 'size', schedule: ['length'], difficulty: 'beginner' });
-        const s = merge(server, local, { base: { settings: fp(server0()), passes: { protectedDates: [], lastPassEarnedDate: '' } } }).state;
-        expect([s.primaryGoal, s.schedule, s.difficulty]).toEqual(['eq', ['stamina'], 'advanced']);
+    const noPasses = { protectedDates: [], lastPassEarnedDate: '' };
+    const base = (s) => ({ settings: fp(s), passes: noPasses });
+    const B = server0({ primaryGoal: 'eq', schedule: ['rest', 'stamina'], difficulty: 'beginner' });
+    const mix = (over) => server0({ primaryGoal: 'eq', schedule: ['rest', 'stamina'], difficulty: 'beginner', ...over });
+
+    test('only the member changed it: the edit is kept, for each setting on its own', () => {
+        for (const [field, value, name] of [['primaryGoal', 'size', 'goal'], ['schedule', ['stamina', 'rest'], 'schedule'], ['difficulty', 'advanced', 'difficulty']]) {
+            const r = merge(mix({}), mix({ [field]: value }), { base: base(B) });
+            expect(r.state[field]).toEqual(value);
+            expect(r.settings.kept).toEqual([name]);
+            expect(r.settings.dropped).toEqual([]);
+            expect(r.settings.droppedLocalEdit).toBe(false);
+        }
     });
-    test("a member's own edit that was overridden is reported as dropped", () => {
-        const baseSettings = server0({ primaryGoal: 'eq' });
-        const server = server0({ primaryGoal: 'all' });                   // changed on another device
-        const local = server0({ primaryGoal: 'size' });                   // this member's edit
-        const r = merge(server, local, { base: { settings: fp(baseSettings), passes: { protectedDates: [], lastPassEarnedDate: '' } } });
-        expect(r.settings).toEqual({ changedElsewhere: true, droppedLocalEdit: true, unverifiable: false });
+    test('only the server changed it: the server value stands and nothing is reported', () => {
+        const r = merge(mix({ primaryGoal: 'all', difficulty: 'advanced' }), mix({}), { base: base(B) });
+        expect([r.state.primaryGoal, r.state.difficulty]).toEqual(['all', 'advanced']);
+        expect([r.settings.kept, r.settings.dropped, r.settings.unverifiable]).toEqual([[], [], false]);
     });
-    test('a tab that never edited settings is not told it lost any', () => {
-        const baseSettings = server0({ primaryGoal: 'eq' });
-        const r = merge(server0({ primaryGoal: 'all' }), server0({ primaryGoal: 'eq' }),
-            { base: { settings: fp(baseSettings), passes: { protectedDates: [], lastPassEarnedDate: '' } } });
-        expect(r.settings).toEqual({ changedElsewhere: true, droppedLocalEdit: false, unverifiable: false });
+    test('both changed it differently: the server value wins and the member is told which one', () => {
+        const r = merge(mix({ primaryGoal: 'all' }), mix({ primaryGoal: 'size' }), { base: base(B) });
+        expect(r.state.primaryGoal).toBe('all');
+        expect(r.settings.dropped).toEqual(['goal']);
+        expect(r.settings.droppedLocalEdit).toBe(true);
+        expect(r.settings.kept).toEqual([]);
     });
-    test('the same edit made on both sides is not a loss', () => {
-        const r = merge(server0({ primaryGoal: 'size' }), server0({ primaryGoal: 'size' }),
-            { base: { settings: fp(server0({ primaryGoal: 'eq' })), passes: { protectedDates: [], lastPassEarnedDate: '' } } });
-        expect(r.settings.droppedLocalEdit).toBe(false);
+    test('both made the same change: they agree, so there is nothing to report', () => {
+        const r = merge(mix({ primaryGoal: 'size' }), mix({ primaryGoal: 'size' }), { base: base(B) });
+        expect([r.settings.dropped, r.settings.kept, r.settings.unverifiable, r.state.primaryGoal]).toEqual([[], [], false, 'size']);
     });
-    test('with no base a difference is reported as such, never as "your edit"', () => {
-        const r = merge(server0({ primaryGoal: 'all' }), server0({ primaryGoal: 'size' }), { base: null });
-        expect(r.settings).toEqual({ changedElsewhere: true, droppedLocalEdit: false, unverifiable: true });
+    test('the three are independent: one kept, one the server\'s, one overridden, in a single recovery', () => {
+        const server = mix({ primaryGoal: 'all', schedule: ['stamina', 'stamina'] });      // server changed goal and schedule
+        const local = mix({ primaryGoal: 'size', difficulty: 'advanced' });               // tab changed goal and difficulty
+        const r = merge(server, local, { base: base(B) });
+        expect(r.state.primaryGoal).toBe('all');                    // both changed: server wins
+        expect(r.state.schedule).toEqual(['stamina', 'stamina']);   // only the server changed
+        expect(r.state.difficulty).toBe('advanced');                // only the tab changed: kept
+        expect(r.settings.dropped).toEqual(['goal']);
+        expect(r.settings.kept).toEqual(['difficulty']);
+    });
+    test('a kept goal brings its own plan with it, never the other side\'s', () => {
+        const serverPlan = { key: 'server-plan' }, localPlan = { key: 'local-plan' };
+        const r = merge(mix({ programme: serverPlan, dayPlans: [{ d: 'server' }] }),
+                        mix({ primaryGoal: 'size', programme: localPlan, dayPlans: [{ d: 'local' }] }), { base: base(B) });
+        expect([r.state.programme, r.state.dayPlans]).toEqual([localPlan, [{ d: 'local' }]]);
+        // And when the goal is NOT kept, the server's plan stands.
+        const r2 = merge(mix({ primaryGoal: 'all', programme: serverPlan, dayPlans: [{ d: 'server' }] }),
+                         mix({ primaryGoal: 'size', programme: localPlan, dayPlans: [{ d: 'local' }] }), { base: base(B) });
+        expect([r2.state.programme, r2.state.dayPlans]).toEqual([serverPlan, [{ d: 'server' }]]);
+    });
+    test('a kept difficulty keeps the tier unlocks it needs, without losing the server\'s', () => {
+        const r = merge(mix({ diffUnlockedDate: { intermediate: '2026-01-01', advanced: '', elite: '' } }),
+                        mix({ difficulty: 'advanced', diffUnlockedDate: { intermediate: '', advanced: '2026-02-02', elite: '' } }), { base: base(B) });
+        expect(r.state.difficulty).toBe('advanced');
+        expect(r.state.diffUnlockedDate).toEqual({ intermediate: '2026-01-01', advanced: '2026-02-02', elite: '' });
+    });
+    test('a setting changed on only one side never touches the other two', () => {
+        const r = merge(mix({ difficulty: 'elite' }), mix({ primaryGoal: 'size' }), { base: base(B) });
+        expect([r.state.primaryGoal, r.state.schedule, r.state.difficulty]).toEqual(['size', ['rest', 'stamina'], 'elite']);
+        expect([r.settings.kept, r.settings.dropped]).toEqual([['goal'], []]);
+    });
+    test('with no base nothing is kept or dropped: the server stands and the member is only asked to check', () => {
+        const r = merge(mix({ primaryGoal: 'all' }), mix({ primaryGoal: 'size' }), { base: null });
+        expect(r.state.primaryGoal).toBe('all');
+        expect(r.settings).toMatchObject({ changedElsewhere: true, droppedLocalEdit: false, dropped: [], kept: [], unverifiable: true });
+    });
+    test('an unreadable base is treated as no base', () => {
+        const r = merge(mix({ primaryGoal: 'all' }), mix({ primaryGoal: 'size' }), { base: { settings: 'not json', passes: noPasses } });
+        expect(r.settings.unverifiable).toBe(true);
+        expect(r.state.primaryGoal).toBe('all');
+    });
+    test('recovery of sessions is unaffected by what happens to settings', () => {
+        const server = mix({ primaryGoal: 'all', sessionLog: [mk(1)], totalXp: 40, allTimeSessionCount: 1 });
+        const local = mix({ primaryGoal: 'size', difficulty: 'advanced', sessionLog: [mk(1), mk(2)] });
+        const r = merge(server, local, { base: base(B) });
+        expect(r.replayed).toEqual(['s:s2']);
+        expect([r.state.totalXp, r.state.allTimeSessionCount]).toEqual([80, 2]);
     });
 });
 

@@ -14,8 +14,10 @@
 // only ever rise, so the larger value is always right. Recovery Passes are the
 // one reward that goes up and down, so they are reconciled from the CHANGES this
 // tab made against its base, deduplicated by week and by date. Goal, schedule
-// and difficulty are never replayed over the server's: the server wins, and the
-// caller is told when a member's edit was therefore not kept.
+// and difficulty are each compared three ways (last synced, this tab, server):
+// a setting only this tab changed is kept, one only the server changed is the
+// server's, and one both changed differently is the server's with the member
+// told their edit was not saved.
 
 export const TOMBSTONE_CAP = 100;
 const PASS_DATES_KEPT = 30;
@@ -99,6 +101,53 @@ const settingsOf = (s) => JSON.stringify([s.primaryGoal || '', s.schedule || nul
 
 /** The settings snapshot a tab keeps as its base. */
 export function settingsFingerprint(s) { return settingsOf(s || {}); }
+
+/* The three settings, in the order the fingerprint holds them. */
+const SETTING_NAMES = ['goal', 'schedule', 'difficulty'];
+const valuesOf = (s) => [s.primaryGoal || '', s.schedule || null, s.difficulty || ''].map(v => JSON.stringify(v));
+function baseValues(fingerprint) {
+    try {
+        const a = JSON.parse(fingerprint);
+        return Array.isArray(a) && a.length === 3 ? a.map(v => JSON.stringify(v)) : null;
+    } catch (e) { return null; }
+}
+
+/**
+ * Each setting on its own, from three views of it.
+ *   only this tab changed it   -> keep the member's edit
+ *   only the server changed it -> the server's value
+ *   both changed it, differently -> the server's value; the member is told
+ *   they agree                 -> nothing to say
+ * With no base there is no way to tell who changed what: the server's value
+ * stands and the caller may only ask the member to check.
+ *
+ * The plan that a goal change commits (programme and dayPlans) travels with the
+ * goal decision, never on its own, so a kept goal is never paired with the
+ * other side's plan. A kept difficulty keeps the tier unlocks it depends on.
+ */
+function resolveSettings(server, local, baseFingerprint) {
+    const L = valuesOf(local), S = valuesOf(server), B = baseFingerprint ? baseValues(baseFingerprint) : null;
+    const overrides = {}, kept = [], dropped = [];
+    let unverifiable = false;
+    for (let i = 0; i < 3; i++) {
+        if (L[i] === S[i]) continue;                       // agree
+        if (!B) { unverifiable = true; continue; }          // cannot tell who changed it
+        if (L[i] === B[i]) continue;                        // only the server changed it
+        if (S[i] === B[i]) {                                // only this tab changed it: keep it
+            kept.push(SETTING_NAMES[i]);
+            if (i === 0) { overrides.primaryGoal = local.primaryGoal; overrides.programme = local.programme; overrides.dayPlans = local.dayPlans; }
+            if (i === 1) overrides.schedule = local.schedule;
+            if (i === 2) {
+                overrides.difficulty = local.difficulty;
+                const su = server.diffUnlockedDate || {}, lu = local.diffUnlockedDate || {};
+                overrides.diffUnlockedDate = { ...lu, ...Object.fromEntries(Object.entries(su).filter(([, v]) => v)) };
+            }
+            continue;
+        }
+        dropped.push(SETTING_NAMES[i]);                     // both changed, differently: the server wins
+    }
+    return { overrides, kept, dropped, unverifiable };
+}
 
 function mergePasses(server, local, base, cap, weekKeyOf) {
     const protectedDates = [...new Set([...(server.passProtectedDates || []), ...(local.passProtectedDates || [])])]
@@ -196,23 +245,25 @@ export function mergeRecovery(server, local, opts) {
 
     const passes = mergePasses(server, local, o.base, o.passCap, o.weekKeyOf || (() => ''));
 
-    const localS = settingsOf(local), serverS = settingsOf(server);
-    const baseS = o.base && o.base.settings;
+    const resolved = resolveSettings(server, local, o.base && o.base.settings);
     const settings = {
-        changedElsewhere: localS !== serverS,
-        // A member's own edit that the server's newer settings overrode. Only
-        // claimable when we know what the tab started from.
-        droppedLocalEdit: !!baseS && localS !== baseS && localS !== serverS,
+        changedElsewhere: settingsOf(local) !== settingsOf(server),
+        // The member's own edits the server's newer values overrode, by name.
+        // Only claimable when we know what the tab started from.
+        droppedLocalEdit: resolved.dropped.length > 0,
+        dropped: resolved.dropped,
+        // The member's own edits that nobody contradicted: kept, and to be written.
+        kept: resolved.kept,
         // Different, but nothing says who changed it. Never claimed as "your edit";
         // the caller can still ask the member to check.
-        unverifiable: !baseS && localS !== serverS,
+        unverifiable: resolved.unverifiable,
     };
 
     const state = { ...server, sessionLog, measurements, completedDays, syncMeta, records,
         totalXp: num(server.totalXp) + fresh.reduce((s, f) => s + num(f.entry.xpEarned), 0),
         allTimeSessionCount: num(server.allTimeSessionCount) + fresh.length,
         streakPasses: passes.streakPasses, passProtectedDates: passes.passProtectedDates,
-        lastPassEarnedDate: passes.lastPassEarnedDate };
+        lastPassEarnedDate: passes.lastPassEarnedDate, ...resolved.overrides };
 
     return { state, replayed: fresh.map(f => entryKey(f.entry)), held, settings, passesAmbiguous: passes.ambiguous };
 }

@@ -169,8 +169,9 @@ describe('stale-write protection', () => {
         expect(out.journal).toBe(0);                                           // confirmed saved, so settled
         // The overridden edit is reported as NOT saved, never as saved.
         expect(out.notice.settings).toBe(true);
+        expect(out.notice.names).toEqual(['goal']);
         expect(out.bannerHidden).toBe(false);
-        expect(out.bannerText).toMatch(/not saved/i);
+        expect(out.bannerText).toMatch(/your change to your goal was not saved/i);   // names it, and only it
         expect(out.bannerText).not.toMatch(/\bwere saved\b|has been saved/i);
         expect(uid).toBeTruthy();
     });
@@ -200,6 +201,118 @@ describe('stale-write protection', () => {
         }, { A, B, C });
         expect(r.again).toBe(r.once);
         expect(r.replayed).toEqual([]);
+    });
+
+    /* ── Settings: each decided from last-synced, this tab and the server ── */
+
+    // Another device finishes B and nothing else: the server's settings are unchanged.
+    const otherDevice = (extra = {}) => ({ base_rev: 5, last_write_id: 'dev2', total_xp: 65, all_time_session_count: 2, ...extra });
+
+    test('a setting only this tab changed is KEPT and written, along with its session', async () => {
+        await load({ session_log: [A], total_xp: 40, all_time_session_count: 1 });
+        const out = await app.page.evaluate(async ({ B, C, other }) => {
+            window.__applyRevGuard({ ...other, session_log: [window.__row.session_log[0], B] });     // nobody touched settings
+            persisted.difficulty = 'advanced';                                                       // this tab's own edit
+            persisted.sessionLog = [...persisted.sessionLog, C]; persisted.totalXp += 30; persisted.allTimeSessionCount += 1;
+            _journalWrite(C, null); savePersisted(); await _flushSaveNow();
+            return { notice: _syncNotice, shown: !document.getElementById('hq-sync-notice-banner').classList.contains('hidden'), local: persisted.difficulty };
+        }, { B, C, other: otherDevice() });
+        const r = await row();
+        expect(r.difficulty).toBe('advanced');                                       // the edit reached the server
+        expect(r.session_log.map(e => e.sid)).toEqual(['sA', 'sB', 'sC']);
+        expect(r.total_xp).toBe(65 + 30);
+        expect(out.local).toBe('advanced');
+        expect([out.notice, out.shown]).toEqual([null, false]);                      // nothing was lost, so nothing is reported
+    });
+
+    test('a lone settings edit from an out-of-date tab, with no session to replay, is still written', async () => {
+        await load({ session_log: [A], total_xp: 40, all_time_session_count: 1 });
+        const out = await app.page.evaluate(async ({ other }) => {
+            window.__applyRevGuard(other);                    // the row moved on; settings untouched
+            persisted.difficulty = 'advanced'; savePersisted();
+            const o = await _flushSaveNow();
+            return { o, notice: _syncNotice };
+        }, { other: otherDevice() });
+        expect(out.o).toBe('ok');
+        expect((await row()).difficulty).toBe('advanced');    // not lost because there was nothing else to write
+        expect(out.notice).toBe(null);
+    });
+
+    test('settings are independent: the other device\'s goal and this tab\'s difficulty both survive', async () => {
+        await load({ session_log: [A], total_xp: 40, all_time_session_count: 1 });
+        const out = await app.page.evaluate(async ({ B, C, other }) => {
+            window.__applyRevGuard({ ...other, session_log: [window.__row.session_log[0], B], primary_goal: 'all' });   // server changed the goal
+            persisted.difficulty = 'advanced';                                                                       // this tab changed difficulty
+            persisted.sessionLog = [...persisted.sessionLog, C]; persisted.totalXp += 30; persisted.allTimeSessionCount += 1;
+            _journalWrite(C, null); savePersisted(); await _flushSaveNow();
+            return { notice: _syncNotice, goal: persisted.primaryGoal, diff: persisted.difficulty };
+        }, { B, C, other: otherDevice() });
+        const r = await row();
+        expect([r.primary_goal, r.difficulty]).toEqual(['all', 'advanced']);
+        expect([out.goal, out.diff]).toEqual(['all', 'advanced']);
+        expect(out.notice).toBe(null);
+    });
+
+    test('one setting overridden and another kept: only the overridden one is named', async () => {
+        await load({ session_log: [A], total_xp: 40, all_time_session_count: 1 });
+        const out = await app.page.evaluate(async ({ B, C, other }) => {
+            window.__applyRevGuard({ ...other, session_log: [window.__row.session_log[0], B], primary_goal: 'all' });
+            persisted.primaryGoal = 'size'; persisted.difficulty = 'advanced';                       // goal conflicts, difficulty does not
+            persisted.sessionLog = [...persisted.sessionLog, C]; persisted.totalXp += 30; persisted.allTimeSessionCount += 1;
+            _journalWrite(C, null); savePersisted(); await _flushSaveNow();
+            return { notice: _syncNotice, text: document.getElementById('hq-sync-notice-text').textContent };
+        }, { B, C, other: otherDevice() });
+        const r = await row();
+        expect([r.primary_goal, r.difficulty]).toEqual(['all', 'advanced']);
+        expect(out.notice.names).toEqual(['goal']);
+        expect(out.text).toMatch(/your change to your goal was not saved/i);
+        expect(out.text).not.toMatch(/difficulty/i);
+    });
+
+    test('the same change made on both sides is not reported', async () => {
+        await load({ session_log: [A], total_xp: 40, all_time_session_count: 1 });
+        const out = await app.page.evaluate(async ({ B, C, other }) => {
+            window.__applyRevGuard({ ...other, session_log: [window.__row.session_log[0], B], difficulty: 'advanced' });
+            persisted.difficulty = 'advanced';
+            persisted.sessionLog = [...persisted.sessionLog, C]; persisted.totalXp += 30; persisted.allTimeSessionCount += 1;
+            _journalWrite(C, null); savePersisted(); await _flushSaveNow();
+            return _syncNotice;
+        }, { B, C, other: otherDevice() });
+        expect(out).toBe(null);
+        expect((await row()).difficulty).toBe('advanced');
+    });
+
+    const SCHED = ['rest', 'stamina', 'rest', 'stamina', 'rest', 'stamina', 'rest'];
+    const rowSettings = (diff) => ({ primaryGoal: 'eq', schedule: SCHED, difficulty: diff });
+    const fingerprint = (diff) => JSON.stringify(['eq', SCHED, diff]);
+
+    test('a kept setting also survives when found at load, from a stale backup whose base is known', async () => {
+        await load({ session_log: [A, B], total_xp: 65, all_time_session_count: 2 },
+            { rev: 8, backup: { baseRev: 5,
+                syncBase: { settings: fingerprint('beginner'), passes: { protectedDates: [], lastPassEarnedDate: '' } },
+                state: { ...rowSettings('advanced'), sessionLog: [A, C], totalXp: 70, allTimeSessionCount: 2 } } });
+        const r = await row();
+        expect(r.difficulty).toBe('advanced');                                  // the member's own edit, kept and written
+        expect(r.session_log.map(e => e.sid)).toEqual(['sA', 'sB', 'sC']);
+        expect(r.total_xp).toBe(65 + 30);
+        expect(await app.page.evaluate(() => _syncNotice)).toBe(null);
+    });
+
+    test('at load, a lone settings edit in a stale backup (nothing else to recover) is still written', async () => {
+        await load({ session_log: [A, B], total_xp: 65, all_time_session_count: 2 },
+            { rev: 8, backup: { baseRev: 5,
+                syncBase: { settings: fingerprint('beginner'), passes: { protectedDates: [], lastPassEarnedDate: '' } },
+                state: { ...rowSettings('advanced'), sessionLog: [A, B], totalXp: 65, allTimeSessionCount: 2 } } });
+        expect((await row()).difficulty).toBe('advanced');
+        expect(await app.page.evaluate(() => _syncNotice)).toBe(null);
+    });
+
+    test('at load with no recorded base the server stands, and the member is only asked to check', async () => {
+        await load({ session_log: [A, B], total_xp: 65, all_time_session_count: 2 },
+            { rev: 8, backup: { baseRev: 5, state: { ...rowSettings('advanced'), sessionLog: [A, C], totalXp: 70, allTimeSessionCount: 2 } } });
+        expect((await row()).difficulty).toBe('beginner');
+        const n = await app.page.evaluate(() => _syncNotice);
+        expect([n.check, n.settings]).toEqual([true, false]);
     });
 
     /* ── Trimming ────────────────────────────────────────────────────────── */

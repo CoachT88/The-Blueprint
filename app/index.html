@@ -4509,6 +4509,8 @@ function _mergeAgainstRow(uid,row,local,base){
         authoritative:onAuthoritativePlans(),trim:trimToByteBudget,
         logBudget:SESSION_LOG_BUDGET_BYTES,measurementsBudget:MEASUREMENTS_BUDGET_BYTES});
 }
+/* A setting only this tab changed is kept, so it has to be written. */
+function _settingsKept(res){ return !!(res&&res.settings&&res.settings.kept&&res.settings.kept.length); }
 function _rewardsChanged(a,b){
     return a.streakPasses!==b.streakPasses||a.lastPassEarnedDate!==b.lastPassEarnedDate
         ||JSON.stringify(a.passProtectedDates||[])!==JSON.stringify(b.passProtectedDates||[])
@@ -4519,7 +4521,8 @@ function _rewardsChanged(a,b){
 function _noteRecovery(res){
     const dropped=!!(res.settings&&res.settings.droppedLocalEdit), held=(res.held||[]).length;
     const check=!dropped&&!!(res.settings&&res.settings.unverifiable);
-    if(dropped||check||held) _syncNotice={settings:dropped,check,held};
+    const names=(res.settings&&res.settings.dropped)||[];
+    if(dropped||check||held) _syncNotice={settings:dropped,names,check,held};
     try{ track('sync_recovery',{replayed:res.replayed.length,held,settings_dropped:dropped,passes_ambiguous:!!res.passesAmbiguous}); }catch(e){}
     try{ renderAttentionBand(); }catch(e){}
 }
@@ -4545,7 +4548,7 @@ async function _recoverFromRow(uid,row,seq,depth){
     try{ _writeLocalBackup(); }catch(e){}
     _noteRecovery(res);
     const server=_internalFromRow(row);
-    const needsWrite=res.replayed.length>0||_rewardsChanged(res.state,server);
+    const needsWrite=res.replayed.length>0||_rewardsChanged(res.state,server)||_settingsKept(res);
     if(!needsWrite){
         _journalSettle(uid,server);
         try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){}
@@ -4568,6 +4571,7 @@ function _planLoadRecovery(uid,row,snapshot){
     const res=_mergeAgainstRow(uid,row,local,snapshot&&snapshot._syncBase||null);
     const server=_internalFromRow(row);
     const nothing=!res.replayed.length&&!res.held.length&&!_rewardsChanged(res.state,server)
+        &&!_settingsKept(res)
         &&!(res.settings&&(res.settings.droppedLocalEdit||res.settings.unverifiable));
     return {res,server,nothing};
 }
@@ -4578,7 +4582,7 @@ async function _finishLoadRecovery(uid,row,plan){
     if(nothing){ settle(); return; }
     _syncState[uid]={rev:row.rev,base:_baseFromRow(row)};
     _noteRecovery(res);
-    if(res.replayed.length||_rewardsChanged(res.state,server)){
+    if(res.replayed.length||_rewardsChanged(res.state,server)||_settingsKept(res)){
         await _commitWrite(uid,{id:uid,..._buildSavePayload()},_changeSeq);
     }else{
         settle();
@@ -7628,7 +7632,16 @@ function renderAttentionBand(){
     const t=document.getElementById('hq-sync-notice-text');
     if(t&&_syncNotice){
         const parts=[];
-        if(_syncNotice.settings) parts.push('Your account was updated on another device, so we loaded the latest version. Changes you made here to your goal, schedule or difficulty were not saved, so please check them.');
+        if(_syncNotice.settings){
+            /* Names the setting(s), because only a setting that both sides
+               changed differently is ever overridden. */
+            const n=_syncNotice.names||[];
+            const list=n.length>1?n.slice(0,-1).join(', ')+' and '+n[n.length-1]:(n[0]||'');
+            parts.push('Your account was updated on another device, so we loaded the latest version. '
+                +(n.length>1?`Your changes to your ${list} were not saved, so please check them.`
+                    :n.length?`Your change to your ${list} was not saved, so please check it.`
+                    :'Changes you made here to your goal, schedule or difficulty were not saved, so please check them.'));
+        }
         if(_syncNotice.check) parts.push('We loaded the latest saved version of your account. If you changed your goal, schedule or difficulty recently, please check they are still right.');
         if(_syncNotice.held) parts.push("A session recorded on an out-of-date screen couldn't be matched to your history, so it wasn't added again. Your XP is unchanged.");
         t.textContent=parts.join(' ');
