@@ -88,7 +88,20 @@ describe('one adoption boundary, enforced in the source', () => {
            catches a new path bypassing _adopt entirely, that one catches a new
            path using it. */
         const all = html.match(/adoptPersisted\(/g) || [];
-        expect(all).toHaveLength(3);
+        /* FOUR since stale-write protection: the one new call is in
+           _recoverFromRow(), which replaces `persisted` mid-session after a
+           refused write. It is not a load path, so it cannot go through
+           loadPersisted's _adopt; the next test pins that it checks ownership
+           first. Load-time recovery adds none: it is planned, then adopted
+           through _adopt like every other path. */
+        expect(all).toHaveLength(4);
+    });
+
+    test('the mid-session recovery adopts only while its member is still signed in', () => {
+        const body = bodyOf('async function _recoverFromRow(uid,row,seq,depth){');
+        const beforeAdopt = body.slice(0, body.indexOf('adoptPersisted('));
+        expect(beforeAdopt).toMatch(/currentUser\.id!==uid/);
+        expect(body.match(/adoptPersisted\(/g) || []).toHaveLength(1);
     });
 
     test('loadPersisted adopts through exactly one guarded helper', () => {

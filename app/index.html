@@ -1480,6 +1480,14 @@
                     </div>
                 </div>
             </div>
+            <div id="hq-sync-notice-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3" role="status">
+                <i class="fas fa-rotate text-amber-400 text-lg flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Updated from another device</p>
+                    <p id="hq-sync-notice-text" class="text-[10px] text-slate-400 mt-0.5"></p>
+                </div>
+                <button id="hq-sync-notice-dismiss" class="text-[10px] font-black u-text-2 uppercase tracking-widest px-2 py-1.5" onclick="dismissSyncNotice()">OK</button>
+            </div>
             <div id="hq-pass-used-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
                 <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
@@ -3665,6 +3673,7 @@ const DEFAULT_PERSISTED={
        programmeStartDate records when the programme actually began. */
     programmeStartDate:null,  // null + allTimeSessionCount>0 means established, start unknown
     progressionLedger:[],     // see src/progressionLedger.js for the row shape
+    syncMeta:null,            // bounded memory of trimmed session ids; see src/syncRecovery.js
     /* ── Phase 3S.1 day-plan storage ───────────────────────────────────
        Carried, not yet read. Nothing generates either one and nothing
        branches on either one in this phase; they exist so the columns can
@@ -3968,7 +3977,11 @@ async function loadPersisted(){
                again from fresh data. */
             if(_decisionRaw!==undefined&&_backupRaw!==_decisionRaw) return false;
             if(!localData) return false;
-            const {_savedAt:_,...rest}=localData;
+            const {_savedAt:_,_baseRev:_br,_syncBase:_sb,...rest}=localData;
+            /* Offline, with the revision the backup was based on: keep guarding,
+               so the next write is checked against the server instead of
+               landing blind. */
+            if(typeof _br==='number'&&!_syncState[_uid]) _syncState[_uid]={rev:_br,base:_sb||null};
             payload=rest;
         }
         adoptPersisted(payload);
@@ -4007,6 +4020,12 @@ async function loadPersisted(){
         }
         _mergeServerCheckins();
         _decisionRaw=_backupRaw;
+        /* A row that carries `rev` belongs to a table with the revision guard.
+           Writes from here on say which revision they read. A row without it
+           is a legacy table and behaves exactly as before. */
+        const _protectedLoad=!!(data&&typeof data.rev==='number');
+        if(_protectedLoad) _syncState[_uid]={rev:data.rev,base:_baseFromRow(data)};
+        else if(data) delete _syncState[_uid];
         if(!data){
             if(localData){
                 try{ if(!_adopt(null,{fromBackup:true})) _refuseLoad(); }catch(e){ _refuseLoad(); }
@@ -4035,7 +4054,11 @@ async function loadPersisted(){
         const dbTime=new Date(data.updated_at||0).getTime();
         const localTime=localData?new Date(localData._savedAt||0).getTime():0;
         const hasDirty=!!_readDirty();
-        if((localTime>dbTime || (hasDirty && localData && localTime>=dbTime)) && localData){
+        /* On a guarded table the clock does not decide. A backup is adopted
+           wholesale only if the server has not moved since it was taken;
+           otherwise it is recovered from (below), never promoted over the row. */
+        const _localIsCurrent=!_protectedLoad||(localData&&localData._baseRev===data.rev);
+        if((localTime>dbTime || (hasDirty && localData && localTime>=dbTime)) && localData && _localIsCurrent){
             if(!_adopt(null,{fromBackup:true})){ _refuseLoad(); return; }
             // Re-sync Supabase with the newer local data
             try{
@@ -4046,7 +4069,9 @@ async function loadPersisted(){
                    write path in this file already captures its payload; this
                    was the one that did not. */
                 const _payload={id:_uid,..._buildSavePayload()};
-                const _err=await _upsertWithSchemaFallback(_payload);
+                const _err=_protectedLoad
+                    ? ((await _commitWrite(_uid,_payload))==='ok'?null:'deferred')
+                    : await _upsertWithSchemaFallback(_payload);
                 /* Three conditions, all required to clear the flag:
                      1. the write was acknowledged. _err covers _WRITE_TIMEOUT,
                         which is truthy, so an uncertain outcome keeps it.
@@ -4058,7 +4083,20 @@ async function loadPersisted(){
                 }
             }catch(e){}
         } else {
-            _adopt(_internalFromRow(data));
+            /* Unsynced activity from a tab that is out of date, or a session the
+               journal still holds. PLANNED here (pure, no adoption) and adopted
+               through the same single guarded call as every other path, so the
+               ownership and freshness checks cannot be bypassed. */
+            let _plan=null;
+            if(_protectedLoad&&_stillMine()&&((hasDirty&&localData)||_journalRead(_uid).length)){
+                try{ _plan=_planLoadRecovery(_uid,data,(hasDirty&&localData)?localData:null); }
+                catch(e){ console.warn('load recovery deferred:',e); _plan=null; }
+            }
+            const _adopted=_adopt(_plan&&!_plan.nothing?_plan.res.state:_internalFromRow(data));
+            if(_plan&&_adopted){
+                try{ await _finishLoadRecovery(_uid,data,_plan); }
+                catch(e){ console.warn('load recovery deferred:',e); }
+            }
         }
         /* OWNERSHIP GATE for the two blocks below. Both mutate `persisted`
            and then call savePersisted(), and both run after two awaits. A
@@ -4148,6 +4186,7 @@ function _internalFromRow(data){
            nothing in it gives, and both are correct. */
         programme:           data.programme            || null,
         dayPlans:            data.day_plans            || [],
+        syncMeta:            data.sync_meta            || null,
     };
 }
 function _buildSavePayload(){
@@ -4183,6 +4222,11 @@ function _buildSavePayload(){
            that has not had the migration run. */
         programme:             persisted.programme||null,
         day_plans:             Array.isArray(persisted.dayPlans)?persisted.dayPlans:[],
+        /* Underscore: NEVER sent as-is. A table that has not had the revision
+           migration has no sync_meta column, and an unknown column would fail
+           the whole write. _upsertWithSchemaFallback() drops it; the guarded
+           writer renames it to sync_meta. */
+        _sync_meta:            persisted.syncMeta||null,
         updated_at:            new Date().toISOString(),
     };
 }
@@ -4255,7 +4299,8 @@ function _upsertPayload(){
    re-strips it, because a fallback tier may have been discovered in between,
    but the DATA is the captured snapshot and never the live globals. */
 async function _upsertWithSchemaFallback(raw){
-    const base=raw||{id:currentUser.id,..._buildSavePayload()};
+    const base={...(raw||{id:currentUser.id,..._buildSavePayload()})};
+    delete base._sync_meta;
     const once=async()=>{
         const r=await _withDeadline(
             sb.from('user_data').upsert(_stripForSchema(base),{onConflict:'id'}),WRITE_DEADLINE_MS);
@@ -4283,7 +4328,7 @@ async function _upsertWithSchemaFallback(raw){
    by the caller before the write is scheduled, so a result landing after a
    logout or an account switch is applied to the account it belonged to and to
    no other. Returns 'ok' | 'error' | 'unknown'. */
-async function _commitWrite(uid,payload){
+async function _commitLegacy(uid,payload,seq){
     if(!uid||!payload) return 'error';
     let outcome='ok';
     try{
@@ -4295,6 +4340,7 @@ async function _commitWrite(uid,payload){
         /* Keyed on the CAPTURED uid. Clearing by currentUser.id would let a
            stale callback mark a different member's row clean. */
         try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){}
+        if(seq===_changeSeq) _unsaved=false;
     }else{
         /* Deferred, not lost: the backup and the dirty flag both stand, and
            the next load reconciles by resending. A whole-row upsert is
@@ -4305,6 +4351,240 @@ async function _commitWrite(uid,payload){
     return outcome;
 }
 let _lastWriteOutcome=null;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REVISION-GUARDED WRITES, THE JOURNAL, AND RECOVERY
+   ═══════════════════════════════════════════════════════════════════════════
+   The server row carries a revision. A write says which revision it read, and
+   the server refuses it if the row has moved on (supabase/revision-guard.sql).
+   An out-of-date tab or device therefore cannot silently overwrite newer
+   progress. Everything here is for the moment that happens: nothing the member
+   did may be lost, and nothing may be awarded twice.
+
+   A table without the migration answers with no `rev`. Such a member is never
+   put on this path: _commitWrite() falls straight through to the old writer. */
+const _syncState={};                 // uid -> {rev, base}; absent = legacy table
+let _writeChain=Promise.resolve();   // one write in flight per tab, in order
+let _changeSeq=0, _unsaved=false;    // is there anything this tab has not yet saved
+let _syncNotice=null;                // {settings:bool, held:n}, shown once, dismissible
+let _pendingMeasurement=null;
+const _journalMem=new Map();         // used only if localStorage cannot hold the journal
+
+function _newId(){
+    try{ if(window.crypto&&crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
+    return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);
+}
+function _protectedFor(uid){ const s=_syncState[uid]; return !!s&&typeof s.rev==='number'; }
+/* What this tab believes the server holds, for the two things recovery must
+   not guess about: the member's own settings edits, and Recovery Passes. */
+function _baseOf(src){
+    return {settings:window.BP.settingsFingerprint(src),
+            passes:{protectedDates:(src.passProtectedDates||[]).slice(),lastPassEarnedDate:src.lastPassEarnedDate||''}};
+}
+function _baseFromRow(row){ try{ return _baseOf(_internalFromRow(row)); }catch(e){ return null; } }
+function _baseFromPayload(p){
+    try{ return _baseOf({primaryGoal:p.primary_goal,schedule:p.schedule,difficulty:p.difficulty,
+        passProtectedDates:p.pass_protected_dates,lastPassEarnedDate:p.last_pass_earned_date}); }catch(e){ return null; }
+}
+
+/* ── The journal: one key per completed session, never rewritten ─────────── */
+const _journalPrefix=uid=>'bp_pending_'+uid+'_';
+function _journalWrite(entry,measurement){
+    if(!currentUser||!entry||!entry.sid) return;
+    const uid=currentUser.id, rec={v:1,entry,measurement:measurement||null};
+    try{ localStorage.setItem(_journalPrefix(uid)+entry.sid,JSON.stringify(rec)); }
+    catch(e){
+        /* Storage full or unavailable. Held in memory for this page's life and
+           reported, rather than pretending it was kept. */
+        _journalMem.set(uid+':'+entry.sid,rec);
+        try{ track('journal_fallback',{memory:true}); }catch(e2){}
+    }
+}
+function _journalRead(uid){
+    const out=[], pre=_journalPrefix(uid);
+    try{
+        for(let i=0;i<localStorage.length;i++){
+            const k=localStorage.key(i);
+            if(!k||!k.startsWith(pre)) continue;
+            try{ const r=JSON.parse(localStorage.getItem(k)); if(r&&r.entry&&r.entry.date&&!r.held) out.push({key:k,entry:r.entry,measurement:r.measurement||null}); }catch(e){}
+        }
+    }catch(e){}
+    for(const [k,r] of _journalMem) if(k.startsWith(uid+':')&&!r.held) out.push({key:k,entry:r.entry,measurement:r.measurement||null});
+    return out;
+}
+function _journalRemove(key){ try{ localStorage.removeItem(key); }catch(e){} _journalMem.delete(key); }
+function _journalHold(item){
+    const rec={v:1,entry:item.entry,measurement:item.measurement,held:true};
+    try{ localStorage.setItem(item.key,JSON.stringify(rec)); }catch(e){}
+    if(_journalMem.has(item.key)) _journalMem.set(item.key,rec);
+}
+/* After a CONFIRMED save: whatever the server now holds, or has trimmed, is
+   done with. A session older than everything trimmed is held, not retried. */
+function _journalSettle(uid,state){
+    try{
+        const keys=new Set((state.sessionLog||[]).map(window.BP.entryKey));
+        const meta=window.BP.normaliseMeta(state.syncMeta), tomb=new Set(meta.trimmed);
+        for(const it of _journalRead(uid)){
+            const k=window.BP.entryKey(it.entry);
+            if(keys.has(k)||tomb.has(k)) _journalRemove(it.key);
+            else if(meta.floor&&it.entry.date<=meta.floor) _journalHold(it);
+        }
+    }catch(e){}
+}
+
+/* ── Writing ─────────────────────────────────────────────────────────────── */
+async function _readServerRow(uid){
+    try{
+        const r=await _withDeadline(sb.from('user_data').select('*').eq('id',uid).single(),WRITE_DEADLINE_MS);
+        if(r===_WRITE_TIMEOUT||!r||r.__lateError||r.error||!r.data) return null;
+        return r.data;
+    }catch(e){ return null; }
+}
+
+/* Serialised: a second save waits for the first, and is sent with the
+   revision the first one produced. Two saves racing from one tab would
+   otherwise refuse each other. */
+function _commitWrite(uid,payload,seq){
+    const run=()=>_commitOnce(uid,payload,seq);
+    const p=_writeChain.then(run,run);
+    _writeChain=p.catch(()=>{});
+    return p;
+}
+async function _commitOnce(uid,payload,seq){
+    if(!uid||!payload) return 'error';
+    if(!_protectedFor(uid)||!window.BP||!window.BP.classifyOutcome) return _commitLegacy(uid,payload,seq);
+    return _commitProtected(uid,payload,seq,0);
+}
+
+async function _commitProtected(uid,payload,seq,depth){
+    const st=_syncState[uid], baseRev=st.rev, writeId=_newId();
+    const body={...payload,sync_meta:payload._sync_meta||null,base_rev:baseRev,last_write_id:writeId};
+    delete body._sync_meta;
+    const attempt=async()=>{
+        try{
+            const r=await _upsertWithSchemaFallback(body);
+            if(r===null) return 'ok';
+            if(r===_WRITE_TIMEOUT) return 'unknown';
+            return window.BP.isRevisionRefusal(r)?'refused':'error';
+        }catch(e){ return 'error'; }
+    };
+    let verdict=await attempt(), newRev=baseRev+1;
+    if(verdict==='unknown'||verdict==='refused'){
+        /* The server's own record decides, never a clock. Our write id on the
+           row means ours is the latest write. A revision that moved without us
+           means ours is stale and can never land. Neither: it may still be in
+           flight, so send the SAME write again; the server accepts it once or
+           refuses it, and either way the next read says which. */
+        for(let tries=0;tries<2;tries++){
+            const row=await _readServerRow(uid);
+            const v=row?window.BP.classifyOutcome({row,ourWriteId:writeId,baseRev}):'unknown';
+            if(v==='confirmed'){ newRev=row.rev; verdict='ok'; break; }
+            if(v==='refused') return _recoverFromRow(uid,row,seq,depth);
+            if(tries===0){
+                const again=await attempt();
+                if(again==='ok'){ verdict='ok'; break; }
+                if(again==='error'){ verdict='error'; break; }
+            }
+        }
+        if(verdict!=='ok'&&verdict!=='error') verdict='unknown';
+    }
+    if(verdict==='ok'){
+        _syncState[uid]={rev:newRev,base:_baseFromPayload(payload)};
+        _journalSettle(uid,{sessionLog:payload.session_log,syncMeta:payload._sync_meta});
+        try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){}
+        if(seq===_changeSeq) _unsaved=false;
+    }else{
+        console.warn('user_data sync deferred:',verdict);
+    }
+    _lastWriteOutcome=verdict;
+    return verdict;
+}
+
+/* ── Recovery ────────────────────────────────────────────────────────────── */
+function _mergeAgainstRow(uid,row,local,base){
+    return window.BP.mergeRecovery(_internalFromRow(row),local,{
+        pending:_journalRead(uid),base,passCap:RECOVERY_PASS_CAP,
+        weekKeyOf:d=>d?window.BP.weekKey(new Date(d)):'',
+        dayOfWeek:d=>new Date(d).getDay(),currentWeekKey:getCurrentWeekKey(),
+        authoritative:onAuthoritativePlans(),trim:trimToByteBudget,
+        logBudget:SESSION_LOG_BUDGET_BYTES,measurementsBudget:MEASUREMENTS_BUDGET_BYTES});
+}
+function _rewardsChanged(a,b){
+    return a.streakPasses!==b.streakPasses||a.lastPassEarnedDate!==b.lastPassEarnedDate
+        ||JSON.stringify(a.passProtectedDates||[])!==JSON.stringify(b.passProtectedDates||[])
+        ||JSON.stringify(a.records||{})!==JSON.stringify(b.records||{});
+}
+/* Said once, and only what is true: an edit that the newer settings overrode is
+   NOT saved, and the member is told so. Nothing here says anything was saved. */
+function _noteRecovery(res){
+    const dropped=!!(res.settings&&res.settings.droppedLocalEdit), held=(res.held||[]).length;
+    const check=!dropped&&!!(res.settings&&res.settings.unverifiable);
+    if(dropped||check||held) _syncNotice={settings:dropped,check,held};
+    try{ track('sync_recovery',{replayed:res.replayed.length,held,settings_dropped:dropped,passes_ambiguous:!!res.passesAmbiguous}); }catch(e){}
+    try{ renderAttentionBand(); }catch(e){}
+}
+function _refreshAfterRecovery(){
+    try{ if(!(session&&session.timer)&&typeof renderDashboard==='function') renderDashboard(); }catch(e){}
+    try{ renderAttentionBand(); }catch(e){}
+}
+
+/* A write was refused, or its outcome proved stale. Adopt the server's row,
+   put back only what can be proven to be new, and write that. The member's
+   timer, draft and screen are not touched. */
+async function _recoverFromRow(uid,row,seq,depth){
+    if(!currentUser||currentUser.id!==uid||!window.BP||!window.BP.mergeRecovery){
+        _lastWriteOutcome='error'; return 'error';   // the journal keeps the activity; the next load recovers it
+    }
+    const st=_syncState[uid];
+    const res=_mergeAgainstRow(uid,row,persisted,st&&st.base);
+    /* The ownership check above is what makes this adoption safe: the row and
+       the journal belong to `uid`, and `persisted` is only replaced while that
+       member is still the one signed in. tests/restoreBoundary.test.js pins it. */
+    adoptPersisted(res.state);
+    _syncState[uid]={rev:row.rev,base:_baseFromRow(row)};
+    try{ _writeLocalBackup(); }catch(e){}
+    _noteRecovery(res);
+    const server=_internalFromRow(row);
+    const needsWrite=res.replayed.length>0||_rewardsChanged(res.state,server);
+    if(!needsWrite){
+        _journalSettle(uid,server);
+        try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){}
+        if(seq===_changeSeq) _unsaved=false;
+        _lastWriteOutcome='ok'; _refreshAfterRecovery(); return 'ok';
+    }
+    if(depth>=3){ _lastWriteOutcome='unknown'; _refreshAfterRecovery(); return 'unknown'; }
+    _refreshAfterRecovery();
+    return _commitProtected(uid,{id:uid,..._buildSavePayload()},_changeSeq,depth+1);
+}
+
+/* On load: a stale dirty backup, or sessions still in the journal, recovered
+   onto the server's row. Split in two so ADOPTION stays in loadPersisted's one
+   guarded call: this plans, _finishLoadRecovery() acts once adoption succeeded. */
+function _planLoadRecovery(uid,row,snapshot){
+    /* No stale snapshot means only the journal has something to say, so the
+       "local" side is the server's own state: nothing differs, nothing is lost. */
+    const local=snapshot?(()=>{ const {_savedAt:_a,_baseRev:_b,_syncBase:_c,...rest}=snapshot; return {...DEFAULT_PERSISTED,...rest}; })()
+                        :{..._internalFromRow(row),sessionLog:[],measurements:[]};
+    const res=_mergeAgainstRow(uid,row,local,snapshot&&snapshot._syncBase||null);
+    const server=_internalFromRow(row);
+    const nothing=!res.replayed.length&&!res.held.length&&!_rewardsChanged(res.state,server)
+        &&!(res.settings&&(res.settings.droppedLocalEdit||res.settings.unverifiable));
+    return {res,server,nothing};
+}
+async function _finishLoadRecovery(uid,row,plan){
+    if(!currentUser||currentUser.id!==uid) return;
+    const {res,server,nothing}=plan;
+    const settle=()=>{ _journalSettle(uid,server); try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){} };
+    if(nothing){ settle(); return; }
+    _syncState[uid]={rev:row.rev,base:_baseFromRow(row)};
+    _noteRecovery(res);
+    if(res.replayed.length||_rewardsChanged(res.state,server)){
+        await _commitWrite(uid,{id:uid,..._buildSavePayload()},_changeSeq);
+    }else{
+        settle();
+    }
+}
+
 // The local backup used to be written inside an empty catch, so when the quota
 // filled the backup silently stopped updating AND the dirty flag silently failed
 // to set. The recovery path then compared against stale data with nothing to
@@ -4316,7 +4596,11 @@ function _isQuotaError(e){
 function _writeLocalBackup(){
     if(!currentUser) return false;
     const key='bp_data_'+currentUser.id;
-    const payload=JSON.stringify({...persisted,_savedAt:new Date().toISOString()});
+    const _st=_syncState[currentUser.id];
+    /* Stamped with the server revision this snapshot was based on. A snapshot
+       is only adopted wholesale when the server has not moved since. */
+    const payload=JSON.stringify({...persisted,_savedAt:new Date().toISOString(),
+        ...(_st&&typeof _st.rev==='number'?{_baseRev:_st.rev,_syncBase:_st.base||null}:{})});
     try{
         localStorage.setItem(key,payload);
         localStorage.setItem('bp_dirty_'+currentUser.id,'1'); // cleared only after Supabase confirms
@@ -4481,11 +4765,15 @@ function savePersisted(){
        that was really the old account's. */
     const _uid=currentUser.id;
     const _payload={id:_uid,..._buildSavePayload()};
-    _saveDebounce=setTimeout(()=>{ _commitWrite(_uid,_payload); },800);
+    _unsaved=true; const _seq=++_changeSeq;
+    _saveDebounce=setTimeout(()=>{ _commitWrite(_uid,_payload,_seq); },800);
 }
 function _flushSaveNow(){
     if(!currentUser)return;
     if(!_persistedLoaded){console.warn('_flushSaveNow skipped: user data was never loaded');return;}
+    /* A tab with nothing unsaved writes nothing. Backgrounding an idle tab
+       that is out of date used to upsert its whole snapshot over the row. */
+    if(_protectedFor(currentUser.id)&&!_unsaved) return;
     clearTimeout(_saveDebounce);
     _writeLocalBackup();
     /* Same capture rule as the debounced path. This runs on
@@ -4494,7 +4782,8 @@ function _flushSaveNow(){
        remote write is best effort on top of it. */
     const _uid=currentUser.id;
     const _payload={id:_uid,..._buildSavePayload()};
-    return _commitWrite(_uid,_payload);
+    _unsaved=true; const _seq=++_changeSeq;
+    return _commitWrite(_uid,_payload,_seq);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -7285,6 +7574,7 @@ function currentPrescription(){ return _today; }
 const ATTENTION_BAND=[
     {id:'hq-load-failed-banner',  live:()=>!_persistedLoaded&&!!currentUser},
     {id:'hq-storage-full-banner', live:()=>!!_storageFull},
+    {id:'hq-sync-notice-banner',   live:()=>!!_syncNotice},
     {id:'deload-banner',          live:()=>typeof isDeloadWeek==='function'&&isDeloadWeek()},
     // Never promoted: the Today card owns these two.
     {id:'hq-rest-banner',         live:()=>false},
@@ -7334,7 +7624,18 @@ function _collapseIfEmpty(id){
     box.classList.toggle('hidden',!any);
 }
 
-function renderAttentionBand(){ _renderBand(ATTENTION_BAND,'hq-attention-band'); _renderBand(NUDGE_BAND,'hq-nudge-band'); }
+function renderAttentionBand(){
+    const t=document.getElementById('hq-sync-notice-text');
+    if(t&&_syncNotice){
+        const parts=[];
+        if(_syncNotice.settings) parts.push('Your account was updated on another device, so we loaded the latest version. Changes you made here to your goal, schedule or difficulty were not saved, so please check them.');
+        if(_syncNotice.check) parts.push('We loaded the latest saved version of your account. If you changed your goal, schedule or difficulty recently, please check they are still right.');
+        if(_syncNotice.held) parts.push("A session recorded on an out-of-date screen couldn't be matched to your history, so it wasn't added again. Your XP is unchanged.");
+        t.textContent=parts.join(' ');
+    }
+    _renderBand(ATTENTION_BAND,'hq-attention-band'); _renderBand(NUDGE_BAND,'hq-nudge-band');
+}
+function dismissSyncNotice(){ _syncNotice=null; renderAttentionBand(); }
 
 /**
  * Liveness, Phase 2B.2. Both answers are derived in exactly one place.
@@ -9086,6 +9387,9 @@ function finishSession(){
     if(!_authoritative&&!session.dailyPracticeOnly) _nextCompletedDays[completedAt.getDay()]=true;
 
     const _entry={
+        /* A stable identity, so recovery can tell a session that is already
+           counted from one that is new without trusting a clock. */
+        sid:_newId(),
         /* The real completion timestamp, never rewritten to the prescription
            date. Performed-when and prescribed-for are two separate truths. */
         date:completedAt.toISOString(),
@@ -9137,9 +9441,15 @@ function finishSession(){
        Purely a name: the value is the same array literal as before. */
     const _candidateLog=[...(persisted.sessionLog||[]),_entry];
     const _nextLog=trimToByteBudget(_candidateLog,SESSION_LOG_BUDGET_BYTES);
+    /* What this trim dropped is remembered, in a bounded record, so a session
+       that was saved and later trimmed can never be awarded a second time. */
+    let _nextMeta=persisted.syncMeta||null;
+    try{ _nextMeta=window.BP.recordTrim(persisted.syncMeta,_candidateLog,_nextLog); }catch(e){}
+    _pendingMeasurement=null;
     let _nextMeasurements=null;
     if(!isNaN(bpel)||!isNaN(mseg)){
-        const e={date:completedAt.toISOString()};
+        const e={sid:_entry.sid,date:completedAt.toISOString()};
+        _pendingMeasurement=e;
         if(!isNaN(bpel))e.bpel=bpel;
         if(!isNaN(mseg))e.mseg=mseg;
         _nextMeasurements=trimToByteBudget([...(persisted.measurements||[]),e],MEASUREMENTS_BUDGET_BYTES);
@@ -9154,6 +9464,7 @@ function finishSession(){
           state rather than creating a second completion. ══ */
     _finishState='committed';
     persisted.sessionLog=_nextLog;
+    persisted.syncMeta=_nextMeta;
     persisted.totalXp=_nextXp;
     persisted.allTimeSessionCount=_nextCount;
     if(_nextMeasurements) persisted.measurements=_nextMeasurements;
@@ -9164,6 +9475,12 @@ function finishSession(){
     _frozenSteps=null;_frozenFor=null;
     /* ══ POST COMMIT. Derived state and side effects. A throw here cannot
           duplicate a completion, because the guard is already up. ══ */
+
+    /* The completed session is written to a per-session journal key BEFORE any
+       save is attempted. A key is written once, by one tab, and never touched
+       by another, so tabs cannot overwrite each other's pending activity. It
+       is removed only when the server is confirmed to hold the session. */
+    try{ _journalWrite(_entry,_pendingMeasurement); }catch(e){}
 
     /* Trimming used to be completely silent: no event, no log, no notice, so
        history could start disappearing and nothing anywhere recorded it.
@@ -10311,6 +10628,7 @@ function importData(file){
             const _importedLog=persisted.sessionLog||[];
             persisted.sessionLog=trimToByteBudget(_importedLog,SESSION_LOG_BUDGET_BYTES);
             persisted.measurements=trimToByteBudget(persisted.measurements||[],MEASUREMENTS_BUDGET_BYTES);
+            try{ persisted.syncMeta=window.BP.recordTrim(persisted.syncMeta,_importedLog,persisted.sessionLog); }catch(e){}
             /* Same aggregate-only event, different trigger. One import is one
                deliberate act, so there is no repeated-processing to guard
                against here the way there would be on a render path. */
@@ -11907,6 +12225,7 @@ import { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLV
 import { estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
          applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE } from '../src/sessionDuration.js';
 import { weekCompletion } from '../src/weekCompletion.js';
+import { mergeRecovery, recordTrim, normaliseMeta, entryKey, classifyOutcome, isRevisionRefusal, settingsFingerprint } from '../src/syncRecovery.js';
 // Phase 2B.2 liveness. Communication only: nothing here reaches the
 // prescription, and the browser suite asserts that.
 import { returnContext, missedWeekReentry, livenessContext,
@@ -11962,7 +12281,7 @@ import { attributeEntry, ATTRIBUTION } from '../src/sessionAttribution.js';
    substitution, where the programme prescribed nothing to honour. */
 import { validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
          DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS } from '../src/doseExecution.js';
-window.BP = { PROGRESS_FIELDS,PROGRESS_LABELS,readProgressCheckin,progressCheckinStatus,putProgressCheckin,personalProgress,recordedMeasurementProgress,measurementSeries,todayPlanExplanation,createGuideSpeech,guideSetup,buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
+window.BP = { mergeRecovery,recordTrim,normaliseMeta,entryKey,classifyOutcome,isRevisionRefusal,settingsFingerprint, PROGRESS_FIELDS,PROGRESS_LABELS,readProgressCheckin,progressCheckinStatus,putProgressCheckin,personalProgress,recordedMeasurementProgress,measurementSeries,todayPlanExplanation,createGuideSpeech,guideSetup,buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
               weekCompletion, weekKey, normaliseLedger,
