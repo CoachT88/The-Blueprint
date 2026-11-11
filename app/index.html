@@ -7218,10 +7218,21 @@ function skipRest(){
     document.getElementById('rest-overlay').classList.add('hidden');
     session.setIndex++;updateExUI();
 }
+/* What an EQ session already did counts toward the daily practice. Breathing is
+   breathing, and the two release exercises (Reverse Kegel Stretch, which the plan
+   picks for most members, and Pelvic Floor Release, which every EQ session
+   contains) do the same job, so either one covers the plan's release step.
+   ONLY the EQ routine is treated this way. Every other routine, including the
+   recovery picker, still needs the exact step, so nothing outside EQ changes. */
+function practiceStepCovered(index,done){
+    if(done.includes(index))return true;
+    const P=window.BP.PRACTICE_EXERCISES, release=[P.reverseRelease,P.floorRelease];
+    return session.routineType==='eq'&&release.includes(index)&&done.some(i=>release.includes(i));
+}
 function startRemainingPelvicPractice(){
     const plan=session.pelvicPracticePlan;
     if(!plan||!plan.steps.length)return false;
-    const next=plan.steps.findIndex(x=>!(session.practiceCompletedIndices||[]).includes(x.index));
+    const next=plan.steps.findIndex(x=>!practiceStepCovered(x.index,session.practiceCompletedIndices||[]));
     if(next<0){session.dailyPelvicDone=true;return false;}
     session.pelvicPracticeIndex=next;session.dailyPelvicPhase=true;
     session.setIndex=1;session.directionalIndex=0;updateExUI();return true;
@@ -7240,6 +7251,15 @@ function advanceEx(){
         completeRoutineWithPelvicCare();return;
     }
     if(session.routineType==='recovery'&&!session.practiceCompletedIndices.includes(session.exerciseIndex))session.practiceCompletedIndices.push(session.exerciseIndex);
+    /* An EQ session's own exercises are practice too, recorded as each one
+       finishes so a session that is left and resumed keeps them. exerciseIndex
+       points into the EQ step list, so the practice index comes from there;
+       Cat-Cow is not a daily-practice exercise and is not recorded as one. The
+       record says what was actually done, not what the plan listed. */
+    if(session.routineType==='eq'){
+        const practiceIdx=(session.eqStepIndices||[])[session.exerciseIndex];
+        if(Object.values(window.BP.PRACTICE_EXERCISES).includes(practiceIdx)&&!session.practiceCompletedIndices.includes(practiceIdx))session.practiceCompletedIndices.push(practiceIdx);
+    }
     if(session.routineType==='girth'){
         // Move to next exercise within the current round
         if(session.exerciseIndex<executableStepCount()-1){
