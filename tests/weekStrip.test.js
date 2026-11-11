@@ -5,6 +5,7 @@ import {
     WEEK_STRIP_STATE, WEEK_STRIP_REFUSAL, WEEK_STRIP_DAYS,
 } from '../src/weekStrip.js';
 import { dateKeyForWeekday, localDateKeyForWeekday } from '../src/weekUtils.js';
+import { toLegacySlot } from '../src/scheduleSlot.js';
 
 /**
  * The strip answers where the member is in the week, and nothing else.
@@ -303,7 +304,10 @@ describe('10. past unsatisfied training is PENDING with isPast', () => {
         expect(d.Tue.isFuture).toBe(false);
         expect(d.Tue.isToday).toBe(false);
         expect(Object.values(WEEK_STRIP_STATE)).not.toContain('missed');
-        expect(Object.values(WEEK_STRIP_STATE)).toHaveLength(4);
+        /* Five now: SUPPORT joined in #186 phase 2. Still no MISSED, which is
+           what this assertion is actually guarding. The count is kept so a
+           sixth state has to be argued for rather than slipped in. */
+        expect(Object.values(WEEK_STRIP_STATE)).toHaveLength(5);
     });
 });
 
@@ -380,20 +384,82 @@ describe('14. an unreadable plan becomes unknown', () => {
     });
 });
 
-describe('15. a support-only plan becomes unknown in this phase', () => {
-    test('no primary session means the legacy vocabulary has no word for it', () => {
-        /* toLegacySchedule already refuses such a day. The strip reads it as
-           unknown rather than inventing a fifth state or mapping it to rest,
-           because rest is what suppresses the member's reminder. */
+describe('15. a support-only plan is its own state, not unknown', () => {
+    /* THE BEHAVIOUR THIS FILE USED TO PIN, AND WHY IT CHANGED.
+       It asserted that a support-only day read as UNKNOWN, on the grounds
+       that the legacy vocabulary had no word for it. That was true of the
+       PROJECTION and never true of the day: the programme described it
+       perfectly well, and UNKNOWN means "no prescription this build can
+       attribute to that date", which the member sees as the app not knowing
+       what today is.
+
+       The projection still refuses it, deliberately, and test 15c below
+       pins that. The two answers are now allowed to differ, which is the
+       whole point of #186 phase 2. */
+    const supportDay = () => byDay(model({
+        dayPlans: [plan(3, {
+            primarySession: null,
+            supportingWork: [{ type: 'pelvicFloor', category: 'strength' }],
+        })],
+    }));
+
+    test('the prescription is known, and it is neither rest nor training', () => {
+        const d = supportDay();
+        expect(d.Thu.prescriptionKnown).toBe(true);
+        expect(d.Thu.prescriptionType).toBe('support');
+        expect(d.Thu.isRest).toBe(false);              // never mapped to rest
+        expect(d.Thu.isSupport).toBe(true);
+        expect(d.Thu.state).toBe(WEEK_STRIP_STATE.SUPPORT);
+    });
+
+    test('AND IT IS NEVER SATISFIED BY THE MECHANICAL COUNT', () => {
+        /* The trap. `satisfied` is computed from scheduled mechanical work,
+           so an all-true array must not make a support day read as
+           mechanically complete, and an all-false one must not leave it
+           sitting in PENDING looking like training he failed to do. */
+        for (const flags of [Array(7).fill(true), Array(7).fill(false)]) {
+            const d = byDay(model({
+                dayPlans: [plan(3, {
+                    primarySession: null,
+                    supportingWork: [{ type: 'pelvicFloor', category: 'strength' }],
+                })],
+                satisfied: flags,
+            }));
+            expect(d.Thu.satisfied, `satisfied[]=${flags[0]}`).toBe(false);
+            expect(d.Thu.state).toBe(WEEK_STRIP_STATE.SUPPORT);
+        }
+    });
+
+    test('a MIXED day reads as its mechanical type, with no new state', () => {
+        /* All of It schedules primary plus support on the same date. The
+           strip cell is a few millimetres wide and says what the day's
+           session is; the supporting work is detail. No 'mixed' state. */
         const d = byDay(model({
             dayPlans: [plan(3, {
-                primarySession: null,
+                primarySession: { type: 'length', tier: 'intermediate' },
                 supportingWork: [{ type: 'pelvicFloor', category: 'strength' }],
             })],
+            satisfied: Array(7).fill(true),
         }));
-        expect(d.Thu.prescriptionKnown).toBe(false);
-        expect(d.Thu.isRest).toBe(false);              // not mapped to rest
-        expect(d.Thu.state).toBe(WEEK_STRIP_STATE.UNKNOWN);
+        expect(d.Thu.prescriptionType).toBe('length');
+        expect(d.Thu.isSupport).toBe(false);
+        expect(d.Thu.state).toBe(WEEK_STRIP_STATE.SATISFIED);
+    });
+
+    test('15c. the LEGACY PROJECTION still refuses a support-only day', () => {
+        /* Unchanged on purpose, and this is the gate. An older cached client
+           runs normaliseSchedule() on every load, which replaces any slot
+           outside DAY_TYPES with the default for that index, so writing
+           'support' into the persisted column would not merely fail to
+           render there: it would be rewritten to a MECHANICAL type and
+           saved. Widening the projection is gated on old clients. */
+        const r = toLegacySlot({
+            date: '2026-03-19', mode: 'prescribed', primarySession: null,
+            supportingWork: [{ type: 'pelvicFloor', category: 'strength' }],
+            dailyPractice: [], status: 'pending',
+        });
+        expect(r.ok).toBe(false);
+        expect(r.reason).toBe('support_only_not_representable');
     });
 });
 
@@ -463,9 +529,9 @@ describe('the record shape is stable', () => {
         const r = model({ dayPlans: [plan(3)] });
         r.days.forEach(d => {
             expect(Object.keys(d).sort()).toEqual([
-                'date', 'isFuture', 'isPast', 'isRest', 'isToday', 'performedType',
-                'prescriptionKnown', 'prescriptionType', 'satisfied', 'state',
-                'substituted', 'weekday', 'weekdayIndex',
+                'date', 'isFuture', 'isPast', 'isRest', 'isSupport', 'isToday',
+                'performedType', 'prescriptionKnown', 'prescriptionType',
+                'satisfied', 'state', 'substituted', 'weekday', 'weekdayIndex',
             ]);
         });
     });

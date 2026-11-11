@@ -947,7 +947,7 @@
         <!-- Breathing circle pacer — focal visual -->
         <div class="relative flex items-center justify-center mb-5" style="width:200px;height:200px;">
             <!-- Outer expanding circle (breath) -->
-            <div id="breath-circle" style="position:absolute;width:120px;height:120px;border-radius:50%;
+            <div id="breath-circle" data-breath="circle" style="position:absolute;width:120px;height:120px;border-radius:50%;
                 background:radial-gradient(circle,rgba(16,185,129,.18) 0%,rgba(16,185,129,.04) 70%);
                 border:2px solid rgba(16,185,129,.35);
                 box-shadow:0 0 30px rgba(16,185,129,.12);
@@ -972,17 +972,17 @@
 
         <!-- Box breathing phase -->
         <div class="text-center mb-4">
-            <p id="box-phase-label" class="text-3xl font-black uppercase italic text-emerald-400 leading-none mb-1">INHALE</p>
-            <p id="box-phase-sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest">let the floor open and drop</p>
-            <div id="box-phase-count" class="text-5xl font-black text-emerald-300 tabular-nums mt-2">4</div>
+            <p id="box-phase-label" data-breath="label" class="text-3xl font-black uppercase italic text-emerald-400 leading-none mb-1">INHALE</p>
+            <p id="box-phase-sub" data-breath="sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest">let the floor open and drop</p>
+            <div id="box-phase-count" data-breath="count" class="text-5xl font-black text-emerald-300 tabular-nums mt-2">4</div>
         </div>
 
         <!-- Box phase pips -->
-        <div class="flex gap-2.5 mb-5">
-            <div id="box-pip-0" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
-            <div id="box-pip-1" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
-            <div id="box-pip-2" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
-            <div id="box-pip-3" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+        <div data-breath="pips" class="flex gap-2.5 mb-5">
+            <div id="box-pip-0" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div id="box-pip-1" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div id="box-pip-2" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div id="box-pip-3" data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
         </div>
 
         <!-- Protocol reminder -->
@@ -1480,6 +1480,14 @@
                     </div>
                 </div>
             </div>
+            <div id="hq-sync-notice-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3" role="status">
+                <i class="fas fa-rotate text-amber-400 text-lg flex-shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Updated from another device</p>
+                    <p id="hq-sync-notice-text" class="text-[10px] text-slate-400 mt-0.5"></p>
+                </div>
+                <button id="hq-sync-notice-dismiss" class="text-[10px] font-black u-text-2 uppercase tracking-widest px-2 py-1.5" onclick="dismissSyncNotice()">OK</button>
+            </div>
             <div id="hq-pass-used-banner" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-3">
                 <i class="fas fa-shield-halved text-amber-400 text-lg flex-shrink-0"></i>
                 <div class="flex-1 min-w-0">
@@ -1863,6 +1871,31 @@
     </div>
 
     <!-- One guide cue, visible before starting and while running. -->
+    <!-- Breath guide for the exercise screen. The SAME driver renders this and
+         the rest overlay's copy, by class rather than by id, so there is one
+         animation and one piece of state. The rest overlay's own block stays
+         exactly as it was, because it also carries the rest countdown and the
+         re-lube instruction, which do not belong here. -->
+    <div id="ex-breath-guide" class="hidden flex-col items-center my-3">
+        <div class="relative flex items-center justify-center" style="width:150px;height:150px;">
+            <div data-breath="circle" style="position:absolute;width:88px;height:88px;border-radius:50%;
+                background:radial-gradient(circle,rgba(16,185,129,.18) 0%,rgba(16,185,129,.04) 70%);
+                border:2px solid rgba(16,185,129,.35);box-shadow:0 0 30px rgba(16,185,129,.12);
+                transition:transform 4s ease-in-out;transform:scale(1);"></div>
+            <div data-breath="count" class="absolute text-4xl font-black text-emerald-300 tabular-nums">4</div>
+        </div>
+        <p data-breath="label" class="text-2xl font-black uppercase italic text-emerald-400 leading-none mt-2">INHALE</p>
+        <p data-breath="sub" class="text-emerald-600/70 text-[9px] font-black uppercase tracking-widest mt-0.5">through the nose</p>
+        <div data-breath="pips" class="flex gap-2.5 mt-3">
+            <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+            <div data-breath="pip" class="w-2 h-2 rounded-full bg-emerald-900 transition-all duration-300"></div>
+        </div>
+        <div class="flex gap-2 mt-3" role="group" aria-label="Breathing options">
+            <button type="button" data-eq-opt="pause" aria-pressed="false" onclick="toggleEqBreathPref('pause')" class="text-[10px] font-black uppercase tracking-widest rounded-full" style="min-height:44px;padding:0 14px;border:1px solid;">1s pause</button>
+            <button type="button" data-eq-opt="longExhale" aria-pressed="false" onclick="toggleEqBreathPref('longExhale')" class="text-[10px] font-black uppercase tracking-widest rounded-full" style="min-height:44px;padding:0 14px;border:1px solid;">8s exhale</button>
+        </div>
+    </div>
     <div id="ex-active-cue" class="hidden mx-2 my-3 px-4 py-3 rounded-2xl bg-blue-500/[0.08] border border-blue-500/15 text-center" style="position:relative;z-index:var(--z-raised);">
         <p id="ex-cue-text" class="text-sm font-bold text-blue-200 italic leading-relaxed" role="status" aria-live="polite" aria-atomic="true"></p>
     </div>
@@ -2860,7 +2893,9 @@ function dayTypeIcon(t){ return (DAY_TYPES[t]&&DAY_TYPES[t].icon)||UNKNOWN_DAY_I
    reached the calendar's substitution tooltip. */
 function dayTypeLabel(t){
     if(DAY_TYPES[t]) return DAY_TYPES[t].label;
-    return t==='recovery'?'Recovery':'Unset';
+    if(t==='recovery') return 'Recovery';
+    if(t==='eq') return 'EQ session';
+    return 'Unset';
 }
 
 // ── Primary goal ───────────────────────────────────────────────────────────
@@ -2875,6 +2910,25 @@ const GOALS={
               mission:'stamina', coach:'Their focus is lasting longer. Lead with ejaculatory control, pelvic floor state (assess hypertonic vs weak before recommending anything), arousal management and stamina work. Do not push size training unless they ask.'},
     eq:      {label:'Erection quality',blurb:'Firmness and blood flow',      icon:'fa-heart-pulse', color:'emerald',
               schedule:['stamina','rest','length','rest','stamina','rest','rest'],
+              /* Above is the DISABLED-STATE answer, left exactly as it shipped:
+                 index 2 is 'length', the substitution the EQ week replaces. It
+                 stays so that with EQ_SESSIONS_ENABLED false the preset offered
+                 is byte-for-byte today's. Kept directly under the key because
+                 tests/goalBridge.test.js parses this schedule out of the source
+                 with a 400-character window, to hold the website copy to the
+                 shipped week. */
+              /* The EQ week, offered only through goalSchedule() and only when
+                 the flag is on. Three session days with a day between each, two
+                 supporting-practice days, two genuine rest days. Every slot is
+                 'stamina' or 'rest': both are legacy vocabulary, so an older
+                 cached client reads this column without normaliseSchedule()
+                 rewriting it to a Size default. */
+              eqSchedule:['stamina','rest','rest','stamina','rest','stamina','rest'],
+              /* Weekday indices that require nothing at all. Expressed as goal
+                 metadata rather than a slot value because 'full-rest' outside
+                 DAY_TYPES would be silently rewritten to a MECHANICAL type and
+                 saved by an older client -- see src/scheduleSlot.js:105. */
+              fullRestDays:[2,6],
               mission:'stamina', coach:'Their focus is erection quality. Lead with vascular health, nitric oxide and endothelial function, sleep, and pelvic floor blood flow. Do not push size training unless they ask.'},
     all:     {label:'All of it',       blurb:'The complete protocol',        icon:'fa-layer-group', color:'amber',
               schedule:['length','girth','rest','stamina','length','rest','rest'],
@@ -3270,21 +3324,24 @@ const COACH_TIPS = [
 const DAILY_PELVIC_RESET={
     title:'Diaphragmatic breathing', sets:1, duration:120, isRecovery:true,
     eq:'No EQ needed',
-    detail:'Sit or lie comfortably. Breathe gently into your lower ribs and belly. Let the pelvic floor soften with each inhale. Exhale without squeezing. No pushing, straining or breath-holding. Stop if this causes pain.',
-    feel:'Gentle breathing and gradual relaxation. Nothing needs to be forced.',
+    detail:'Find an easy rhythm: in for four, out for six. Breathe into your lower ribs and belly, and let any tension underneath your pelvis ease without pushing or straining.',
+    feel:'A longer breath out than in, and a gradual settling. Nothing needs to be forced.',
     dontFeel:'Pain, pressure, pushing down or a forced contraction.',
     howto:[
-        'Lie on your back with knees bent and feet on the floor, or sit with your back supported. Let your jaw, shoulders and buttocks relax.',
-        'Put one hand on your lower belly and one on your chest. Breathe in gently through your nose; let the lower hand rise and your lower ribs widen. Do not force a big breath.',
-        'As you breathe in, soften the muscles underneath your pelvis. Think of letting go to start peeing, or allowing gas to pass easily. Do not push anything out or brace your stomach.',
-        'Breathe out comfortably. Let your ribs, belly and pelvic floor return naturally without adding a kegel squeeze. Repeat at your own comfortable pace; no breath holding.',
-        'The movement may be subtle. Stop if you feel pain, pelvic pressure or dizziness; return to normal breathing. Persistent pelvic symptoms deserve a clinician assessment.',
+        'Get comfortable. Sitting with your back supported is fine. If you want the easiest version, lie on your back and rest your lower legs on a chair or sofa so your hips and knees sit at about right angles — the 90/90 position. It is optional; it just takes the work out of holding yourself up.',
+        'Put one hand on your lower belly and one on your chest. Let your jaw, shoulders and buttocks go soft.',
+        'Breathe in through your nose for about four seconds. The lower hand rises and your lower ribs widen; the chest hand barely moves. Do not reach for a big breath.',
+        'Breathe out for about six seconds, slower than you breathed in. Let the air leave rather than pushing it out, and let your shoulders drop as it goes.',
+        'If the exhale is hard to pace, breathe out through a straw, or through pursed lips if you do not have one. Both just slow the breath down so it is easier to feel.',
+        'As you breathe out, let any tension underneath your pelvis ease. Do not push down or strain; just stop holding.',
+        'Keep going at that pace. If four and six ever leave you short of air, breathe normally for a moment and start again shorter. Stop for pain, pelvic pressure or dizziness; persistent pelvic symptoms deserve a clinician assessment.',
     ],
-    cues:[{time:120,text:'Get comfortable. Unclench your jaw and let your shoulders soften.'},
-        {time:90,text:'Breathe gently into your belly and lower ribs. No breath-holding.'},
-        {time:60,text:'Let go as if allowing pee or gas to pass easily. Do not push anything out.'},
-        {time:30,text:'Exhale comfortably. Let the next breath arrive without forcing it.'},
-        {time:5,text:'One more easy breath. Carry that relaxed feeling with you.'}],
+    cues:[{time:120,text:'Settle in. Jaw loose, shoulders down. Lower hand on the belly.'},
+        {time:96,text:'In for four through the nose — lower ribs widen, chest stays quiet.'},
+        {time:72,text:'Out for six, slower than you came in. Let it leave on its own.'},
+        {time:48,text:'Straw or pursed lips if the exhale is hard to pace. Both work.'},
+        {time:24,text:'Short of air? Breathe normally, then start again shorter. No forcing.'},
+        {time:5,text:'One more easy breath. Keep that rhythm for the next step.'}],
 };
 const ROUTINES={
     length:[
@@ -3343,12 +3400,12 @@ const ROUTINES={
             ],
             sets:1, duration:45,
             eq:'7-8 EQ (80%)',
-            feel:'High internal pressure — like an overfilled balloon. The outer casing stretching from the inside out. Visible vascularity.',
-            dontFeel:'Sharp pain, glans engorgement, tingling, or numbness. Those are overload signals — release immediately.',
+            feel:'High internal pressure — like a firmly inflated balloon. Firm, full, with visible vascularity.',
+            dontFeel:'Sharp pain, numbness, tingling, or a glans that feels tight or keeps swelling. Those are overload signals — release immediately.',
             cues:[
                 {time:45, text:'80% EQ. OK grip at the very base — seal it tight. Blood cannot escape.'},
-                {time:30, text:'Free hand milks blood upward. You are overfilling the container — max internal pressure.'},
-                {time:15, text:'Hold the seal. Feel the internal walls expanding. This is the adaptation signal.'},
+                {time:30, text:'Free hand milks blood upward. Firm and steady — you want a pressure you could hold for the whole set, not the most you can make.'},
+                {time:15, text:'Hold the seal. The shaft should feel firm and full. That is the position doing its job.'},
                 {time:3,  text:'Release slowly over 2 seconds. Let blood redistribute before the next round.'}
             ]
         }
@@ -3402,22 +3459,22 @@ const ROUTINES={
             ]
         },
         {
-            title:'Pelvic Floor Release', detail:'Let tension ease underneath your pelvis using comfortable breathing. This is a gentle relaxation exercise.', sets:3, duration:45, isRecovery:true,
+            title:'Pelvic Floor Release', detail:'Find the tension you are holding underneath your pelvis, and let it go. Keep the rhythm you just found; this step is about noticing, not breathing.', sets:3, duration:45, isRecovery:true,
             howto:[
-                'Sit supported or lie on your back with knees bent. Use a pillow under your head if it helps you settle.',
-                'Relax your jaw, shoulders, belly and buttocks. Notice any tightness around the openings where pee and gas leave your body.',
-                'Breathe in gently into your lower ribs and belly. Imagine a clenched fist slowly opening underneath your pelvis.',
-                'Breathe out comfortably and let the muscles return naturally. Keep breathing; do not squeeze or push downward.',
-                'You do not need to feel warmth, heaviness or a large movement. A small easing of tension is enough. Stop if this causes pain, pressure or worsening symptoms.',
+                'Stay where you are and keep the breathing rhythm going. You do not need to think about it any more; this step is about what you find underneath.',
+                'Turn your attention to the muscles around the openings where pee and gas leave your body. Most men are gripping there without knowing it. Just notice whether you are.',
+                'Now let go, the way you let go to start peeing or to let gas pass easily. That is the feeling — a release, not a push. Nothing comes out and nothing is forced.',
+                'It may be very small, and it may take a few tries to find at all. A slight easing is the whole exercise. You do not need warmth, heaviness or any big movement.',
+                'If you cannot find it, that is information rather than failure — it is what the practice is for. Stop for pain, pressure or worsening symptoms.',
             ],
             eq:'Soft — 0 EQ', feel:'A small easing of tension while your belly and breathing remain relaxed. The movement may be subtle.',
             dontFeel:'Pain, pressure, pushing downward, a braced belly or holding your breath. Stop if these occur.',
             cues:[
-                {time:45, text:'Sit or lie supported. Unclench your jaw, belly and buttocks.'},
-                {time:38, text:'Breathe in gently. Imagine a fist slowly opening underneath your pelvis.'},
-                {time:28, text:'Keep the breath comfortable. A small easing of tension is enough.'},
-                {time:15, text:'Let go of tension. No pushing downward or squeezing.'},
-                {time:5, text:'Breathe out comfortably. Let the muscles return naturally.'}
+                {time:45, text:'Keep the rhythm from the last step. Attention underneath now.'},
+                {time:36, text:'Are you gripping down there? Most men are, without noticing.'},
+                {time:26, text:'Let go, like letting pee start or gas pass. A release, never a push.'},
+                {time:14, text:'Small is correct. A slight easing is the whole exercise.'},
+                {time:4,  text:'Let it rest there. Nothing to hold, nothing to squeeze.'}
             ]
         },
         {
@@ -3616,6 +3673,7 @@ const DEFAULT_PERSISTED={
        programmeStartDate records when the programme actually began. */
     programmeStartDate:null,  // null + allTimeSessionCount>0 means established, start unknown
     progressionLedger:[],     // see src/progressionLedger.js for the row shape
+    syncMeta:null,            // bounded memory of trimmed session ids; see src/syncRecovery.js
     /* ── Phase 3S.1 day-plan storage ───────────────────────────────────
        Carried, not yet read. Nothing generates either one and nothing
        branches on either one in this phase; they exist so the columns can
@@ -3655,6 +3713,18 @@ function getCurrentWeekKey(){ return _getISOYear()+'_w'+getISOWeek(); }
  * inside adoption, so by the time anything reads persisted.schedule the
  * repair has already happened and is invisible in the value. */
 let _scheduleRepairedOnAdopt=false;
+
+/* Which load is current.
+ *
+ * loadPersisted() awaits twice, and a reply arriving after the session has
+ * moved on must be able to tell "I am still the load in progress" from
+ * "another load started since". A uid comparison alone cannot: signing out of
+ * A and back into A gives the same uid for a genuinely different load, and the
+ * first load's late reply would pass the check.
+ *
+ * Monotonic, never reset. Each load takes a number and only acts while that
+ * number is still the newest. */
+let _loadToken=0;
 
 /**
  * The one place a restored or imported state becomes `persisted`.
@@ -3729,65 +3799,311 @@ function adoptPersisted(raw){
     /* Assigned, never |=. Each adoption answers for its own state, so an
        account switch cannot inherit the previous member's repair. */
     _scheduleRepairedOnAdopt=normaliseSchedule().changed;
+    /* After normalisation, so the comparison below is against a repaired
+       column rather than a half-readable one. Returns false and touches
+       nothing while EQ_SESSIONS_ENABLED is false. */
+    try{ migrateEqWeek(); }catch(e){}
     return persisted;
+}
+
+/* ── Correcting an existing EQ member's week ───────────────────────────────
+   FOUR GATES, ALL OF WHICH MUST HOLD. mayGenerateOver() alone is not enough:
+   it returns true for a custom programme as long as adoptedAt parses, because
+   it gates on known PROVENANCE rather than on leaving custom work alone. So
+   `custom` is checked separately and explicitly.
+
+   An exact match against the old preset is the fourth gate. A member who has
+   rearranged their week has expressed a preference, and silently restoring a
+   template over it would be the rudest possible correction. Those members are
+   left exactly as they are; the week they chose keeps working, and offering
+   them the update is a conversation rather than a migration.
+
+   WHAT IS PRESERVED, BY CONSTRUCTION. sessionLog, totalXp, measurements,
+   progressionLedger and completedDays are neither read nor written here.
+   completedDays is weekday-indexed and the indices do not move, so a member
+   who completed Tuesday keeps that completion even though Tuesday becomes a
+   rest day. */
+function eqMigrationEligible(){
+    if(!eqEnabled()) return false;                                  // 1. the gate
+    if(getGoalKey()!=='eq') return false;                           // 2. their goal
+    if(!window.BP||typeof window.BP.mayGenerateOver!=='function') return false;
+    if(!window.BP.mayGenerateOver(persisted.programme)) return false;  // 3. authority
+    if(persisted.programme&&persisted.programme.custom===true) return false;
+    const cur=persisted.schedule, old=GOALS.eq.schedule;            // 4. untouched preset
+    if(!Array.isArray(cur)||cur.length!==old.length) return false;
+    return cur.every((t,i)=>t===old[i]);
+}
+
+function migrateEqWeek(){
+    if(!eqMigrationEligible()) return false;
+    const next=goalSchedule('eq');
+    if(!Array.isArray(next)) return false;
+    persisted.schedule=next.slice();
+    /* TODAY'S PRESCRIPTION IS HONOURED. The member may already have launched
+       against it, and a dated plan is the identity a completion attributes to.
+       Only FUTURE plans are dropped, so they regenerate from the new week
+       through the normal authority path rather than being rewritten here. */
+    const today=window.BP.planDateKey?window.BP.planDateKey(new Date()):null;
+    if(today&&Array.isArray(persisted.dayPlans)){
+        persisted.dayPlans=persisted.dayPlans
+            .filter(p=>p&&typeof p.date==='string'&&p.date<=today);
+    }
+    return true;
 }
 
 async function loadPersisted(){
     if(!currentUser)return;
     _persistedLoaded=false;
-    // Read localStorage backup first so we can compare timestamps
-    let localData=null;
-    try{const raw=localStorage.getItem('bp_data_'+currentUser.id);if(raw)localData=JSON.parse(raw);}catch(e){}
+
+    /* EVERYTHING THIS LOAD IS ABOUT, CAPTURED BEFORE THE FIRST AWAIT.
+
+       currentUser is a mutable global and this function awaits twice. The old
+       code read currentUser.id five separate times, once per use: the backup
+       key, the query filter, the dirty probe, the dirty clear and the XP
+       backup key. A sign-out or an account switch between any two of them
+       applied one member's data, or cleared one member's flag, inside another
+       member's session. _commitWrite() has captured its uid for exactly this
+       reason since Phase 2B; this function never adopted the discipline. */
+    const _uid=currentUser.id;
+    const _myToken=++_loadToken;
+    const _backupKey='bp_data_'+_uid;
+    const _dirtyKey='bp_dirty_'+_uid;
+
+    /* `undefined` means the read THREW. Distinct from null, which means the
+       key is genuinely absent, and the difference is load-bearing below. */
+    const _readRaw=()=>{ try{ return localStorage.getItem(_backupKey); }catch(e){ return undefined; } };
+    const _readDirty=()=>{ try{ return localStorage.getItem(_dirtyKey); }catch(e){ return null; } };
+
+    /* Is this still the load that owns the session? Two conditions, because
+       either alone is insufficient: the uid catches a switch to another
+       account, and the token catches A -> B -> A, where the uid matches but a
+       newer load has already started. */
+    const _stillMine=()=>!!currentUser&&currentUser.id===_uid&&_loadToken===_myToken;
+
+    /* The exact backup string, not just _savedAt: two writes inside the same
+       millisecond share a timestamp and the string does not. */
+    let _backupRaw=_readRaw(), localData=null;
+    try{ if(_backupRaw)localData=JSON.parse(_backupRaw); }catch(e){ localData=null; }
+
+    /* The server's check-in history, and the merge that protects it.
+       An older backup must not replace newly available check-ins with an
+       invented empty list. That used to be one statement after the read, which
+       _refreshBackupIfChanged() then undid by re-parsing localData from the raw
+       string. It is a re-appliable function now, applied once after the
+       pre-decision refresh, so a refresh can no longer defeat it. */
+    let _serverCheckins=null;
+    const _mergeServerCheckins=()=>{
+        if(localData&&!Array.isArray(localData.progressCheckins)&&Array.isArray(_serverCheckins))
+            localData={...localData,progressCheckins:_serverCheckins};
+    };
+
+    /* The exact backup every branch below was CHOSEN from.
+       A branch decision is only valid for the snapshot it was made against. If
+       the backup moves again between the decision and the adoption, adopting
+       the new copy would carry out a decision nobody made about it, so _adopt
+       refuses instead. Undefined until a decision point sets it. */
+    let _decisionRaw;
+
+    /* Another tab can replace the backup while we are reading the server, in
+       which case the copy captured above is already stale before it is ever
+       adopted. So re-read and take the newer one. Once, not in a loop.
+
+       Returns false ONLY when the re-read threw. An unverifiable read must not
+       licence adopting the outdated copy we happen to be holding. */
+    const _refreshBackupIfChanged=()=>{
+        const now=_readRaw();
+        if(now===undefined) return false;
+        if(now===_backupRaw) return true;
+        _backupRaw=now;
+        try{ localData=now?JSON.parse(now):null; }catch(e){ localData=null; }
+        /* NO MERGE HERE, deliberately. It looks like the natural home for it,
+           and a mutation removing it from here survives, because with the
+           refresh now running BEFORE the decision the re-parse path is
+           unreachable afterwards: a later change makes _adopt refuse rather
+           than re-parse. The merge is applied once, explicitly, after this
+           function runs, which is the call a mutation does catch. */
+        return true;
+    };
+
+    /* An unreadable read is never equal to anything, including another
+       unreadable read.
+
+       The `now!==undefined` half is load-bearing: a verification read that
+       throws must not clear the flag, and a mutation test proves it.
+
+       The `_backupRaw!==undefined` half is DEFENSIVE AND CURRENTLY
+       UNREACHABLE, which is worth saying so nobody later treats it as
+       load-bearing. If the capture read throws then localData is null, the
+       resync branch requires `&& localData`, and the clear is never reached.
+       It is kept because the two reads are independent and a future caller
+       could reach this with no captured value, not because it prevents a bug
+       that exists today. A mutation removing it survives, correctly. */
+    const _backupUnchanged=()=>{
+        const now=_readRaw();
+        return now!==undefined && _backupRaw!==undefined && now===_backupRaw;
+    };
+
+    /* The ONLY way `persisted` is written in this function. Six call sites
+       used to write it directly and none of them checked whose session they
+       were in. Routing them through one guard is what makes a seventh
+       unguarded site hard to add. */
+    /* A REFUSED RESTORE MUST SAY SO.
+       _adopt() returning false means the backup could not be safely restored:
+       the session moved on, the backup changed past the decision, or it could
+       not be verified. Writes stay blocked either way, because
+       _persistedLoaded is only set by a successful adopt. But silence leaves
+       the member on an app that has loaded nothing and told him nothing, so
+       the existing banner is surfaced. Once, not once per site. */
+    const _refuseLoad=()=>{
+        try{ _showLoadFailedBanner(); }catch(e){}
+    };
+
+    const _adopt=(raw,opts)=>{
+        if(!_stillMine()) return false;
+        let payload=raw;
+        if(opts&&opts.fromBackup){
+            /* RE-DERIVED HERE, not passed in. The first version took the
+               payload from the caller, which had already destructured it from
+               the copy captured before the await. _refreshBackupIfChanged()
+               then updated `localData` and nothing used the result, so a
+               backup replaced by another tab mid-read was still adopted
+               stale. Deriving it after the refresh is the whole point of
+               having a refresh. */
+            if(!_refreshBackupIfChanged()) return false;
+            /* The decision was made from a specific snapshot. If the backup has
+               moved on since, that decision no longer describes what is on
+               disk, so refuse rather than silently adopt something else. The
+               caller returns without enabling writes and the next load decides
+               again from fresh data. */
+            if(_decisionRaw!==undefined&&_backupRaw!==_decisionRaw) return false;
+            if(!localData) return false;
+            const {_savedAt:_,_baseRev:_br,_syncBase:_sb,...rest}=localData;
+            /* Offline, with the revision the backup was based on: keep guarding,
+               so the next write is checked against the server instead of
+               landing blind. */
+            if(typeof _br==='number'&&!_syncState[_uid]) _syncState[_uid]={rev:_br,base:_sb||null};
+            payload=rest;
+        }
+        adoptPersisted(payload);
+        _persistedLoaded=true;
+        return true;
+    };
     try{
         const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
-        const _query=sb.from('user_data').select('*').eq('id',currentUser.id).single();
+        const _query=sb.from('user_data').select('*').eq('id',_uid).single();
         let _queryFailed=false;
         const {data,error}=await Promise.race([_query,_timeout]).catch(e=>{
             // Timeout or network error — fall back to localStorage
             _queryFailed=true;
-            if(localData) try{const {_savedAt:_,...rest}=localData;adoptPersisted(rest);_persistedLoaded=true;}catch(e2){}
+            /* REFRESHED BEFORE THE DECISION, like every other branch. A backup
+               written while the read was in flight is the state to fall back
+               to, and the captured one may be stale by now. */
+            if(_stillMine()&&_refreshBackupIfChanged()){
+                _decisionRaw=_backupRaw;
+                if(localData) try{ if(!_adopt(null,{fromBackup:true})) _refuseLoad(); }catch(e2){ _refuseLoad(); }
+            }else if(_stillMine()){ _refuseLoad(); }
             return {};
         });
+        /* OWNERSHIP AND FRESHNESS BEFORE ANY BRANCH READS localData.
+           This used to sit after the `if(!data)` block, which meant that whole
+           branch decided from the copy captured before the await. A backup that
+           APPEARED during the read was therefore invisible to it, and a
+           returning member with no row could be sent down the brand-new-account
+           path and reset to beginner defaults. */
+        if(!_stillMine()) return;
+        _serverCheckins=data&&Array.isArray(data.progress_checkins)?data.progress_checkins:null;
+        if(!_refreshBackupIfChanged()){
+            /* We held a backup and can no longer read it. Adopt nothing and
+               stay unloaded, so no save can overwrite either copy. */
+            _refuseLoad();
+            return;
+        }
+        _mergeServerCheckins();
+        _decisionRaw=_backupRaw;
+        /* A row that carries `rev` belongs to a table with the revision guard.
+           Writes from here on say which revision they read. A row without it
+           is a legacy table and behaves exactly as before. */
+        const _protectedLoad=!!(data&&typeof data.rev==='number');
+        if(_protectedLoad) _syncState[_uid]={rev:data.rev,base:_baseFromRow(data)};
+        else if(data) delete _syncState[_uid];
         if(!data){
             if(localData){
-                try{const {_savedAt:_,...rest}=localData;adoptPersisted(rest);_persistedLoaded=true;}catch(e){}
+                try{ if(!_adopt(null,{fromBackup:true})) _refuseLoad(); }catch(e){ _refuseLoad(); }
             }
             // Brand-new account starts at Beginner, matching what the intro promises.
             // Only when the query genuinely SUCCEEDED and found no row (PGRST116) and
             // there is no local backup — a timeout or error must never downgrade a
             // returning member who simply could not be read this time.
             else if(!_queryFailed && (!error || error.code==='PGRST116')){
-                adoptPersisted({difficulty:'beginner',progressCheckins:[]});
-                _persistedLoaded=true;
+                _adopt({difficulty:'beginner',progressCheckins:[]});
             }
             // Otherwise the read failed and we have no backup: stay unloaded so
             // nothing overwrites the row we could not see.
-            else { _showLoadFailedBanner(); }
+            else { _refuseLoad(); }
             return;
         }
-        _persistedLoaded=true;
-        // An older backup cannot replace newly available check-in history with
-        // an invented empty list. Merge this one previously unread field.
-        if(localData&&!Array.isArray(localData.progressCheckins)&&Array.isArray(data.progress_checkins))
-            localData={...localData,progressCheckins:data.progress_checkins};
+        /* NO UNCONDITIONAL `_persistedLoaded=true` HERE.
+           It used to be set at this point, so a resync whose adoption then
+           refused left the flag true with nothing adopted. savePersisted()
+           gates on exactly this flag, so the app was free to write defaults,
+           or the previous account's state, over the member's row. _adopt()
+           sets it, and only on success. */
         // If the local backup is newer than Supabase, or if a previous write
         // was locally committed but never confirmed by Supabase (dirty flag),
         // treat local as the source of truth and re-sync.
         const dbTime=new Date(data.updated_at||0).getTime();
         const localTime=localData?new Date(localData._savedAt||0).getTime():0;
-        const hasDirty=!!localStorage.getItem('bp_dirty_'+currentUser.id);
-        if((localTime>dbTime || (hasDirty && localData && localTime>=dbTime)) && localData){
-            const {_savedAt:_,...rest}=localData;
-            adoptPersisted(rest);
+        const hasDirty=!!_readDirty();
+        /* On a guarded table the clock does not decide. A backup is adopted
+           wholesale only if the server has not moved since it was taken;
+           otherwise it is recovered from (below), never promoted over the row. */
+        const _localIsCurrent=!_protectedLoad||(localData&&localData._baseRev===data.rev);
+        if((localTime>dbTime || (hasDirty && localData && localTime>=dbTime)) && localData && _localIsCurrent){
+            if(!_adopt(null,{fromBackup:true})){ _refuseLoad(); return; }
             // Re-sync Supabase with the newer local data
             try{
-                _persistedLoaded=true; // local backup is a known-good state
-                const _err=await _upsertWithSchemaFallback();
-                if(!_err) localStorage.removeItem('bp_dirty_'+currentUser.id);
+                /* CAPTURED, NOT LIVE. Calling _upsertWithSchemaFallback() with
+                   no argument makes it build the payload from the globals AT
+                   CALL TIME, which here is after an await. Built synchronously
+                   from the backup just adopted and passed in. Every other
+                   write path in this file already captures its payload; this
+                   was the one that did not. */
+                const _payload={id:_uid,..._buildSavePayload()};
+                const _err=_protectedLoad
+                    ? ((await _commitWrite(_uid,_payload))==='ok'?null:'deferred')
+                    : await _upsertWithSchemaFallback(_payload);
+                /* Three conditions, all required to clear the flag:
+                     1. the write was acknowledged. _err covers _WRITE_TIMEOUT,
+                        which is truthy, so an uncertain outcome keeps it.
+                     2. this is still our session.
+                     3. the backup we just wrote is still the newest one, and
+                        verifiably so. */
+                if(!_err&&_stillMine()&&_backupUnchanged()){
+                    try{ localStorage.removeItem(_dirtyKey); }catch(e2){}
+                }
             }catch(e){}
         } else {
-            adoptPersisted(_internalFromRow(data));
+            /* Unsynced activity from a tab that is out of date, or a session the
+               journal still holds. PLANNED here (pure, no adoption) and adopted
+               through the same single guarded call as every other path, so the
+               ownership and freshness checks cannot be bypassed. */
+            let _plan=null;
+            if(_protectedLoad&&_stillMine()&&((hasDirty&&localData)||_journalRead(_uid).length)){
+                try{ _plan=_planLoadRecovery(_uid,data,(hasDirty&&localData)?localData:null); }
+                catch(e){ console.warn('load recovery deferred:',e); _plan=null; }
+            }
+            const _adopted=_adopt(_plan&&!_plan.nothing?_plan.res.state:_internalFromRow(data));
+            if(_plan&&_adopted){
+                try{ await _finishLoadRecovery(_uid,data,_plan); }
+                catch(e){ console.warn('load recovery deferred:',e); }
+            }
         }
+        /* OWNERSHIP GATE for the two blocks below. Both mutate `persisted`
+           and then call savePersisted(), and both run after two awaits. A
+           ONE-TIME XP migration applied to the wrong account cannot be undone,
+           and a weekly reset would clear another member's completedDays.
+           Nothing between them awaits, so one gate covers both. */
+        if(!_stillMine()) return;
         // One-time XP migration: old per-tick system (5 XP/sec) produced inflated values.
         // Use allTimeSessionCount (never truncated) rather than sessionLog.length (capped at 50)
         // so long-time users are never wrongly flagged. Only runs once per account.
@@ -3795,7 +4111,7 @@ async function loadPersisted(){
             const refCount=persisted.allTimeSessionCount || (persisted.sessionLog||[]).length;
             if(refCount>0 && persisted.totalXp > refCount*50){
                 // Back up before modifying, so data can always be recovered
-                try{localStorage.setItem('bp_xp_backup_'+currentUser.id,JSON.stringify({totalXp:persisted.totalXp,refCount,_at:new Date().toISOString()}));}catch(e){}
+                try{localStorage.setItem('bp_xp_backup_'+_uid,JSON.stringify({totalXp:persisted.totalXp,refCount,_at:new Date().toISOString()}));}catch(e){}
                 persisted.totalXp=refCount*15;
             }
             persisted.xpMigrated=true;
@@ -3811,8 +4127,8 @@ async function loadPersisted(){
     }catch(e){
         console.error('loadPersisted:',e);
         if(localData){
-            try{const {_savedAt:_,...rest}=localData;adoptPersisted(rest);_persistedLoaded=true;}catch(e2){}
-        } else { _showLoadFailedBanner(); }
+            try{ if(!_adopt(null,{fromBackup:true})) _refuseLoad(); }catch(e2){ _refuseLoad(); }
+        } else { _refuseLoad(); }
     }
 }
 
@@ -3870,6 +4186,7 @@ function _internalFromRow(data){
            nothing in it gives, and both are correct. */
         programme:           data.programme            || null,
         dayPlans:            data.day_plans            || [],
+        syncMeta:            data.sync_meta            || null,
     };
 }
 function _buildSavePayload(){
@@ -3905,6 +4222,11 @@ function _buildSavePayload(){
            that has not had the migration run. */
         programme:             persisted.programme||null,
         day_plans:             Array.isArray(persisted.dayPlans)?persisted.dayPlans:[],
+        /* Underscore: NEVER sent as-is. A table that has not had the revision
+           migration has no sync_meta column, and an unknown column would fail
+           the whole write. _upsertWithSchemaFallback() drops it; the guarded
+           writer renames it to sync_meta. */
+        _sync_meta:            persisted.syncMeta||null,
         updated_at:            new Date().toISOString(),
     };
 }
@@ -3977,7 +4299,8 @@ function _upsertPayload(){
    re-strips it, because a fallback tier may have been discovered in between,
    but the DATA is the captured snapshot and never the live globals. */
 async function _upsertWithSchemaFallback(raw){
-    const base=raw||{id:currentUser.id,..._buildSavePayload()};
+    const base={...(raw||{id:currentUser.id,..._buildSavePayload()})};
+    delete base._sync_meta;
     const once=async()=>{
         const r=await _withDeadline(
             sb.from('user_data').upsert(_stripForSchema(base),{onConflict:'id'}),WRITE_DEADLINE_MS);
@@ -4005,7 +4328,7 @@ async function _upsertWithSchemaFallback(raw){
    by the caller before the write is scheduled, so a result landing after a
    logout or an account switch is applied to the account it belonged to and to
    no other. Returns 'ok' | 'error' | 'unknown'. */
-async function _commitWrite(uid,payload){
+async function _commitLegacy(uid,payload,seq){
     if(!uid||!payload) return 'error';
     let outcome='ok';
     try{
@@ -4017,6 +4340,7 @@ async function _commitWrite(uid,payload){
         /* Keyed on the CAPTURED uid. Clearing by currentUser.id would let a
            stale callback mark a different member's row clean. */
         try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){}
+        if(seq===_changeSeq) _unsaved=false;
     }else{
         /* Deferred, not lost: the backup and the dirty flag both stand, and
            the next load reconciles by resending. A whole-row upsert is
@@ -4027,6 +4351,244 @@ async function _commitWrite(uid,payload){
     return outcome;
 }
 let _lastWriteOutcome=null;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REVISION-GUARDED WRITES, THE JOURNAL, AND RECOVERY
+   ═══════════════════════════════════════════════════════════════════════════
+   The server row carries a revision. A write says which revision it read, and
+   the server refuses it if the row has moved on (supabase/revision-guard.sql).
+   An out-of-date tab or device therefore cannot silently overwrite newer
+   progress. Everything here is for the moment that happens: nothing the member
+   did may be lost, and nothing may be awarded twice.
+
+   A table without the migration answers with no `rev`. Such a member is never
+   put on this path: _commitWrite() falls straight through to the old writer. */
+const _syncState={};                 // uid -> {rev, base}; absent = legacy table
+let _writeChain=Promise.resolve();   // one write in flight per tab, in order
+let _changeSeq=0, _unsaved=false;    // is there anything this tab has not yet saved
+let _syncNotice=null;                // {settings:bool, held:n}, shown once, dismissible
+let _pendingMeasurement=null;
+const _journalMem=new Map();         // used only if localStorage cannot hold the journal
+
+function _newId(){
+    try{ if(window.crypto&&crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
+    return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);
+}
+function _protectedFor(uid){ const s=_syncState[uid]; return !!s&&typeof s.rev==='number'; }
+/* What this tab believes the server holds, for the two things recovery must
+   not guess about: the member's own settings edits, and Recovery Passes. */
+function _baseOf(src){
+    return {settings:window.BP.settingsFingerprint(src),
+            passes:{protectedDates:(src.passProtectedDates||[]).slice(),lastPassEarnedDate:src.lastPassEarnedDate||''}};
+}
+function _baseFromRow(row){ try{ return _baseOf(_internalFromRow(row)); }catch(e){ return null; } }
+function _baseFromPayload(p){
+    try{ return _baseOf({primaryGoal:p.primary_goal,schedule:p.schedule,difficulty:p.difficulty,
+        passProtectedDates:p.pass_protected_dates,lastPassEarnedDate:p.last_pass_earned_date}); }catch(e){ return null; }
+}
+
+/* ── The journal: one key per completed session, never rewritten ─────────── */
+const _journalPrefix=uid=>'bp_pending_'+uid+'_';
+function _journalWrite(entry,measurement){
+    if(!currentUser||!entry||!entry.sid) return;
+    const uid=currentUser.id, rec={v:1,entry,measurement:measurement||null};
+    try{ localStorage.setItem(_journalPrefix(uid)+entry.sid,JSON.stringify(rec)); }
+    catch(e){
+        /* Storage full or unavailable. Held in memory for this page's life and
+           reported, rather than pretending it was kept. */
+        _journalMem.set(uid+':'+entry.sid,rec);
+        try{ track('journal_fallback',{memory:true}); }catch(e2){}
+    }
+}
+function _journalRead(uid){
+    const out=[], pre=_journalPrefix(uid);
+    try{
+        for(let i=0;i<localStorage.length;i++){
+            const k=localStorage.key(i);
+            if(!k||!k.startsWith(pre)) continue;
+            try{ const r=JSON.parse(localStorage.getItem(k)); if(r&&r.entry&&r.entry.date&&!r.held) out.push({key:k,entry:r.entry,measurement:r.measurement||null}); }catch(e){}
+        }
+    }catch(e){}
+    for(const [k,r] of _journalMem) if(k.startsWith(uid+':')&&!r.held) out.push({key:k,entry:r.entry,measurement:r.measurement||null});
+    return out;
+}
+function _journalRemove(key){ try{ localStorage.removeItem(key); }catch(e){} _journalMem.delete(key); }
+function _journalHold(item){
+    const rec={v:1,entry:item.entry,measurement:item.measurement,held:true};
+    try{ localStorage.setItem(item.key,JSON.stringify(rec)); }catch(e){}
+    if(_journalMem.has(item.key)) _journalMem.set(item.key,rec);
+}
+/* After a CONFIRMED save: whatever the server now holds, or has trimmed, is
+   done with. A session older than everything trimmed is held, not retried. */
+function _journalSettle(uid,state){
+    try{
+        const keys=new Set((state.sessionLog||[]).map(window.BP.entryKey));
+        const meta=window.BP.normaliseMeta(state.syncMeta), tomb=new Set(meta.trimmed);
+        for(const it of _journalRead(uid)){
+            const k=window.BP.entryKey(it.entry);
+            if(keys.has(k)||tomb.has(k)) _journalRemove(it.key);
+            else if(meta.floor&&it.entry.date<=meta.floor) _journalHold(it);
+        }
+    }catch(e){}
+}
+
+/* ── Writing ─────────────────────────────────────────────────────────────── */
+async function _readServerRow(uid){
+    try{
+        const r=await _withDeadline(sb.from('user_data').select('*').eq('id',uid).single(),WRITE_DEADLINE_MS);
+        if(r===_WRITE_TIMEOUT||!r||r.__lateError||r.error||!r.data) return null;
+        return r.data;
+    }catch(e){ return null; }
+}
+
+/* Serialised: a second save waits for the first, and is sent with the
+   revision the first one produced. Two saves racing from one tab would
+   otherwise refuse each other. */
+function _commitWrite(uid,payload,seq){
+    const run=()=>_commitOnce(uid,payload,seq);
+    const p=_writeChain.then(run,run);
+    _writeChain=p.catch(()=>{});
+    return p;
+}
+async function _commitOnce(uid,payload,seq){
+    if(!uid||!payload) return 'error';
+    if(!_protectedFor(uid)||!window.BP||!window.BP.classifyOutcome) return _commitLegacy(uid,payload,seq);
+    return _commitProtected(uid,payload,seq,0);
+}
+
+async function _commitProtected(uid,payload,seq,depth){
+    const st=_syncState[uid], baseRev=st.rev, writeId=_newId();
+    const body={...payload,sync_meta:payload._sync_meta||null,base_rev:baseRev,last_write_id:writeId};
+    delete body._sync_meta;
+    const attempt=async()=>{
+        try{
+            const r=await _upsertWithSchemaFallback(body);
+            if(r===null) return 'ok';
+            if(r===_WRITE_TIMEOUT) return 'unknown';
+            return window.BP.isRevisionRefusal(r)?'refused':'error';
+        }catch(e){ return 'error'; }
+    };
+    let verdict=await attempt(), newRev=baseRev+1;
+    if(verdict==='unknown'||verdict==='refused'){
+        /* The server's own record decides, never a clock. Our write id on the
+           row means ours is the latest write. A revision that moved without us
+           means ours is stale and can never land. Neither: it may still be in
+           flight, so send the SAME write again; the server accepts it once or
+           refuses it, and either way the next read says which. */
+        for(let tries=0;tries<2;tries++){
+            const row=await _readServerRow(uid);
+            const v=row?window.BP.classifyOutcome({row,ourWriteId:writeId,baseRev}):'unknown';
+            if(v==='confirmed'){ newRev=row.rev; verdict='ok'; break; }
+            if(v==='refused') return _recoverFromRow(uid,row,seq,depth);
+            if(tries===0){
+                const again=await attempt();
+                if(again==='ok'){ verdict='ok'; break; }
+                if(again==='error'){ verdict='error'; break; }
+            }
+        }
+        if(verdict!=='ok'&&verdict!=='error') verdict='unknown';
+    }
+    if(verdict==='ok'){
+        _syncState[uid]={rev:newRev,base:_baseFromPayload(payload)};
+        _journalSettle(uid,{sessionLog:payload.session_log,syncMeta:payload._sync_meta});
+        try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){}
+        if(seq===_changeSeq) _unsaved=false;
+    }else{
+        console.warn('user_data sync deferred:',verdict);
+    }
+    _lastWriteOutcome=verdict;
+    return verdict;
+}
+
+/* ── Recovery ────────────────────────────────────────────────────────────── */
+function _mergeAgainstRow(uid,row,local,base){
+    return window.BP.mergeRecovery(_internalFromRow(row),local,{
+        pending:_journalRead(uid),base,passCap:RECOVERY_PASS_CAP,
+        weekKeyOf:d=>d?window.BP.weekKey(new Date(d)):'',
+        dayOfWeek:d=>new Date(d).getDay(),currentWeekKey:getCurrentWeekKey(),
+        authoritative:onAuthoritativePlans(),trim:trimToByteBudget,
+        logBudget:SESSION_LOG_BUDGET_BYTES,measurementsBudget:MEASUREMENTS_BUDGET_BYTES});
+}
+/* A setting only this tab changed is kept, so it has to be written. */
+function _settingsKept(res){ return !!(res&&res.settings&&res.settings.kept&&res.settings.kept.length); }
+function _rewardsChanged(a,b){
+    return a.streakPasses!==b.streakPasses||a.lastPassEarnedDate!==b.lastPassEarnedDate
+        ||JSON.stringify(a.passProtectedDates||[])!==JSON.stringify(b.passProtectedDates||[])
+        ||JSON.stringify(a.records||{})!==JSON.stringify(b.records||{});
+}
+/* Said once, and only what is true: an edit that the newer settings overrode is
+   NOT saved, and the member is told so. Nothing here says anything was saved. */
+function _noteRecovery(res){
+    const dropped=!!(res.settings&&res.settings.droppedLocalEdit), held=(res.held||[]).length;
+    const check=!dropped&&!!(res.settings&&res.settings.unverifiable);
+    const names=(res.settings&&res.settings.dropped)||[];
+    if(dropped||check||held) _syncNotice={settings:dropped,names,check,held};
+    try{ track('sync_recovery',{replayed:res.replayed.length,held,settings_dropped:dropped,passes_ambiguous:!!res.passesAmbiguous}); }catch(e){}
+    try{ renderAttentionBand(); }catch(e){}
+}
+function _refreshAfterRecovery(){
+    try{ if(!(session&&session.timer)&&typeof renderDashboard==='function') renderDashboard(); }catch(e){}
+    try{ renderAttentionBand(); }catch(e){}
+}
+
+/* A write was refused, or its outcome proved stale. Adopt the server's row,
+   put back only what can be proven to be new, and write that. The member's
+   timer, draft and screen are not touched. */
+async function _recoverFromRow(uid,row,seq,depth){
+    if(!currentUser||currentUser.id!==uid||!window.BP||!window.BP.mergeRecovery){
+        _lastWriteOutcome='error'; return 'error';   // the journal keeps the activity; the next load recovers it
+    }
+    const st=_syncState[uid];
+    const res=_mergeAgainstRow(uid,row,persisted,st&&st.base);
+    /* The ownership check above is what makes this adoption safe: the row and
+       the journal belong to `uid`, and `persisted` is only replaced while that
+       member is still the one signed in. tests/restoreBoundary.test.js pins it. */
+    adoptPersisted(res.state);
+    _syncState[uid]={rev:row.rev,base:_baseFromRow(row)};
+    try{ _writeLocalBackup(); }catch(e){}
+    _noteRecovery(res);
+    const server=_internalFromRow(row);
+    const needsWrite=res.replayed.length>0||_rewardsChanged(res.state,server)||_settingsKept(res);
+    if(!needsWrite){
+        _journalSettle(uid,server);
+        try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){}
+        if(seq===_changeSeq) _unsaved=false;
+        _lastWriteOutcome='ok'; _refreshAfterRecovery(); return 'ok';
+    }
+    if(depth>=3){ _lastWriteOutcome='unknown'; _refreshAfterRecovery(); return 'unknown'; }
+    _refreshAfterRecovery();
+    return _commitProtected(uid,{id:uid,..._buildSavePayload()},_changeSeq,depth+1);
+}
+
+/* On load: a stale dirty backup, or sessions still in the journal, recovered
+   onto the server's row. Split in two so ADOPTION stays in loadPersisted's one
+   guarded call: this plans, _finishLoadRecovery() acts once adoption succeeded. */
+function _planLoadRecovery(uid,row,snapshot){
+    /* No stale snapshot means only the journal has something to say, so the
+       "local" side is the server's own state: nothing differs, nothing is lost. */
+    const local=snapshot?(()=>{ const {_savedAt:_a,_baseRev:_b,_syncBase:_c,...rest}=snapshot; return {...DEFAULT_PERSISTED,...rest}; })()
+                        :{..._internalFromRow(row),sessionLog:[],measurements:[]};
+    const res=_mergeAgainstRow(uid,row,local,snapshot&&snapshot._syncBase||null);
+    const server=_internalFromRow(row);
+    const nothing=!res.replayed.length&&!res.held.length&&!_rewardsChanged(res.state,server)
+        &&!_settingsKept(res)
+        &&!(res.settings&&(res.settings.droppedLocalEdit||res.settings.unverifiable));
+    return {res,server,nothing};
+}
+async function _finishLoadRecovery(uid,row,plan){
+    if(!currentUser||currentUser.id!==uid) return;
+    const {res,server,nothing}=plan;
+    const settle=()=>{ _journalSettle(uid,server); try{ localStorage.removeItem('bp_dirty_'+uid); }catch(e){} };
+    if(nothing){ settle(); return; }
+    _syncState[uid]={rev:row.rev,base:_baseFromRow(row)};
+    _noteRecovery(res);
+    if(res.replayed.length||_rewardsChanged(res.state,server)||_settingsKept(res)){
+        await _commitWrite(uid,{id:uid,..._buildSavePayload()},_changeSeq);
+    }else{
+        settle();
+    }
+}
+
 // The local backup used to be written inside an empty catch, so when the quota
 // filled the backup silently stopped updating AND the dirty flag silently failed
 // to set. The recovery path then compared against stale data with nothing to
@@ -4038,7 +4600,11 @@ function _isQuotaError(e){
 function _writeLocalBackup(){
     if(!currentUser) return false;
     const key='bp_data_'+currentUser.id;
-    const payload=JSON.stringify({...persisted,_savedAt:new Date().toISOString()});
+    const _st=_syncState[currentUser.id];
+    /* Stamped with the server revision this snapshot was based on. A snapshot
+       is only adopted wholesale when the server has not moved since. */
+    const payload=JSON.stringify({...persisted,_savedAt:new Date().toISOString(),
+        ...(_st&&typeof _st.rev==='number'?{_baseRev:_st.rev,_syncBase:_st.base||null}:{})});
     try{
         localStorage.setItem(key,payload);
         localStorage.setItem('bp_dirty_'+currentUser.id,'1'); // cleared only after Supabase confirms
@@ -4203,11 +4769,15 @@ function savePersisted(){
        that was really the old account's. */
     const _uid=currentUser.id;
     const _payload={id:_uid,..._buildSavePayload()};
-    _saveDebounce=setTimeout(()=>{ _commitWrite(_uid,_payload); },800);
+    _unsaved=true; const _seq=++_changeSeq;
+    _saveDebounce=setTimeout(()=>{ _commitWrite(_uid,_payload,_seq); },800);
 }
 function _flushSaveNow(){
     if(!currentUser)return;
     if(!_persistedLoaded){console.warn('_flushSaveNow skipped: user data was never loaded');return;}
+    /* A tab with nothing unsaved writes nothing. Backgrounding an idle tab
+       that is out of date used to upsert its whole snapshot over the row. */
+    if(_protectedFor(currentUser.id)&&!_unsaved) return;
     clearTimeout(_saveDebounce);
     _writeLocalBackup();
     /* Same capture rule as the debounced path. This runs on
@@ -4216,7 +4786,8 @@ function _flushSaveNow(){
        remote write is best effort on top of it. */
     const _uid=currentUser.id;
     const _payload={id:_uid,..._buildSavePayload()};
-    return _commitWrite(_uid,_payload);
+    _unsaved=true; const _seq=++_changeSeq;
+    return _commitWrite(_uid,_payload,_seq);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4608,7 +5179,7 @@ function renderDifficultySelector(){
     if(eliteNote) eliteNote.classList.add('hidden'); // hidden by default — shown on tap of locked elite
     const detail=document.getElementById('diff-detail');
     const recovNote=document.getElementById('diff-recovery-note');
-    const isRecov=session.routineType==='recovery';
+    const isRecov=isRecoveryRoutine();
     document.getElementById('diff-selector').style.opacity=isRecov?'0.3':'1';
     document.getElementById('diff-selector').style.pointerEvents=isRecov?'none':'';
     if(recovNote) recovNote.classList.toggle('hidden',!isRecov);
@@ -4632,7 +5203,7 @@ function renderDifficultySelector(){
             const applied=shapeEx(applyDifficulty(ROUTINES.stamina[0]),shapes);
             detail.innerHTML=`${d.label}: Edging Protocol — ${applied.sets} sets · vascular conditioning`;
         } else {
-            const sampleEx=ROUTINES[session.routineType]?.[0];
+            const sampleEx=currentRoutine()?.[0];
             if(sampleEx){
                 const applied=shapeEx(applyDifficulty(sampleEx),shapes);
                 detail.innerHTML=`${d.label}: ${applied.duration}s per set · ${applied.sets} sets · ${SESSION_XP[d.id]||15} XP`;
@@ -5403,6 +5974,13 @@ function goToStep(step){
            understands from one it does not. The snapshot inside carries its
            own doseVersion, because the two change for different reasons. */
         const draft={v:DRAFT_SCHEMA_VERSION,exerciseIndex:session.exerciseIndex,setIndex:session.setIndex,routineType:session.routineType,directionalIndex:session.directionalIndex,xp:session.xp,
+            /* The EQ step list, by recovery index. Without it a resumed EQ
+               session fell back to ROUTINES.eq and silently changed its
+               mobility exercise: a Sunday Cat-Cow session resumed as Deep
+               Squat. exerciseIndex points into this list, so losing it also
+               means resuming at the wrong step. Indices rather than objects,
+               because the index is the identity and the text is not state. */
+            eqStepIndices:Array.isArray(session.eqStepIndices)?session.eqStepIndices.slice():null,
             /* The circuit position, which the draft never carried. Resuming a
                girth session used to lose which round the member was on AND
                how many there were, because resetSession is the only place
@@ -5501,6 +6079,362 @@ function stopWarmup(){if(session.warmupTimer){session.warmupTimer.cancel();sessi
 // RECOVERY PICKER
 // ═══════════════════════════════════════════════════════════════════════════
 ROUTINES.recovery.push({...DAILY_PELVIC_RESET});
+
+/* APPENDED, never inserted. PRACTICE_EXERCISES in src/pelvicPractice.js maps
+   ids to indices into this array, and normalisePelvicPracticePlan re-checks
+   that mapping on read, so moving an existing index would invalidate every
+   stored plan. Cat-Cow therefore becomes index 9 and nothing shifts.
+
+   WHY CAT-COW, WHEN THERE ARE ALREADY FOUR MOBILITY ITEMS. All four are
+   STATIC HOLDS -- Deep Squat, Happy Baby, Pigeon, Butterfly. This is the only
+   movement, and it is the only one whose rhythm belongs to the breath rather
+   than to a count. That is a different experience, not a fifth stretch. */
+ROUTINES.recovery.push({
+    title:'Cat-Cow', sets:2, duration:45, restDur:15, isRecovery:true,
+    eq:'No EQ needed',
+    detail:'Move slowly between two easy shapes, letting your breath set the pace. Nothing is stretched hard and nothing is held.',
+    howto:[
+        'Start on hands and knees. Hands under your shoulders, knees under your hips, about hip width apart. If your wrists complain, come onto your forearms or make fists; if your knees complain, double a towel or cushion under them.',
+        'Breathe in and let your chest and tailbone lift gently, so your middle sags toward the floor. Look slightly forward rather than craning your neck up.',
+        'Breathe out and round the other way: tuck your tailbone, draw your middle up, let your head drop easily between your arms.',
+        'Keep moving between the two with your breath, one shape per breath, slowly. There is no end position to reach and nothing to push into.',
+        'Stay inside the range that feels easy. Back off the moment anything pinches, and stop for wrist, knee, hip, back or pelvic pain rather than working around it.',
+    ],
+    feel:'Your spine moving freely through an easy range, and your breath leading the movement rather than following it.',
+    dontFeel:'Pinching or sharp pain anywhere in the wrists, knees, hips, lower back or pelvis. Stop and come out rather than adjusting around it.',
+    cues:[
+        {time:45, text:'Hands under shoulders, knees under hips. Forearms or fists if your wrists object; padding if your knees do.'},
+        {time:34, text:'Breathe in — chest and tailbone lift, middle sags. Easy range only.'},
+        {time:22, text:'Breathe out — tailbone tucks, middle rounds up, head drops easily.'},
+        {time:10, text:'One shape per breath. Slow is the point; there is nothing to reach.'},
+        {time:4,  text:'Come back to a neutral back and rest.'}
+    ],
+});
+
+/* ── The EQ session ────────────────────────────────────────────────────────
+   Three steps, every one an existing recovery exercise, assembled here
+   because breathing only becomes recovery[8] on the line above.
+
+   WHY THESE THREE. Pelvic floor work is the one family with direct
+   erectile-function trial evidence, weak and mixed as it is. Breathing and
+   hip mobility are supporting work and are described that way to the member,
+   not as erection levers. The Length, Girth and Stamina routines are all
+   wrong for this goal: the first two train size, and both stamina exercises
+   train ejaculatory control -- Lateral Compression's own copy describes "a
+   steady, controlled drop in erection fullness", which is the opposite of
+   what an EQ member asked for.
+
+   NO CONTRACTIONS. recovery[0] and recovery[3] are deliberately absent.
+   Passing the pelvic screener does not establish that strengthening suits
+   anyone, so contraction work stays where it is: reachable by explicit
+   member choice in the recovery picker, still refused by isExerciseBlocked()
+   where the screener says so. Nothing here is gated, because nothing here
+   is a contraction.
+
+   FIXED DOSES, NO PROGRESSION. Every entry is isRecovery, so getCurEx()
+   leaves the dose alone instead of running applyDifficulty(). An EQ week
+   therefore has no load progression, and the member-facing copy says so
+   rather than implying one. */
+/* ── What members are told ────────────────────────────────────────────────
+   Lead with what each stage is FOR and what a member can track. Never
+   promise an erection outcome, and keep stop signals and real limits clear --
+   but say them once, where they matter, rather than as a running disclaimer. */
+const EQ_COPY={
+    fullRest:'Rest day. Nothing is required today; recovery is part of the plan.',
+    progress:'Track your consistency and erection quality ratings over time to recognize patterns in your personal progress.',
+    /* What each stage is FOR, shown on its own exercise screen. */
+    why:{
+        breathing:'Builds an easy, comfortable breathing rhythm and settles you in before the rest of the session.',
+        release:'Builds awareness of the tension you hold underneath your pelvis, and the skill of letting it go.',
+        mobility:'Supports comfortable movement through your hips and the muscles around your pelvis.',
+    },
+    adjusted:'Your session has been adjusted based on your feedback. Continue with comfortable breathing and mobility, and stop any movement that causes discomfort.',
+};
+
+/* Three stages, and each one owns a job the other two give up:
+   breathing owns the rhythm, release owns letting tension go, mobility owns
+   moving. The overlap this replaces was not wording -- the breathing step was
+   teaching pelvic release and the release step was teaching breathing. */
+/* The one line the EQ session drops, and the detail it shows instead. Kept as
+   constants so the filter cannot drift from the text it is filtering. */
+const STANDALONE_PELVIC_LINE='As you breathe out, let any tension underneath your pelvis ease. Do not push down or strain; just stop holding.';
+const EQ_BREATH_DETAIL='Find an easy rhythm: in for four, out for six. Breathe into your lower ribs and belly and let yourself settle. Nothing is forced and nothing is held.';
+
+/* ── The EQ breathing pattern ──────────────────────────────────────────────
+   Four in, six out, and nothing held. The rest overlay's 4/4/4/4 box is a
+   different pattern for a different moment and is untouched.
+
+   The optional phase is called PAUSE, never HOLD, and its cue says so: a
+   member who reads "hold" holds, and this is not a breath-holding exercise.
+   Both adjustments are opt-in and either can be turned off mid-practice. */
+function eqBreathPrefs(){
+    try{
+        const raw=localStorage.getItem('bp_eq_breath_'+(currentUser?currentUser.id:''));
+        const p=raw?JSON.parse(raw):{};
+        return {pause:p.pause===true,longExhale:p.longExhale===true};
+    }catch(e){ return {pause:false,longExhale:false}; }
+}
+function setEqBreathPref(key,on){
+    if(!currentUser) return;
+    const p={...eqBreathPrefs(),[key]:on===true};
+    try{ localStorage.setItem('bp_eq_breath_'+currentUser.id,JSON.stringify(p)); }catch(e){}
+    /* Takes effect at the next phase boundary rather than mid-breath, so a
+       toggle never cuts a phase short or leaves the driver pointing past the
+       end of a shorter pattern. */
+    if(_boxInterval&&_breathPhases!==BOX_PHASES) _breathSwapPending=true;
+    syncEqBreathControls();
+}
+function toggleEqBreathPref(key){ setEqBreathPref(key,!eqBreathPrefs()[key]); }
+function syncEqBreathControls(){
+    const pr=eqBreathPrefs();
+    document.querySelectorAll('[data-eq-opt]').forEach(b=>{
+        const on=pr[b.dataset.eqOpt]===true;
+        b.setAttribute('aria-pressed',String(on));
+        b.style.background=on?'rgba(16,185,129,.22)':'transparent';
+        b.style.borderColor=on?'rgba(16,185,129,.7)':'rgba(100,116,139,.5)';
+        b.style.color=on?'#6ee7b7':'#94a3b8';
+    });
+}
+function eqBreathPhases(){
+    const pr=eqBreathPrefs();
+    const out=[{label:'INHALE',sub:'through the nose — lower ribs widen',secs:4,circleScale:1.55}];
+    if(pr.pause) out.push({label:'PAUSE',sub:'a beat between — nothing to hold',secs:1,circleScale:1.55});
+    out.push({label:'EXHALE',
+        sub:pr.longExhale?'long and slow — let it leave':'slower than you came in',
+        secs:pr.longExhale?8:6,circleScale:1.0});
+    return out;
+}
+
+const EQ_FIXED_STEPS=[
+    8,  // Diaphragmatic breathing — the rhythm
+    2,  // Pelvic Floor Release    — letting go
+];
+
+/* Mobility rotates across the three session days, so the week is not the same
+   ten minutes three times. Deterministic from the PRESCRIBED date, never from
+   the clock at render time, and captured once when the session begins. */
+const EQ_MOBILITY_BY_WEEKDAY=Object.freeze({
+    0: 9,   // Sunday    — Cat-Cow        (movement)
+    3: 4,   // Wednesday — Deep Squat     (hold)
+    5: 5,   // Friday    — Happy Baby     (hold)
+});
+const EQ_MOBILITY_FALLBACK=4;   // any other day, e.g. a substituted session
+
+function eqMobilityIndex(dateKey){
+    const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey||'');
+    const day=m?new Date(+m[1],+m[2]-1,+m[3]).getDay():new Date().getDay();
+    return Object.prototype.hasOwnProperty.call(EQ_MOBILITY_BY_WEEKDAY,day)
+        ? EQ_MOBILITY_BY_WEEKDAY[day] : EQ_MOBILITY_FALLBACK;
+}
+
+/* The default-day shape. The live session always comes from buildEqRoutine();
+   this exists so currentRoutine() has a fallback and the exercise manual can
+   enumerate the routine. Cat-Cow is covered by the manual either way, because
+   it is a member of ROUTINES.recovery. */
+ROUTINES.eq=[...EQ_FIXED_STEPS,EQ_MOBILITY_FALLBACK].map(i=>ROUTINES.recovery[i]);
+
+/* The step list for one EQ session, captured at launch so it cannot change
+   under a running session.
+
+   REUSING RECOVERY EXERCISES MUST NOT ROUTE AROUND THE RULES THAT GOVERN
+   THEM. The EQ session is pelvic work, so it answers to the same protections
+   the daily practice does. A member who reported pain and has not cleared it
+   keeps the breathing and the hip opener and does NOT get the pelvic item:
+   buildPelvicPracticePlan() pauses pelvic work in that state, and an EQ day
+   must not be the one route that ignores it.
+
+   allowedRecoveryIndices() is applied as well. None of these three is a
+   contraction, so nothing here is blocked today -- but if CONTRACTION_RECOVERY_IDX
+   ever widens, this must not be the place that forgot to ask. */
+function eqStepIndicesFor(dateKey){
+    let idx=[...EQ_FIXED_STEPS,eqMobilityIndex(dateKey)];
+    try{ if(pelvicPracticeNeedsReview()) idx=idx.filter(i=>i!==2); }catch(e){}
+    try{ idx=allowedRecoveryIndices(idx); }catch(e){}
+    /* Breathing is the floor. An empty session would be worse than a short one. */
+    if(!idx.length) idx=[8];
+    return idx;
+}
+
+/* The breathing exercise is shared with the daily practice, where on a
+   foundation day it is the ONLY step -- so it keeps a short line about easing
+   pelvic tension without pushing, which a member doing just that one activity
+   needs. Inside the full EQ session that line is redundant, because Pelvic
+   Floor Release teaches the same thing properly in the very next step.
+
+   So the EQ session hands back a copy with that one line dropped. A shallow
+   spread, not a second exercise and not a second instructional system. */
+const EQ_BREATH_OPTIONS_LINE='Two optional adjustments sit under the circle: a one-second pause between breaths, and a longer eight-second exhale. The pause is a turnaround rather than a breath to hold. Switch either off whenever you like; comfort comes first.';
+function eqStepsFrom(idx){
+    /* Withheld means the list lacks the Release step. Derived from the
+       captured list itself, so there is no extra state to save or restore. */
+    const adjusted=!idx.includes(2);
+    return idx.map(i=>{
+        const ex=ROUTINES.recovery[i];
+        const why=i===8?EQ_COPY.why.breathing:i===2?EQ_COPY.why.release:EQ_COPY.why.mobility;
+        const purpose=[why,adjusted?EQ_COPY.adjusted:''].filter(Boolean);
+        if(i!==8||!Array.isArray(ex.howto)) return {...ex,purpose};
+        const kept=ex.howto.filter(line=>line!==STANDALONE_PELVIC_LINE);
+        /* Beside the closing line, so the options come before "keep going". */
+        const howto=[...kept.slice(0,-1),EQ_BREATH_OPTIONS_LINE,...kept.slice(-1)];
+        return {...ex,detail:EQ_BREATH_DETAIL,howto,purpose};
+    });
+}
+
+function buildEqRoutine(dateKey){ return eqStepsFrom(eqStepIndicesFor(dateKey)); }
+
+/* The exercise list the running session is actually performing. Every reader
+   goes through here so the EQ session's captured, pain-filtered list cannot
+   be bypassed by a direct ROUTINES lookup. */
+function currentRoutine(){
+    if(session.routineType==='eq'){
+        return (session.eqRoutine&&session.eqRoutine.length) ? session.eqRoutine : ROUTINES.eq;
+    }
+    return ROUTINES[session.routineType]||[];
+}
+
+/* The EQ goal performs EQ work on the stamina slots its week schedules.
+
+   The MISSION stays 'stamina': that is what the programme prescribed, what
+   the progression ledger records, and what keeps the persisted 7-slot column
+   inside the legacy vocabulary that an older cached client can read without
+   normaliseSchedule() rewriting it to a Size default. Only the ROUTINE
+   performed -- and logged, so history is accurate -- becomes 'eq'. */
+/* THE ACTIVATION GATE. False until the behaviour and the exercise guidance
+   have been reviewed. Without it this change is not inert: an existing EQ
+   member already has stamina slots, so flipping the routine would hand them
+   the new session the moment this shipped. Same role MOVE_UI_PREVIEW plays,
+   and checked in the one place that decides what gets performed. */
+let EQ_SESSIONS_ENABLED=false;
+
+/* ONE source for "is today an EQ session day", shared with completion, so
+   selection and credit cannot disagree. A stamina mission on a day the live
+   prescription does not treat as an EQ day keeps serving the stamina routine. */
+function eqRoutineFor(mission){
+    if(mission!=='stamina') return mission;
+    return eqSatisfiableDays().includes(new Date().getDay()) ? 'eq' : mission;
+}
+
+/* ONE gate for the whole experience. Session selection, the schedule preset,
+   full rest, completion eligibility and the migration all ask this, so the
+   programme cannot half-activate: there is no state where a member has the EQ
+   week but the old completion rules, or genuine rest days that still demand a
+   practice. */
+function eqEnabled(){ return EQ_SESSIONS_ENABLED===true; }
+
+/* The schedule preset a goal offers. The EQ week is substituted here, at read
+   time, rather than written into GOALS.eq.schedule -- a literal cannot be
+   gated, and every preset reader would otherwise see the new week the moment
+   this shipped. */
+function goalSchedule(k){
+    const g=GOALS[k];
+    if(!g) return null;
+    return (eqEnabled()&&k==='eq'&&Array.isArray(g.eqSchedule)) ? g.eqSchedule : g.schedule;
+}
+
+/* Is this member actually FOLLOWING the EQ week?
+   The goal alone is not enough, and that was a real defect. A member whose
+   goal is 'eq' but who rearranged their days was deliberately skipped by the
+   migration -- and then three separate helpers changed their experience
+   anyway, because each asked only getGoalKey(). Their stamina exercise was
+   replaced, their customised Tuesday was suppressed, and EQ completion rules
+   were applied to days that were not EQ days.
+
+   So the question is asked of their stored week, not of their goal. */
+function onEqWeek(){
+    if(!eqEnabled()||getGoalKey()!=='eq') return false;
+    const want=goalSchedule('eq'), cur=persisted.schedule;
+    if(!Array.isArray(want)||!Array.isArray(cur)||cur.length!==want.length) return false;
+    return cur.every((t,i)=>t===want[i]);
+}
+
+/* The week as actually prescribed: dated plans where they are authoritative,
+   the legacy column otherwise. Derived exactly as currentWeekCompletion()
+   derives it, so the two cannot disagree about what a day asks for. */
+function resolvedWeekSlots(){
+    const s=(window.BP&&window.BP.weekStripSlots)?window.BP.weekStripSlots({
+        now:new Date(),
+        authoritative:onAuthoritativePlans(),
+        dayPlans:persisted.dayPlans,
+        legacySchedule:persisted.schedule,
+    }):null;
+    return (s&&s.ok)?s.slots:(Array.isArray(persisted.schedule)?persisted.schedule:[]);
+}
+
+/* Weekday indices an EQ completion may satisfy: the EQ week's session days,
+   INTERSECTED with what the live prescription actually asks for.
+
+   The intersection is what honours a preserved dated plan. migrateEqWeek()
+   deliberately keeps today's prescription, so on the day of a migration the
+   stored week is the new one while today's plan is still the old one. A day
+   the old plan filled with Length and the new week leaves at rest is NOT an
+   EQ day: today answers to the prescription the member actually launched
+   against. */
+function eqSatisfiableDays(){
+    if(!onEqWeek()) return [];
+    const want=goalSchedule('eq')||[], live=resolvedWeekSlots();
+    /* live[i] must be the slot the EQ week prescribes, not merely some
+       training slot. "Non-rest" was too loose: a member can reach the EQ week
+       without migrating -- selectGoal() writes the preset directly -- and
+       their previous programme's dated plans survive for the current week. A
+       preserved Length prescription on an EQ session weekday would then have
+       counted as an EQ day. */
+    return want.map((t,i)=>
+        (t&&t!=='rest'&&live[i]===t) ? i : -1).filter(i=>i>=0);
+}
+
+/* Days that require nothing at all -- but never a day the live prescription
+   still asks for work on. A preserved dated plan outranks the template, so a
+   migration day cannot have its activities suppressed out from under it. */
+function fullRestDays(){
+    if(!onEqWeek()) return [];
+    const declared=Array.isArray(GOALS.eq.fullRestDays)?GOALS.eq.fullRestDays:[];
+    const live=resolvedWeekSlots();
+    /* Explicitly 'rest', not merely unknown. An unreadable dated plan means
+       we cannot say what the day asks for, and "we are not sure" is not a
+       reason to tell a member nothing is required. */
+    return declared.filter(i=>live[i]==='rest');
+}
+function isFullRestDay(i){ return fullRestDays().includes(i); }
+
+/* Is THAT DATE a day with nothing required?
+   fullRestDays() answers for the CURRENT week, because resolvedWeekSlots()
+   resolves against today. plannedPelvicItems() is called for arbitrary dates,
+   including future weeks during generation, so asking the weekday question
+   there read this week's prescription for next week's day: a preserved Length
+   plan on this Tuesday would have put activities on every future Tuesday.
+
+   So the date answers for itself -- its own dated plan when it has one, the
+   column otherwise. */
+function isFullRestDate(dateKey){
+    if(!onEqWeek()) return false;
+    const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey||'');
+    if(!m) return false;
+    const i=new Date(+m[1],+m[2]-1,+m[3]).getDay();
+    const declared=Array.isArray(GOALS.eq.fullRestDays)?GOALS.eq.fullRestDays:[];
+    if(!declared.includes(i)) return false;
+    const raw=(Array.isArray(persisted.dayPlans)?persisted.dayPlans:[])
+        .find(p=>p&&p.date===dateKey);
+    if(raw){
+        /* An explicit rest-mode plan means nothing required. Anything else,
+           including an unreadable plan, outranks the template. */
+        const plan=window.BP&&window.BP.normaliseDayPlan?window.BP.normaliseDayPlan(raw):null;
+        return !!plan&&plan.mode==='rest';
+    }
+    /* No plan for that date: the column is the prescription, and under
+       onEqWeek() the column is the EQ week. */
+    const cur=Array.isArray(persisted.schedule)?persisted.schedule:[];
+    return cur[i]==='rest';
+}
+
+
+
+/* EQ sessions are recovery content, so they follow the recovery rules for XP
+   and for difficulty: fixed doses mean a difficulty selector would be
+   lying, and awarding a mechanical session's XP for three recovery items
+   would inflate the only number a member watches. */
+function isRecoveryRoutine(){
+    return session.routineType==='recovery'||session.routineType==='eq';
+}
 const RECOVERY_EX_IDS = ROUTINES.recovery.map(ex=>ex.title);
 // The 6 Coach Tee recommends (indices into ROUTINES.recovery)
 const COACH_REC_INDICES = [0,1,2,3,4,5,6,7]; // all 8
@@ -5733,7 +6667,7 @@ function getCurEx(){
         const step=session.pelvicPracticePlan?.steps[session.pelvicPracticeIndex];
         return step?{...ROUTINES.recovery[step.index],sets:step.sets,duration:step.duration,restDur:step.restDur}:DAILY_PELVIC_RESET;
     }
-    const ex = ROUTINES[session.routineType][session.exerciseIndex];
+    const ex = currentRoutine()[session.exerciseIndex];
     if(ex.isRecovery){
         const dose=session.recoveryDoseByIndex?.[session.exerciseIndex];
         return dose?{...ex,sets:dose.sets,duration:dose.duration,restDur:dose.restDur}:ex;
@@ -5902,7 +6836,8 @@ function updateExUI(){
 
     // Detail card (recovery)
     const detailCard=document.getElementById('ex-detail-card');
-    if(ex.isRecovery&&ex.detail&&!ex.howto?.length){detailCard.innerHTML=ex.detail;detailCard.classList.add('show')}
+    if(Array.isArray(ex.purpose)&&ex.purpose.length){detailCard.innerHTML=ex.purpose.map(t=>`<p>${t}</p>`).join('');detailCard.classList.add('show')}
+    else if(ex.isRecovery&&ex.detail&&!ex.howto?.length){detailCard.innerHTML=ex.detail;detailCard.classList.add('show')}
     else{detailCard.classList.remove('show');detailCard.innerHTML=''}
 
     // How-to panel
@@ -6056,6 +6991,13 @@ function startSet(){
     document.getElementById('pause-icon').className='fas fa-pause text-4xl text-slate-300';
     setFocusedMode(true);
     if(!ex.isRecovery)sayGuide('Timer started. Breathe normally and stop for discomfort.');
+    /* The breath guide runs for the EQ session's breathing step only. The
+       daily practice's copy of the same exercise keeps its cue-only
+       presentation, so nothing outside the EQ session changes. */
+    const isEqBreath=session.routineType==='eq'&&ex.title==='Diaphragmatic breathing';
+    const guide=document.getElementById('ex-breath-guide');
+    if(guide) guide.classList.toggle('hidden',!isEqBreath);
+    if(isEqBreath){ syncEqBreathControls(); startBoxBreathing(eqBreathPhases()); }
     const isWetJelq=ex.title==='Wet Jelq';
     const isUli=ex.title==='Uli — Manual Clamp';
     if(isUli){
@@ -6075,7 +7017,7 @@ function startSet(){
         const timerEl=document.getElementById('ex-timer');
         timerEl.innerText=fmtDuration(rem);
         timerEl.classList.toggle('timer-urgent',rem>0&&rem<=10);
-        document.getElementById('live-xp').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP`;
+        document.getElementById('live-xp').innerText=`+${isRecoveryRoutine()?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP`;
         // Uli: cue stays static. Wet Jelq: pacer interval owns cue updates.
         if(ex.pelvicRhythm)updateActiveCue(pelvicRhythmCue(ex,rem));
         else if(!isUli&&!isWetJelq){
@@ -6094,6 +7036,12 @@ function pauseResumeSet(){
         _guideActive=false;stopGuideSpeech();
         document.getElementById('guide-breath-visual').dataset.paused='true';
         stopJelqStrokePacer();
+        /* The breath animation is a pacer too, and a paced breath running
+           against a frozen timer is exactly the competing state we avoid
+           elsewhere. Stopped, not hidden. Resuming begins a fresh inhale from
+           the small circle: a clean start, with nothing about the interrupted
+           breath to save or restore. */
+        stopBoxBreathing();
         ic.className='fas fa-play text-4xl text-slate-300';
         if(lbl)lbl.innerText='Resume';
         _syncWakeLock();
@@ -6105,6 +7053,7 @@ function pauseResumeSet(){
         // Restart pacer if this is a Wet Jelq set
         const ex=getCurEx();
         if(ex.title==='Wet Jelq') startJelqStrokePacer();
+        if(session.routineType==='eq'&&ex.title==='Diaphragmatic breathing') startBoxBreathing(eqBreathPhases());
         ic.className='fas fa-pause text-4xl text-slate-300';
         if(lbl)lbl.innerText='Pause';
         _syncWakeLock();
@@ -6112,6 +7061,7 @@ function pauseResumeSet(){
 }
 function onSetDone(){
     stopJelqStrokePacer();
+    stopEqBreathGuide();
     document.getElementById('ex-pause-btn').style.display='none';
     setFocusedMode(false);
     session.timer=null;_syncWakeLock();
@@ -6132,58 +7082,107 @@ const BOX_PHASES=[
 ];
 let _boxPhaseIdx=0, _boxPhaseElapsed=0, _boxInterval=null;
 
+/* The pattern currently being guided. The rest overlay's 4/4/4/4 box is the
+   default and is unchanged; the EQ breathing step supplies its own. One
+   driver, one piece of state, so two patterns can never animate at once. */
+let _breathPhases=BOX_PHASES;
+let _breathSwapPending=false;
+
+/* Next phase index. A queued pattern change is applied here and only here:
+   the phase just finished is mapped to its successor in the new pattern. */
+function _advanceBreathPhase(){
+    const cur=_breathPhases[_boxPhaseIdx];
+    if(_breathSwapPending&&cur){
+        _breathSwapPending=false;
+        const next=eqBreathPhases();
+        _boxPhaseIdx=cur.label==='EXHALE'?0:cur.label==='INHALE'?1:next.length-1;
+        _breathPhases=next;
+    } else {
+        _boxPhaseIdx=(_boxPhaseIdx+1)%_breathPhases.length;
+    }
+    _boxPhaseElapsed=0;
+    renderBoxPhase();
+}
+
+/* Written by CLASS, not by id, so the rest overlay's block and the exercise
+   screen's smaller copy are driven by the same code. Each host renders only
+   the nodes it has. */
+function _breathNodes(sel){ return [...document.querySelectorAll(sel)]; }
+
 function renderBoxPhase(){
-    const p=BOX_PHASES[_boxPhaseIdx];
-    document.getElementById('box-phase-label').innerText=p.label;
-    document.getElementById('box-phase-sub').innerText=p.sub;
-    document.getElementById('box-phase-count').innerText=p.secs;
-    // Animate breathing circle
-    const circle=document.getElementById('breath-circle');
-    if(circle){
-        // INHALE → expand over 4s, EXHALE → contract over 4s, HOLDs keep current size
+    const phases=_breathPhases, p=phases[_boxPhaseIdx];
+    if(!p) return;
+    _breathNodes('[data-breath=\"label\"]').forEach(el=>{el.innerText=p.label;});
+    _breathNodes('[data-breath="sub"]').forEach(el=>{el.innerText=p.sub;});
+    _breathNodes('[data-breath="count"]').forEach(el=>{el.innerText=p.secs;});
+    /* The transition lasts as long as the phase. This was the literal '4s',
+       which made a six-second exhale finish its animation two seconds early
+       and then sit still -- the one thing a pacing visual must not do. */
+    _breathNodes('[data-breath="circle"]').forEach(circle=>{
         if(p.label==='INHALE'){
-            circle.style.transition='transform 4s ease-in-out, box-shadow 4s ease-in-out';
+            circle.style.transition=`transform ${p.secs}s ease-in-out, box-shadow ${p.secs}s ease-in-out`;
             circle.style.transform=`scale(${p.circleScale})`;
             circle.style.boxShadow='0 0 50px rgba(16,185,129,.25)';
         } else if(p.label==='EXHALE'){
-            circle.style.transition='transform 4s ease-in-out, box-shadow 4s ease-in-out';
+            circle.style.transition=`transform ${p.secs}s ease-in-out, box-shadow ${p.secs}s ease-in-out`;
             circle.style.transform=`scale(${p.circleScale})`;
             circle.style.boxShadow='0 0 15px rgba(16,185,129,.08)';
         }
-        // HOLD phases: no transition change — circle stays at current scale
-    }
-    // Update pip dots
-    for(let i=0;i<4;i++){
-        const pip=document.getElementById('box-pip-'+i);
-        if(pip) pip.style.background=i===_boxPhaseIdx?'#10b981':i<_boxPhaseIdx?'rgba(16,185,129,0.4)':'rgba(16,185,129,0.1)';
-        if(pip&&i===_boxPhaseIdx) pip.style.transform='scale(1.5)';
-        else if(pip) pip.style.transform='scale(1)';
-    }
+        /* A HOLD or a PAUSE changes nothing: the circle stays where the
+           breath left it, which is what makes the pause read as a rest
+           rather than as another instruction. */
+    });
+    /* PER HOST. A flat querySelectorAll would hand the second host the first
+       host's indices -- with the rest overlay's four pips in the DOM, the
+       exercise guide's three all came out past the end of a two-phase pattern
+       and were hidden. Each row is numbered from its own start. */
+    _breathNodes('[data-breath="pips"]').forEach(row=>{
+        [...row.querySelectorAll('[data-breath="pip"]')].forEach((pip,i)=>{
+            /* A host may carry more pips than the pattern has phases. The
+               extras are hidden rather than left lit, so a two-phase pattern
+               does not look like a three-phase one with a dead dot. */
+            if(i>=phases.length){ pip.style.display='none'; return; }
+            pip.style.display='';
+            pip.style.background=i===_boxPhaseIdx?'#10b981':i<_boxPhaseIdx?'rgba(16,185,129,0.4)':'rgba(16,185,129,0.1)';
+            pip.style.transform=i===_boxPhaseIdx?'scale(1.5)':'scale(1)';
+        });
+    });
 }
 
-function startBoxBreathing(){
+/* phases defaults to the rest overlay's box pattern, so every existing caller
+   keeps its behaviour without passing anything. */
+function startBoxBreathing(phases){
     stopBoxBreathing();
-    _boxPhaseIdx=0; _boxPhaseElapsed=0;
-    // Reset breathing circle to contracted state before first inhale
-    const circle=document.getElementById('breath-circle');
-    if(circle){circle.style.transition='none';circle.style.transform='scale(1)';circle.style.boxShadow='';}
+    _breathPhases=Array.isArray(phases)&&phases.length?phases:BOX_PHASES;
+    _boxPhaseIdx=0; _boxPhaseElapsed=0; _breathSwapPending=false;
+    _breathNodes('[data-breath="circle"]').forEach(circle=>{
+        circle.style.transition='none';circle.style.transform='scale(1)';circle.style.boxShadow='';
+    });
     renderBoxPhase();
     _boxInterval=setInterval(()=>{
         _boxPhaseElapsed++;
-        const p=BOX_PHASES[_boxPhaseIdx];
+        const p=_breathPhases[_boxPhaseIdx];
+        if(!p) return;
         const remaining=p.secs-_boxPhaseElapsed;
         if(remaining>0){
-            document.getElementById('box-phase-count').innerText=remaining;
+            _breathNodes('[data-breath="count"]').forEach(el=>{el.innerText=remaining;});
         } else {
-            _boxPhaseIdx=(_boxPhaseIdx+1)%4;
-            _boxPhaseElapsed=0;
-            renderBoxPhase();
+            _advanceBreathPhase();
         }
     },1000);
 }
 
 function stopBoxBreathing(){
     if(_boxInterval){clearInterval(_boxInterval);_boxInterval=null;}
+}
+
+/* Stops the animation AND hides the exercise-screen host, so a finished or
+   abandoned breathing step cannot leave a circle pulsing behind the next
+   exercise. One owner for the interval, so there are never two. */
+function stopEqBreathGuide(){
+    stopBoxBreathing();
+    const guide=document.getElementById('ex-breath-guide');
+    if(guide) guide.classList.add('hidden');
 }
 
 function startRest(){
@@ -6231,7 +7230,7 @@ function completeRoutineWithPelvicCare(){
     if(startRemainingPelvicPractice())return;
     session.dailyPelvicPhase=false;
     haptic([100,50,100,50,300]);
-    document.getElementById('success-xp-text').innerText=`+${session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
+    document.getElementById('success-xp-text').innerText=`+${isRecoveryRoutine()?SESSION_XP.recovery:(SESSION_XP[getDiff().id]||100)} XP EARNED`;
     goToStep(5);
 }
 function advanceEx(){
@@ -6579,6 +7578,7 @@ function currentPrescription(){ return _today; }
 const ATTENTION_BAND=[
     {id:'hq-load-failed-banner',  live:()=>!_persistedLoaded&&!!currentUser},
     {id:'hq-storage-full-banner', live:()=>!!_storageFull},
+    {id:'hq-sync-notice-banner',   live:()=>!!_syncNotice},
     {id:'deload-banner',          live:()=>typeof isDeloadWeek==='function'&&isDeloadWeek()},
     // Never promoted: the Today card owns these two.
     {id:'hq-rest-banner',         live:()=>false},
@@ -6628,7 +7628,27 @@ function _collapseIfEmpty(id){
     box.classList.toggle('hidden',!any);
 }
 
-function renderAttentionBand(){ _renderBand(ATTENTION_BAND,'hq-attention-band'); _renderBand(NUDGE_BAND,'hq-nudge-band'); }
+function renderAttentionBand(){
+    const t=document.getElementById('hq-sync-notice-text');
+    if(t&&_syncNotice){
+        const parts=[];
+        if(_syncNotice.settings){
+            /* Names the setting(s), because only a setting that both sides
+               changed differently is ever overridden. */
+            const n=_syncNotice.names||[];
+            const list=n.length>1?n.slice(0,-1).join(', ')+' and '+n[n.length-1]:(n[0]||'');
+            parts.push('Your account was updated on another device, so we loaded the latest version. '
+                +(n.length>1?`Your changes to your ${list} were not saved, so please check them.`
+                    :n.length?`Your change to your ${list} was not saved, so please check it.`
+                    :'Changes you made here to your goal, schedule or difficulty were not saved, so please check them.'));
+        }
+        if(_syncNotice.check) parts.push('We loaded the latest saved version of your account. If you changed your goal, schedule or difficulty recently, please check they are still right.');
+        if(_syncNotice.held) parts.push("A session recorded on an out-of-date screen couldn't be matched to your history, so it wasn't added again. Your XP is unchanged.");
+        t.textContent=parts.join(' ');
+    }
+    _renderBand(ATTENTION_BAND,'hq-attention-band'); _renderBand(NUDGE_BAND,'hq-nudge-band');
+}
+function dismissSyncNotice(){ _syncNotice=null; renderAttentionBand(); }
 
 /**
  * Liveness, Phase 2B.2. Both answers are derived in exactly one place.
@@ -6680,7 +7700,11 @@ function currentWeekCompletion(){
        would be the worst possible failure for a progress surface. */
     const prescription=(slots&&slots.ok)?slots.slots:persisted.schedule;
     return window.BP.weekCompletion(prescription,persisted.completedDays,
-        {sessionLog:persisted.sessionLog,now:new Date()});
+        {sessionLog:persisted.sessionLog,now:new Date(),
+         /* Which days an EQ completion may satisfy. Empty unless the flag
+            is on and the member is on EQ, so completion rules cannot move
+            for anyone else. */
+         eqSatisfiableDays:eqSatisfiableDays()});
 }
 /* Everything that speaks about the week reads the line above. The strip and
    the Week Complete treatment used to call weekCompletion() separately with
@@ -7118,9 +8142,15 @@ function renderToday(){
             `<li class="text-[11px] text-slate-400 leading-relaxed flex gap-2"><span class="u-text-2">&bull;</span><span>${c}</span></li>`).join('');
         changes.classList.add('hidden');     // revealed by "Why this today?"
     }
-    const planContext=window.BP.todayPlanExplanation(r,currentPelvicPracticePlan()||{},lastPelvicFeedback()?.pelvicPractice.feedback||'');
-    set('today-plan-context',planContext,false);
-    set('today-why-btn',undefined,r.changes.length>0||!!planContext);
+    /* A day that requires nothing says so, in its own words. The generic
+       rest explanation describes a rest day that still carries a practice,
+       which is not what this is. */
+    const planContext=isFullRestDate(window.BP.planDateKey(new Date()))
+        ? EQ_COPY.fullRest
+        : window.BP.todayPlanExplanation(r,currentPelvicPracticePlan()||{},lastPelvicFeedback()?.pelvicPractice.feedback||'');
+    const eqProgress=(eqEnabled()&&getGoalKey()==='eq'&&!isFullRestDate(window.BP.planDateKey(new Date())))?EQ_COPY.progress:'';
+    set('today-plan-context',[planContext,eqProgress].filter(Boolean).join(' '),false);
+    set('today-why-btn',undefined,r.changes.length>0||!!planContext||!!eqProgress);
     const whyBtn=document.getElementById('today-why-btn');
     if(whyBtn) whyBtn.textContent='Why this today?';
 
@@ -7226,12 +8256,25 @@ function pelvicPracticeNeedsReview(){
     try{return localStorage.getItem(pelvicReviewKey())!=='settled';}catch{return true;}
 }
 function plannedPelvicItems(date,slot){
+    /* A genuine rest day requires nothing. A 'rest' slot cannot say that on its
+       own, because a rest slot always carries a practice today, so the EQ week
+       names its two no-task days and they return an empty list here.
+
+       The weekday comes from the date key rather than an extra parameter:
+       dailyPracticeFor(date,slot) is the generator's contract and widening it
+       would reach planFor() and two call chains for no gain. A key is
+       'YYYY-MM-DD' in local terms, so this is deterministic. */
+    if(isFullRestDate(date)) return [];
     const last=lastPelvicFeedback();
     return window.BP.dailyPracticeItems(window.BP.buildPelvicPracticePlan({date,dayKind:slot==='rest'?'rest':'primary',profile:persisted.pelvicProfile,
         feedback:last?.pelvicPractice.feedback||'',painCleared:!pelvicPracticeNeedsReview()}));
 }
 function currentPelvicPracticePlan(busy=false){
     if(!window.BP?.buildPelvicPracticePlan)return null;
+    /* Genuine rest: no plan at all, so nothing is required and nothing is
+       rendered as if it were. Checked before the prescription is read, because
+       a full-rest day is a property of the week rather than of the slot. */
+    if(isFullRestDate(window.BP.planDateKey(new Date()))) return null;
     const date=window.BP.planDateKey(new Date());
     const last=lastPelvicFeedback();
     const pres=currentTodayPrescription();
@@ -7673,7 +8716,7 @@ function executableStepCount(){
     if(f&&_launchedPrescription&&_launchedPrescription.performedType===session.routineType){
         return f.steps.length;
     }
-    const exs=ROUTINES[session.routineType];
+    const exs=currentRoutine();
     return exs?exs.length:0;
 }
 /** The frozen step for the running exercise, or null on the dynamic path. */
@@ -7719,7 +8762,19 @@ function startMission(mission,source){
        this function, which never reads routineType, and the ordering is kept
        anyway so the dependency cannot be introduced later by accident. */
     captureLaunchPrescription(mission);
-    session.routineType=mission;
+    session.routineType=eqRoutineFor(mission);
+    /* Captured once, here, so a mid-session feedback change cannot resize the
+       step list under a running session. */
+    /* The PRESCRIBED date, not the clock: a session launched either side of
+       midnight still belongs to the day it was prescribed for. */
+    if(session.routineType==='eq'){
+        const _d=(currentTodayPrescription()||{}).date
+            ||(window.BP.planDateKey?window.BP.planDateKey(new Date()):null);
+        session.eqStepIndices=eqStepIndicesFor(_d);
+        session.eqRoutine=eqStepsFrom(session.eqStepIndices);
+    } else {
+        session.eqStepIndices=null; session.eqRoutine=null;
+    }
     track('mission_selected',{mission,source:source||'prescribed'});
     if(mission==='recovery'){ goToRecoveryPicker(); return; }
     if(mission==='girth'){
@@ -7932,7 +8987,7 @@ function syncProgression(reason){
             /* The real arrays, passed rather than copied into the module.
                GOALS lives here and a second definition there is how two
                copies drift apart. */
-            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,goalSchedule(k)])),
             defaultSchedule:DEFAULT_PERSISTED.schedule,
             /* Deliberately not supplied: allTimeSessionCount, sessionLog,
                firstSessionDate, progressionLedger. None of them says whether
@@ -7963,7 +9018,7 @@ function syncProgression(reason){
             legacySchedule:persisted.schedule,
             /* The real tables, passed rather than copied into the module. A
                second dose table there is how two prescriptions drift. */
-            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+            presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,goalSchedule(k)])),
             tables:{
                 routines:ROUTINES,
                 difficulties:DIFFICULTIES,
@@ -8130,6 +9185,37 @@ function resumeSession(){
     session.exerciseIndex=draft.exerciseIndex;
     session.setIndex=draft.setIndex;
     session.routineType=draft.routineType;
+    /* Restored, never recomputed. Re-deriving would read today's date, and
+       a session paused before midnight and resumed after it would come back
+       as a different exercise. Each index is range-checked, and anything
+       unreadable falls back to a fresh build for the prescribed date rather
+       than to a half-restored list. */
+    if(draft.routineType==='eq'){
+        const _raw=Array.isArray(draft.eqStepIndices)?draft.eqStepIndices:null;
+        const _ok=_raw&&_raw.length&&_raw.every(i=>Number.isInteger(i)&&i>=0&&i<ROUTINES.recovery.length);
+        let _idx=_ok?_raw.slice()
+            :eqStepIndicesFor((currentTodayPrescription()||{}).date
+                ||(window.BP.planDateKey?window.BP.planDateKey(new Date()):null));
+        /* A SAVED STEP IS NOT A PERMIT. The protections are re-applied on the
+           way back in: a member who reported pain between pausing and
+           resuming must not have the pelvic step handed to them because it
+           was in the list when they left. Same two filters the build uses, so
+           there is one rule rather than two that can drift. */
+        try{ if(pelvicPracticeNeedsReview()) _idx=_idx.filter(i=>i!==2); }catch(e){}
+        try{ _idx=allowedRecoveryIndices(_idx); }catch(e){}
+        if(!_idx.length) _idx=[8];
+        session.eqStepIndices=_idx;
+        session.eqRoutine=eqStepsFrom(_idx);
+        /* exerciseIndex points INTO that list, and the list may have just got
+           shorter, so a stale or malformed index would resume at the wrong
+           step -- or at none. Clamped rather than trusted. */
+        const _n=session.eqRoutine.length;
+        if(!Number.isInteger(session.exerciseIndex)||session.exerciseIndex<0||session.exerciseIndex>=_n){
+            session.exerciseIndex=Math.max(0,Math.min(_n-1,Number.isInteger(session.exerciseIndex)?session.exerciseIndex:0));
+        }
+    } else {
+        session.eqStepIndices=null; session.eqRoutine=null;
+    }
     session.directionalIndex=draft.directionalIndex;
     session.xp=draft.xp;
     session.dailyPelvicPhase=draft.dailyPelvicPhase===true;
@@ -8265,7 +9351,7 @@ function finishSession(){
        durable history derived from a mutable tier, so a tier change between
        launch and completion used to rewrite what was recorded. */
     const _xpTier=(_launchedPrescription&&_launchedPrescription.xpTier)||getDiff().id;
-    const earnedXp=session.routineType==='recovery'?SESSION_XP.recovery:(SESSION_XP[_xpTier]||100);
+    const earnedXp=isRecoveryRoutine()?SESSION_XP.recovery:(SESSION_XP[_xpTier]||100);
     /* ONE clock read for the whole completion. finishSession() used to call
        new Date() four separate times, so a rollover mid-function could make
        its own fields describe different days. */
@@ -8314,6 +9400,9 @@ function finishSession(){
     if(!_authoritative&&!session.dailyPracticeOnly) _nextCompletedDays[completedAt.getDay()]=true;
 
     const _entry={
+        /* A stable identity, so recovery can tell a session that is already
+           counted from one that is new without trusting a clock. */
+        sid:_newId(),
         /* The real completion timestamp, never rewritten to the prescription
            date. Performed-when and prescribed-for are two separate truths. */
         date:completedAt.toISOString(),
@@ -8365,9 +9454,15 @@ function finishSession(){
        Purely a name: the value is the same array literal as before. */
     const _candidateLog=[...(persisted.sessionLog||[]),_entry];
     const _nextLog=trimToByteBudget(_candidateLog,SESSION_LOG_BUDGET_BYTES);
+    /* What this trim dropped is remembered, in a bounded record, so a session
+       that was saved and later trimmed can never be awarded a second time. */
+    let _nextMeta=persisted.syncMeta||null;
+    try{ _nextMeta=window.BP.recordTrim(persisted.syncMeta,_candidateLog,_nextLog); }catch(e){}
+    _pendingMeasurement=null;
     let _nextMeasurements=null;
     if(!isNaN(bpel)||!isNaN(mseg)){
-        const e={date:completedAt.toISOString()};
+        const e={sid:_entry.sid,date:completedAt.toISOString()};
+        _pendingMeasurement=e;
         if(!isNaN(bpel))e.bpel=bpel;
         if(!isNaN(mseg))e.mseg=mseg;
         _nextMeasurements=trimToByteBudget([...(persisted.measurements||[]),e],MEASUREMENTS_BUDGET_BYTES);
@@ -8382,6 +9477,7 @@ function finishSession(){
           state rather than creating a second completion. ══ */
     _finishState='committed';
     persisted.sessionLog=_nextLog;
+    persisted.syncMeta=_nextMeta;
     persisted.totalXp=_nextXp;
     persisted.allTimeSessionCount=_nextCount;
     if(_nextMeasurements) persisted.measurements=_nextMeasurements;
@@ -8392,6 +9488,12 @@ function finishSession(){
     _frozenSteps=null;_frozenFor=null;
     /* ══ POST COMMIT. Derived state and side effects. A throw here cannot
           duplicate a completion, because the guard is already up. ══ */
+
+    /* The completed session is written to a per-session journal key BEFORE any
+       save is attempted. A key is written once, by one tab, and never touched
+       by another, so tabs cannot overwrite each other's pending activity. It
+       is removed only when the server is confirmed to hold the session. */
+    try{ _journalWrite(_entry,_pendingMeasurement); }catch(e){}
 
     /* Trimming used to be completely silent: no event, no log, no notice, so
        history could start disappearing and nothing anywhere recorded it.
@@ -9215,7 +10317,7 @@ function selectGoal(key){
     const change=window.BP.goalChangePlan({
         goal:key, immediate:untouched, programme:persisted.programme,
         existingPlans:persisted.dayPlans, legacySchedule:persisted.schedule,
-        presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,GOALS[k].schedule])),
+        presets:Object.fromEntries(Object.keys(GOALS).map(k=>[k,goalSchedule(k)])),
         tables:{routines:ROUTINES,difficulties:DIFFICULTIES,girthCircuit:GIRTH_CIRCUIT,
             directionals:DIRECTIONALS,exExperience:EX_EXPERIENCE},
         dailyPracticeFor:plannedPelvicItems,
@@ -9539,6 +10641,7 @@ function importData(file){
             const _importedLog=persisted.sessionLog||[];
             persisted.sessionLog=trimToByteBudget(_importedLog,SESSION_LOG_BUDGET_BYTES);
             persisted.measurements=trimToByteBudget(persisted.measurements||[],MEASUREMENTS_BUDGET_BYTES);
+            try{ persisted.syncMeta=window.BP.recordTrim(persisted.syncMeta,_importedLog,persisted.sessionLog); }catch(e){}
             /* Same aggregate-only event, different trigger. One import is one
                deliberate act, so there is no repeated-processing to guard
                against here the way there would be on a render path. */
@@ -10156,6 +11259,17 @@ async function handleForgotPassword(){
    The list below is every body-level overlay that shows one member's own
    data, grouped by how each is hidden. */
 function _closeMemberOverlays(){
+    /* The exercise clock belongs to the account that started it. handleLogout
+       hides the step content but never reaches goToStep(), which is where a
+       running timer is normally cancelled, so a set survived the sign-out: the
+       rAF loop kept counting and onSetDone -> advanceEx -> finishSession could
+       fire against whichever account was loaded next, awarding XP and logging a
+       session nobody finished. startSet() opens with these same two lines for
+       the same reason. All three call sites of this function are account
+       boundaries: handleLogout, the account switch, and the SIGNED_OUT handler. */
+    if(session.timer){session.timer.cancel();session.timer=null;}
+    try{ stopJelqStrokePacer(); }catch(e){}
+    try{ stopEqBreathGuide(); }catch(e){}
     closeProgressCheckin();
     stopGuideSpeech();_guideSpeech?.setEnabled(false);_guideAudioUser=null;
     // Hidden by the `hidden` class.
@@ -10865,7 +11979,7 @@ function init(){
     document.getElementById('ex-abort-btn').addEventListener('click',()=>goToStep(0));
     document.getElementById('ex-home-btn').addEventListener('click',()=>{
         if(session.timer){session.timer.cancel();session.timer=null;}
-        stopBoxBreathing();
+        stopEqBreathGuide();
         document.getElementById('rest-overlay').classList.add('hidden');
         setFocusedMode(false);
         goToStep(0);
@@ -10873,7 +11987,7 @@ function init(){
     document.getElementById('ex-back-btn').addEventListener('click',()=>{
         // Stop any running timer first
         if(session.timer){session.timer.cancel();session.timer=null;}
-        stopBoxBreathing();
+        stopEqBreathGuide();
         document.getElementById('rest-overlay').classList.add('hidden');
         setFocusedMode(false);
         if(session.routineType==='recovery') goToRecoveryPicker();
@@ -10901,7 +12015,7 @@ function init(){
     document.getElementById('rest-back-btn').addEventListener('click',()=>{
         // Back = abort rest, keep session active, return to exercise ready state
         if(session.timer){session.timer.cancel();session.timer=null;}
-        stopBoxBreathing();
+        stopEqBreathGuide();
         document.getElementById('rest-overlay').classList.add('hidden');
         // Don't advance setIndex — let user re-engage the same set
         updateExUI();
@@ -11124,6 +12238,7 @@ import { nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLV
 import { estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
          applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE } from '../src/sessionDuration.js';
 import { weekCompletion } from '../src/weekCompletion.js';
+import { mergeRecovery, recordTrim, normaliseMeta, entryKey, classifyOutcome, isRevisionRefusal, settingsFingerprint } from '../src/syncRecovery.js';
 // Phase 2B.2 liveness. Communication only: nothing here reaches the
 // prescription, and the browser suite asserts that.
 import { returnContext, missedWeekReentry, livenessContext,
@@ -11179,7 +12294,7 @@ import { attributeEntry, ATTRIBUTION } from '../src/sessionAttribution.js';
    substitution, where the programme prescribed nothing to honour. */
 import { validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
          DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS } from '../src/doseExecution.js';
-window.BP = { PROGRESS_FIELDS,PROGRESS_LABELS,readProgressCheckin,progressCheckinStatus,putProgressCheckin,personalProgress,recordedMeasurementProgress,measurementSeries,todayPlanExplanation,createGuideSpeech,guideSetup,buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
+window.BP = { mergeRecovery,recordTrim,normaliseMeta,entryKey,classifyOutcome,isRevisionRefusal,settingsFingerprint, PROGRESS_FIELDS,PROGRESS_LABELS,readProgressCheckin,progressCheckinStatus,putProgressCheckin,personalProgress,recordedMeasurementProgress,measurementSeries,todayPlanExplanation,createGuideSpeech,guideSetup,buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
               weekCompletion, weekKey, normaliseLedger,

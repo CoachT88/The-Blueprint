@@ -65,7 +65,7 @@
 import { localDateKeyForWeekday, dateKeyForWeekday, localDateKey } from './weekUtils.js';
 import { attributeEntry, ATTRIBUTION } from './sessionAttribution.js';
 import { normaliseDayPlan } from './dayPlan.js';
-import { classifySlot, SLOT_CLASS } from './scheduleSlot.js';
+import { classifySlot, SLOT_CLASS, classifyDayPlan } from './scheduleSlot.js';
 
 /**
  * The four base display states. Everything else is a modifier.
@@ -86,6 +86,23 @@ export const WEEK_STRIP_STATE = Object.freeze({
     PENDING:   'pending',
     /** Prescribed rest. Never satisfied, never missed, never a tick. */
     REST:      'rest',
+    /**
+     * A day of real supporting work and no mechanical primary session.
+     *
+     * A state of its own rather than PENDING, which is what it would
+     * otherwise have become the moment classifySlot learned to recognise
+     * 'support'. PENDING means scheduled mechanical training not yet
+     * satisfied, and `satisfied` is computed from the mechanical count
+     * alone, so a support day would sit in PENDING for ever and read to the
+     * member as training they had failed to do. It is also not REST, because
+     * there is work on it.
+     *
+     * Whether that work was DONE is not answered here. The completion
+     * contract for supporting work lands with the executor that writes it,
+     * and inventing a read for it before there is a writer would be guessing
+     * at a format. Until then this state says only what was prescribed.
+     */
+    SUPPORT:   'support',
     /** No prescription this build can attribute to that date. */
     UNKNOWN:   'unknown',
 });
@@ -121,9 +138,17 @@ function typeOfPlan(plan) {
     if (!isPlainObject(plan)) return undefined;
     const valid = normaliseDayPlan(plan);
     if (!valid) return undefined;                       // unreadable, not repaired
-    if (valid.mode === 'rest') return 'rest';
-    const type = valid.primarySession && valid.primarySession.type;
-    return typeof type === 'string' && type ? type : undefined;
+    /* DELEGATED, as of #186 phase 2. This used to work the answer out from
+       the plan's fields itself, which meant a support-only day fell off the
+       end as `undefined` and rendered as a cell with no knowable
+       prescription. The programme had described that day perfectly well, so
+       "the app cannot say what today is" was the wrong thing to show.
+
+       classifyDayPlan is now the one place that reads a plan's fields, so
+       this, toLegacySlot and the Today prescription cannot drift. A mixed
+       day still returns its mechanical type, which is what the strip's
+       headline cell should say. */
+    return classifyDayPlan(valid).slot;
 }
 
 /**
@@ -244,20 +269,27 @@ export function buildWeekStripModel(input) {
         const prescriptionKnown = typeof slot === 'string' && slot !== ''
             && classifySlot(slot) !== SLOT_CLASS.UNRESOLVED;
         const isRest = prescriptionKnown && classifySlot(slot) === SLOT_CLASS.REST;
+        const isSupport = prescriptionKnown && classifySlot(slot) === SLOT_CLASS.SUPPORT;
 
         /* DERIVED, not passed through. A cell with no knowable prescription
            cannot have satisfied scheduled work, and rest is never satisfied
            because there was nothing to satisfy. Correct wiring makes both
            combinations impossible upstream; the view model enforces its own
            semantics anyway so a mismatched array cannot produce a cell that
-           contradicts itself. */
-        const isSatisfied = prescriptionKnown && !isRest && satisfied[weekday] === true;
+           contradicts itself.
+
+           Support is excluded for a sharper reason than rest: `satisfied`
+           comes from the MECHANICAL count, so a true there would be a claim
+           about mechanical work on a day that prescribed none. */
+        const isSatisfied = prescriptionKnown && !isRest && !isSupport
+            && satisfied[weekday] === true;
 
         const act = performed.get(weekday) || null;
 
         let state;
         if (!prescriptionKnown) state = WEEK_STRIP_STATE.UNKNOWN;
         else if (isRest) state = WEEK_STRIP_STATE.REST;
+        else if (isSupport) state = WEEK_STRIP_STATE.SUPPORT;
         else if (isSatisfied) state = WEEK_STRIP_STATE.SATISFIED;
         else state = WEEK_STRIP_STATE.PENDING;
 
@@ -271,6 +303,7 @@ export function buildWeekStripModel(input) {
             prescriptionKnown,
             prescriptionType: prescriptionKnown ? slot : null,
             isRest,
+            isSupport,
             satisfied: isSatisfied,
             /* Performed truth, kept separate from prescription truth. A day
                can have activity we know about and a prescription we cannot

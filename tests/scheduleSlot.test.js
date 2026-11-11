@@ -4,6 +4,8 @@ import {
     SLOT_CLASS, LEGACY_PRIMARY_TYPES, LEGACY_REST, PROJECTION_REFUSAL,
     classifySlot, isScheduledPrimary, isRestSlot, isUnresolvedSlot,
     countScheduledPrimary, toLegacySlot, toLegacySchedule,
+    LEGACY_SUPPORT, LEGACY_FULL_REST, NON_TRAINING_TYPES, SUPPORT_TYPES,
+    isSupportSlot, isFullRestSlot, classifyDayPlan,
 } from '../src/scheduleSlot.js';
 import { weekCompletion } from '../src/weekCompletion.js';
 import { reconcileLedger, normaliseLedger, WEEK_VERDICT } from '../src/progressionLedger.js';
@@ -325,5 +327,160 @@ describe('purity', () => {
            the generator wrote. Still exactly one import, still nothing
            policy-shaped. */
         expect(imports).toEqual(["import { localDateKeyForWeekday } from './weekUtils.js';"]);
+    });
+});
+
+
+/**
+ * #186 PHASE 2: A SUPPORT DAY IS A KIND OF DAY, NOT A FAILURE TO READ ONE.
+ *
+ * classifySlot sent 'support' to UNRESOLVED, which means "the app cannot say
+ * what today is". That is the right answer for a corrupt record and the wrong
+ * one for a day the programme described perfectly well, and every consumer
+ * branching on UNRESOLVED inherited the mistake.
+ *
+ * What must NOT change, and is pinned below: an unreadable value is still
+ * UNRESOLVED, support still never counts as mechanical training, and the
+ * legacy projection still refuses a support-only day.
+ */
+describe('#186 phase 2: the support slot', () => {
+    test('support classifies as support, and is not training, rest or unknown', () => {
+        expect(classifySlot(LEGACY_SUPPORT)).toBe(SLOT_CLASS.SUPPORT);
+        expect(isSupportSlot(LEGACY_SUPPORT)).toBe(true);
+        expect(isScheduledPrimary(LEGACY_SUPPORT)).toBe(false);
+        expect(isRestSlot(LEGACY_SUPPORT)).toBe(false);
+        expect(isUnresolvedSlot(LEGACY_SUPPORT)).toBe(false);
+    });
+
+    test('A SUPPORT DAY IS NEVER IN THE MECHANICAL DENOMINATOR', () => {
+        /* The single most important property of the whole phase. Supporting
+           work must not earn mechanical credit, so it cannot enter the weekly
+           target either: a target it inflated would be a commitment the
+           member is judged against for work that cannot satisfy it. */
+        const week = ['length', LEGACY_SUPPORT, LEGACY_SUPPORT, 'rest',
+                      'girth', LEGACY_SUPPORT, 'rest'];
+        expect(countScheduledPrimary(week)).toBe(2);
+        const r = weekCompletion(week, Array(7).fill(true), { now: new Date('2026-03-18T12:00:00Z') });
+        expect(r.target).toBe(2);
+        expect(r.satisfied[1]).toBe(false);
+        expect(r.satisfied[2]).toBe(false);
+        expect(r.satisfied[5]).toBe(false);
+    });
+
+    test('full-rest classifies as rest, so every existing consumer is right about it', () => {
+        /* Deliberately the SAME class as 'rest'. Not training, not a
+           commitment, not a gap in the week: that is what every current
+           consumer already does with a rest day and all of it is correct for
+           a full-rest day too. */
+        expect(classifySlot(LEGACY_FULL_REST)).toBe(SLOT_CLASS.REST);
+        expect(isRestSlot(LEGACY_FULL_REST)).toBe(true);
+        expect(isScheduledPrimary(LEGACY_FULL_REST)).toBe(false);
+        expect(countScheduledPrimary(Array(7).fill(LEGACY_FULL_REST))).toBe(0);
+    });
+
+    test('but the two rests stay distinguishable where the difference matters', () => {
+        /* A 'rest' day still asks for the daily practice; a 'full-rest' day
+           asks for nothing. The counting does not care and the Today card
+           does, so the distinction lives in its own predicate rather than in
+           a class every consumer would have to learn. */
+        expect(isFullRestSlot(LEGACY_FULL_REST)).toBe(true);
+        expect(isFullRestSlot(LEGACY_REST)).toBe(false);
+        expect(NON_TRAINING_TYPES).toEqual([LEGACY_REST, LEGACY_FULL_REST]);
+        expect(SUPPORT_TYPES).toEqual([LEGACY_SUPPORT]);
+        expect(Object.isFrozen(NON_TRAINING_TYPES)).toBe(true);
+        expect(Object.isFrozen(SUPPORT_TYPES)).toBe(true);
+    });
+
+    test('UNRESOLVED STILL MEANS UNREADABLE, which is what was being protected', () => {
+        for (const v of ['mystery', '', '  ', 'Support', 'SUPPORT', 'full rest',
+                         'fullrest', 'recovery', null, undefined, 0, 7, {}, []]) {
+            expect(classifySlot(v), JSON.stringify(v)).toBe(SLOT_CLASS.UNRESOLVED);
+            expect(isScheduledPrimary(v), JSON.stringify(v)).toBe(false);
+        }
+    });
+
+    test('a caller may still widen the vocabulary, and support is checked before primary', () => {
+        /* Of the two ways a mistake can go, reading training as support
+           understates the day and reading support as training prescribes
+           manual work nobody assigned. A vocabulary that listed 'support' as
+           a primary type still cannot make it training. */
+        expect(classifySlot('support', { primaryTypes: ['support'] })).toBe(SLOT_CLASS.SUPPORT);
+        expect(classifySlot('rest', { primaryTypes: ['rest'] })).toBe(SLOT_CLASS.REST);
+        expect(classifySlot('move', { supportTypes: ['move'] })).toBe(SLOT_CLASS.SUPPORT);
+    });
+});
+
+describe('#186 phase 2: classifyDayPlan is the one place a plan is read', () => {
+    const base = { date: '2026-03-19', status: 'pending', supportingWork: [], dailyPractice: [] };
+    const SUPPORT_ITEM = { type: 'pelvicFloor', category: 'strength' };
+
+    test('a mechanical primary gives its own type, mixed or not', () => {
+        const solo = classifyDayPlan({ ...base, mode: 'prescribed',
+            primarySession: { type: 'length', tier: 'intermediate' } });
+        expect(solo).toMatchObject({ class: SLOT_CLASS.PRIMARY, slot: 'length', mixed: false });
+
+        /* ALL OF IT. Primary plus support on one date needs no slot value of
+           its own: the day is a Length day that also carries support. */
+        const mixed = classifyDayPlan({ ...base, mode: 'prescribed',
+            primarySession: { type: 'length', tier: 'intermediate' },
+            supportingWork: [SUPPORT_ITEM] });
+        expect(mixed).toMatchObject({ class: SLOT_CLASS.PRIMARY, slot: 'length', mixed: true });
+    });
+
+    test('no primary plus real supporting work is a support day', () => {
+        expect(classifyDayPlan({ ...base, mode: 'prescribed', primarySession: null,
+            supportingWork: [SUPPORT_ITEM] }))
+            .toMatchObject({ class: SLOT_CLASS.SUPPORT, slot: LEGACY_SUPPORT });
+    });
+
+    test('EVERY REST PLAN IS rest, AND FULL REST IS NOT INFERRED FROM AN ABSENCE', () => {
+        /* I had this the other way round first: no daily practice meant
+           genuine full rest. An empty dailyPractice also happens when
+           buildPelvicPracticePlan returns mode 'paused' with no steps, which
+           is what an unresolved PAIN REPORT produces. The rule would have
+           relabelled a member's rest day as full rest because he reported
+           pain, turning a safety state into a programme state.
+
+           Full rest has to be marked by the generator. Until it is, nothing
+           produces one, and that is the honest answer. */
+        for (const practice of [[], [{ type: 'pelvic-practice', required: true }]]) {
+            expect(classifyDayPlan({ ...base, mode: 'rest', primarySession: null,
+                dailyPractice: practice }).slot).toBe(LEGACY_REST);
+        }
+    });
+
+    test('a prescribed day with nothing on it says nothing, rather than rest', () => {
+        /* Relabelling it rest would claim a prescription nobody made, and
+           rest is what suppresses the member's reminder. */
+        expect(classifyDayPlan({ ...base, mode: 'prescribed', primarySession: null }))
+            .toMatchObject({ class: SLOT_CLASS.UNRESOLVED, slot: undefined });
+    });
+
+    test('a non-plan is unresolved and never throws', () => {
+        for (const v of [null, undefined, 'rest', 42, [], [{}]]) {
+            expect(classifyDayPlan(v), JSON.stringify(v))
+                .toMatchObject({ class: SLOT_CLASS.UNRESOLVED, slot: undefined });
+        }
+    });
+
+    test('an out-of-vocabulary primary type is unresolved, not training', () => {
+        const r = classifyDayPlan({ ...base, mode: 'prescribed',
+            primarySession: { type: 'recovery', tier: 'intermediate' } });
+        expect(r.class).toBe(SLOT_CLASS.UNRESOLVED);
+    });
+
+    test('AND THE LEGACY PROJECTION IS UNCHANGED, which is the migration gate', () => {
+        /* toLegacySlot still refuses a support-only day. An older cached
+           client runs normaliseSchedule() on every load, replacing any slot
+           outside DAY_TYPES with the default for that index, so a 'support'
+           value in the persisted column would be rewritten to a MECHANICAL
+           type and saved. The classifier may know about support long before
+           the column is allowed to hold it. */
+        const supportOnly = { ...base, mode: 'prescribed', primarySession: null,
+            supportingWork: [SUPPORT_ITEM] };
+        expect(classifyDayPlan(supportOnly).class).toBe(SLOT_CLASS.SUPPORT);
+        expect(toLegacySlot(supportOnly))
+            .toEqual({ ok: false, reason: PROJECTION_REFUSAL.SUPPORT_ONLY });
+        expect(toLegacySchedule([supportOnly], new Date('2026-03-18T12:00:00Z')).ok).toBe(false);
     });
 });
