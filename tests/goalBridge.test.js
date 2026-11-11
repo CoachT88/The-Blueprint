@@ -32,6 +32,36 @@ const home = readFileSync('index.html', 'utf8');
 const product = readFileSync('whats-inside/index.html', 'utf8');
 const productMain = product.slice(product.indexOf('<main class="wrap">'), product.indexOf('</main>'));
 
+/* THE LAUNCH GATE. Whether the page must describe the new Erection Quality
+   programme is decided by one thing: the flag the app ships. While it is false
+   the page keeps its current, true copy and must not advertise anything new.
+   Once it is true the page must carry the activation copy in tools/launch/.
+   Flipping the flag without applying the copy, or applying the copy without
+   flipping the flag, fails here. See tools/launch/apply-eq-website-copy.mjs. */
+const appSrc = readFileSync('app/index.html', 'utf8');
+const EQ_LIVE = /^let EQ_SESSIONS_ENABLED\s*=\s*true\b/m.test(appSrc);
+const LIVE_BRIDGE = readFileSync('tools/launch/eq-bridge.live.html', 'utf8');
+const LIVE_HUB_READING = readFileSync('tools/launch/eq-hub-reading.live.html', 'utf8');
+const hubPage = readFileSync('stronger-erections/index.html', 'utf8');
+
+/* Capabilities that are forbidden everywhere on the page, in either state. */
+const FORBIDDEN_CLAIMS = [
+    /five (meaningful )?activity days/i,
+    /support[- ]only day/i,
+    /daily (erection quality|EQ) (plan|schedule|programme|program)/i,
+    /clinically (validated|reviewed|approved)/i,
+    /doctor[- ]approved/i,
+    /\bcures?\b/i,
+    /permanent (gains|increase)/i,
+    /* An AFFIRMATIVE guarantee only. The bare word is not the
+    problem: the page already carries "No exercise or technique
+    can guarantee changes", which is the sentence we want to keep,
+    and a pattern that forbade the word would have deleted the
+    disclaimer to satisfy the test. */
+    /\b(we|it|the app|this) guarantees?\b/i,
+    /\bguaranteed (results|gains|growth|outcome)/i,
+];
+
 const why = home.slice(home.indexOf('<section id="why">'),
                        home.indexOf('</section>', home.indexOf('<section id="why">')));
 
@@ -135,7 +165,9 @@ describe('every pathway reaches its own goal, for free first', () => {
 
 /* The three goals the page currently invites a purchase on. Erections is
    deliberately not among them; see the held-offer test below. */
-const SELLING = ['for-stamina', 'for-size', 'for-multiple-goals'];
+const SELLING = EQ_LIVE
+    ? ['for-stamina', 'for-size', 'for-multiple-goals', 'for-erections']
+    : ['for-stamina', 'for-size', 'for-multiple-goals'];
 
 describe('each bridge says what is there, then the most useful thing against it', () => {
     test.each(PATHS.map(p => p.anchor))('%s carries a recognition line, a limit and a free way out', anchor => {
@@ -164,7 +196,7 @@ describe('each bridge says what is there, then the most useful thing against it'
         expect(visible(b)).toMatch(/One payment, no subscription/);
     });
 
-    test('the erection section tells a buyer the goal schedules a length session', () => {
+    test.skipIf(EQ_LIVE)('the erection section tells a buyer the goal schedules a length session', () => {
         /* THE P0 FROM #177, AND THE PART THE FIRST DRAFT MISSED.
            GOALS.eq.schedule is ['stamina','rest','length','rest','stamina',
            'rest','rest']. Saying only that no erection-quality session
@@ -183,7 +215,7 @@ describe('each bridge says what is there, then the most useful thing against it'
         expect(b).toMatch(/charts/i);
     });
 
-    test('THE ERECTION GOAL MAKES NO PURCHASE INVITATION WHILE THE MISMATCH IS OPEN', () => {
+    test.skipIf(EQ_LIVE)('THE ERECTION GOAL MAKES NO PURCHASE INVITATION WHILE THE MISMATCH IS OPEN', () => {
         /* The owner's review pre-authorised this: "If a concise, truthful
            explanation cannot coexist with the offer, hold the EQ-specific
            direct purchase invitation until #177 addresses the mismatch."
@@ -281,22 +313,7 @@ describe('each bridge says what is there, then the most useful thing against it'
 
     test('NO UNSHIPPED CAPABILITY IS CLAIMED ANYWHERE ON THE PAGE', () => {
         const copy = visible(productMain);
-        for (const claim of [
-            /five (meaningful )?activity days/i,
-            /support[- ]only day/i,
-            /daily (erection quality|EQ) (plan|schedule|programme|program)/i,
-            /clinically (validated|reviewed|approved)/i,
-            /doctor[- ]approved/i,
-            /\bcures?\b/i,
-            /permanent (gains|increase)/i,
-            /* An AFFIRMATIVE guarantee only. The bare word is not the
-               problem: the page already carries "No exercise or technique
-               can guarantee changes", which is the sentence we want to keep,
-               and a pattern that forbade the word would have deleted the
-               disclaimer to satisfy the test. */
-            /\b(we|it|the app|this) guarantees?\b/i,
-            /\bguaranteed (results|gains|growth|outcome)/i,
-        ]) {
+        for (const claim of FORBIDDEN_CLAIMS) {
             expect(copy, `forbidden claim ${claim}`).not.toMatch(claim);
         }
     });
@@ -308,7 +325,7 @@ describe('each bridge says what is there, then the most useful thing against it'
         expect(productMain.split('<a class="cta" href="/#get">Get The Blueprint, $99</a>')).toHaveLength(3);
         /* Two page-level actions plus three selling goals. Five, not six,
            because the erection goal's invitation is held. */
-        expect((productMain.match(/href="\/#get"/g) || [])).toHaveLength(5);
+        expect((productMain.match(/href="\/#get"/g) || [])).toHaveLength(EQ_LIVE ? 6 : 5);
         /* The page's two primary actions, and only two, which is the ceiling
            tests/pageTemplate.test.js enforces across every public page. */
         expect((productMain.match(/<a class="(?:cta|btn|daily-cta)"/g) || [])).toHaveLength(2);
@@ -346,7 +363,7 @@ describe('THE PAGE IS CHECKED AGAINST THE APP, NOT AGAINST ITSELF', () => {
     };
     const count = (arr, t) => arr.filter(x => x === t).length;
 
-    test('the erection section states the real GOALS.eq week', () => {
+    test.skipIf(EQ_LIVE)('the erection section states the real GOALS.eq week', () => {
         const eq = goalSchedule('eq');
         const why = 'GOALS.eq.schedule changed; rewrite the #for-erections day mix to match';
         expect(count(eq, 'stamina'), why).toBe(2);
@@ -355,7 +372,7 @@ describe('THE PAGE IS CHECKED AGAINST THE APP, NOT AGAINST ITSELF', () => {
         expect(visible(bridge('for-erections'))).toMatch(/two stamina sessions and one length session/i);
     });
 
-    test('and the claim that no erection quality session type exists is still true', () => {
+    test.skipIf(EQ_LIVE)('and the claim that no erection quality session type exists is still true', () => {
         const m = slotSrc.match(/LEGACY_PRIMARY_TYPES = Object\.freeze\(\[([^\]]+)\]/);
         expect(m, 'LEGACY_PRIMARY_TYPES must be readable').not.toBeNull();
         expect(m[1], 'an EQ session type now exists; the page says it does not')
@@ -460,5 +477,126 @@ describe('direct entry to the product page still reads as one page', () => {
                              '/assessment/', '/daily/', '/learn/']) {
             expect(home + product, `${route} must still be linked`).toContain(`href="${route}"`);
         }
+    });
+});
+
+describe('THE ERECTION QUALITY WEBSITE COPY IS GATED ON THE PROGRAMME BEING ON', () => {
+    const dayName = i => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i];
+    const list = names => names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+    const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven'];
+    const readArray = (src, key) => {
+        const m = src.match(new RegExp(`${key}:\\s*\\[([^\\]]*)\\]`));
+        expect(m, `${key} must be readable in app/index.html`).not.toBeNull();
+        return m[1].split(',').map(x => x.trim().replace(/^'|'$/g, '')).filter(Boolean);
+    };
+    const liveText = visible(LIVE_BRIDGE);
+
+    /* ── The page follows the flag, in both directions ───────────────────── */
+
+    test('the page carries the activation copy exactly when the programme is on, and never before', () => {
+        const onPage = bridge('for-erections') + '</div>';
+        const hubReading = hubPage.match(/<p class="reading">The app charts the erection quality[\s\S]*?<\/p>/);
+        expect(hubReading, 'the hub reading paragraph must exist').not.toBeNull();
+        if (EQ_LIVE) {
+            expect(onPage.trim(), 'EQ is on but #for-erections is not the activation copy: run tools/launch/apply-eq-website-copy.mjs')
+                .toBe(LIVE_BRIDGE.trim());
+            expect(hubReading[0], 'EQ is on but the hub still describes the old app').toBe(LIVE_HUB_READING.trim());
+        } else {
+            const t = visible(onPage);
+            // Still the truthful pre-activation copy, and nothing of the new programme.
+            expect(t).toMatch(/not asking you to buy on this goal yet/i);
+            expect(t, 'the new programme is advertised before it is on').not.toMatch(/three short sessions|Sunday, Wednesday and Friday|Cat-Cow|Happy Baby/i);
+            expect(onPage, 'a purchase invitation appeared on a goal that is not on yet').not.toContain('href="/#get"');
+            expect(hubReading[0]).toMatch(/no separate erection quality session/i);
+            expect(visible(hubReading[0])).not.toMatch(/three days a week/i);
+        }
+    });
+
+    // ── The activation copy, checked now, while it is still unused ─────────
+
+    test('the activation copy states the real EQ week, read from the app', () => {
+        const slots = readArray(appSrc.slice(appSrc.indexOf('eq:      {label:'), appSrc.indexOf('all:     {label:')), 'eqSchedule');
+        const fullRest = readArray(appSrc.slice(appSrc.indexOf('eq:      {label:'), appSrc.indexOf('all:     {label:')), 'fullRestDays').map(Number);
+        expect(slots, 'a week has seven slots').toHaveLength(7);
+        const sessionDays = slots.flatMap((t, i) => t === 'stamina' ? [i] : []);
+        const fullRestDays = fullRest;
+        const supportDays = slots.flatMap((t, i) => t === 'rest' && !fullRestDays.includes(i) ? [i] : []);
+        const why = 'GOALS.eq.eqSchedule or fullRestDays changed; rewrite tools/launch/eq-bridge.live.html to match';
+        expect(sessionDays.length, why).toBeGreaterThan(0);
+        expect(liveText, why).toContain(`${words[sessionDays.length]} short sessions, on ${list(sessionDays.map(dayName))}`);
+        expect(liveText, why).toContain(`${list(supportDays.map(dayName))} are a lighter supporting practice`);
+        expect(liveText, why).toContain(`${list(fullRestDays.map(dayName))} are full rest`);
+        // Nothing but legacy slot values, so the Worker and older clients read the week unchanged.
+        for (const t of slots) expect(['stamina', 'rest'], `slot ${t}`).toContain(t);
+    });
+
+    test('and it makes the claims the app can keep, with the same safety wording as every other goal', () => {
+        expect(liveText).toMatch(/1 to 10/);
+        expect(liveText).toMatch(/charts/i);
+        expect(liveText).toMatch(/weekly report/i);
+        expect(liveText).toMatch(/at least two sessions/i);
+        expect(liveText).toMatch(/helps the app decide/i);
+        expect(liveText).toMatch(/not a diagnosis/i);
+        expect(liveText).toMatch(/professional evaluation/i);
+        expect(liveText).toMatch(/does not treat erectile dysfunction/i);
+        expect(liveText).toMatch(/no one can promise/i);
+        expect(liveText).not.toMatch(/made worse by/i);
+        expect(liveText).not.toMatch(/\bdiagnoses\b|\bdetects\b|\bmeasures your (tone|muscle)/i);
+        // It describes practice, and never an outcome.
+        expect(liveText).not.toMatch(/will (improve|boost|restore|strengthen|fix|increase)/i);
+        expect(liveText).not.toMatch(/\b(improves?|boosts?|restores?|strengthens?|fixes?) (your )?erections?\b/i);
+        expect(liveText).not.toMatch(/you will (probably|likely|struggle|give up|fail)/i);
+    });
+
+    test('and it passes the page-wide guards, which the old copy also passes', () => {
+        for (const claim of FORBIDDEN_CLAIMS) expect(liveText, `forbidden claim ${claim}`).not.toMatch(claim);
+        for (const ch of ['—', '–', '⸺', '⸻', '&mdash;', '&ndash;']) expect(LIVE_BRIDGE.includes(ch), JSON.stringify(ch)).toBe(false);
+        expect(LIVE_BRIDGE).toContain('class="recognition"');
+        expect(LIVE_BRIDGE).toContain('What is actually in the app');
+        expect(LIVE_BRIDGE).toContain('The honest limit');
+        expect(liveText).toMatch(/read first/i);
+        // Selling bridge shape: exactly one secondary purchase action, no primary one, the one price.
+        expect(LIVE_BRIDGE.match(/class="cta secondary"/g) || []).toHaveLength(1);
+        expect(LIVE_BRIDGE.match(/class="cta"/g) || []).toHaveLength(0);
+        expect(LIVE_BRIDGE).toContain('href="/#get"');
+        expect(liveText).toContain('$99 once');
+        expect(liveText).toMatch(/One payment, no subscription/);
+        // It does not describe any day as editable, because the app withdrew that.
+        expect(liveText).not.toMatch(/swap|edit your (week|days)/i);
+    });
+
+    // ── The swap itself is mechanical, and safe ───────────────────────────
+
+    test('applying the activation copy changes exactly the two regions, and is idempotent', async () => {
+        const { applyEqCopy } = await import('../tools/launch/apply-eq-website-copy.mjs');
+        const whatsInside = readFileSync('whats-inside/index.html', 'utf8');
+        const input = { whatsInside, hub: hubPage, bridge: LIVE_BRIDGE, hubReading: LIVE_HUB_READING };
+        const out = applyEqCopy(input);
+        const again = applyEqCopy({ ...input, whatsInside: out.whatsInside, hub: out.hub });
+        expect(again).toEqual(out);                                           // idempotent
+        // Only the #for-erections block differs on the product page.
+        const start = whatsInside.indexOf('<div class="goal-bridge" id="for-erections">');
+        const end = whatsInside.indexOf('</div>', start) + 6;
+        expect(out.whatsInside.slice(0, start)).toBe(whatsInside.slice(0, start));
+        expect(out.whatsInside.slice(start, start + LIVE_BRIDGE.trim().length)).toBe(LIVE_BRIDGE.trim());
+        expect(out.whatsInside.slice(start + LIVE_BRIDGE.trim().length)).toBe(whatsInside.slice(end));
+        // Only the one paragraph differs on the hub.
+        const hubOld = hubPage.match(/<p class="reading">The app charts the erection quality[\s\S]*?<\/p>/)[0];
+        expect(out.hub).toBe(hubPage.replace(hubOld, LIVE_HUB_READING.trim()));
+    });
+
+    test('the page as it will be after activation satisfies the live-state rules, and the old claims are gone', async () => {
+        const { applyEqCopy } = await import('../tools/launch/apply-eq-website-copy.mjs');
+        const out = applyEqCopy({ whatsInside: readFileSync('whats-inside/index.html', 'utf8'), hub: hubPage,
+                                  bridge: LIVE_BRIDGE, hubReading: LIVE_HUB_READING });
+        const main = out.whatsInside.slice(out.whatsInside.indexOf('<main class="wrap">'), out.whatsInside.indexOf('</main>'));
+        // Two page-level actions plus four selling goals; still only two primary actions.
+        expect(main.match(/href="\/#get"/g) || []).toHaveLength(6);
+        expect(main.match(/<a class="(?:cta|btn|daily-cta)"/g) || []).toHaveLength(2);
+        const t = visible(main);
+        expect(t).not.toMatch(/no erection quality session type|two stamina sessions and one length session|not asking you to buy on this goal yet|under review/i);
+        for (const claim of FORBIDDEN_CLAIMS) expect(t, `forbidden claim ${claim}`).not.toMatch(claim);
+        expect(visible(out.hub)).not.toMatch(/no separate erection quality session/i);
+        expect(visible(out.hub)).toMatch(/three days a week/i);
     });
 });
