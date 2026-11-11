@@ -99,12 +99,15 @@ function isReadableSchedule(s) {
  *   one unreadable day is reasonable; adopting an unreadable WEEK is not.
  *
  * So this list is closed, and it is the one place the Worker commits to a
- * forward vocabulary. 'support' and 'full-rest' are the provisional names
- * for the two new kinds of day. src/scheduleSlot.js is the authority on what
- * they are finally called, and tests/notifyRules.test.js pins the overlap
- * with LEGACY_PRIMARY_TYPES so the two sides of the wire cannot drift
- * silently. If phase B settles on different tokens, this list changes with
- * it and must deploy before any client can write one.
+ * forward vocabulary. 'support' and 'full-rest' are the two new kinds of
+ * day, named LEGACY_SUPPORT and LEGACY_FULL_REST in src/scheduleSlot.js,
+ * which is the authority on their names. tests/notifyRules.test.js pins this
+ * list to those constants, and the training tokens to LEGACY_PRIMARY_TYPES,
+ * so the two sides of the wire cannot drift silently. Today's client never
+ * writes either token into the persisted schedule (toLegacySlot refuses a
+ * support-only day, and the EQ week uses only legacy values); this only
+ * makes the Worker safe for the day one is written. If either name changes,
+ * this list changes with it and must deploy before any client can write it.
  */
 export const PENDING_SLOT_VOCABULARY = Object.freeze([
     'length', 'girth', 'stamina',  // mechanical primary training

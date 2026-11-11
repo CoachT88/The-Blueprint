@@ -5,7 +5,7 @@ import {
     utcDayKey, trainedOn, trainedOnLocalDay, reminderHour, reminderMinuteOfDay, decideNotification,
     TRAINING_SLOTS, isTrainingSlot, PENDING_SLOT_VOCABULARY,
 } from '../supabase/functions/_shared/notifyRules.js';
-import { LEGACY_PRIMARY_TYPES, LEGACY_REST } from '../src/scheduleSlot.js';
+import { LEGACY_PRIMARY_TYPES, LEGACY_REST, LEGACY_SUPPORT, LEGACY_FULL_REST } from '../src/scheduleSlot.js';
 
 /**
  * The settings screen offers AM/PM check-ins, an extra time, and completion
@@ -650,6 +650,18 @@ describe('#186 phase 1: the Worker tolerates slot values it has never seen', () 
         test('and about what rest is called', () => {
             expect(PENDING_SLOT_VOCABULARY).toContain(LEGACY_REST);
             expect(isTrainingSlot(LEGACY_REST)).toBe(false);
+        });
+
+        test('and about the two new kinds of day, which are never training', () => {
+            expect(PENDING_SLOT_VOCABULARY).toContain(LEGACY_SUPPORT);
+            expect(PENDING_SLOT_VOCABULARY).toContain(LEGACY_FULL_REST);
+            expect(isTrainingSlot(LEGACY_SUPPORT)).toBe(false);
+            expect(isTrainingSlot(LEGACY_FULL_REST)).toBe(false);
+        });
+
+        test('the queued-week vocabulary is exactly the legacy values plus those two, and nothing else', () => {
+            expect([...PENDING_SLOT_VOCABULARY].sort()).toEqual(
+                [...LEGACY_PRIMARY_TYPES, LEGACY_REST, LEGACY_SUPPORT, LEGACY_FULL_REST].sort());
         });
 
         test('every legacy primary type is training to the Worker', () => {
