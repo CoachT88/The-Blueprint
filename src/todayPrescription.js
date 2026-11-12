@@ -274,14 +274,25 @@ export function primarySatisfied(input) {
 
     const mech = Array.isArray(i.mechanicalTypes) ? i.mechanicalTypes : MECHANICAL_TYPES;
     const { dated, legacy } = performedByAttribution(i.sessionLog, mech);
+    /* WHICH KIND OF COMPLETION SATISFIES TODAY, by the rule weekCompletion()
+       applies to every day of the week, so that Today and the week strip can
+       never disagree about whether a day is done. The caller names the weekdays
+       an EQ completion may satisfy, because only it knows the member's goal and
+       live prescription (see eqSatisfiableDays() in the app). Eligibility is
+       EXCLUSIVE: on a named day only an EQ completion satisfies, on every other
+       day only mechanical work does. Nothing named, which is every member while
+       EQ is off and every member not on the EQ week, leaves the answer exactly
+       as it was. A prescribed EQ slot is a 'stamina' slot by design, so without
+       this an EQ session never satisfied the Primary it was prescribed for. */
+    const eqDays = Array.isArray(i.eqSatisfiableDays) ? i.eqSatisfiableDays : [];
+    const eqToday = eqDays.includes(i.now.getDay());
+    const ok = (rec) => !!rec && (eqToday ? rec.eq === true : rec.mechanical === true);
     /* The dated key is the plan's own local identity. The legacy key is the
        UTC date part of a pre-3C.4 timestamp, so it is looked up with the
        relationship those records were written under. Two keys, each compared
        against its own convention; see sessionAttribution.js. */
-    const byPlan = dated.get(p.date);
-    if (byPlan && byPlan.mechanical) return true;
-    const byLegacy = legacy.get(dateKeyForWeekday(i.now, i.now.getDay()));
-    return !!(byLegacy && byLegacy.mechanical);
+    if (ok(dated.get(p.date))) return true;
+    return ok(legacy.get(dateKeyForWeekday(i.now, i.now.getDay())));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
