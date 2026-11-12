@@ -8,8 +8,8 @@
 -- user_id stays null, so the test exercises the REAL claim_membership() path
 -- when the account signs in. No card, no Stripe call, no production data.
 --
--- It refuses unless staging has exactly one confirmed auth user (the
--- disposable test account), so it cannot pick the wrong address.
+-- It uses only the test account recorded in the marker by 01, so it cannot
+-- pick another address.
 -- Safe to re-run: every insert is conflict-guarded.
 -- ═══════════════════════════════════════════════════════════════════════════
 do $guard$
@@ -17,18 +17,25 @@ begin
     if to_regclass('public._staging_marker') is null then
         raise exception 'REFUSED: no staging marker. This file is for the marked staging project only.';
     end if;
+    if not exists (select 1 from public._staging_marker m
+                   join auth.users u on u.id = m.test_user_id) then
+        raise exception 'REFUSED: the marker''s test account does not exist here. This is not the project 01 was run on.';
+    end if;
+    if (select count(*) from auth.users) > 25 then
+        raise exception 'REFUSED: more than 25 auth users. This does not look like staging.';
+    end if;
 end
 $guard$;
 
 do $sim$
 declare
-    v_n     int;
     v_email text;
 begin
-    select count(*), min(lower(btrim(email))) into v_n, v_email
-    from auth.users where email_confirmed_at is not null and email is not null;
-    if v_n <> 1 then
-        raise exception 'REFUSED: expected exactly one confirmed staging user, found %', v_n;
+    select lower(btrim(u.email)) into v_email
+    from public._staging_marker m join auth.users u on u.id = m.test_user_id
+    where u.email_confirmed_at is not null and u.email is not null;
+    if v_email is null then
+        raise exception 'REFUSED: the marker''s test account has no confirmed email.';
     end if;
 
     insert into public.purchases (provider, provider_ref, email, amount_cents, currency, status)

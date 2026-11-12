@@ -13,6 +13,13 @@ begin
     if to_regclass('public._staging_marker') is null then
         raise exception 'REFUSED: no staging marker. This file is for the marked staging project only.';
     end if;
+    if not exists (select 1 from public._staging_marker m
+                   join auth.users u on u.id = m.test_user_id) then
+        raise exception 'REFUSED: the marker''s test account does not exist here. This is not the project 01 was run on.';
+    end if;
+    if (select count(*) from auth.users) > 25 then
+        raise exception 'REFUSED: more than 25 auth users. This does not look like staging.';
+    end if;
 end
 $guard$;
 

@@ -7,7 +7,8 @@
 --
 -- WHAT IT DOES. Creates the base public.members table (it is not defined
 -- anywhere in the repo; it was created by hand, so this is a minimal shape
--- derived from what the code reads and writes, used only as a reference), then
+-- derived from what the code reads and writes plus the verified production
+-- column shapes (created_at is nullable with default now()), used only as a reference), then
 -- applies the production purchase-ledger migration VERBATIM: purchases,
 -- payment_events, the revocation functions and claim_membership(). Nothing is
 -- copied from production: no rows, no payment records, no credentials.
@@ -17,22 +18,46 @@
 -- ROLLBACK: supabase/staging/99b-rollback-everything.sql.
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- Refuse to run anywhere that already has the ledger without our marker: that
--- is the signature of production (or of a project someone set up for real).
+-- ── IDENTITY CHECK: is this the staging project? ───────────────────────────
+-- Postgres cannot report a Supabase project ref (current_database() is
+-- 'postgres' everywhere), so identity is proved with a fact only staging has:
+-- the id of the disposable test account. BEFORE RUNNING, the owner copies that
+-- user's id from the STAGING dashboard (Authentication > Users) and pastes it
+-- over the zero UUID below. Production has no such user, so a paste into the
+-- wrong project fails here, before anything is created. The id is stored in
+-- the marker and re-checked by every later file.
+-- Also refused: an unmarked project that already has the ledger (production's
+-- shape), and any project with more than 25 auth users (staging holds a
+-- handful; this is a second, cruder tripwire, not the proof).
+-- Where this is not enough: it cannot detect a copy of the test user placed in
+-- production. The deployment procedure covers that gap: README "Before you run".
 do $guard$
+declare
+    v_test uuid := '00000000-0000-0000-0000-000000000000';   -- << REPLACE with the staging test account's id
 begin
+    if v_test = '00000000-0000-0000-0000-000000000000' then
+        raise exception 'REFUSED: paste the staging test account id over the zero UUID in this file first.';
+    end if;
     if to_regclass('public.purchases') is not null
        and to_regclass('public._staging_marker') is null then
         raise exception 'REFUSED: public.purchases exists and this is not a marked staging project. Do not run this file here.';
     end if;
+    if not exists (select 1 from auth.users where id = v_test and email_confirmed_at is not null) then
+        raise exception 'REFUSED: no confirmed auth user with that id here. This is not the staging project.';
+    end if;
+    if (select count(*) from auth.users) > 25 then
+        raise exception 'REFUSED: more than 25 auth users. This does not look like staging.';
+    end if;
+    create table if not exists public._staging_marker (note text not null, test_user_id uuid);
+    alter table public._staging_marker add column if not exists test_user_id uuid;
+    if not exists (select 1 from public._staging_marker) then
+        insert into public._staging_marker (note, test_user_id)
+        values ('blueprint staging project: entitlement test setup', v_test);
+    elsif not exists (select 1 from public._staging_marker where test_user_id = v_test) then
+        raise exception 'REFUSED: the marker was created for a different test account id.';
+    end if;
 end
 $guard$;
-
--- The marker. Files 02 to 04 refuse to run without it.
-create table if not exists public._staging_marker (note text not null);
-insert into public._staging_marker (note)
-select 'blueprint staging project: entitlement test setup'
-where not exists (select 1 from public._staging_marker);
 alter table public._staging_marker enable row level security;
 revoke all on public._staging_marker from public, anon, authenticated;
 
@@ -43,7 +68,7 @@ create table if not exists public.members (
     email      text primary key,
     user_id    uuid,
     claimed_at timestamptz,
-    created_at timestamptz not null default now()
+    created_at timestamptz default now()   -- nullable, as in production
 );
 create index if not exists members_user_id_idx    on public.members (user_id);
 create index if not exists members_email_norm_idx on public.members (lower(btrim(email)));

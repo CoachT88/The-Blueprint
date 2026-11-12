@@ -3,7 +3,7 @@
 # against a stub of the Supabase pieces they rely on (auth.users, auth.uid(),
 # roles, handle_new_user). Touches no real database.
 cd "$(dirname "$0")"; source ./lib.sh
-S=../../supabase/staging; PASS=0; FAIL=0
+S=../../supabase/staging; T=11111111-1111-1111-1111-111111111111; PASS=0; FAIL=0
 chk(){ if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "PASS  $1"; else FAIL=$((FAIL+1)); echo "FAIL  $1   expected [$3] got [$2]"; fi; }
 ADM="psql -h /var/tmp/bp-pgproof-sock -p 54329 -U postgres -X -q"
 $ADM -c "drop database if exists stg" -c "create database stg" >/dev/null
@@ -24,34 +24,50 @@ create function auth.uid() returns uuid language sql stable as $$
 create function public.handle_new_user() returns trigger language plpgsql as $$ begin return new; end $$;
 SQL
 }
+sub(){ sed "s/v_test uuid := '00000000-0000-0000-0000-000000000000'/v_test uuid := '$T'/" $S/01-setup.sql > /var/tmp/01-sub.sql; }
+sub
 fresh
+echo "--- identity: 01 refuses unless the pasted test-account id exists here"
+chk "01 refuses with the placeholder id untouched" "$(run $S/01-setup.sql | grep -c 'paste the staging test account id')" 1
+chk "01 refuses where that account does not exist (wrong project)" "$(run /var/tmp/01-sub.sql | grep -c 'not the staging project')" 1
+$P -c "insert into auth.users values ('$T','Tester@Example.invalid', now())" >/dev/null
+$P -c "insert into auth.users select gen_random_uuid(), 'bulk'||g||'@example.invalid', now() from generate_series(1,25) g" >/dev/null
+chk "01 refuses a project with more than 25 users" "$(run /var/tmp/01-sub.sql | grep -c 'more than 25')" 1
+$P -c "delete from auth.users where id <> '$T'" >/dev/null
 echo "--- guard: refuses where the ledger already exists unmarked (production's shape)"
 $P -c "create table public.purchases(id int)" >/dev/null 2>&1
-chk "01 refuses on an unmarked project with purchases" "$(run $S/01-setup.sql | grep -c 'REFUSED: public.purchases')" 1
+$P -c "insert into auth.users values ('$T','Tester@Example.invalid', now())" >/dev/null
+chk "01 refuses on an unmarked project with purchases" "$(run /var/tmp/01-sub.sql | grep -c 'REFUSED: public.purchases')" 1
 chk "01 created nothing there" "$($P -At -c "select to_regclass('public.members') is null and to_regclass('public._staging_marker') is null")" t
 fresh
+$P -c "insert into auth.users values ('$T','Tester@Example.invalid', now())" >/dev/null
 echo "--- 02/03/99 refuse before setup"
 for f in 02-verify 03-simulate-purchase 99a-rollback-simulation 99b-rollback-everything; do
   chk "$f refuses without the marker" "$(run $S/$f.sql | grep -c 'REFUSED: no staging marker')" 1; done
+echo "--- members matches production: created_at nullable, default now()"
+run /var/tmp/01-sub.sql >/dev/null
+chk "created_at is nullable with a now() default" "$($P -At -c "select is_nullable||'|'||column_default from information_schema.columns where table_name='members' and column_name='created_at'")" "YES|now()"
 echo "--- 01 applies and is idempotent"
-chk "01 applies with no error" "$(run $S/01-setup.sql | grep -c 'ERROR:')" 0
-chk "01 re-runs with no error" "$(run $S/01-setup.sql | grep -c 'ERROR:')" 0
+chk "01 applies with no error" "$(run /var/tmp/01-sub.sql | grep -c 'ERROR:')" 0
+chk "01 re-runs with no error" "$(run /var/tmp/01-sub.sql | grep -c 'ERROR:')" 0
 echo "--- 02 part A and the matrix"
 chk "02 part A: every check true" "$(run $S/02-verify.sql | grep -E '\|(t|f)$' | grep -c '|f$')" 0
 chk "02 part A ran all checks" "$(run $S/02-verify.sql | grep -cE '\|t$')" 9
 M=$(run $S/02-verify.sql | grep 'MATRIX')
 chk "matrix passes on the shipped functions" "$(echo "$M" | grep -c 'MATRIX PASS')" 1
-chk "matrix leaves nothing behind" "$($P -At -c "select (select count(*) from auth.users)+(select count(*) from public.members)+(select count(*) from public.purchases)")" 0
+chk "matrix leaves nothing behind" "$($P -At -c "select (select count(*) from auth.users)-1+(select count(*) from public.members)+(select count(*) from public.purchases)")" 0
 echo "--- the matrix detects a broken claim (mutation: unconfirmed email allowed)"
-$P -At -c "$(sed 's/    and email_confirmed_at is not null;   -- CHANGE A/;/' $S/01-setup.sql | sed -n '/create or replace function public.claim_membership/,/^\$function\$;/p')" >/dev/null 2>&1
+$P -At -c "$(sed 's/    and email_confirmed_at is not null;   -- CHANGE A/;/' /var/tmp/01-sub.sql | sed -n '/create or replace function public.claim_membership/,/^\$function\$;/p')" >/dev/null 2>&1
 chk "mutant installed (confirmation check gone)" "$($P -At -c "select prosrc not like '%email_confirmed_at is not null%' from pg_proc where proname='claim_membership'")" t
 chk "matrix FAILS on the mutant" "$(run $S/02-verify.sql | grep 'MATRIX' | grep -c 'MATRIX FAIL.*unconfirmed')" 1
-run $S/01-setup.sql >/dev/null
-echo "--- 03 refuses unless exactly one confirmed user"
-chk "03 refuses with zero users" "$(run $S/03-simulate-purchase.sql | grep -c 'found 0')" 1
-$P -c "insert into auth.users values ('11111111-1111-1111-1111-111111111111','Tester@Example.invalid', now())" >/dev/null
+run /var/tmp/01-sub.sql >/dev/null
+echo "--- later files re-check identity; 03 uses only the marker's account"
+chk "02 refuses if the marker's account is gone" "$($P -At -c "begin; delete from auth.users; commit" >/dev/null; run $S/02-verify.sql | grep -c 'marker.s test account does not exist')" 1
+$P -c "insert into auth.users values ('$T','Tester@Example.invalid', now())" >/dev/null
 $P -c "insert into auth.users values ('22222222-2222-2222-2222-222222222222','other@example.invalid', now())" >/dev/null
-chk "03 refuses with two users" "$(run $S/03-simulate-purchase.sql | grep -c 'found 2')" 1
+run $S/03-simulate-purchase.sql >/dev/null
+chk "03 simulates for the marker's account, not the other user" "$($P -At -c "select string_agg(email,',') from public.members")" "tester@example.invalid"
+run $S/99a-rollback-simulation.sql >/dev/null
 $P -c "delete from auth.users where id='22222222-2222-2222-2222-222222222222'" >/dev/null
 echo "--- 03 simulates, the real claim path attaches"
 run $S/03-simulate-purchase.sql >/dev/null; run $S/03-simulate-purchase.sql >/dev/null

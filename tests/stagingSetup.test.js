@@ -15,6 +15,17 @@ describe('staging entitlement package', () => {
         for (const f of ['02-verify.sql', '03-simulate-purchase.sql', '99a-rollback-simulation.sql', '99b-rollback-everything.sql'])
             expect(read(f), f).toMatch(/to_regclass\('public\._staging_marker'\) is null/);
     });
+    test('members.created_at is nullable with default now(), as in production', () => {
+        expect(read('01-setup.sql')).toMatch(/created_at timestamptz default now\(\)/);
+        expect(read('01-setup.sql')).not.toMatch(/created_at timestamptz not null/);
+    });
+    test('identity: the shipped file carries the placeholder and refuses it, and later files re-check the marker account', () => {
+        const s1 = read('01-setup.sql');
+        expect(s1).toContain("v_test uuid := '00000000-0000-0000-0000-000000000000'");
+        expect(s1).toMatch(/paste the staging test account id/);
+        for (const f of ['02-verify.sql', '03-simulate-purchase.sql', '99a-rollback-simulation.sql', '99b-rollback-everything.sql'])
+            expect(read(f), f).toMatch(/join auth\.users u on u\.id = m\.test_user_id/);
+    });
     test('01 refuses an unmarked project that already has the ledger (production shape)', () => {
         expect(read('01-setup.sql')).toMatch(/purchases'\) is not null\s+and to_regclass\('public\._staging_marker'\) is null/);
     });
