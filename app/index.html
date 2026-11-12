@@ -3203,6 +3203,10 @@ function currentPrimarySatisfied(p){
         now:new Date(),
         sessionLog:persisted.sessionLog,
         completedDays:persisted.completedDays,
+        /* The days an EQ completion may satisfy: the same list the week strip
+           is given, so Today and the week agree. Empty unless the flag is on
+           and the member is on the EQ week. */
+        eqSatisfiableDays:eqSatisfiableDays(),
     });
 }
 /** The prescribed Primary type for display and analytics, or null. */
@@ -5038,7 +5042,8 @@ function renderMissionGuidance(blackout){
 
     let msg='';
     if(_MISSION_BTN[scheduled]){
-        msg=`Today is a <span class="font-black">${dayTypeLabel(scheduled)}</span> day on your schedule.`;
+        const _lbl=sessionLabel(scheduled);
+        msg=`Today is ${/^[AEIOU]/.test(_lbl)?'an':'a'} <span class="font-black">${_lbl}</span> day on your schedule.`;
         if(newish) msg+=' New here? Following the plan is the whole plan.';
     } else if(newish){
         msg=goalKey==='size'||goalKey==='all'
@@ -6038,7 +6043,7 @@ function goToStep(step){
         const _ov=document.getElementById('mission-override-note');
         if(_ov){
             _ov.textContent=_r&&_r.mission&&!_blocked
-                ? `Today's recommendation is ${dayTypeLabel(_r.mission)}. Pick something else if you would rather.`
+                ? `Today's recommendation is ${sessionLabel(_r.mission)}. Pick something else if you would rather.`
                 : '';
             _ov.classList.toggle('hidden',!_ov.textContent);
         }
@@ -6141,6 +6146,16 @@ ROUTINES.recovery.push({
    but say them once, where they matter, rather than as a running disclaimer. */
 const EQ_COPY={
     fullRest:'Rest day. Nothing is required today; recovery is part of the plan.',
+    /* The same day, said on the daily practice card. That card used to fall
+       through to "could not be read" because a full-rest day has no practice
+       plan, which told the member something had failed on the two days the
+       week asks nothing of them. */
+    fullRestPractice:'Full rest today. Nothing is asked of you, and recovery is part of the plan.',
+    /* What an EQ session day is CALLED. Its slot is 'stamina' on purpose, so an
+       older cached client reads the column unchanged, but the member is doing
+       breathing, a release exercise and a gentle movement, not stamina work. */
+    label:'Erection Quality',
+    focus:"Today's focus: your erection quality routine.",
     progress:'Track your consistency and erection quality ratings over time to recognize patterns in your personal progress.',
     /* What each stage is FOR, shown on its own exercise screen. */
     why:{
@@ -6380,6 +6395,49 @@ function eqSatisfiableDays(){
        counted as an EQ day. */
     return want.map((t,i)=>
         (t&&t!=='rest'&&live[i]===t) ? i : -1).filter(i=>i>=0);
+}
+
+/* Is THAT DATE an EQ session day? Answered from the date's own plan, the way
+   isFullRestDate() answers for rest, so a day in NEXT week (the "next up" line)
+   is read from next week's plan and not from this week's slot for the same
+   weekday. Today and every day of this week agree with eqSatisfiableDays(),
+   which is the predicate that decides the routine actually served. */
+function isEqSessionDate(dateKey){
+    if(!onEqWeek()) return false;
+    const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey||'');
+    if(!m) return false;
+    const i=new Date(+m[1],+m[2]-1,+m[3]).getDay();
+    const want=goalSchedule('eq')||[];
+    if(want[i]!=='stamina') return false;           // not a session weekday in the EQ week
+    const raw=(Array.isArray(persisted.dayPlans)?persisted.dayPlans:[])
+        .find(p=>p&&p.date===dateKey);
+    if(raw){
+        /* The dated plan outranks the template, so a preserved plan from before
+           a migration is not called an EQ session. An unreadable one is not
+           either: nothing is claimed that cannot be proven. */
+        const plan=window.BP&&window.BP.normaliseDayPlan?window.BP.normaliseDayPlan(raw):null;
+        return !!plan&&!!plan.primarySession&&plan.primarySession.type==='stamina';
+    }
+    const cur=Array.isArray(persisted.schedule)?persisted.schedule:[];
+    return cur[i]==='stamina';
+}
+
+/* What to CALL a prescribed day's work, for this member.
+
+   An EQ member's session days are 'stamina' slots that the app serves as the
+   EQ routine (eqRoutineFor), so naming them "Stamina" told a member who chose
+   Erection quality that today was a stamina protocol. On a date isEqSessionDate()
+   names, and for an EQ session itself, the label is Erection Quality. Everywhere
+   else it is dayTypeLabel() exactly as before.
+
+   Gated by the same flag and week as the routine and the completion rule: a
+   Stamina or All of It member, and every member while EQ is off, reads the
+   ordinary label. `dateKey` defaults to today. Display only: nothing that
+   decides anything reads this. */
+function sessionLabel(type,dateKey){
+    if(type==='eq') return EQ_COPY.label;
+    if(type!=='stamina'||!window.BP||!window.BP.planDateKey) return dayTypeLabel(type);
+    return isEqSessionDate(dateKey||window.BP.planDateKey(new Date()))?EQ_COPY.label:dayTypeLabel(type);
 }
 
 /* Days that require nothing at all -- but never a day the live prescription
@@ -7754,13 +7812,22 @@ function currentReturnContext(){
  * ever implying it satisfied a mechanical target.
  *
  * Uses window.BP.isQualifyingSession, the single definition of mechanical,
- * rather than restating the condition here.
+ * rather than restating the condition here. Returns 'mechanical', 'eq' (the
+ * EQ session that satisfied an EQ day), 'recovery' or 'unlogged'.
  */
 function todayCompletionKind(){
     const key=_dayKey(0);
     const today=(persisted.sessionLog||[]).filter(e=>e&&typeof e.date==='string'&&e.date.split('T')[0]===key);
     if(!today.length) return 'unlogged';          // hand-ticked, nothing timed
-    return today.some(e=>window.BP.isQualifyingSession(e))?'mechanical':'recovery';
+    if(today.some(e=>window.BP.isQualifyingSession(e))) return 'mechanical';
+    /* An EQ session on a day the EQ week prescribes it IS the day's main
+       session. It is not mechanical work (isQualifyingSession is deliberately
+       unchanged, so it still earns no progression), but calling the day it
+       completed "Recovery Complete" would be wrong about the work. Gated by the
+       same predicate as completion itself, so it is only reachable once the
+       card is COMPLETE because of it. */
+    if(eqRoutineFor('stamina')==='eq'&&today.some(e=>e&&e.routineType==='eq')) return 'eq';
+    return 'recovery';
 }
 
 /* ── The greeting gate ────────────────────────────────────────────────────
@@ -7926,7 +7993,12 @@ function renderWeekStrip(){
             const icon=d.prescriptionKnown?dayTypeIcon(d.prescriptionType):'fa-minus';
             cell.innerHTML=`<span>${DAY_NAMES[d.weekdayIndex]}</span><i class="fas ${icon}"></i>`;
             cell.setAttribute('aria-label',weekCellLabel(d));
-            if(d.substituted&&d.performedType){
+            /* The EQ session IS the plan on an EQ day, though its slot is
+               'stamina' and the log therefore marks it as a departure from it.
+               Calling it "done instead of Stamina", with the amber mark, would
+               tell the member they did something other than what was asked. */
+            const _eqPlanned=d.performedType==='eq'&&isEqSessionDate(d.date);
+            if(d.substituted&&d.performedType&&!_eqPlanned){
                 cell.dataset.substituted='1';
                 cell.title=d.prescriptionKnown
                     ?`${dayTypeLabel(d.performedType)} done instead of ${dayTypeLabel(d.prescriptionType)}`
@@ -7970,7 +8042,7 @@ function weekCellLabel(d){
     const when=d.isToday?'Today':DAY_NAMES[d.weekdayIndex];
     if(!d.prescriptionKnown) return `${when}, nothing planned`;
     if(d.isRest) return `${when}, rest day`;
-    const what=dayTypeLabel(d.prescriptionType);
+    const what=sessionLabel(d.prescriptionType,d.date);
     return d.satisfied?`${when}, ${what}, done`:`${when}, ${what}`;
 }
 
@@ -8080,7 +8152,7 @@ function renderToday(){
 
     const practiceClosed=r.state==='RECOVER'&&dailyPelvicCareDone();
     let headline=practiceClosed?'Recovery Practice Complete':(copy.headline||'');
-    if(r.state==='TRAIN') headline=`${dayTypeLabel(r.mission)} Day`;
+    if(r.state==='TRAIN') headline=`${sessionLabel(r.mission)} Day`;
     if(r.state==='PREPARE') headline=prep.headline;
     /* COMPLETE says what was actually finished. "Today Is Done" after a
        Recovery session is true about the day and would be read as the
@@ -8099,8 +8171,10 @@ function renderToday(){
 
     // Outcome before mechanism: what this session is for, then why today.
     const subs={
-        TRAIN:()=>`Today's focus: your ${dayTypeLabel(r.mission).toLowerCase()} protocol.`,
-        MODIFIED:()=>`${dayTypeLabel(r.mission)} training, reduced today.`,
+        TRAIN:()=>sessionLabel(r.mission)===EQ_COPY.label
+            ? EQ_COPY.focus
+            : `Today's focus: your ${dayTypeLabel(r.mission).toLowerCase()} protocol.`,
+        MODIFIED:()=>`${sessionLabel(r.mission)} training, reduced today.`,
         RECOVER:()=>practiceClosed?'Recovery practice is complete. Mechanical training stays paused today.':'Pelvic floor and mobility work, no mechanical load.',
         REST:()=>'',
         /* Says what is absent and nothing more. The supporting work on the
@@ -8108,7 +8182,7 @@ function renderToday(){
            exist yet: claiming the day is empty would be the lie, and calling
            it rest would be a worse one. */
         SUPPORT_ONLY:()=>"There's no primary training session scheduled for today.",
-        RESUME:()=>r.mission?`${dayTypeLabel(r.mission)} session`:'Session',
+        RESUME:()=>r.mission?`${sessionLabel(r.mission)} session`:'Session',
         /* Recovery closes the day and says nothing about the week. The
            strip below is where mechanical progress is reported, and it is
            unchanged by this session. */
@@ -8152,7 +8226,7 @@ function renderToday(){
     const withheld=document.getElementById('today-withheld');
     if(withheld){
         const w=r.withheldSession;
-        withheld.textContent=w?`Your unfinished ${dayTypeLabel(w.mission)} session is paused, not deleted.`:'';
+        withheld.textContent=w?`Your unfinished ${sessionLabel(w.mission)} session is paused, not deleted.`:'';
         withheld.classList.toggle('hidden',!w);
     }
 
@@ -8182,7 +8256,7 @@ function renderToday(){
     const showLaunch=(r.state==='TRAIN'||r.state==='MODIFIED'||r.state==='RECOVER')&&!practiceClosed;
     if(launch){
         launch.classList.toggle('hidden',!showLaunch);
-        if(showLaunch) launch.textContent=(copy.cta||(()=>'BEGIN SESSION'))(dayTypeLabel(r.mission));
+        if(showLaunch) launch.textContent=(copy.cta||(()=>'BEGIN SESSION'))(sessionLabel(r.mission));
         /* RECOVER's primary is caution-toned. The member reported high
            soreness and the plan adjusted, so this is the correct action
            today, not a warning: same height, same weight, full width,
@@ -8332,6 +8406,11 @@ function renderDailyPelvicCare(r){
         &&!(r.state==='PREPARE'&&!['pelvic-screen','pelvic-pain'].includes(r.prepare));
     card.classList.toggle('hidden',!ready);if(!ready)return;
     const done=dailyPelvicCareDone(),plan=currentPelvicPracticePlan();
+    /* A genuine full-rest day has no practice plan BY DESIGN, so a missing plan
+       is not a fault there. The same predicate currentPelvicPracticePlan() uses,
+       so the two cannot disagree. Anywhere else a missing plan still reads as
+       what it is. */
+    const fullRest=isFullRestDate(window.BP.planDateKey(new Date()));
     const integrated=['TRAIN','MODIFIED','RECOVER'].includes(r.state)||(r.state==='PREPARE'&&r.prepare==='pelvic-screen');
     card.dataset.integrated=String(integrated);
     const labels=(plan?.steps||[]).map(x=>ROUTINES.recovery[x.index].title).join(' · ');
@@ -8339,6 +8418,7 @@ function renderDailyPelvicCare(r){
     document.getElementById('daily-pelvic-note').textContent=paused?'You reported pain. Pause pelvic exercises. Persistent or recurring symptoms need a pelvic-health clinician. Resume gentle breathing only once symptoms have settled.'
         :done?'Daily practice complete today.'
         :r.state==='RESUME'?'Resume your unfinished routine above; its practice is saved.'
+        :fullRest?EQ_COPY.fullRestPractice
         :plan?`${minutes} min · ${integrated?'Daily practice included.':plan.steps.length===1?'Gentle breathing.':'Breathing, release'+(plan.steps.length>2?' & mobility.':'.')}`
         :'Daily practice could not be read. No extra work is assigned.';
     document.getElementById('daily-pelvic-exercises').textContent=labels;
@@ -8472,13 +8552,14 @@ function nextUpChip(){
            trains at least once in any six days; it is here so widening the
            generator later cannot quietly produce a lying label. */
         if(r.daysAway>6) return null;
-        return `${DAY_NAMES[r.weekdayIndex]} · ${dayTypeLabel(r.type)}`;
+        return `${DAY_NAMES[r.weekdayIndex]} · ${sessionLabel(r.type,r.date)}`;
     }
     const sched=persisted.schedule||[];
     for(let i=1;i<=7;i++){
         const idx=(new Date().getDay()+i)%7;
         if(DAY_TYPES[sched[idx]]&&sched[idx]!=='rest'){
-            return `${DAY_NAMES[idx]} · ${dayTypeLabel(sched[idx])}`;
+            const when=new Date(); when.setDate(when.getDate()+i);
+            return `${DAY_NAMES[idx]} · ${sessionLabel(sched[idx],window.BP.planDateKey(when))}`;
         }
     }
     return null;
@@ -8845,7 +8926,7 @@ function readyPlan(r){
             // today is; asking the member to confirm it on another screen
             // was friction without a decision in it.
             const m=effectiveMission(r);
-            return {label:`START ${dayTypeLabel(m).toUpperCase()} SESSION`,
+            return {label:`START ${sessionLabel(m).toUpperCase()} SESSION`,
                     go:()=>startMission(m,_manualMission?'manual':'prescribed')};
         }
         case 'PREPARE':
@@ -8889,8 +8970,8 @@ function renderReady(){
         const eff=effectiveMission(r);
         const overridden=_manualMission&&eff!==r.mission;
         planned.textContent=overridden
-            ? `Your choice: ${dayTypeLabel(eff)}. On the plan today: ${dayTypeLabel(r.mission)}.`
-            : (r.mission?`On the plan today: ${dayTypeLabel(r.mission)}.`:'');
+            ? `Your choice: ${sessionLabel(eff)}. On the plan today: ${sessionLabel(r.mission)}.`
+            : (r.mission?`On the plan today: ${sessionLabel(r.mission)}.`:'');
         planned.classList.toggle('hidden',!planned.textContent);
     }
 
@@ -8914,7 +8995,7 @@ function renderReady(){
         const wh=el('ready-response-withheld');
         if(wh){
             const w=answered?r.withheldSession:null;
-            wh.textContent=w?`Your unfinished ${dayTypeLabel(w.mission)} session is paused, not deleted. It will still be there when the soreness settles.`:'';
+            wh.textContent=w?`Your unfinished ${sessionLabel(w.mission)} session is paused, not deleted. It will still be there when the soreness settles.`:'';
             wh.classList.toggle('hidden',!w);
         }
     }

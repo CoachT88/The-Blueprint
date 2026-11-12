@@ -4,6 +4,7 @@ import {
     todayPrescription, primarySatisfied, launchSnapshotFrom, normaliseLaunchSnapshot,
     DAY_KIND, PRESCRIPTION_REFUSAL, PRESCRIPTION_SOURCE, SNAPSHOT_REFUSAL,
 } from '../src/todayPrescription.js';
+import { weekCompletion } from '../src/weekCompletion.js';
 
 /**
  * One truthful Today prescription, per cohort.
@@ -353,6 +354,141 @@ describe('primarySatisfied: only a Primary can be satisfied', () => {
     test('a missing clock cannot satisfy anything', () => {
         const p = authP([primary('girth')]);
         expect(primarySatisfied({ prescription: p, sessionLog: [mech(THU_KEY)] })).toBe(false);
+    });
+});
+
+/**
+ * An EQ session satisfies an EQ day on TODAY'S card, by the same rule the week
+ * strip already uses.
+ *
+ * THE DEFECT. weekCompletion() was told which weekdays an EQ completion may
+ * satisfy; primarySatisfied() was not. For a member on dated plans (every new
+ * buyer, from onboarding) the week showed the EQ session as done while Today
+ * still read TRAIN, with the Start button, offering the same session again.
+ * The legacy cohort never saw it because its answer is the completedDays tick.
+ *
+ * THE RULE, shared with weekCompletion(): eligibility is per weekday and
+ * EXCLUSIVE. On a day the caller names, only an EQ completion satisfies it. On
+ * every other day only mechanical work does, exactly as before, and with no
+ * day named (every member while EQ is off, and every member not on the EQ week)
+ * nothing about the answer moves.
+ */
+describe('primarySatisfied: an EQ completion satisfies an EQ day, and only on that rule', () => {
+    const WED = at(2026, 10, 25);                     // Wednesday 25 Nov 2026, weekday 3
+    const WED_KEY = '2026-11-25';
+    const TUE_KEY = '2026-11-24';
+    const eqPlan = [{ date: WED_KEY, mode: 'prescribed',
+        primarySession: { type: 'stamina', title: 'stamina', tier: 'beginner', dose: doseFor('stamina', 'beginner') } }];
+    const prescription = () => todayPrescription({ now: WED, authoritative: true, dayPlans: eqPlan });
+    const dated = (key, type) => ({ date: `${key}T10:00:00.000Z`, prescriptionDate: key, routineType: type });
+    const undated = (key, type) => ({ date: `${key}T10:00:00.000Z`, routineType: type });
+    const ask = (sessionLog, eqSatisfiableDays) => primarySatisfied({
+        prescription: prescription(), now: WED, sessionLog,
+        ...(eqSatisfiableDays === undefined ? {} : { eqSatisfiableDays }),
+    });
+
+    test('the prescription under test is a plain Primary stamina day on dated plans', () => {
+        const p = prescription();
+        expect([p.ok, p.dayKind, p.primaryType, p.source]).toEqual([true, DAY_KIND.PRIMARY, 'stamina', PRESCRIPTION_SOURCE.DATED_PLAN]);
+    });
+
+    test('an EQ session on the prescription date satisfies a day the caller marks EQ-eligible', () => {
+        expect(ask([dated(WED_KEY, 'eq')], [0, 3, 5])).toBe(true);
+    });
+
+    test('so does an EQ session recorded before dated attribution existed', () => {
+        expect(ask([undated(WED_KEY, 'eq')], [0, 3, 5])).toBe(true);
+    });
+
+    test('with no day marked EQ-eligible it satisfies nothing, which is every other member', () => {
+        expect(ask([dated(WED_KEY, 'eq')])).toBe(false);
+        expect(ask([dated(WED_KEY, 'eq')], [])).toBe(false);
+    });
+
+    test('it does not satisfy a day the caller did not mark', () => {
+        expect(ask([dated(WED_KEY, 'eq')], [0, 5])).toBe(false);
+    });
+
+    test('eligibility is exclusive: a stamina completion does not satisfy an EQ day', () => {
+        expect(ask([dated(WED_KEY, 'stamina')], [0, 3, 5])).toBe(false);
+        expect(ask([undated(WED_KEY, 'stamina')], [0, 3, 5])).toBe(false);
+    });
+
+    test('and an EQ completion does not satisfy a day that is not EQ-eligible, whatever else is marked', () => {
+        expect(ask([dated(WED_KEY, 'eq')], [5])).toBe(false);
+    });
+
+    test('a mechanical completion still satisfies an ordinary day, with EQ days marked elsewhere', () => {
+        // Wednesday is not in [0, 5], so it is an ordinary stamina day.
+        expect(ask([dated(WED_KEY, 'stamina')], [0, 5])).toBe(true);
+        expect(ask([dated(WED_KEY, 'stamina')])).toBe(true);
+    });
+
+    test('Recovery, including the daily practice, satisfies neither kind of day', () => {
+        expect(ask([dated(WED_KEY, 'recovery')], [0, 3, 5])).toBe(false);
+        expect(ask([dated(WED_KEY, 'recovery')])).toBe(false);
+    });
+
+    test('an EQ session from another date does not satisfy today', () => {
+        expect(ask([dated(TUE_KEY, 'eq')], [0, 3, 5])).toBe(false);
+    });
+
+    test('an EQ session whose identity could not be proven does not satisfy today', () => {
+        const unprovable = { date: `${WED_KEY}T10:00:00.000Z`, prescriptionDate: null, routineType: 'eq' };
+        expect(ask([unprovable], [0, 3, 5])).toBe(false);
+    });
+
+    test('the legacy cohort keeps the seven-boolean answer and the log never decides it', () => {
+        const p = todayPrescription({ now: WED, authoritative: false,
+            legacySchedule: ['stamina', 'rest', 'rest', 'stamina', 'rest', 'stamina', 'rest'] });
+        const tick = [false, false, false, true, false, false, false];
+        expect(primarySatisfied({ prescription: p, now: WED, completedDays: tick, eqSatisfiableDays: [0, 3, 5] })).toBe(true);
+        expect(primarySatisfied({ prescription: p, now: WED, completedDays: [], sessionLog: [dated(WED_KEY, 'eq')],
+            eqSatisfiableDays: [0, 3, 5] })).toBe(false);
+    });
+
+    test('a rest day or a support-only day is never satisfied, EQ session or not', () => {
+        const rest = todayPrescription({ now: WED, authoritative: true, dayPlans: [{ date: WED_KEY, mode: 'rest' }] });
+        expect(primarySatisfied({ prescription: rest, now: WED, sessionLog: [dated(WED_KEY, 'eq')], eqSatisfiableDays: [3] })).toBe(false);
+    });
+
+    test('unreadable eligibility is ignored rather than trusted or thrown on', () => {
+        for (const junk of [null, 'wed', 3, {}, [null], ['3'], [NaN]]) {
+            expect(() => ask([dated(WED_KEY, 'eq')], junk), String(junk)).not.toThrow();
+            expect(ask([dated(WED_KEY, 'eq')], junk), String(junk)).toBe(false);
+        }
+    });
+
+    /* THE SAME RULE, CHECKED AS ONE. Today and the week must never disagree
+       about whether this day is done, so every combination below is asked of
+       both and the answers must be equal. A rule restated in two places drifts;
+       this is what stops it. */
+    test('Today and the week agree on every combination of log and eligibility', () => {
+        const EQ_WEEK = ['stamina', 'rest', 'rest', 'stamina', 'rest', 'stamina', 'rest'];
+        const NONE = [false, false, false, false, false, false, false];
+        const logs = {
+            'nothing': [],
+            'EQ dated today': [dated(WED_KEY, 'eq')],
+            'EQ undated today': [undated(WED_KEY, 'eq')],
+            'stamina dated today': [dated(WED_KEY, 'stamina')],
+            'stamina undated today': [undated(WED_KEY, 'stamina')],
+            'recovery dated today': [dated(WED_KEY, 'recovery')],
+            'EQ dated yesterday': [dated(TUE_KEY, 'eq')],
+            'EQ and stamina today': [dated(WED_KEY, 'eq'), dated(WED_KEY, 'stamina')],
+            'EQ and recovery today': [dated(WED_KEY, 'eq'), dated(WED_KEY, 'recovery')],
+        };
+        const eligibility = { 'none named': undefined, 'empty': [], 'today only': [3], 'the EQ week': [0, 3, 5], 'other days': [0, 5] };
+        let checked = 0;
+        for (const [logName, log] of Object.entries(logs)) {
+            for (const [eName, eq] of Object.entries(eligibility)) {
+                const today = ask(log, eq);
+                const week = weekCompletion(EQ_WEEK, NONE, { sessionLog: log, now: WED,
+                    ...(eq === undefined ? {} : { eqSatisfiableDays: eq }) }).satisfied[3];
+                expect(today, `${logName} / ${eName}: Today says ${today}, the week says ${week}`).toBe(week);
+                checked++;
+            }
+        }
+        expect(checked).toBe(45);
     });
 });
 
