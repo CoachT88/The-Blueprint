@@ -109,14 +109,15 @@ const SUN = new Date('2026-11-22T10:00:00Z');       // an EQ session day, nothin
 const WED = new Date('2026-11-25T10:00:00Z');       // the next session day
 const PAUSED_SENTENCE = /If you tell the app something hurt, it pauses your training until you tell it your symptoms have settled\./;
 
-async function newEqMember(app) {
+async function newEqMember(app, goal = 'eq', profile = '') {
     await app.page.evaluate(() => { window.__members = ['new@example.com']; });
     await authSignIn(app.page, { id: 'NEW1', email: 'new@example.com', row: null });
-    await app.page.evaluate(async () => {
+    await app.page.evaluate(async ({ goal, profile }) => {
         EQ_SESSIONS_ENABLED = true;                 // this page only, never persisted
-        selectGoal('eq'); finishOnboarding();
+        persisted.pelvicProfile = profile;          // a screened member has the practice built into the session
+        selectGoal(goal); finishOnboarding();
         await new Promise(r => setTimeout(r, 1200));
-    });
+    }, { goal, profile });
 }
 /** The first session, finished with the comfort question answered "painful". */
 const sessionReportingPain = (page) => page.evaluate(() => {
@@ -156,11 +157,12 @@ const painExperience = (page) => page.evaluate(() => {
 });
 
 describe('the pain sentence in the activation copy is what a member actually experiences', () => {
-    let app, asked, pain, settled, resumed;
+    let app, asked, sameDay, pain, settled, resumed;
     beforeAll(async () => {
         app = await openApp({ row: null, clock: SUN, timezoneId: 'UTC' });
         await newEqMember(app);
         asked = await sessionReportingPain(app.page);
+        sameDay = await painExperience(app.page);                // straight afterwards, still Sunday
         await app.page.clock.setFixedTime(WED);                  // the next session day
         await app.page.evaluate(() => { goToStep(0); renderDashboard(); });
         pain = await painExperience(app.page);
@@ -191,6 +193,18 @@ describe('the pain sentence in the activation copy is what a member actually exp
 
     test('the comfort question is asked at the end of a session and "painful" is recorded', () => {
         expect(asked).toEqual({ asked: true, feedback: 'painful' });
+    });
+
+    test('straight after reporting pain the day is closed, the pause is shown, and nothing can be started', () => {
+        // The session is done, so Today reads COMPLETE exactly as it does for every other goal; the
+        // restriction does not depend on the card's state, it is held by the controls themselves.
+        expect(sameDay.offered.state).toBe('COMPLETE');
+        expect(sameDay.offered.start).toBe(false);
+        expect(sameDay.offered.practice).toBe(false);
+        expect(sameDay.offered.review).toBe(true);
+        expect(sameDay.offered.note).toMatch(/^You reported pain\. Pause pelvic exercises\./);
+        expect(sameDay.afterMission.step, 'startMission began a session straight after a pain report').toBe(0);
+        expect(sameDay.afterPractice.step, 'the daily practice began straight after a pain report').toBe(0);
     });
 
     test('on the next session day Today says "Pause Training" and offers nothing to start', () => {
@@ -240,6 +254,27 @@ describe('the pain sentence in the activation copy is what a member actually exp
     });
 
     test('no uncaught page errors', () => { expect(app.errors).toEqual([]); });
+});
+
+describe('an EQ member who reports pain is treated exactly as every other member is', () => {
+    test('the same day after a Stamina session and after an EQ session reads the same: closed, paused, nothing startable', async () => {
+        // Stamina is the control because its session carries the daily practice, and with it the comfort question.
+        const seen = {};
+        for (const goal of ['stamina', 'eq']) {
+            const app = await openApp({ row: null, clock: SUN, timezoneId: 'UTC' });
+            try {
+                await newEqMember(app, goal, 'standard');
+                await sessionReportingPain(app.page);
+                seen[goal] = await painExperience(app.page);
+            } finally { await app.close(); }
+        }
+        expect(seen.eq.offered).toEqual(seen.stamina.offered);
+        // The step is what matters (0 = still at home); routineType is merely the last session's, left behind.
+        expect(seen.eq.afterMission.step).toBe(0);
+        expect(seen.stamina.afterMission.step).toBe(0);
+        expect(seen.eq.afterPractice).toEqual(seen.stamina.afterPractice);
+        expect(seen.eq.offered.state).toBe('COMPLETE');
+    }, 150_000);
 });
 
 describe('the pause is not lost by changing device', () => {
