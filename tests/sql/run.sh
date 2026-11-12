@@ -11,3 +11,4 @@ su postgres -c "$BIN/initdb -D $D -A trust >/dev/null && $BIN/pg_ctl -D $D -o \"
 trap 'su postgres -c "$BIN/pg_ctl -D $D -m fast stop >/dev/null" || true' EXIT
 psql -h $S -p 54329 -U postgres -X -q -c "create database proof"
 ./revision-guard.test.sh
+./staging-entitlement.test.sh
