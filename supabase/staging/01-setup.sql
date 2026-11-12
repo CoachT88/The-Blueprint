@@ -66,7 +66,7 @@ revoke all on public._staging_marker from public, anon, authenticated;
 -- the address is the key. revoked_at and pre_ledger are added by the migration.
 create table if not exists public.members (
     email      text primary key,
-    user_id    uuid,
+    user_id    uuid references auth.users (id) on delete set null,   -- as in production
     claimed_at timestamptz,
     created_at timestamptz default now()   -- nullable, as in production
 );

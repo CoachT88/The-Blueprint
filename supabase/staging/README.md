@@ -68,7 +68,7 @@ after `restore_if_paid` · `revoke_if_unpaid` returns `kept_paid`, `kept_legacy`
 `claim_membership` is executable by `authenticated` only.
 
 Local proof (no real database): `tests/sql/run.sh` runs these files on a
-throwaway PostgreSQL with a stub of `auth` (29 checks, including a mutant
+throwaway PostgreSQL with a stub of `auth` (32 checks, including a mutant
 claim function that the matrix must, and does, fail).
 
 ## Rollback

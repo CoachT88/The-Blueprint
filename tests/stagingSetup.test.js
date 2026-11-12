@@ -19,6 +19,9 @@ describe('staging entitlement package', () => {
         expect(read('01-setup.sql')).toMatch(/created_at timestamptz default now\(\)/);
         expect(read('01-setup.sql')).not.toMatch(/created_at timestamptz not null/);
     });
+    test('members.user_id references auth.users(id) on delete set null, as in production', () => {
+        expect(read('01-setup.sql')).toMatch(/user_id\s+uuid references auth\.users \(id\) on delete set null/);
+    });
     test('identity: the shipped file carries the placeholder and refuses it, and later files re-check the marker account', () => {
         const s1 = read('01-setup.sql');
         expect(s1).toContain("v_test uuid := '00000000-0000-0000-0000-000000000000'");

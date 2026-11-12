@@ -47,6 +47,11 @@ for f in 02-verify 03-simulate-purchase 99a-rollback-simulation 99b-rollback-eve
 echo "--- members matches production: created_at nullable, default now()"
 run /var/tmp/01-sub.sql >/dev/null
 chk "created_at is nullable with a now() default" "$($P -At -c "select is_nullable||'|'||column_default from information_schema.columns where table_name='members' and column_name='created_at'")" "YES|now()"
+chk "members.user_id references auth.users(id) ON DELETE SET NULL" "$($P -At -c "select confrelid::regclass||'|'||confdeltype::text from pg_constraint where conrelid='public.members'::regclass and contype='f'")" "auth.users|n"
+$P -c "insert into auth.users values ('33333333-3333-3333-3333-333333333333','fk@example.invalid', now())" -c "insert into public.members(email,user_id) values ('fk@example.invalid','33333333-3333-3333-3333-333333333333')" >/dev/null
+chk "deleting the account detaches the member instead of failing" "$($P -At -c "delete from auth.users where id='33333333-3333-3333-3333-333333333333'; select user_id is null from public.members where email='fk@example.invalid'")" t
+$P -c "delete from public.members where email='fk@example.invalid'" >/dev/null
+chk "an unknown user_id is rejected" "$($P -At -c "insert into public.members(email,user_id) values ('bad@example.invalid','44444444-4444-4444-4444-444444444444')" 2>&1 | grep -c 'foreign key')" 1
 echo "--- 01 applies and is idempotent"
 chk "01 applies with no error" "$(run /var/tmp/01-sub.sql | grep -c 'ERROR:')" 0
 chk "01 re-runs with no error" "$(run /var/tmp/01-sub.sql | grep -c 'ERROR:')" 0
