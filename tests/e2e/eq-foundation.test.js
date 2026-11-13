@@ -15,10 +15,19 @@ import {openApp, signIn} from './harness.js';
 const OLD_EQ = ['stamina', 'rest', 'length', 'rest', 'stamina', 'rest', 'rest'];
 const NEW_EQ = ['stamina', 'rest', 'rest', 'stamina', 'rest', 'stamina', 'rest'];
 
+/* The EQ mobility step rotates by the PRESCRIBED weekday: Sunday Cat-Cow,
+   Wednesday Deep Squat, Friday Happy Baby, any other day Deep Squat.
+   buildEqRoutine() called with no date reads the real clock, and two tests
+   below assert Wednesday's movement, so this file failed on every Friday and
+   every Sunday. The page's clock is pinned to a Wednesday, an EQ session day
+   that serves Deep Squat, so what the file asserts no longer depends on the
+   day it runs. UTC, so the weekday is the same wherever the suite runs. */
+const WEDNESDAY = new Date('2026-11-11T12:00:00Z');
+
 describe('the EQ foundation', () => {
     let app;
     beforeAll(async () => {
-        app = await openApp();
+        app = await openApp({clock: WEDNESDAY, timezoneId: 'UTC'});
         await signIn(app.page, {id: 'eqfound'});
     }, 60_000);
     afterAll(async () => { await app?.close(); });
@@ -137,9 +146,9 @@ describe('the EQ foundation', () => {
     test('a session day serves the three EQ steps, and logs as eq', async () => {
         const r = await on(() => {
             persisted.schedule = goalSchedule('eq').slice();
-            /* Selection and completion must agree, whatever weekday the suite
-               happens to run on. That agreement is the property, not the
-               particular answer. */
+            /* Selection and completion must agree. The clock is pinned to a
+               Wednesday, an EQ session day, so both say session and the
+               mobility step is Deep Squat. */
             const isSessionDay = eqSatisfiableDays().includes(new Date().getDay());
             const mapped = eqRoutineFor('stamina');
             session.routineType = 'eq';
