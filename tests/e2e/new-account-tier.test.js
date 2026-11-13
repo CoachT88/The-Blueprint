@@ -165,6 +165,10 @@ describe('a member who chooses Intermediate keeps it', () => {
             return { tier: getDiff().id, unlocked: !!(persisted.diffUnlockedDate && persisted.diffUnlockedDate.intermediate) };
         });
         expect(chosen).toEqual({ tier: 'intermediate', unlocked: true });
+        /* The choice comes BEFORE the goal on purpose, so the dated plan is generated at the tier
+           they chose. A tier change made AFTER plans exist does not re-dose them (the stored dose
+           is the execution baseline, by design) while XP follows the live tier at launch: that is
+           how every tier change already behaves, it is not decided here, and it is not asserted. */
         await chooseGoal(first.page, 'size');                                        // then picks a goal; the plan is made at their tier
         await settle(first.page);
         expect((await savedTiers(first.page)).at(-1), 'the choice is what the app saved').toBe('intermediate');
