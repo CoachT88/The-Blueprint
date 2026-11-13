@@ -401,6 +401,35 @@ describe('recovery on a guarded table sees an untouched row as Beginner, never a
         expect(out.server).toBe('beginner');
     }, 90_000);
 
+    test("an offline first session, then another device's explicit Intermediate: the choice stands and the session is kept", async () => {
+        /* The journal replay runs with no connection, so what this tab last synced is whatever the
+           recovery recorded. It must be the row as the app read it (Beginner). Taken from the raw
+           row it would make the inferred Beginner look like an edit made here, and the refused
+           write that follows would overwrite the other device's explicit Intermediate. */
+        const app = await boot(guarded('rg7'));
+        const out = await app.page.evaluate(async () => {
+            window.__failUpsert = true;
+            _journalWrite({ sid: 'j1', date: new Date().toISOString(), routineType: 'girth', xpEarned: 10, eq: 8, rpe: 5, note: '' }, null);
+            await loadPersisted();
+            const loaded = { tier: getDiff().id, sids: persisted.sessionLog.map(e => e.sid), writes: window.__writes.length };
+            const at = new Date().toISOString();
+            const refused = window.__applyRevGuard({ base_rev: 0, last_write_id: 'dev2', difficulty: 'intermediate',
+                week_key: getCurrentWeekKey(), xp_migrated: true, first_session_date: at,
+                diff_unlocked_date: { intermediate: at, advanced: '', elite: '' } });
+            window.__failUpsert = false;                           // the connection is back
+            savePersisted();
+            await _flushSaveNow();                                 // refused: the revision moved without this tab
+            return { loaded, refused, notice: _syncNotice, tier: getDiff().id, row: window.__row };
+        });
+        expect(out.loaded, 'replayed in memory as Beginner, nothing reached the server').toEqual({ tier: 'beginner', sids: ['j1'], writes: 0 });
+        expect(out.refused).toBe(null);
+        expect(out.row.difficulty, "the other device's explicit choice stands on the server").toBe('intermediate');
+        expect(out.row.session_log.map(e => e.sid), 'and the offline session reached it').toEqual(['j1']);
+        expect(out.row.total_xp).toBe(10);
+        expect(out.tier).toBe('intermediate');
+        expect(out.notice).toBe(null);
+    }, 90_000);
+
     test('a stale backup recovered onto an untouched row whose revision has moved does not flip the tier', async () => {
         /* The row moved on (a support edit, a database job) but nothing the app stores changed, so it
            is still untouched. This device holds a dirty backup based on the older revision, so the
