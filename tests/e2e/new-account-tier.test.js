@@ -371,3 +371,91 @@ describe('the revision guard does not turn the inference into an edit', () => {
         expect(out.notice).toBe(null);
     }, 90_000);
 });
+
+// ═══ 6. Every recovery path reads the row the same way the load did ═══════
+describe('recovery on a guarded table sees an untouched row as Beginner, never as the raw default', () => {
+    const guarded = (id, over = {}) => signupRow(id, { rev: 0, base_rev: null, last_write_id: null, sync_meta: null, ...over });
+    const boot = async (row) => {
+        const app = await openApp({ row: null, clock: MON, timezoneId: 'UTC' }); apps.push(app);
+        await app.page.evaluate((row) => { localStorage.clear(); window.__row = row; window.__revMode = 'soft'; }, row);
+        await signIn(app.page, { id: row.id, loaded: false });
+        return app;
+    };
+
+    test('a session journalled before the first save landed is replayed onto Beginner, not onto the raw default', async () => {
+        /* This account finished a session while its first save could not reach the server: the
+           journal holds it, and the row is still an untouched signup row. The replay merges the
+           journal onto the server's state, and that state must be the row as the app reads it. */
+        const app = await boot(guarded('rg4'));
+        const out = await app.page.evaluate(async () => {
+            _journalWrite({ sid: 'j1', date: new Date().toISOString(), routineType: 'girth', xpEarned: 10, eq: 8, rpe: 5, note: '' }, null);
+            await loadPersisted();
+            return { tier: getDiff().id, sids: persisted.sessionLog.map(e => e.sid), xp: persisted.totalXp,
+                     sent: window.__writes.map(w => w.difficulty), server: window.__row.difficulty };
+        });
+        expect(out.sids, 'the journalled session is not lost').toEqual(['j1']);
+        expect(out.xp).toBe(10);
+        expect(out.tier).toBe('beginner');
+        expect(out.sent.length, 'and it was written').toBeGreaterThan(0);
+        expect(out.sent.every(t => t === 'beginner'), 'only Beginner is ever sent: ' + JSON.stringify(out.sent)).toBe(true);
+        expect(out.server).toBe('beginner');
+    }, 90_000);
+
+    test('a stale backup recovered onto an untouched row whose revision has moved does not flip the tier', async () => {
+        /* The row moved on (a support edit, a database job) but nothing the app stores changed, so it
+           is still untouched. This device holds a dirty backup based on the older revision, so the
+           load recovers the backup onto the server's row instead of adopting it wholesale. */
+        const uid = 'rg6';
+        const app = await boot(guarded(uid, { rev: 3 }));
+        const out = await app.page.evaluate(async (uid) => {
+            const fp = window.BP.settingsFingerprint({ primaryGoal: '', schedule: DEFAULT_PERSISTED.schedule, difficulty: 'beginner' });
+            localStorage.setItem('bp_data_' + uid, JSON.stringify({ ...DEFAULT_PERSISTED, difficulty: 'beginner',
+                _savedAt: '2099-01-01T00:00:00.000Z', _baseRev: 0,
+                _syncBase: { settings: fp, passes: { protectedDates: [], lastPassEarnedDate: '' } } }));
+            localStorage.setItem('bp_dirty_' + uid, '1');
+            await loadPersisted();
+            return { tier: getDiff().id, notice: _syncNotice, sent: window.__writes.map(w => w.difficulty) };
+        }, uid);
+        expect(out.tier).toBe('beginner');
+        expect(out.sent.every(t => t === 'beginner'), 'only Beginner is ever sent: ' + JSON.stringify(out.sent)).toBe(true);
+    }, 90_000);
+
+    test("this device's unsynced first save does not let the inference overwrite another device's explicit Intermediate", async () => {
+        /* Phase 1: the first load with no connection. The app adopts Beginner and its first save
+           fails, so the device holds the dirty backup. Phase 2: the app is reopened, still with no
+           connection, so the backup is adopted and the server row is still the untouched signup row.
+           Another device then saves an explicit Intermediate; this one's connection returns and its
+           out-of-date write is refused. What this tab last synced must be the row as the app read it
+           (Beginner): taken from the raw row (Intermediate) the inference would look like an edit
+           made here, and would overwrite the explicit choice. */
+        const initial = guarded('rg5');
+        const app = await boot(initial);
+        await app.page.evaluate(() => { window.__failUpsert = true; });
+        const phase1 = await app.page.evaluate(async () => {
+            await loadPersisted();
+            return { tier: getDiff().id, backup: !!localStorage.getItem('bp_data_' + currentUser.id), dirty: !!localStorage.getItem('bp_dirty_' + currentUser.id) };
+        });
+        expect(phase1).toEqual({ tier: 'beginner', backup: true, dirty: true });
+        await app.page.reload();
+        await app.page.waitForTimeout(900);
+        await app.page.evaluate((row) => { window.__row = row; window.__revMode = 'soft'; window.__failUpsert = true; }, initial);
+        await signIn(app.page, { id: 'rg5', loaded: false });
+        const out = await app.page.evaluate(async () => {
+            await loadPersisted();
+            const loaded = { tier: getDiff().id, serverRev: window.__row.rev };
+            const at = new Date().toISOString();
+            const refused = window.__applyRevGuard({ base_rev: 0, last_write_id: 'dev2', difficulty: 'intermediate',
+                week_key: getCurrentWeekKey(), xp_migrated: true, first_session_date: at,
+                diff_unlocked_date: { intermediate: at, advanced: '', elite: '' } });
+            window.__failUpsert = false;                           // the connection is back
+            savePersisted();
+            await _flushSaveNow();                                 // refused: the revision moved without this tab
+            return { loaded, refused, notice: _syncNotice, tier: getDiff().id, row: window.__row };
+        });
+        expect(out.loaded, 'the backup was adopted and the server row is still untouched').toEqual({ tier: 'beginner', serverRev: 0 });
+        expect(out.refused).toBe(null);
+        expect(out.row.difficulty, "the other device's explicit choice stands on the server").toBe('intermediate');
+        expect(out.tier, 'and this tab follows it').toBe('intermediate');
+        expect(out.notice).toBe(null);
+    }, 120_000);
+});

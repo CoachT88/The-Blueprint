@@ -17,9 +17,11 @@
 -- app asks.
 --
 -- The application now reads an untouched signup row at Beginner whatever this
--- column says (src/startingTier.js), so this change is not what makes the
--- first session correct. It makes the database say what the product says, so a
--- new row is Beginner at rest and nothing downstream has to infer it.
+-- column says (src/startingTier.js), so this change is not what makes the first
+-- session correct. It makes the database say what the product says, so a new
+-- row is Beginner at rest and nothing downstream has to infer it. It also
+-- protects a new account opened in a tab still running the OLD version of the
+-- app, which the application change cannot reach.
 --
 -- ---------------------------------------------------------------------------
 -- WHAT IT DOES
@@ -57,23 +59,50 @@
 -- look, not to overwrite it. It is idempotent: running it again changes nothing.
 --
 -- ---------------------------------------------------------------------------
+-- THE READ-ONLY CHECKS
+--
+-- supabase/checks/new-accounts-start-at-beginner.sql holds two read-only
+-- queries (no row content, nothing written):
+--   QUERY 1  what a brand-new account's row really holds, read from the column
+--            definitions. Every marker column must read "blank". If any reads
+--            NOT BLANK the application change would not recognise a new account
+--            on that database, and the default here is the only protection.
+--   QUERY 2  how many existing accounts the application would read as "never
+--            begun" (and so start at Beginner on first open), including how
+--            many of the 17 never-trained Intermediate accounts the app has
+--            already saved.
+--
+-- ---------------------------------------------------------------------------
 -- STAGING FIRST. Project ynxuglvthghsdzzhabso (the address bar must show it).
 --
---   1. BEFORE. Run the two read-only queries under "VERIFY" below and keep the
---      output: the default (expect 'intermediate'::text) and the tier counts.
---   2. Run this whole file once, in the SQL editor. It is one transaction.
---   3. AFTER. Run the same two queries. Expect:
---        * the default reads 'beginner'::text;
---        * the tier counts are IDENTICAL to step 1 (no row changed).
---   4. Reset the staging test account (acceptance-reset.sql), which re-inserts
---      its row as (id) only, then read that row: difficulty must read
---      'beginner' now, with week_key empty and xp_migrated false.
---   5. Run the four-goal acceptance script against it. The first mechanical
---      session must be Beginner dosing for 10 XP.
+--   1. BEFORE. Keep the output of: the two queries under "VERIFY" below (the
+--      default, expect 'intermediate'::text, and the tier counts) and QUERY 1
+--      of the checks file (every marker column "blank").
+--   2. THE APPLICATION LAYER ALONE, on the old default. Reset the staging test
+--      account (acceptance-reset.sql re-inserts its row as (id) only), run
+--      QUERY 2: untouched_rows_the_app_would_move must count it. Then run the
+--      four-goal acceptance with the new build. The first mechanical session
+--      must be Beginner (3 rounds, 60 s / 30 s, 10 XP) although the column
+--      still says Intermediate. This proves the rule against a real signup row.
+--   3. THE DATABASE LAYER. Run this whole file once in the SQL editor. It is
+--      one transaction. Expect: the default reads 'beginner'::text, and the
+--      tier counts are IDENTICAL to step 1 (no row changed).
+--   4. Reset the test account again. Its row must now read difficulty
+--      'beginner' at rest, with week_key empty and xp_migrated false; QUERY 2
+--      must show it as untouched (untouched_rows_any_tier of at least 1) and
+--      NOT as one the app would move (untouched_rows_the_app_would_move of 0).
 --
--- PRODUCTION, only after staging has passed and a separate approval.
---   Same steps 1 to 3. Step 3's counts must again equal step 1's. There is no
---   ordering with the app deploy: the app is correct under either default.
+-- PRODUCTION, only after staging has passed, each step on a separate approval.
+--   a. Read-only first: the VERIFY queries and both checks. Report QUERY 2's
+--      numbers before anything is deployed: of_which_never_saved__would_start_
+--      at_beginner is how many existing accounts would start at Beginner when
+--      next opened. They are accounts the app has never saved, so they have
+--      not begun.
+--   b. Deploy the application change.
+--   c. Apply this file. Same before and after as staging step 3: the tier
+--      counts must be identical.
+--   b and c are unordered for correctness, but both are needed: only this
+--   default protects a new account opened in a tab still running the old app.
 --
 -- ROLLBACK
 --

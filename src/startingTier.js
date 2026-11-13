@@ -85,6 +85,13 @@ const MARKERS = [
     ['pelvic_screen_date', isBlankText],
 ];
 
+/**
+ * The columns the rule reads. The read-only SQL checks in
+ * supabase/checks/new-accounts-start-at-beginner.sql mirror this list, and a
+ * test fails if the two ever name different columns.
+ */
+export const MARKER_COLUMNS = MARKERS.map(([column]) => column);
+
 const isRow = (row) => row !== null && typeof row === 'object' && !Array.isArray(row);
 
 /**

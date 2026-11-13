@@ -1,5 +1,8 @@
 import { describe, test, expect } from 'vitest';
-import { STARTING_TIER, isUntouchedSignupRow, applyStartingTier } from '../src/startingTier.js';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { STARTING_TIER, MARKER_COLUMNS, isUntouchedSignupRow, applyStartingTier } from '../src/startingTier.js';
 
 /**
  * The tier a genuinely new account starts at, and how the app knows the
@@ -124,6 +127,20 @@ describe('doubt resolves to "established"', () => {
         ['a primary_goal that is not text', { primary_goal: 1 }],
         ['a programme that is text', { programme: 'size' }],
         ['a first_session_date that is a date object', { first_session_date: new Date(0) }],
+        // Falsy values of the WRONG type. A looser "is it falsy?" test would read each of these as blank.
+        ['a week_key that is zero', { week_key: 0 }],
+        ['a week_key that is false', { week_key: false }],
+        ['a first_session_date that is zero', { first_session_date: 0 }],
+        ['a primary_goal that is zero', { primary_goal: 0 }],
+        ['a pelvic_profile that is false', { pelvic_profile: false }],
+        ['an xp_migrated that is zero', { xp_migrated: 0 }],
+        ['an xp_migrated that is empty text', { xp_migrated: '' }],
+        ['a total_xp that is empty text', { total_xp: '' }],
+        ['an all_time_session_count that is empty text', { all_time_session_count: '' }],
+        ['a session_log that is empty text', { session_log: '' }],
+        ['a session_log that is an object with a zero length', { session_log: { length: 0 } }],
+        ['a measurements that is empty text', { measurements: '' }],
+        ['a day_plans that is empty text', { day_plans: '' }],
     ];
     test.each(WEIRD)('%s', (_name, over) => {
         expect(isUntouchedSignupRow(signup(over))).toBe(false);
@@ -187,5 +204,38 @@ describe('applyStartingTier', () => {
 
     test.each([null, undefined, [], 'row', 7, true])('passes a value that is not a row straight through (%j)', (v) => {
         expect(applyStartingTier(v)).toBe(v);
+    });
+});
+
+describe('the read-only SQL checks name exactly the columns the rule reads', () => {
+    /* supabase/checks/new-accounts-start-at-beginner.sql is what the owner runs on staging and
+       production to see a new account's real column defaults and how many existing accounts the
+       rule would move. If it named a different set of columns than the rule reads, it would
+       answer a question the app is not asking. */
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const sql = readFileSync(path.resolve(here, '../supabase/checks/new-accounts-start-at-beginner.sql'), 'utf8');
+    const section = (n) => {
+        const from = sql.indexOf(`-- ==== QUERY ${n} of 2`);
+        const to = sql.indexOf(`-- ==== QUERY ${n + 1} of 2`);
+        expect(from, `QUERY ${n} is present`).toBeGreaterThan(-1);
+        return sql.slice(from, to === -1 ? undefined : to);
+    };
+    const inValuesLists = (text) => [...text.matchAll(/\(values((?:\s*\('[a-z_]+'\),?)+)\)\s*[a-z]+\(col\)/g)]
+        .flatMap(m => [...m[1].matchAll(/'([a-z_]+)'/g)].map(x => x[1]));
+    const readAsJson = (text) => [...text.matchAll(/j->>?'([a-z_]+)'/g)].map(m => m[1]);
+
+    test('the rule reads the 17 columns this file is written against', () => {
+        expect(MARKER_COLUMNS).toHaveLength(17);
+        expect(new Set(MARKER_COLUMNS).size).toBe(17);
+    });
+
+    test('query 1 (the column defaults) lists every marker column and nothing else', () => {
+        expect([...new Set(inValuesLists(section(1)))].sort()).toEqual([...MARKER_COLUMNS].sort());
+    });
+
+    test('query 2 (the impact counts) reads every marker column and nothing else but the tier', () => {
+        const read = new Set([...inValuesLists(section(2)), ...readAsJson(section(2))]);
+        read.delete('difficulty');
+        expect([...read].sort()).toEqual([...MARKER_COLUMNS].sort());
     });
 });
