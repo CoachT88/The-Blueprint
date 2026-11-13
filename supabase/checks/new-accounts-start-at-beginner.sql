@@ -11,27 +11,49 @@
 -- default. If any marker column below reads NOT BLANK, the app would read every new account as established
 -- and the application change would do nothing on that database (the database default would still apply).
 -- A column the table does not have is read by the app as blank, so it is listed as such.
-select m.col                                                                  as marker_column,
-       c.data_type,
-       c.column_default,
-       c.is_nullable,
-       case
-         when c.column_name is null then 'blank (the table has no such column)'
-         when c.column_default is null then 'blank (no default: NULL)'
-         when c.column_default in ('''''::text', '''''::character varying', '0', 'false', '''[]''::jsonb') then 'blank'
-         else 'NOT BLANK: read the default by hand'
-       end                                                                    as read_as
-  from (values ('week_key'), ('xp_migrated'), ('first_session_date'), ('diff_unlocked_date'), ('total_xp'),
-               ('all_time_session_count'), ('session_log'), ('measurements'), ('seen_milestones'),
-               ('progress_checkins'), ('progression_ledger'), ('primary_goal'), ('programme'), ('day_plans'),
-               ('programme_start_date'), ('pelvic_profile'), ('pelvic_screen_date')) m(col)
-  left join information_schema.columns c
-         on c.table_schema = 'public' and c.table_name = 'user_data' and c.column_name = m.col
- order by (case when c.column_name is not null
-                 and c.column_default is not null
-                 and c.column_default not in ('''''::text', '''''::character varying', '0', 'false', '''[]''::jsonb')
-                then 0 else 1 end),
-          m.col;
+--
+-- A blank is not one thing, so each column is read against ITS OWN kind of blank, exactly as the app reads
+-- it: an empty list is blank for a list column but a mark for the tier record, and any object at all is a
+-- mark for the programme. The kind of every column is named in the list below, and
+-- tests/startingTier.test.js fails if a kind here differs from the one the app uses.
+--
+-- diff_unlocked_date is the one marker whose real default is none of NULL, empty text, zero, false or an
+-- empty list. On staging and on production it is an object with an empty string for every tier:
+-- {"elite": "", "advanced": "", "intermediate": ""}. The app reads a tier record whose every slot is empty
+-- as blank, so that default reads as blank here too. It is matched for the tier record ONLY, and only when
+-- every slot is an empty string or null: a different default there, or an object default on any other
+-- column (a list column defaulting to '{}', say), still reads NOT BLANK. A JSON null default is blank for
+-- the jsonb kinds, as the app reads it; any other default for the programme is a mark.
+with d as (
+  select m.col                                                                as marker_column,
+         c.data_type,
+         c.column_default,
+         c.is_nullable,
+         case
+           when c.column_name is null then 'blank (the table has no such column)'
+           when c.column_default is null then 'blank (no default: NULL)'
+           when m.kind = 'text'  and c.column_default in ('''''::text', '''''::character varying') then 'blank (empty text)'
+           when m.kind = 'flag'  and c.column_default = 'false' then 'blank (false)'
+           when m.kind = 'count' and c.column_default = '0' then 'blank (zero)'
+           when m.kind = 'list'  and c.column_default in ('''[]''::jsonb', '''null''::jsonb') then 'blank (empty list or JSON null)'
+           when m.kind = 'absent' and c.column_default = '''null''::jsonb' then 'blank (JSON null)'
+           when m.kind = 'tier record'
+                and c.column_default ~ '^''(null|\{(\s*"[a-z_]+"\s*:\s*(""|null)\s*,?)*\s*\})''::jsonb$'
+                then 'blank (a tier record with every slot empty: the app reads it as blank)'
+           else 'NOT BLANK: read the default by hand'
+         end                                                                  as read_as
+    from (values ('week_key', 'text'), ('xp_migrated', 'flag'), ('first_session_date', 'text'),
+                 ('diff_unlocked_date', 'tier record'), ('total_xp', 'count'), ('all_time_session_count', 'count'),
+                 ('session_log', 'list'), ('measurements', 'list'), ('seen_milestones', 'list'),
+                 ('progress_checkins', 'list'), ('progression_ledger', 'list'), ('primary_goal', 'text'),
+                 ('programme', 'absent'), ('day_plans', 'list'), ('programme_start_date', 'text'),
+                 ('pelvic_profile', 'text'), ('pelvic_screen_date', 'text')) m(col, kind)
+    left join information_schema.columns c
+           on c.table_schema = 'public' and c.table_name = 'user_data' and c.column_name = m.col
+)
+select marker_column, data_type, column_default, is_nullable, read_as
+  from d
+ order by (read_as like 'NOT BLANK%') desc, marker_column;
 
 -- ==== QUERY 2 of 2: which existing accounts would the app read as "never begun" ========================
 -- The app reads a row at Beginner only when every marker is blank: the app has never saved it (week_key and

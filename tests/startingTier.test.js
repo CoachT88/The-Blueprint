@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { STARTING_TIER, MARKER_COLUMNS, isUntouchedSignupRow, applyStartingTier } from '../src/startingTier.js';
+import { STARTING_TIER, MARKER_COLUMNS, MARKER_KINDS, isUntouchedSignupRow, applyStartingTier } from '../src/startingTier.js';
 
 /**
  * The tier a genuinely new account starts at, and how the app knows the
@@ -207,11 +207,11 @@ describe('applyStartingTier', () => {
     });
 });
 
-describe('the read-only SQL checks name exactly the columns the rule reads', () => {
+describe('the read-only SQL checks say what the rule says, column by column', () => {
     /* supabase/checks/new-accounts-start-at-beginner.sql is what the owner runs on staging and
        production to see a new account's real column defaults and how many existing accounts the
-       rule would move. If it named a different set of columns than the rule reads, it would
-       answer a question the app is not asking. */
+       rule would move. If it named different columns, or a different kind of blank for a column,
+       than the rule uses, it would answer a question the app is not asking. */
     const here = path.dirname(fileURLToPath(import.meta.url));
     const sql = readFileSync(path.resolve(here, '../supabase/checks/new-accounts-start-at-beginner.sql'), 'utf8');
     const section = (n) => {
@@ -220,22 +220,111 @@ describe('the read-only SQL checks name exactly the columns the rule reads', () 
         expect(from, `QUERY ${n} is present`).toBeGreaterThan(-1);
         return sql.slice(from, to === -1 ? undefined : to);
     };
+    const unquote = (literal) => literal.replace(/''/g, "'");
     const inValuesLists = (text) => [...text.matchAll(/\(values((?:\s*\('[a-z_]+'\),?)+)\)\s*[a-z]+\(col\)/g)]
         .flatMap(m => [...m[1].matchAll(/'([a-z_]+)'/g)].map(x => x[1]));
     const readAsJson = (text) => [...text.matchAll(/j->>?'([a-z_]+)'/g)].map(m => m[1]);
 
-    test('the rule reads the 17 columns this file is written against', () => {
+    /** QUERY 1's (column, kind) pairs, as written in its list. */
+    const query1Kinds = () => Object.fromEntries(
+        [...section(1).matchAll(/\('([a-z_]+)',\s*'([a-z ]+)'\)/g)].map(m => [m[1], m[2]]));
+    /** The defaults QUERY 1 reads as blank for each kind, exactly as its CASE spells them. */
+    const blankDefaultsByKind = () => {
+        const out = {};
+        const clause = /when m\.kind = '([a-z ]+)'\s+and c\.column_default (?:in \(([^)]*)\)|= ('(?:[^']|'')*'))/g;
+        for (const m of section(1).matchAll(clause)) {
+            out[m[1]] = m[2] !== undefined
+                ? [...m[2].matchAll(/'((?:[^']|'')*)'/g)].map(x => unquote(x[1]))
+                : [unquote(m[3].slice(1, -1))];
+        }
+        return out;
+    };
+    /** A default as Postgres prints it, read back as the value a row would hold. */
+    const asValue = (printed) => {
+        const typed = /^'(.*)'::(text|character varying|jsonb)$/s.exec(printed);
+        if (typed) return typed[2] === 'jsonb' ? JSON.parse(typed[1]) : typed[1];
+        if (printed === 'true' || printed === 'false') return printed === 'true';
+        if (/^-?\d+$/.test(printed)) return Number(printed);
+        throw new Error('unrecognised default: ' + printed);
+    };
+    const tierRecordPattern = () => {
+        const m = /when m\.kind = 'tier record'\s+and c\.column_default ~ '((?:[^']|'')*)'/.exec(section(1));
+        expect(m, 'the tier record has a pattern of its own').not.toBeNull();
+        return new RegExp(unquote(m[1]));
+    };
+
+    test('the rule reads the 17 columns this file is written against, each of a known kind', () => {
         expect(MARKER_COLUMNS).toHaveLength(17);
         expect(new Set(MARKER_COLUMNS).size).toBe(17);
+        const KINDS = new Set(['text', 'flag', 'count', 'list', 'tier record', 'absent']);
+        for (const column of MARKER_COLUMNS) expect(KINDS.has(MARKER_KINDS[column]), column).toBe(true);
+        expect(Object.keys(MARKER_KINDS).sort()).toEqual([...MARKER_COLUMNS].sort());
     });
 
-    test('query 1 (the column defaults) lists every marker column and nothing else', () => {
-        expect([...new Set(inValuesLists(section(1)))].sort()).toEqual([...MARKER_COLUMNS].sort());
+    test('query 1 (the column defaults) names every marker column with the kind the rule gives it', () => {
+        expect(query1Kinds()).toEqual(MARKER_KINDS);
     });
 
     test('query 2 (the impact counts) reads every marker column and nothing else but the tier', () => {
         const read = new Set([...inValuesLists(section(2)), ...readAsJson(section(2))]);
         read.delete('difficulty');
         expect([...read].sort()).toEqual([...MARKER_COLUMNS].sort());
+    });
+
+    test('query 1 reads as blank exactly these defaults for each kind, and the rule agrees each is blank', () => {
+        const accepted = blankDefaultsByKind();
+        // Pinned: widening this list, for any kind, would make the check say "blank" about a default the app does not.
+        expect(accepted).toEqual({
+            text: ["''::text", "''::character varying"],
+            flag: ['false'],
+            count: ['0'],
+            list: ["'[]'::jsonb", "'null'::jsonb"],
+            absent: ["'null'::jsonb"],
+        });
+        for (const [kind, defaults] of Object.entries(accepted)) {
+            const column = MARKER_COLUMNS.find(c => MARKER_KINDS[c] === kind);
+            for (const printed of defaults) {
+                expect(isUntouchedSignupRow(signup({ [column]: asValue(printed) })), `${kind}: ${printed}`).toBe(true);
+            }
+        }
+        // The programme is "absent" or it is a mark: an object or a list default is never blank for it.
+        expect(accepted.absent).toEqual(["'null'::jsonb"]);
+    });
+
+    test("the database's real tier-record default reads as blank, and the app agrees", () => {
+        // On staging and on production: an object with an empty string for every tier.
+        const real = `'{"elite": "", "advanced": "", "intermediate": ""}'::jsonb`;
+        expect(tierRecordPattern().test(real)).toBe(true);
+        expect(isUntouchedSignupRow(signup({ diff_unlocked_date: asValue(real) }))).toBe(true);
+    });
+
+    test('the tier-record pattern and the rule agree on every other default, so it cannot say "blank" for a mark', () => {
+        const re = tierRecordPattern();
+        const SAMPLES = [
+            `'{}'::jsonb`,
+            `'{"elite": null}'::jsonb`,
+            `'{"elite": "", "advanced": "", "intermediate": "2026-11-10T10:00:00.000Z"}'::jsonb`,
+            `'{"intermediate": "2026-11-10", "advanced": "", "elite": ""}'::jsonb`,
+            `'{"elite": "", "advanced": 0}'::jsonb`,
+            `'{"elite": "", "advanced": false}'::jsonb`,
+            `'{"a": {"b": ""}}'::jsonb`,
+            `'[]'::jsonb`,
+            `'[""]'::jsonb`,
+            `'"x"'::jsonb`,
+            `'null'::jsonb`,
+        ];
+        for (const printed of SAMPLES) {
+            const ruleSaysBlank = isUntouchedSignupRow(signup({ diff_unlocked_date: asValue(printed) }));
+            expect(re.test(printed), printed).toBe(ruleSaysBlank);
+        }
+    });
+
+    test('the tier-record pattern is not applied to any other kind of column', () => {
+        // It sits behind `m.kind = 'tier record'`, which only diff_unlocked_date has.
+        const only = MARKER_COLUMNS.filter(c => MARKER_KINDS[c] === 'tier record');
+        expect(only).toEqual(['diff_unlocked_date']);
+        // A list column defaulting to '{}' and the programme defaulting to anything are NOT in any accepted set.
+        const accepted = Object.values(blankDefaultsByKind()).flat();
+        expect(accepted).not.toContain("'{}'::jsonb");
     });
 });

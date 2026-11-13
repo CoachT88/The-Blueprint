@@ -92,6 +92,20 @@ const MARKERS = [
  */
 export const MARKER_COLUMNS = MARKERS.map(([column]) => column);
 
+/**
+ * What KIND of blank each marker's blank is, so the read-only SQL checks can
+ * say the same thing column by column. A blank is not one thing: an empty list
+ * is blank for a list column and a mark for a tier record, and any object at
+ * all is a mark for the programme. The checks read a column's default against
+ * its own kind, and a test fails if they name a different kind than this.
+ */
+const KIND_OF = new Map([
+    [isBlankText, 'text'], [isBlankFlag, 'flag'], [isBlankCount, 'count'],
+    [isBlankList, 'list'], [isBlankTierRecord, 'tier record'], [isAbsent, 'absent'],
+]);
+export const MARKER_KINDS = Object.freeze(Object.fromEntries(
+    MARKERS.map(([column, isBlank]) => [column, KIND_OF.get(isBlank)])));
+
 const isRow = (row) => row !== null && typeof row === 'object' && !Array.isArray(row);
 
 /**

@@ -40,7 +40,9 @@
 --     NOT touched, and nothing here decides anything from a session count. Their
 --     tier is decided, if at all, by what the app has saved (src/startingTier.js
 --     reads a row the app has never saved as new, and leaves every row it has
---     saved alone).
+--     saved alone). The read-only check on production found 14 of the 17 never
+--     saved by the app, so they would be read at Beginner when first opened,
+--     and 3 saved, so they stay Intermediate.
 --   * It does not change handle_new_user(), the revision guard, any trigger,
 --     any policy, any other column, or any other table.
 --   * It does not make the column NOT NULL. The app has always read NULL as
@@ -64,9 +66,12 @@
 -- supabase/checks/new-accounts-start-at-beginner.sql holds two read-only
 -- queries (no row content, nothing written):
 --   QUERY 1  what a brand-new account's row really holds, read from the column
---            definitions. Every marker column must read "blank". If any reads
---            NOT BLANK the application change would not recognise a new account
---            on that database, and the default here is the only protection.
+--            definitions. Every marker column must read "blank" (for
+--            diff_unlocked_date that is an object with an empty string for
+--            each tier, which is its real default on both databases and which
+--            the app reads as blank). If any reads NOT BLANK the application
+--            change would not recognise a new account on that database, and
+--            the default here is the only protection.
 --   QUERY 2  how many existing accounts the application would read as "never
 --            begun" (and so start at Beginner on first open), including how
 --            many of the 17 never-trained Intermediate accounts the app has
