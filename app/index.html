@@ -3996,7 +3996,7 @@ async function loadPersisted(){
         const _timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
         const _query=sb.from('user_data').select('*').eq('id',_uid).single();
         let _queryFailed=false;
-        const {data,error}=await Promise.race([_query,_timeout]).catch(e=>{
+        const {data:_serverRow,error}=await Promise.race([_query,_timeout]).catch(e=>{
             // Timeout or network error — fall back to localStorage
             _queryFailed=true;
             /* REFRESHED BEFORE THE DECISION, like every other branch. A backup
@@ -4015,6 +4015,9 @@ async function loadPersisted(){
            returning member with no row could be sent down the brand-new-account
            path and reset to beginner defaults. */
         if(!_stillMine()) return;
+        /* The row as the app reads it, decided ONCE and before anything below
+           looks at it: an account that has never begun starts at Beginner. */
+        const data=_startingTierRow(_serverRow);
         _serverCheckins=data&&Array.isArray(data.progress_checkins)?data.progress_checkins:null;
         if(!_refreshBackupIfChanged()){
             /* We held a backup and can no longer read it. Adopt nothing and
@@ -4134,6 +4137,30 @@ async function loadPersisted(){
             try{ if(!_adopt(null,{fromBackup:true})) _refuseLoad(); }catch(e2){ _refuseLoad(); }
         } else { _refuseLoad(); }
     }
+}
+
+/* THE SERVER ROW, AS THE APP READS IT.
+
+   The signup trigger creates the member's row before the app ever loads, holding
+   only the id, so the tier on it is the column's default and not a choice anyone
+   made. The "no row means a brand-new account, start at Beginner" branch in
+   loadPersisted() therefore never runs for a real buyer. src/startingTier.js says
+   whether a row is that untouched, and if it is the app reads it at Beginner.
+
+   Applied to a COPY, once, to every row the server returns (the load, and the
+   re-read after a refused write), so every later consumer sees the same row: the
+   state that is adopted, the base that settings recovery compares against, and
+   the merge. That is what stops the app mistaking its own reading for an edit
+   this tab made, which would overwrite another device's explicit Intermediate
+   with Beginner when this tab's out-of-date write is refused. The stored row is
+   not changed here. The app's first save writes Beginner, after which the row is
+   no longer untouched and is never decided again.
+
+   If the module has not landed, or throws, the row is read as the server sent
+   it, which is how every account was read before this existed. */
+function _startingTierRow(row){
+    try{ return (window.BP&&window.BP.applyStartingTier)?window.BP.applyStartingTier(row):row; }
+    catch(e){ return row; }
 }
 
 /* The server row translated into the internal persisted shape, and nothing
@@ -4441,7 +4468,7 @@ async function _readServerRow(uid){
     try{
         const r=await _withDeadline(sb.from('user_data').select('*').eq('id',uid).single(),WRITE_DEADLINE_MS);
         if(r===_WRITE_TIMEOUT||!r||r.__lateError||r.error||!r.data) return null;
-        return r.data;
+        return _startingTierRow(r.data);
     }catch(e){ return null; }
 }
 
@@ -12395,6 +12422,9 @@ import { attributeEntry, ATTRIBUTION } from '../src/sessionAttribution.js';
    substitution, where the programme prescribed nothing to honour. */
 import { validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
          DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS } from '../src/doseExecution.js';
+/* A genuinely new account starts at Beginner even though the signup trigger has
+   already created its row. This says when a row is that new; see _startingTierRow. */
+import { applyStartingTier, STARTING_TIER } from '../src/startingTier.js';
 window.BP = { mergeRecovery,recordTrim,normaliseMeta,entryKey,classifyOutcome,isRevisionRefusal,settingsFingerprint, PROGRESS_FIELDS,PROGRESS_LABELS,readProgressCheckin,progressCheckinStatus,putProgressCheckin,personalProgress,recordedMeasurementProgress,measurementSeries,todayPlanExplanation,createGuideSpeech,guideSetup,buildPelvicPracticePlan,normalisePelvicPracticePlan,practiceSeconds,dailyPracticeItems,latestPracticeFeedback,PRACTICE_EXERCISES, nextBestAction, allowedRecoveryPlan, hasPelvicScreen, SCHEDULE_UNRESOLVED,
               estimateSessionMinutes, estimateSessionSeconds, exerciseSeconds,
               applyShapes, DELOAD_SHAPE, MODERATE_SORENESS_SHAPE,
@@ -12420,7 +12450,8 @@ window.BP = { mergeRecovery,recordTrim,normaliseMeta,entryKey,classifyOutcome,is
               PRESCRIPTION_SOURCE, SNAPSHOT_REFUSAL,
               attributeEntry, ATTRIBUTION,
               validateDose, applyExecutionModifiers, expandSteps, DOSE_SCHEMA_VERSION,
-              DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS };
+              DOSE_SHAPE, DOSE_INVALID, EXECUTION_MODIFIER, BOUNDS,
+              applyStartingTier, STARTING_TIER };
 // The HQ may already have rendered once before this landed; re-render so the
 // Today card is never left on its placeholder.
 if (typeof window.renderDashboard === 'function' && window._bpHqRendered) window.renderDashboard();
