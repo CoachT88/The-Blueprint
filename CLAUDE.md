@@ -114,6 +114,16 @@ finding changes direction.
   files, fix what fails, commit, then run the full suite once on the final implementation.
   A documentation-only change does not void a valid run; any application or test change does.
 
+## Deployment
+
+- **A merge into `main` deploys the application to production automatically** (Cloudflare
+  Workers Builds; see README-DEPLOY.md). A merge approval is therefore a production-deploy
+  approval: before asking for one, say what goes live for members; after merging, confirm the
+  new `main` SHA, that the live files match the merged ones, and that `EQ_SESSIONS_ENABLED` is
+  still `false`.
+- A merge does not apply database migrations or deploy edge functions. Those need their own
+  explicit approval, and a migration is never run from CI.
+
 ## Claim standards
 
 **Lead with what The Blueprint helps members accomplish, not what it doesn't do.**

@@ -1,5 +1,11 @@
 # Deploying The Blueprint
 
+**A merge into `main` deploys the application to production, automatically.** Cloudflare Workers Builds builds `main` and publishes it to the live Worker; there is no separate release step. Confirmed on 2026-11-13: within minutes of the squash-merge of PR #210, `https://theblueprint.site/app/` and `/src/startingTier.js` were byte-identical to the merged files. So a merge approval is a production-deploy approval, and whatever a PR changes in `app/` and `src/` is live the moment it merges.
+
+What a merge does **not** do: apply anything in `supabase/migrations/` (no workflow runs them), deploy edge functions (`.github/workflows/deploy-edge-functions.yml` runs only when `supabase/functions/**` changes on `main`), or turn EQ on (`EQ_SESSIONS_ENABLED` is whatever the merged file says, and it is `false`).
+
+After every merge: confirm the new `main` SHA, that the live files match the merged ones (`curl -s https://theblueprint.site/app/ | sha256sum` against `sha256sum app/index.html`), and that `EQ_SESSIONS_ENABLED` is still `false`.
+
 **Deployment target:** `wrangler.jsonc` names the live Cloudflare Worker `the-blueprint`. The earlier `theblueprint` Worker is retired; do not deploy to it. Before a production release, verify the Workers Builds production branch is `main`, the production **Deploy command** is `npx wrangler deploy` (not `npx wrangler preview`), and the required secrets exist on `the-blueprint`. Keep Worker Previews disabled until separately configured with isolated preview settings and safe secrets. Cloudflare Pages deployments do not by themselves verify this Worker's `/api` routes.
 
 `wrangler.jsonc` sets `main: src/worker.js`, so **the Worker is what serves the
